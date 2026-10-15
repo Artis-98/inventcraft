@@ -318,6 +318,30 @@ def _i_extrude(p):
     _arrow(p, 12, 12, 12, 3.5, _ACCENT, 3.0, 1.6)
 
 
+def _dir_profile(p, cy):
+    """The flat profile the direction icons push out of."""
+    _face(p, [(4, cy), (12, cy + 3.5), (20, cy), (12, cy - 3.5)], _SOLID, 150)
+
+
+def _i_dir_default(p):
+    """Extrude direction Default: out of the sketch, along its normal."""
+    _dir_profile(p, 17)
+    _arrow(p, 12, 17, 12, 3.5, _ACCENT, 3.4, 1.7)
+
+
+def _i_dir_flipped(p):
+    """Extrude direction Flipped: the other way."""
+    _dir_profile(p, 7)
+    _arrow(p, 12, 7, 12, 20.5, _ACCENT, 3.4, 1.7)
+
+
+def _i_dir_symmetric(p):
+    """Extrude direction Symmetric: half each way."""
+    _dir_profile(p, 12)
+    _arrow(p, 12, 12, 12, 2.5, _ACCENT, 3.2, 1.7)
+    _arrow(p, 12, 12, 12, 21.5, _ACCENT, 3.2, 1.7)
+
+
 def _i_revolve(p):
     _pen(p, _ACCENT, 1.4, dashed=True)
     p.drawLine(QtCore.QPointF(12, 2.5), QtCore.QPointF(12, 21.5))
@@ -955,6 +979,8 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "c3d_parallel": _i_c3d_parallel,
     "c3d_insert": _i_c3d_insert, "c3d_symmetry": _i_c3d_symmetry,
     "feature": _i_box,
+    "dir_default": _i_dir_default, "dir_flipped": _i_dir_flipped,
+    "dir_symmetric": _i_dir_symmetric,
 }
 
 
@@ -1060,6 +1086,43 @@ def mark_pixmap(size: int, field: bool = True,
     draw_mark(p, field)
     p.end()
     return px
+
+
+def _window_glyph(kind: str, size: int, colour: str) -> QtGui.QIcon:
+    """The minimise, maximise, restore and close marks, thin as Windows'."""
+    ic = QtGui.QIcon()
+    for ratio in (1.0, 2.0):
+        px = QtGui.QPixmap(int(size * ratio), int(size * ratio))
+        px.setDevicePixelRatio(ratio)
+        px.fill(QtCore.Qt.transparent)
+        p = QtGui.QPainter(px)
+        p.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        pen = QtGui.QPen(QtGui.QColor(colour))
+        pen.setWidthF(1.0)
+        p.setPen(pen)
+        s = float(size)
+        a, b = s * 0.25, s * 0.75
+        if kind == "min":
+            p.drawLine(QtCore.QPointF(a, s * 0.5), QtCore.QPointF(b, s * 0.5))
+        elif kind == "max":
+            p.drawRect(QtCore.QRectF(a, a, b - a, b - a))
+        elif kind == "restore":
+            d = s * 0.12
+            p.drawRect(QtCore.QRectF(a, a + d, b - a - d, b - a - d))
+            p.drawPolyline(_poly((a + d, a + d), (a + d, a), (b, a),
+                                 (b, b - d), (b - d, b - d)))
+        elif kind == "close":
+            p.drawLine(QtCore.QPointF(a, a), QtCore.QPointF(b, b))
+            p.drawLine(QtCore.QPointF(a, b), QtCore.QPointF(b, a))
+        p.end()
+        ic.addPixmap(px)
+    return ic
+
+
+def window_icon(kind: str, size: int = 12,
+                colour: str = "#d5dee8") -> QtGui.QIcon:
+    """One of the title bar's window buttons: min, max, restore, close."""
+    return _window_glyph(kind, size, colour)
 
 
 def app_icon() -> QtGui.QIcon:

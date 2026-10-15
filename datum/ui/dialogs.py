@@ -33,7 +33,7 @@ OP_ICONS = {JOIN: "extrude", CUT: "hole", INTERSECT: "shell",
             NEW_BODY: "box"}
 
 # the order is Inventor's, and it is the order of how often you want each:
-# Join nearly always, New Body only when you mean it
+# Join nearly always, New Solid only when you mean it
 OP_OPTIONS = [(op, OP_ICONS[op],
                "%s - %s" % (OPERATION_LABELS[op], OPERATION_HINTS[op]))
               for op in OPERATIONS]
@@ -463,65 +463,114 @@ class ExtrudeDialog(FeatureDialog):
     def __init__(self, host, feature, is_new, snapshot=None):
         super().__init__(host, feature, "Extrude", "extrude", is_new, snapshot)
 
+    # Direction is its own row of buttons, as in Inventor, rather than
+    # Symmetric hiding among the extents and a Flip box at the bottom.
+    DIRECTIONS = [
+        ("default", "dir_default", "Default - away from the sketch, along "
+                                   "its normal"),
+        ("flipped", "dir_flipped", "Flipped - the other way, into the part"),
+        ("symmetric", "dir_symmetric", "Symmetric - half the distance each "
+                                       "side of the sketch"),
+    ]
+
     def build(self):
+        # Inventor's order: what to extrude, how, what it does, the rest
+        self.form.add_section("Input Geometry")
         self.form.add("Profiles", self.profile_field())
 
-        self.boolean_row()
+        self.form.add_section("Behavior")
+        self.direction = SegmentedControl(self.DIRECTIONS)
+        self.bind(self.direction)
+        self.form.add("Direction", self.direction)
 
-        self.form.add_separator()
-
+        # the extent is picked beside the distance it qualifies, the way
+        # Inventor's Distance A carries its own drop down
         self.extent = QtWidgets.QComboBox()
         self.extent.addItem("Distance", "distance")
-        self.extent.addItem("Symmetric", "symmetric")
         self.extent.addItem("Through All", "through_all")
-        self.extent.addItem("To Plane", "to_plane")
+        self.extent.addItem("To", "to_plane")
+        self.extent.setToolTip(
+            "How far it goes: a distance, right through everything, or up "
+            "to a plane")
         self.bind(self.extent)
-        self.form.add("Extents", self.extent)
 
         self.distance = self.expression(self.feature.distance)
-        self.form.add("Distance", self.distance)
 
         self.to_plane = self.plane_combo(self.feature.to_plane)
         self.to_plane.setToolTip(
             "The datum or work plane the extrude runs up to. A tilted one "
             "cuts the end on its slope.")
-        self.form.add("To", self.to_plane)
 
+        extents = QtWidgets.QWidget()
+        row = QtWidgets.QHBoxLayout(extents)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        row.addWidget(self.extent)
+        row.addWidget(self.distance, 1)
+        row.addWidget(self.to_plane, 1)
+        self.form.add("Extents", extents)
+
+        self.form.add_section("Output")
+        self.boolean_row()
+
+        self.form.add_section("Advanced")
         self.taper = self.expression(self.feature.taper, "deg")
         self.form.add("Taper", self.taper)
 
-        self.flip = QtWidgets.QCheckBox("Flip direction")
-        self.bind(self.flip)
-        self.form.add("", self.flip)
-
-        self.extent.currentIndexChanged.connect(self._sync_enabled)
+        self.extent.currentIndexChanged.connect(
+            lambda _=0: self._sync_enabled())
+        self.direction.changed.connect(lambda _k: self._sync_enabled())
 
     def _sync_enabled(self):
         mode = self.extent.currentData()
         to_plane = mode == "to_plane"
-        self.distance.setEnabled(mode not in ("through_all", "to_plane"))
-        self.taper.setEnabled(mode == "distance")
-        self.form.set_visible(self.distance, not to_plane)
-        self.form.set_visible(self.to_plane, to_plane)
-        # the plane decides which way it goes, so there is nothing to flip
-        self.flip.setEnabled(not to_plane)
+        self.distance.setVisible(not to_plane)
+        self.distance.setEnabled(mode == "distance")
+        self.to_plane.setVisible(to_plane)
+        # Through All already runs both ways and a plane decides the way
+        # for itself, so for those two there is no direction to choose
+        steerable = mode == "distance"
+        self.direction.setEnabled(steerable)
+        self.direction.setToolTip(
+            "" if steerable else
+            "Through All runs both ways, so there is no direction to pick"
+            if mode == "through_all" else
+            "The plane decides which way it runs")
+        # a taper grows from the sketch, so it only makes sense one way
+        self.taper.setEnabled(
+            steerable and self.direction.value() != "symmetric")
 
     def load(self):
         self.load_boolean()
-        pos = self.extent.findData(self.feature.extent)
+        extent = self.feature.extent
+        if extent == "symmetric":
+            # files keep Symmetric as an extent; here it is a direction
+            self.direction.set_value("symmetric")
+            extent = "distance"
+        else:
+            self.direction.set_value(
+                "flipped" if self.feature.reversed else "default")
+        pos = self.extent.findData(extent)
         self.extent.setCurrentIndex(max(0, pos))
         self.distance.set_text(self.feature.distance)
         self.taper.set_text(self.feature.taper)
-        self.flip.setChecked(self.feature.reversed)
         self._sync_enabled()
 
     def store(self):
         self.store_boolean()
-        self.feature.extent = self.extent.currentData()
+        mode = self.extent.currentData()
+        direction = self.direction.value()
+        # the file format is unchanged: Symmetric is still stored as an
+        # extent and Flipped as reversed, so older copies read these files
+        if mode == "distance" and direction == "symmetric":
+            self.feature.extent = "symmetric"
+            self.feature.reversed = False
+        else:
+            self.feature.extent = mode
+            self.feature.reversed = direction == "flipped"
         self.feature.distance = self.distance.text()
         self.feature.to_plane = self.to_plane.currentData() or ""
         self.feature.taper = self.taper.text()
-        self.feature.reversed = self.flip.isChecked()
 
 
 class RevolveDialog(FeatureDialog):

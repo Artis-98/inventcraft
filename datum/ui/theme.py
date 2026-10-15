@@ -118,6 +118,18 @@ QMainWindow::separator {{
     border-bottom: 1px solid {border};
 }}
 
+QToolButton#WindowButton, QToolButton#WindowClose {{
+    border: none;
+    border-radius: 0px;
+    background: transparent;
+}}
+QToolButton#WindowButton:hover {{
+    background: rgba(255, 255, 255, 0.10);
+}}
+QToolButton#WindowClose:hover {{
+    background: #c42b1c;
+}}
+
 #RibbonQat {{
     background: {window};
     border-bottom: 1px solid {border};
@@ -163,6 +175,10 @@ QMainWindow::separator {{
 }}
 #QuickButton:pressed {{
     background: {accent_soft};
+}}
+#QuickButton:checked {{
+    background: {accent_soft};
+    border: 1px solid {accent};
 }}
 
 #RibbonPanelTitle {{

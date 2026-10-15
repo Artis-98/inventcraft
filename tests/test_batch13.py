@@ -311,6 +311,9 @@ QtWidgets.QApplication.sendEvent(vp, QtGui.QMouseEvent(
     QtCore.QEvent.MouseButtonRelease, centre, vp.mapToGlobal(centre),
     QtCore.Qt.MiddleButton, QtCore.Qt.NoButton, QtCore.Qt.NoModifier))
 pump()
+# it glides there now; the end of the glide is what is being checked
+check("it glides there", vp._animation is not None)
+vp.finish_animation()
 x, y = vp.project(ed.sketch.plane.to_3d(20.0, 10.0))
 check("the sketch is back in view",
       0 <= x <= vp.width() and 0 <= y <= vp.height(), (x, y))

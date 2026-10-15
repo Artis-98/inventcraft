@@ -73,11 +73,11 @@ def extrude_dialog():
 print("the four options are in Inventor's order")
 
 keys = [option[0] for option in OP_OPTIONS]
-check("Join, Cut, Intersect, New Body",
+check("Join, Cut, Intersect, New Solid",
       keys == [JOIN, CUT, INTERSECT, NEW_BODY], keys)
 labels = [option[2].split(" - ")[0] for option in OP_OPTIONS]
 check("and they read that way in the tooltips",
-      labels == ["Join", "Cut", "Intersect", "New Body"], labels)
+      labels == ["Join", "Cut", "Intersect", "New Solid"], labels)
 
 
 # ==========================================================================
@@ -108,9 +108,9 @@ check("it built", win.document.last_report.ok,
 check("one body", len(win.document.bodies) == 1, len(win.document.bodies))
 check("named what was typed", win.document.bodies[0].name == "Housing",
       win.document.bodies[0].name)
-check("the browser does not show a Solid Bodies folder for one body",
-      not any("Solid Bodies" in i.text(0)
-              for i in win.browser._iter_items()))
+check("the browser shows the Solid Bodies folder for one body too",
+      any("Solid Bodies(1)" in i.text(0)
+          for i in win.browser._iter_items()))
 
 
 # ==========================================================================

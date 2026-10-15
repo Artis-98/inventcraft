@@ -57,8 +57,6 @@ JSON_COMPRESSION = zipfile.ZIP_DEFLATED
 JSON_COMPRESS_LEVEL = 1
 BLOB_COMPRESSION = zipfile.ZIP_STORED
 
-LEGACY_EXTENSION = ".forge"
-
 
 class FileFormatError(Exception):
     """The file is not a readable DATUM document."""
@@ -92,7 +90,7 @@ def ensure_extension(path: str, doc_type: str) -> str:
     stem, ext = os.path.splitext(path)
     if ext.lower() == wanted:
         return path
-    if ext.lower() in TYPE_BY_EXTENSION or ext.lower() == LEGACY_EXTENSION:
+    if ext.lower() in TYPE_BY_EXTENSION:
         return stem + wanted        # replace a wrong DATUM extension
     return path + wanted
 
@@ -112,7 +110,6 @@ def open_filter(doc_type: Optional[str] = None) -> str:
              "DATUM documents (%s)" % everything]
     parts += [save_filter(k) for k in DOCUMENT_TYPES]
     parts.append("STEP and IGES, from other CAD systems (%s)" % foreign)
-    parts.append("Legacy FORGE part (*%s)" % LEGACY_EXTENSION)
     parts.append("All files (*)")
     return ";;".join(parts)
 
@@ -272,9 +269,6 @@ def _validate(manifest: Manifest, path: str) -> None:
 
 def read(path: str, expected_type: Optional[str] = None) -> DatumFile:
     """Open a DATUM archive, migrating an older schema forward if needed."""
-    if os.path.splitext(path)[1].lower() == LEGACY_EXTENSION:
-        return _read_legacy(path, expected_type)
-
     manifest = peek(path)
     if expected_type and manifest.type != expected_type:
         raise FileFormatError(
@@ -320,28 +314,6 @@ def read(path: str, expected_type: Optional[str] = None) -> DatumFile:
                      migrated_from=migrated_from, extra=extra)
 
 
-def _read_legacy(path: str, expected_type: Optional[str]) -> DatumFile:
-    """Open a pre-DATUM .forge part, which was plain JSON on disk."""
-    if expected_type and expected_type != PART:
-        raise FileFormatError("legacy .forge files are always parts")
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise FileFormatError("could not read %s: %s"
-                              % (os.path.basename(path), exc)) from exc
-
-    if data.get("format") != "forge-part":
-        raise FileFormatError("%s is not a FORGE part file"
-                              % os.path.basename(path))
-
-    stamp = now()
-    manifest = Manifest(type=PART, units=data.get("units", "mm"),
-                        created=stamp, modified=stamp)
-    return DatumFile(manifest=manifest, geometry=migrate(data, 0, PART),
-                     thumbnail=None, path=path, migrated_from=0)
-
-
 def thumbnail_of(path: str) -> Optional[bytes]:
     """The stored preview image, if the archive carries one."""
     try:
@@ -364,22 +336,13 @@ def migrate(geometry: Dict[str, Any], from_version: int,
             doc_type: str = PART) -> Dict[str, Any]:
     """Bring model data written by an older schema up to the current one.
 
-    Version 0 is the pre-DATUM ``.forge`` layout.  Each step is deliberately
-    small and forward-only; a step that cannot be made is an error rather
-    than a silent partial load.
+    Schema 1 is the first DATUM archive, so there is nothing older to bring
+    forward yet; the pre-DATUM FORGE files are no longer read.  Each future
+    step is to be small and forward-only, and a step that cannot be made is
+    an error rather than a silent partial load.
     """
     data = dict(geometry)
     version = from_version
-
-    if version < 1:
-        # 0 -> 1: the old flat JSON becomes the archive's geometry payload.
-        data.pop("format", None)
-        data.pop("version", None)
-        data.setdefault("parameters", [])
-        data.setdefault("features", [])
-        data.setdefault("hidden_planes", [])
-        data.setdefault("origin_autohidden", False)
-        version = 1
 
     if version != SCHEMA_VERSION:
         raise FileFormatError(

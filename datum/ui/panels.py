@@ -713,6 +713,116 @@ class PropertiesPanel(QtWidgets.QWidget):
         self.table.setItem(row, 1, right)
 
 
+class SectionBar(QtWidgets.QFrame):
+    """Section View's mini toolbar: Flip, Move or Rotate, the value, OK.
+
+    A small floating strip beside the view, as Inventor's is, so the cut
+    can be set while it is looked at.  The plane can also be dragged in
+    the view while this is open.
+    """
+
+    changed = QtCore.Signal()
+    accepted = QtCore.Signal()
+    rejected = QtCore.Signal()
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent, QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint)
+        self.setObjectName("SectionBar")
+        self.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.setStyleSheet("#SectionBar { background: %s; border: 1px solid "
+                           "%s; border-radius: 4px; }" % (C.panel, C.border))
+        row = QtWidgets.QHBoxLayout(self)
+        row.setContentsMargins(6, 4, 6, 4)
+        row.setSpacing(4)
+
+        self.flip = QtWidgets.QToolButton()
+        self.flip.setText("Flip")
+        self.flip.setToolTip("Keep the other side of the cut")
+        self.flip.clicked.connect(self._flipped)
+        row.addWidget(self.flip)
+
+        self.move_button = QtWidgets.QToolButton()
+        self.move_button.setText("Move")
+        self.move_button.setCheckable(True)
+        self.move_button.setChecked(True)
+        self.rotate_button = QtWidgets.QToolButton()
+        self.rotate_button.setText("Rotate")
+        self.rotate_button.setCheckable(True)
+        group = QtWidgets.QButtonGroup(self)
+        group.setExclusive(True)
+        group.addButton(self.move_button)
+        group.addButton(self.rotate_button)
+        self.move_button.toggled.connect(lambda _on: self._mode_changed())
+        row.addWidget(self.move_button)
+        row.addWidget(self.rotate_button)
+
+        self.value = QtWidgets.QDoubleSpinBox()
+        self.value.setDecimals(2)
+        self.value.setRange(-100000.0, 100000.0)
+        self.value.setSingleStep(1.0)
+        self.value.setFixedWidth(110)
+        self.value.setKeyboardTracking(False)
+        self.value.valueChanged.connect(lambda _v: self._value_changed())
+        row.addWidget(self.value)
+
+        ok = QtWidgets.QToolButton()
+        ok.setIcon(icons.icon("finish", 16))
+        ok.setToolTip("OK - keep the section")
+        ok.clicked.connect(self.accepted)
+        cancel = QtWidgets.QToolButton()
+        cancel.setIcon(icons.icon("cancel", 16))
+        cancel.setToolTip("Cancel - no section")
+        cancel.clicked.connect(self.rejected)
+        row.addWidget(ok)
+        row.addWidget(cancel)
+
+        self.offset = 0.0
+        self.angle = 0.0
+        self.flipped = False
+        self._mode_changed()
+
+    @property
+    def rotating(self) -> bool:
+        return self.rotate_button.isChecked()
+
+    def set_offset(self, offset: float) -> None:
+        self.offset = offset
+        if not self.rotating:
+            self.value.blockSignals(True)
+            self.value.setValue(offset)
+            self.value.blockSignals(False)
+
+    def _mode_changed(self) -> None:
+        self.value.blockSignals(True)
+        if self.rotating:
+            self.value.setSuffix(" deg")
+            self.value.setValue(self.angle)
+        else:
+            self.value.setSuffix(" mm")
+            self.value.setValue(self.offset)
+        self.value.blockSignals(False)
+
+    def _value_changed(self) -> None:
+        if self.rotating:
+            self.angle = self.value.value()
+        else:
+            self.offset = self.value.value()
+        self.changed.emit()
+
+    def _flipped(self) -> None:
+        self.flipped = not self.flipped
+        self.changed.emit()
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        if event.key() == QtCore.Qt.Key_Escape:
+            self.rejected.emit()
+            return
+        if event.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
+            self.accepted.emit()
+            return
+        super().keyPressEvent(event)
+
+
 class SpaceMouseDialog(QtWidgets.QDialog):
     """Tune the 3Dconnexion puck: speeds, deadzone and axis directions."""
 
@@ -727,6 +837,10 @@ class SpaceMouseDialog(QtWidgets.QDialog):
 
     def __init__(self, mouse, parent=None) -> None:
         super().__init__(parent)
+        self._save_soon = QtCore.QTimer(self)
+        self._save_soon.setSingleShot(True)
+        self._save_soon.setInterval(400)
+        self._save_soon.timeout.connect(self._save)
         self.mouse = mouse
         # widgets are wired up as they are built, so hold off writing settings
         # back until every one of them exists
@@ -753,7 +867,7 @@ class SpaceMouseDialog(QtWidgets.QDialog):
         form.setVerticalSpacing(6)
         self.sliders = {}
         for row, (key, label, lo, hi) in enumerate((
-                ("sensitivity", "Overall speed", 10, 300),
+                ("sensitivity", "Overall speed", 10, 900),
                 ("pan_speed", "Pan", 10, 300),
                 ("zoom_speed", "Zoom", 10, 300),
                 ("rotate_speed", "Orbit", 10, 300),
@@ -836,6 +950,28 @@ class SpaceMouseDialog(QtWidgets.QDialog):
             setattr(s, key, slider.value() / 100.0)
         for axis, cb in self.inverts.items():
             s.invert[axis] = cb.isChecked()
+        # kept with the other preferences, so the next start has them; a
+        # slider drag fires dozens of changes, so the file is written once
+        # it has stopped moving
+        self._save_soon.start()
+
+    def done(self, result: int) -> None:
+        # closed straight after a change: write it now rather than in a
+        # moment, so quitting at once does not lose it
+        if self._save_soon.isActive():
+            self._save_soon.stop()
+            self._save()
+        super().done(result)
+
+    def _save(self) -> None:
+        from ..core import prefs as core_prefs
+
+        settings = core_prefs.prefs()
+        settings.spacemouse = self.mouse.settings.to_dict()
+        try:
+            settings.save()
+        except OSError:
+            pass
 
     def _reset(self) -> None:
         from .spacemouse import SpaceMouseSettings

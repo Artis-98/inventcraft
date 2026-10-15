@@ -175,6 +175,50 @@ class PreferencesDialog(QtWidgets.QDialog):
         form.addRow("Orbit", self.orbit_combo)
         outer.addLayout(form)
 
+        mouse = QtWidgets.QGroupBox("Mouse")
+        mform = QtWidgets.QFormLayout(mouse)
+        mform.setSpacing(8)
+        self.scheme_combo = QtWidgets.QComboBox()
+        for name, orbit, pan in core_prefs.MOUSE_SCHEMES:
+            self.scheme_combo.addItem(name, (orbit, pan))
+        self.scheme_combo.addItem("Your own", None)
+        self.scheme_combo.setToolTip(
+            "A ready-made set. Change either button below and it becomes "
+            "your own.")
+        mform.addRow("Buttons like", self.scheme_combo)
+
+        labels = {
+            core_prefs.MOUSE_RIGHT: "Right button",
+            core_prefs.MOUSE_SHIFT_MIDDLE: "Wheel button with Shift",
+            core_prefs.MOUSE_MIDDLE: "Wheel button",
+            core_prefs.MOUSE_LEFT: "Left button",
+        }
+        self.mouse_orbit_combo = QtWidgets.QComboBox()
+        for key in core_prefs.ORBIT_BUTTONS:
+            self.mouse_orbit_combo.addItem(labels[key], key)
+        self.mouse_pan_combo = QtWidgets.QComboBox()
+        for key in core_prefs.PAN_BUTTONS:
+            self.mouse_pan_combo.addItem(labels[key], key)
+        for combo in (self.mouse_orbit_combo, self.mouse_pan_combo):
+            combo.setToolTip(
+                "On the left button a drag moves the view and a click still "
+                "selects; the selection box is then Shift and the left "
+                "button.")
+        mform.addRow("Orbit with", self.mouse_orbit_combo)
+        mform.addRow("Pan with", self.mouse_pan_combo)
+        self.zoom_reversed_box = QtWidgets.QCheckBox(
+            "Reverse the wheel's zoom")
+        self.zoom_reversed_box.setChecked(self.prefs.zoom_reversed)
+        mform.addRow("Zoom", self.zoom_reversed_box)
+        outer.addWidget(mouse)
+
+        self._set_mouse(self.prefs.mouse_orbit, self.prefs.mouse_pan)
+        self.scheme_combo.currentIndexChanged.connect(self._scheme_picked)
+        self.mouse_orbit_combo.currentIndexChanged.connect(
+            lambda _i: self._mouse_changed(self.mouse_orbit_combo))
+        self.mouse_pan_combo.currentIndexChanged.connect(
+            lambda _i: self._mouse_changed(self.mouse_pan_combo))
+
         outer.addStretch(1)
         row = QtWidgets.QHBoxLayout()
         row.addStretch(1)
@@ -183,6 +227,41 @@ class PreferencesDialog(QtWidgets.QDialog):
         row.addWidget(reset)
         outer.addLayout(row)
         return page
+
+    # -- the mouse ----------------------------------------------------------
+
+    def _set_mouse(self, orbit: str, pan: str) -> None:
+        """Show these two buttons, and the ready-made set they are, if any."""
+        for combo in (self.scheme_combo, self.mouse_orbit_combo,
+                      self.mouse_pan_combo):
+            combo.blockSignals(True)
+        self.mouse_orbit_combo.setCurrentIndex(
+            max(0, self.mouse_orbit_combo.findData(orbit)))
+        self.mouse_pan_combo.setCurrentIndex(
+            max(0, self.mouse_pan_combo.findData(pan)))
+        scheme = self.scheme_combo.findData((orbit, pan))
+        self.scheme_combo.setCurrentIndex(
+            scheme if scheme >= 0 else self.scheme_combo.count() - 1)
+        for combo in (self.scheme_combo, self.mouse_orbit_combo,
+                      self.mouse_pan_combo):
+            combo.blockSignals(False)
+
+    def _scheme_picked(self, _index: int) -> None:
+        pair = self.scheme_combo.currentData()
+        if pair:
+            self._set_mouse(pair[0], pair[1])
+
+    def _mouse_changed(self, changed: QtWidgets.QComboBox) -> None:
+        """One button cannot do both: the other moves out of its way."""
+        orbit = self.mouse_orbit_combo.currentData()
+        pan = self.mouse_pan_combo.currentData()
+        if orbit == pan:
+            if changed is self.mouse_orbit_combo:
+                pan = next(k for k in core_prefs.PAN_BUTTONS if k != orbit)
+            else:
+                orbit = next(k for k in core_prefs.ORBIT_BUTTONS
+                             if k != pan)
+        self._set_mouse(orbit, pan)
 
     # -- saving -------------------------------------------------------------
 
@@ -198,6 +277,11 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.prefs.units = self.units_combo.currentData() or "mm"
         self.prefs.orbit = (self.orbit_combo.currentData()
                             or core_prefs.ORBIT_FREE)
+        self.prefs.mouse_orbit = (self.mouse_orbit_combo.currentData()
+                                  or core_prefs.MOUSE_RIGHT)
+        self.prefs.mouse_pan = (self.mouse_pan_combo.currentData()
+                                or core_prefs.MOUSE_MIDDLE)
+        self.prefs.zoom_reversed = self.zoom_reversed_box.isChecked()
         # only what differs from the shipped palette is written, so a
         # retuned default reaches everybody who never touched it
         self.prefs.colours = {

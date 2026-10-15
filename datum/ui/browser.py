@@ -19,6 +19,8 @@ ROLE_SHARED = QtCore.Qt.UserRole + 4
 ROLE_VISIBLE = QtCore.Qt.UserRole + 5
 
 ORIGIN_PLANES = (("XY Plane", "XY"), ("XZ Plane", "XZ"), ("YZ Plane", "YZ"))
+# and the rest of Inventor's Origin folder
+ORIGIN_AXES = (("X Axis", "X"), ("Y Axis", "Y"), ("Z Axis", "Z"))
 
 
 def add_file_actions(menu: QtWidgets.QMenu, doc, properties, location
@@ -51,6 +53,14 @@ class ModelBrowser(QtWidgets.QTreeWidget):
     suppress_toggled = QtCore.Signal(int)
     share_toggled = QtCore.Signal(int)
     plane_visibility_toggled = QtCore.Signal(str)
+    # one click on a plane, axis, point or feature: (kind, id as text)
+    item_clicked = QtCore.Signal(str, str)
+    # "hide", "show", "others" or "all", and the body's name
+    body_visibility_requested = QtCore.Signal(str, str)
+    # what is picked in the tree now, (kind, id as text), or ("", "")
+    picked_changed = QtCore.Signal(str, str)
+    # what the pointer is over, the same way; ("", "") once it leaves
+    hovered_changed = QtCore.Signal(str, str)
     sketch_on_plane_requested = QtCore.Signal(str)
     move_requested = QtCore.Signal(int, int)
     reorder_requested = QtCore.Signal(int, int)     # feature id, new index
@@ -85,6 +95,11 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         self.customContextMenuRequested.connect(self._menu)
         self.itemDoubleClicked.connect(self._double_clicked)
         self.itemSelectionChanged.connect(self._selection_changed)
+        self.itemClicked.connect(self._clicked)
+        # the pointer passing over a row shows what it is, before a click
+        self.setMouseTracking(True)
+        self.itemEntered.connect(self._entered)
+        self._hovered = ("", "")
 
         self._doc: Optional[Document] = None
         self._hidden_sketches: set = set()
@@ -116,11 +131,12 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         font.setBold(True)
         root.setFont(0, font)
 
-        # Inventor only shows the Solid Bodies folder once there is more
-        # than one, and so does this: a single-body part does not need a
-        # folder telling it so.
+        # The Solid Bodies folder is there as soon as there is a body, one
+        # or several, as in Inventor.  Shown only from two up, hiding one
+        # body and deleting the other left a hidden body with no row to
+        # show it again from.
         bodies = [b for b in getattr(doc, "bodies", []) if b.valid]
-        if len(bodies) > 1:
+        if bodies:
             folder = QtWidgets.QTreeWidgetItem(
                 root, ["Solid Bodies(%d)" % len(bodies)])
             folder.setIcon(0, icons.icon("box", 16))
@@ -131,6 +147,9 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                 item.setIcon(0, icons.icon("box", 16))
                 item.setData(0, ROLE_KIND, "body")
                 item.setData(0, ROLE_ID, body.name)
+                self._mark_plane_visibility(
+                    item, doc.body_visible(body.name)
+                    if hasattr(doc, "body_visible") else True)
                 try:
                     # measured a piece at a time and remembered, so a
                     # refresh after every rebuild does not integrate every
@@ -156,6 +175,18 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             self._mark_plane_visibility(item, doc.plane_visible(key))
             item.setToolTip(0, "Double-click to start a sketch on %s\n"
                                "Right-click to show or hide it" % label)
+        for label, key in ORIGIN_AXES:
+            item = QtWidgets.QTreeWidgetItem(origin, [label])
+            item.setIcon(0, icons.icon("axis", 16))
+            item.setData(0, ROLE_KIND, "axis")
+            item.setData(0, ROLE_ID, key)
+            item.setToolTip(0, "While sketching, Project Geometry and a "
+                               "click here bring the %s onto the sketch"
+                               % label)
+        centre = QtWidgets.QTreeWidgetItem(origin, ["Center Point"])
+        centre.setIcon(0, icons.icon("point", 16))
+        centre.setData(0, ROLE_KIND, "origin_point")
+        centre.setData(0, ROLE_ID, "O")
 
         rollback = doc.rollback_index
         end: Optional[QtWidgets.QTreeWidgetItem] = None
@@ -319,10 +350,42 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             yield it.value()
             it += 1
 
+    def _entered(self, item: QtWidgets.QTreeWidgetItem, _col: int) -> None:
+        self._set_hovered((str(item.data(0, ROLE_KIND) or ""),
+                           str(item.data(0, ROLE_ID) or ""))
+                          if item is not None else ("", ""))
+
+    def _set_hovered(self, hovered) -> None:
+        if hovered != self._hovered:
+            self._hovered = hovered
+            self.hovered_changed.emit(*hovered)
+
+    def leaveEvent(self, event) -> None:
+        self._set_hovered(("", ""))
+        super().leaveEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        # over empty space below the rows, nothing is hovered
+        if self.itemAt(event.position().toPoint()) is None:
+            self._set_hovered(("", ""))
+        super().mouseMoveEvent(event)
+
+    def _clicked(self, item: QtWidgets.QTreeWidgetItem, _col: int) -> None:
+        kind = item.data(0, ROLE_KIND)
+        if kind in ("plane", "axis", "origin_point", "feature", "body"):
+            self.item_clicked.emit(str(kind), str(item.data(0, ROLE_ID)))
+
     def _selection_changed(self) -> None:
         ids = self.selected_feature_ids()
         if ids:
             self.feature_selected.emit(ids[0])
+        items = self.selectedItems()
+        item = items[0] if items else None
+        if item is None:
+            self.picked_changed.emit("", "")
+        else:
+            self.picked_changed.emit(str(item.data(0, ROLE_KIND) or ""),
+                                     str(item.data(0, ROLE_ID) or ""))
 
     def is_sketch_hidden(self, feature_id: int,
                          doc: Optional[Document] = None) -> bool:
@@ -438,6 +501,24 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                 new = menu.addAction("New Model State")
                 new.triggered.connect(lambda: self.model_state_requested.emit(
                     "new", "", ""))
+            return menu
+
+        if kind == "body":
+            name = str(item.data(0, ROLE_ID))
+            shown = self._doc.body_visible(name)
+            vis = menu.addAction(icons.icon("box", 16),
+                                 "Hide" if shown else "Show")
+            vis.triggered.connect(
+                lambda: self.body_visibility_requested.emit(
+                    "hide" if shown else "show", name))
+            others = menu.addAction("Hide Others")
+            others.setEnabled(len(self._doc.bodies) > 1)
+            others.triggered.connect(
+                lambda: self.body_visibility_requested.emit("others", name))
+            every = menu.addAction("Show All")
+            every.setEnabled(bool(self._doc.hidden_bodies))
+            every.triggered.connect(
+                lambda: self.body_visibility_requested.emit("all", name))
             return menu
 
         if kind == "plane":

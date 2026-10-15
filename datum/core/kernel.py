@@ -892,6 +892,12 @@ def _inside_point(face: TopoDS_Face, sketch: Sketch) -> Tuple[float, float]:
     return centre
 
 
+def _angle_between(angle: float, start: float, end: float) -> bool:
+    """Whether ``angle`` lies on the anticlockwise sweep from start to end."""
+    full = 2.0 * math.pi
+    return (angle - start) % full <= (end - start) % full
+
+
 def project_to_plane(shape: TopoDS_Shape, plane: SketchPlane
                      ) -> List[Tuple[str, Any]]:
     """Flatten a model edge onto a sketch plane, as sketch-space geometry.
@@ -936,8 +942,18 @@ def project_to_plane(shape: TopoDS_Shape, plane: SketchPlane
                     results.append(("circle", (centre, circ.Radius())))
                 else:
                     start, end = flat(curve.Value(first)), flat(curve.Value(last))
+                    mid = flat(curve.Value(0.5 * (first + last)))
                     a0 = math.atan2(start[1] - centre[1], start[0] - centre[0])
                     a1 = math.atan2(end[1] - centre[1], end[0] - centre[0])
+                    am = math.atan2(mid[1] - centre[1], mid[0] - centre[0])
+                    # A sketch arc runs anticlockwise from its start to its
+                    # end.  A circle facing the other way from the sketch
+                    # runs clockwise in it, and taken as it came the sketch
+                    # drew the rest of the circle instead: a rounded corner
+                    # bulging the long way round.  Whichever way the arc
+                    # really goes, its own middle has to be on it.
+                    if not _angle_between(am, a0, a1):
+                        a0, a1 = a1, a0
                     results.append(("arc", (centre, circ.Radius(), a0, a1)))
                 continue
 
@@ -1114,6 +1130,51 @@ def boolean(base: TopoDS_Shape, tool: TopoDS_Shape, op: str) -> TopoDS_Shape:
     return heal(result)
 
 
+def edges_along(shape: TopoDS_Shape, guides: Sequence[TopoDS_Shape],
+                tol: float = 1e-3) -> List[TopoDS_Edge]:
+    """The edges of a shape that lie along some guide edges.
+
+    How a fillet is repeated on a copy: the edges it rounded are moved to
+    where the copy is, and the copy's own edges found under them.  Found
+    by where they run rather than by matching one to one, because a copy
+    can come out split differently, a rim crossing a cylinder's seam in
+    one place and not in another.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+    if not guides:
+        return []
+    guide = compound(list(guides))
+    gx0, gy0, gz0, gx1, gy1, gz1 = bounding_box(guide)
+    out: List[TopoDS_Edge] = []
+    for edge in edges(shape):
+        try:
+            x0, y0, z0, x1, y1, z1 = bounding_box(edge)
+        except Exception:
+            continue
+        if (x1 < gx0 - tol or x0 > gx1 + tol or y1 < gy0 - tol
+                or y0 > gy1 + tol or z1 < gz0 - tol or z0 > gz1 + tol):
+            continue
+        try:
+            curve = BRepAdaptor_Curve(TopoDS.Edge_s(edge))
+            first, last = curve.FirstParameter(), curve.LastParameter()
+        except Exception:
+            continue
+        along = True
+        for t in (0.0, 0.25, 0.5, 0.75, 1.0):
+            point = curve.Value(first + (last - first) * t)
+            probe = BRepExtrema_DistShapeShape(
+                BRepBuilderAPI_MakeVertex(point).Vertex(), guide)
+            if not probe.IsDone() or probe.Value() > tol:
+                along = False
+                break
+        if along:
+            out.append(TopoDS.Edge_s(edge))
+    return out
+
+
 def half_box(origin: Sequence[float], normal: Sequence[float],
              keep: Sequence[float], size: float) -> TopoDS_Shape:
     """A big block standing on a plane, on the side ``keep`` is on.
@@ -1168,6 +1229,7 @@ def mark_seams(shape: Optional[TopoDS_Shape]) -> None:
 
     loose = TopTools_ListOfShape()
     found = False
+    builder = None
     faces_of = TopExp_Explorer(shape, TopAbs_FACE)
     while faces_of.More():
         face = TopoDS.Face_s(faces_of.Current())
@@ -1182,11 +1244,25 @@ def mark_seams(shape: Optional[TopoDS_Shape]) -> None:
         while edges_of.More():
             edge = TopoDS.Edge_s(edges_of.Current())
             edges_of.Next()
-            if (BRep_Tool.IsClosed_s(edge, face)
-                    and BRep_Tool.MaxContinuity_s(edge)
-                    == GeomAbs_Shape.GeomAbs_C0):
+            if not BRep_Tool.IsClosed_s(edge, face):
+                continue
+            smooth = BRep_Tool.MaxContinuity_s(edge)
+            if smooth == GeomAbs_Shape.GeomAbs_C0:
                 loose.Append(edge)
                 found = True
+            elif smooth.value <= GeomAbs_Shape.GeomAbs_C2.value:
+                # A face closing on itself: a fillet round a hole in a
+                # cylinder is a freeform surface whose seam OCCT reports
+                # as only tangent, so it was drawn as a line across the
+                # fillet and could be picked.  It is the same surface on
+                # both sides, so it is as smooth as the surface is.
+                from OCP.BRep import BRep_Builder
+                builder = builder or BRep_Builder()
+                try:
+                    builder.Continuity(edge, face, face,
+                                       GeomAbs_Shape.GeomAbs_CN)
+                except Exception:
+                    pass
     if found:
         try:
             BRepLib.EncodeRegularity_s(shape, loose, 1e-10)

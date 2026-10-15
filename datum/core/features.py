@@ -34,7 +34,9 @@ class FeatureError(RuntimeError):
 
 # The four ways a new solid can meet the ones already there, in the order
 # Inventor lists them.  Order matters: Join is what you want nearly every
-# time, and New Body is the deliberate one you go looking for.
+# time, and New Solid is the deliberate one you go looking for.  The key
+# stays "new" and the constant NEW_BODY, so files and code are unchanged;
+# only the word on the button follows Inventor's.
 JOIN = "join"
 CUT = "cut"
 INTERSECT = "intersect"
@@ -45,7 +47,7 @@ OPERATION_LABELS = {
     JOIN: "Join",
     CUT: "Cut",
     INTERSECT: "Intersect",
-    NEW_BODY: "New Body",
+    NEW_BODY: "New Solid",
 }
 OPERATION_HINTS = {
     JOIN: "Add this material to the body",
@@ -108,6 +110,9 @@ class BuildContext:
         self.axes: Dict[str, WorkAxis] = dict(STANDARD_AXES)
         # feature id -> (tool solid, operation) for pattern/mirror replay
         self.tools: Dict[int, Tuple[TopoDS_Shape, str]] = {}
+        # feature id -> ("fillet" or "chamfer", size, edges it worked on),
+        # so a pattern or mirror can do the same on its copies
+        self.edge_ops: Dict[int, Tuple[str, float, List[TopoDS_Shape]]] = {}
         self.log: List[str] = []
         # Whether a code feature may run its script during this rebuild.
         # Set by the document from its trust, never by the file, so a part
@@ -1594,6 +1599,8 @@ class FilletFeature(Feature):
                 owner.shape, [TopoDS.Edge_s(e) for e in targets], r)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        if not self.all_edges:
+            ctx.edge_ops[self.id] = ("fillet", r, list(targets))
 
     def summary(self) -> str:
         n = "all edges" if self.all_edges else "%d edge(s)" % len(self.refs)
@@ -1638,6 +1645,8 @@ class ChamferFeature(Feature):
                 owner.shape, [TopoDS.Edge_s(e) for e in targets], d)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        if not self.all_edges:
+            ctx.edge_ops[self.id] = ("chamfer", d, list(targets))
 
     def summary(self) -> str:
         n = "all edges" if self.all_edges else "%d edge(s)" % len(self.refs)
@@ -1688,6 +1697,46 @@ class ShellFeature(Feature):
         self.refs = RefSet.from_list(data.get("refs", []))
 
 
+def replay_edge_op(ctx: BuildContext, entry, move: Callable,
+                   name: str) -> bool:
+    """Round or chamfer, on a copy, the edges a fillet or chamfer did.
+
+    The edges are moved the way the copy was, and the copy's own edges
+    under them are the ones worked on.  False when none are there, a copy
+    that landed where it cut nothing, say.
+    """
+    kind, size, edges = entry
+    found = kernel.edges_along(ctx.shape, [move(e) for e in edges])
+    if not found:
+        return False
+    try:
+        if kind == "fillet":
+            ctx.shape = kernel.fillet(ctx.shape, found, size)
+        else:
+            ctx.shape = kernel.chamfer(ctx.shape, found, size)
+    except KernelError as exc:
+        raise FeatureError("%s: the %s on a copy failed: %s"
+                           % (name, kind, exc)) from exc
+    return True
+
+
+def remember_tools(ctx: BuildContext, feature_id: int, made) -> None:
+    """Keep the copies a pattern or mirror applied, as its tool.
+
+    What a feature dialog's preview shows, every copy see-through, and
+    what lets a pattern or a mirror be patterned or mirrored in turn.
+    Copies that cut and copies that add are kept as one tool, under the
+    operation most of them had.
+    """
+    if not made:
+        return
+    ops = [op for _shape, op in made]
+    op = max(set(ops), key=ops.count)
+    shapes = [shape for shape, _op in made]
+    ctx.tools[feature_id] = (shapes[0] if len(shapes) == 1
+                             else kernel.compound(shapes), op)
+
+
 @dataclass
 class MirrorFeature(Feature):
     type_name: str = "mirror"
@@ -1708,20 +1757,33 @@ class MirrorFeature(Feature):
                                % (self.name, self.plane))
 
         if self.scope == "body":
-            ctx.shape = kernel.boolean(body, kernel.mirror(body, plane), "join")
+            copy = kernel.mirror(body, plane)
+            ctx.shape = kernel.boolean(body, copy, "join")
+            remember_tools(ctx, self.id, [(copy, JOIN)])
             return
 
-        applied = False
+        made = []
+        replayed = False
         for fid in self.parents:
+            edge_op = ctx.edge_ops.get(fid)
+            if edge_op is not None:
+                # a fillet or chamfer has no solid to copy: it is done
+                # again on the mirrored edges
+                replayed |= replay_edge_op(
+                    ctx, edge_op, lambda s: kernel.mirror(s, plane),
+                    self.name)
+                continue
             entry = ctx.tools.get(fid)
             if entry is None:
                 continue
             tool, op = entry
-            ctx.shape = kernel.boolean(ctx.shape, kernel.mirror(tool, plane),
+            copy = kernel.mirror(tool, plane)
+            ctx.shape = kernel.boolean(ctx.shape, copy,
                                        op if op != "new" else "join")
-            applied = True
-        if not applied:
+            made.append((copy, op))
+        if not made and not replayed:
             raise FeatureError("%s: no source features to mirror" % self.name)
+        remember_tools(ctx, self.id, made)
 
     def summary(self) -> str:
         return "%s: about %s (%s)" % (self.name, self.plane, self.scope)
@@ -1769,7 +1831,11 @@ class PatternFeature(Feature):
         if self.of == "bodies":
             self._pattern_bodies(ctx)
             return
-        sources = [(fid, ctx.tools[fid]) for fid in self.parents if fid in ctx.tools]
+        # in the order of the tree, so a hole is cut on each copy before
+        # the fillet round it is done again
+        sources = [(fid, ctx.tools.get(fid), ctx.edge_ops.get(fid))
+                   for fid in self.parents
+                   if fid in ctx.tools or fid in ctx.edge_ops]
         if not sources:
             raise FeatureError("%s: select one or more features to pattern"
                                % self.name)
@@ -1779,11 +1845,23 @@ class PatternFeature(Feature):
         if len(placements) <= 1:
             return
 
+        made = []
+        missed = 0
         for transform in placements[1:]:
-            for _fid, (tool, op) in sources:
+            for _fid, entry, edge_op in sources:
+                if edge_op is not None:
+                    if not replay_edge_op(ctx, edge_op, transform, self.name):
+                        missed += 1
+                    continue
+                tool, op = entry
                 moved = transform(tool)
                 ctx.shape = kernel.boolean(ctx.shape, moved,
                                            op if op != "new" else "join")
+                made.append((moved, op))
+        if missed:
+            ctx.log.append("%s: %d copied fillet(s) or chamfer(s) found no "
+                           "edges to work on" % (self.name, missed))
+        remember_tools(ctx, self.id, made)
 
     def _pattern_bodies(self, ctx: BuildContext) -> None:
         """Copies of whole solids, joined to each or made bodies of their own.

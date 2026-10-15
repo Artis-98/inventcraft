@@ -273,6 +273,17 @@ class FormRows(QtWidgets.QWidget):
         if label is not None:
             label.setVisible(on)
 
+    def add_section(self, title: str) -> QtWidgets.QLabel:
+        """A heading over the rows that follow, as Inventor groups its panels."""
+        head = QtWidgets.QLabel(title)
+        head.setProperty("section", True)
+        head.setStyleSheet(
+            "color: %s; font-size: 11px; font-weight: 600; padding-top: %dpx;"
+            % (C.text_dim, 6 if self._row else 0))
+        self.grid.addWidget(head, self._row, 0, 1, 2)
+        self._row += 1
+        return head
+
     def add_separator(self) -> None:
         line = QtWidgets.QFrame()
         line.setFrameShape(QtWidgets.QFrame.HLine)

@@ -468,6 +468,35 @@ class Sketch:
         ids.append(centre_line)
         return ids
 
+    def add_centre_mark(self, sides: Sequence[int]) -> Optional[int]:
+        """Inventor's centre for a rectangle: construction diagonals, and
+        a point held at their middle.
+
+        Without it a centre rectangle was four sides and nothing at the
+        centre, so the point it was drawn from held nothing: centred on the
+        origin and given a width and a height, it still had three degrees
+        of freedom.  Returns the centre point, for tying to what was
+        clicked.
+        """
+        if len(sides) < 4:
+            return None
+        corners = [self.entities[e].points[0] for e in sides[:4]]
+        first = self.add_line_ids(corners[0], corners[2], construction=True)
+        self.add_line_ids(corners[1], corners[3], construction=True)
+        a, c = self.points[corners[0]], self.points[corners[2]]
+        middle = self.add_point((a.x + c.x) / 2.0, (a.y + c.y) / 2.0)
+        self.add_constraint("midpoint", points=[middle], entities=[first])
+        return middle
+
+    def slot_middle(self, ids: Sequence[int]) -> Optional[int]:
+        """The point held at the middle of a slot's centre line."""
+        lines = [e for e in ids if e in self.entities
+                 and self.entities[e].construction]
+        for c in self.constraints.values():
+            if c.kind == "midpoint" and c.entities and c.entities[0] in lines:
+                return c.points[0]
+        return None
+
     def add_quad(self, corners: Sequence[Tuple[float, float]],
                  construction: bool = False) -> List[int]:
         """A rectangle at any angle, from its four corners.
@@ -527,6 +556,16 @@ class Sketch:
         ids = []
         for i in range(sides):
             ids.append(self.add_line_ids(pts[i], pts[(i + 1) % sides], construction))
+        # What Inventor puts in a polygon besides its sides: a construction
+        # circle through the corners, every corner held on it and every
+        # side held the same length.  Without them it was loose lines, and
+        # the first drag pulled it apart; with them it drags as one regular
+        # polygon, turning, growing and moving whole.
+        ring = self.add_circle(center, radius, construction=True)
+        for pid in pts:
+            self.add_constraint("point_on", points=[pid], entities=[ring])
+        for a, b in zip(ids, ids[1:]):
+            self.add_constraint("equal", entities=[a, b])
         return ids
 
     def add_spline(self, pts: Sequence[Tuple[float, float]],
@@ -629,6 +668,82 @@ class Sketch:
     def dimension(self, name: str) -> Optional[Constraint]:
         return next((c for c in self.constraints.values()
                      if c.name == name), None)
+
+    def measure(self, c: "Constraint") -> float:
+        """What a dimension reads on the sketch as it stands now."""
+        def direction(first: int, second: int) -> Tuple[float, float]:
+            a, b = self.points[first], self.points[second]
+            dx, dy = b.x - a.x, b.y - a.y
+            length = math.hypot(dx, dy) or 1.0
+            return (dx / length, dy / length)
+
+        try:
+            if c.kind in ("radius", "diameter"):
+                ent = self.entities[c.entities[0]]
+                return ent.radius * (2.0 if c.kind == "diameter" else 1.0)
+            if c.kind == "radial_gap":
+                return abs(self.entities[c.entities[1]].radius
+                           - self.entities[c.entities[0]].radius)
+            if c.kind == "distance_pl":
+                p = self.points[c.points[0]]
+                a, b = self.points[c.points[1]], self.points[c.points[2]]
+                dx, dy = b.x - a.x, b.y - a.y
+                length = math.hypot(dx, dy)
+                if length < 1e-9:
+                    return 0.0
+                return abs(((p.x - a.x) * dy - (p.y - a.y) * dx) / length)
+            if c.kind == "angle":
+                first = self.entities[c.entities[0]].points
+                ux, uy = direction(first[0], first[1])
+                if len(c.entities) == 1:
+                    return math.degrees(math.atan2(uy, ux)) % 360.0
+                second = self.entities[c.entities[1]].points
+                vx, vy = direction(second[0], second[1])
+                return math.degrees(math.atan2(ux * vy - uy * vx,
+                                               ux * vx + uy * vy)) % 360.0
+            a = self.points[c.points[0]]
+            b = self.points[c.points[1]]
+            if c.kind == "distance_x":
+                return abs(b.x - a.x)
+            if c.kind == "distance_y":
+                return abs(b.y - a.y)
+            return math.hypot(b.x - a.x, b.y - a.y)
+        except (KeyError, IndexError):
+            return c.value
+
+    def _read_driven(self) -> bool:
+        """Bring every driven dimension up to what the sketch measures.
+
+        A driven dimension holds nothing, it reads.  Written into another
+        dimension's expression it has to read the sketch as it is now, or
+        the dimension written in terms of it held on to the length the
+        driven one had when it was made, and dragging never moved it.
+        Returns whether one that something refers to has changed.
+        """
+        moved = False
+        for c in self.constraints.values():
+            if c.driving or not c.is_dimension:
+                continue
+            value = self.measure(c)
+            if abs(value - c.value) > 1e-9:
+                c.value = value
+                if c.name and self._referred_to(c.name):
+                    moved = True
+        return moved
+
+    def _referred_to(self, name: str) -> bool:
+        """Whether a driving dimension's expression uses this name."""
+        from .params import referenced_names
+
+        for c in self.constraints.values():
+            if c.driving and c.expression:
+                try:
+                    if name in referenced_names(c.expression):
+                        return True
+                except Exception:
+                    if name in c.expression:
+                        return True
+        return False
 
     def dimension_scope(self, scope: Optional[Dict[str, float]] = None
                         ) -> Dict[str, float]:
@@ -965,6 +1080,21 @@ class Sketch:
         ``anchors`` pins specific points (used while dragging).  Returns True
         when the system converged.
         """
+        self._read_driven()
+        converged = self._solve_once(scope, anchors, max_iter)
+        # a driven dimension another one is written in terms of reads the
+        # solved sketch, and that one then has to follow it; a few rounds
+        # settle it, and a loop that never would is cut off rather than
+        # left to run
+        for _round in range(4):
+            if not self._read_driven():
+                break
+            converged = self._solve_once(scope, anchors, max_iter)
+        return converged
+
+    def _solve_once(self, scope: Optional[Dict[str, float]],
+                    anchors: Optional[Dict[int, Tuple[float, float]]],
+                    max_iter: int) -> bool:
         if not self.points:
             self.dof = 0
             self.solve_message = "empty sketch"

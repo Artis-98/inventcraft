@@ -76,7 +76,8 @@ check("drawing save filter", ".ddat" in fileformat.save_filter("drawing"))
 combined = fileformat.open_filter()
 check("open filter lists all three",
       all(e in combined for e in (".pdat", ".adat", ".ddat")), combined)
-check("open filter offers legacy files", ".forge" in combined)
+check("the open filter no longer offers FORGE files",
+      ".forge" not in combined)
 check("narrowed filter is only that type",
       ".adat" not in fileformat.open_filter("part"),
       fileformat.open_filter("part"))
@@ -207,37 +208,25 @@ except FileFormatError as exc:
           str(exc))
 
 # ==========================================================================
-print("older files migrate forward")
-legacy = os.path.join(WORK, "old.forge")   # a genuine pre-DATUM file
+print("the pre-DATUM FORGE files are no longer read")
+legacy = os.path.join(WORK, "old.forge")
 legacy_doc = make_part(80.0, 30.0, 5.0)
 with open(legacy, "w", encoding="utf-8") as handle:
     payload = legacy_doc.to_dict()
     payload["format"] = "forge-part"
     payload["version"] = 1
     json.dump(payload, handle)
+try:
+    Document.load(legacy)
+    check("a .forge file is refused", False)
+except FileFormatError:
+    check("a .forge file is refused", True)
+check("and FORGE is gone from the module",
+      not hasattr(fileformat, "LEGACY_EXTENSION"))
 
-opened = Document.load(legacy)
-check("a legacy .forge part opens", opened.shape is not None)
-check("its geometry is intact",
-      abs(kernel.volume(opened.shape)
-          - kernel.volume(legacy_doc.shape)) < 1e-6)
-check("it reports being migrated", opened.migrated_from == 0,
-      opened.migrated_from)
-check("it has no path, so Save prompts for a new one", opened.path == "",
-      opened.path)
-check("and it is marked modified", opened.modified)
-
-converted = opened.save(os.path.join(WORK, "converted"), thumbnail=PNG)
-check("it saves out as a .pdat", converted.endswith(".pdat"), converted)
-check("the converted file is valid",
-      fileformat.peek(converted).version == fileformat.SCHEMA_VERSION)
-
-print("the migration step itself is explicit")
-migrated = fileformat.migrate({"features": []}, 0, "part")
-check("v0 gains the fields v1 expects",
-      "hidden_planes" in migrated and "origin_autohidden" in migrated,
-      sorted(migrated))
-check("v0 loses the old format marker", "format" not in migrated)
+print("migration has no step below the first DATUM schema")
+check("schema 1 needs nothing done",
+      fileformat.migrate({"features": []}, 1, "part") == {"features": []})
 try:
     fileformat.migrate({}, 99, "part")
     check("an impossible migration is an error", False)

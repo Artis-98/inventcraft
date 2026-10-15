@@ -41,6 +41,23 @@ ORBIT_FREE = "free"
 ORBIT_TURNTABLE = "turntable"
 ORBITS = (ORBIT_FREE, ORBIT_TURNTABLE)
 
+# Which mouse button turns the view and which slides it; the wheel always
+# zooms.  "shift_middle" is the wheel held down with Shift, Inventor's
+# orbit.  A left button drag that navigates still leaves a plain click
+# selecting, and the selection box moves to Shift and the left button.
+MOUSE_LEFT = "left"
+MOUSE_MIDDLE = "middle"
+MOUSE_SHIFT_MIDDLE = "shift_middle"
+MOUSE_RIGHT = "right"
+ORBIT_BUTTONS = (MOUSE_RIGHT, MOUSE_SHIFT_MIDDLE, MOUSE_MIDDLE, MOUSE_LEFT)
+PAN_BUTTONS = (MOUSE_MIDDLE, MOUSE_LEFT, MOUSE_RIGHT)
+# the ready-made sets: (name, orbit, pan)
+MOUSE_SCHEMES = (
+    ("DATUM", MOUSE_RIGHT, MOUSE_MIDDLE),
+    ("Inventor", MOUSE_SHIFT_MIDDLE, MOUSE_MIDDLE),
+    ("Pan with the left button", MOUSE_RIGHT, MOUSE_LEFT),
+)
+
 
 def config_dir() -> str:
     """Where this machine keeps the user's own DATUM files.
@@ -77,12 +94,24 @@ class Preferences:
     orbit: str = ORBIT_FREE
     # what a new part or assembly is drawn in
     units: str = "mm"
+    # the SpaceMouse's speeds, deadzone and axis directions, as its
+    # settings window last left them
+    spacemouse: Dict[str, Any] = field(default_factory=dict)
+    # the mouse: which button orbits, which pans, and which way the wheel
+    # zooms
+    mouse_orbit: str = MOUSE_RIGHT
+    mouse_pan: str = MOUSE_MIDDLE
+    zoom_reversed: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
                 "company": self.company, "colours": dict(self.colours),
                 "trusted_folders": list(self.trusted_folders),
-                "orbit": self.orbit, "units": self.units}
+                "orbit": self.orbit, "units": self.units,
+                "spacemouse": dict(self.spacemouse),
+                "mouse_orbit": self.mouse_orbit,
+                "mouse_pan": self.mouse_pan,
+                "zoom_reversed": self.zoom_reversed}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
@@ -97,7 +126,17 @@ class Preferences:
                              data.get("trusted_folders", []) or [] if f],
             orbit=(str(data.get("orbit")) if data.get("orbit") in ORBITS
                    else ORBIT_FREE),
-            units=_units(data.get("units")))
+            units=_units(data.get("units")),
+            spacemouse=(dict(data.get("spacemouse"))
+                        if isinstance(data.get("spacemouse"), dict) else {}),
+            mouse_orbit=(str(data.get("mouse_orbit"))
+                         if data.get("mouse_orbit") in ORBIT_BUTTONS
+                         else MOUSE_RIGHT),
+            mouse_pan=(str(data.get("mouse_pan"))
+                       if data.get("mouse_pan") in PAN_BUTTONS
+                       and data.get("mouse_pan") != data.get("mouse_orbit")
+                       else MOUSE_MIDDLE),
+            zoom_reversed=bool(data.get("zoom_reversed", False)))
 
     def stamp(self, properties: Dict[str, str],
               key: str = "Designer") -> Dict[str, str]:

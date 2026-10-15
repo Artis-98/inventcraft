@@ -67,10 +67,10 @@ def click(u, v):
 
 
 def corners(sketch):
-    """Every distinct endpoint of the line entities."""
+    """Every distinct endpoint of the outline's lines."""
     out = set()
     for ent in sketch.entities.values():
-        if ent.kind != "line":
+        if ent.kind != "line" or ent.construction:
             continue
         for pid in ent.points:
             p = sketch.points[pid]
@@ -81,12 +81,22 @@ def corners(sketch):
 def side_lengths(sketch):
     out = []
     for ent in sketch.entities.values():
-        if ent.kind != "line":
+        if ent.kind != "line" or ent.construction:
             continue
         a = sketch.points[ent.points[0]]
         b = sketch.points[ent.points[1]]
         out.append(round(math.dist((a.x, a.y), (b.x, b.y)), 3))
     return sorted(out)
+
+
+def outline(sketch):
+    """The drawn lines, leaving out construction such as diagonals."""
+    return [e for e in sketch.entities.values() if not e.construction]
+
+
+def diagonals(sketch):
+    return [e for e in sketch.entities.values()
+            if e.kind == "line" and e.construction]
 
 
 def kinds(sketch):
@@ -212,7 +222,9 @@ print("Rectangle, Two Point Center")
 sketch = fresh("rect_centre")
 click(10, 10)
 click(30, 20)
-check("four lines", len(sketch.entities) == 4, len(sketch.entities))
+check("four lines", len(outline(sketch)) == 4, len(outline(sketch)))
+check("and Inventor's two construction diagonals",
+      len(diagonals(sketch)) == 2, len(diagonals(sketch)))
 check("centred on the first click",
       corners(sketch) == {(-10, 0), (30, 0), (30, 20), (-10, 20)},
       corners(sketch))
@@ -223,7 +235,9 @@ sketch = fresh("rect3_centre")
 click(0, 0)
 click(20, 0)
 click(0, 8)
-check("four lines", len(sketch.entities) == 4, len(sketch.entities))
+check("four lines", len(outline(sketch)) == 4, len(outline(sketch)))
+check("and its diagonals", len(diagonals(sketch)) == 2,
+      len(diagonals(sketch)))
 check("40 by 16", side_lengths(sketch) == [16.0, 16.0, 40.0, 40.0],
       side_lengths(sketch))
 check("centred on the origin",
@@ -371,7 +385,8 @@ sketch = fresh("polygon")
 ed.polygon_sides = 6
 click(0, 0)
 click(10, 0)
-check("six sides", len(sketch.entities) == 6, len(sketch.entities))
+sides = [e for e in sketch.entities.values() if e.kind == "line"]
+check("six sides", len(sides) == 6, len(sketch.entities))
 
 
 # ==========================================================================

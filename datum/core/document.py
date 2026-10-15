@@ -193,8 +193,8 @@ def _definition(feature: Feature, scope: Dict[str, float],
 class _Built:
     """What the rebuild held after one feature: enough to carry on from."""
 
-    __slots__ = ("bodies", "sketches", "planes", "axes", "tools", "log",
-                 "error")
+    __slots__ = ("bodies", "sketches", "planes", "axes", "tools",
+                 "edge_ops", "log", "error")
 
     @classmethod
     def take(cls, ctx: BuildContext, error: str) -> "_Built":
@@ -206,6 +206,7 @@ class _Built:
         built.planes = dict(ctx.planes)
         built.axes = dict(ctx.axes)
         built.tools = dict(ctx.tools)
+        built.edge_ops = dict(ctx.edge_ops)
         built.log = list(ctx.log)
         built.error = error
         return built
@@ -216,6 +217,7 @@ class _Built:
         ctx.planes = dict(self.planes)
         ctx.axes = dict(self.axes)
         ctx.tools = dict(self.tools)
+        ctx.edge_ops = dict(self.edge_ops)
         ctx.log = list(self.log)
 
 
@@ -259,6 +261,9 @@ class Document:
         # planes the user has switched off in the browser, by name; the three
         # origin planes start visible on a new part
         self.hidden_planes: set = set()
+        # solid bodies put out of sight from the tree, by name; saved with
+        # the part, as Inventor keeps them
+        self.hidden_bodies: set = set()
         # once a body exists the origin planes have done their job, so they
         # are put away automatically - but only ever once, so a user who
         # turns them back on keeps them
@@ -355,6 +360,32 @@ class Document:
         modelparams.assign_names(self)
         self.modified = True
         return feature
+
+    def preview_parts(self, feature_id: int) -> Optional[Dict[str, Any]]:
+        """What a feature dialog's preview shows, from the last rebuild.
+
+        The bodies just before the feature and just after it, by name, and
+        the tool it applied with its operation, if it applied one.  None
+        when the rebuild kept nothing to tell them apart by.
+        """
+        index = self.index_of(feature_id)
+        held = self._built.get(feature_id)
+        if index < 0 or not held:
+            return None
+        after = held[0][1]
+        before: List[Tuple[str, Any]] = []
+        for earlier in reversed(self.features[:index]):
+            if earlier.suppressed:
+                continue
+            kept = self._built.get(earlier.id)
+            if not kept:
+                return None
+            before = list(kept[0][1].bodies)
+            break
+        return {"before": [(n, s) for n, s in before if kernel.is_valid(s)],
+                "after": [(n, s) for n, s in after.bodies
+                          if kernel.is_valid(s)],
+                "tool": after.tools.get(feature_id)}
 
     def bodies_before(self, feature_id: int) -> List[str]:
         """The solids there are just before a feature, by name, in order.
@@ -861,6 +892,44 @@ class Document:
             self.hidden_planes.add(name)
         self.modified = True
 
+    # -- which solid bodies are on show --------------------------------------
+
+    def body_visible(self, name: str) -> bool:
+        return name not in self.hidden_bodies
+
+    def set_body_visible(self, name: str, visible: bool) -> None:
+        if visible:
+            self.hidden_bodies.discard(name)
+        else:
+            self.hidden_bodies.add(name)
+        self.modified = True
+
+    def hide_other_bodies(self, name: str) -> None:
+        self.hidden_bodies = {b.name for b in self.bodies
+                              if b.name != name}
+        self.modified = True
+
+    def show_all_bodies(self) -> None:
+        if self.hidden_bodies:
+            self.hidden_bodies = set()
+            self.modified = True
+
+    def visible_shape(self):
+        """The part as it is drawn: every body not hidden from the tree.
+
+        The part itself is all of them, and features and the mass go on
+        using that; only the picture leaves the hidden ones out.
+        """
+        hidden = self.hidden_bodies & {b.name for b in self.bodies}
+        if not hidden:
+            return self.shape
+        live = [b for b in self.bodies if b.valid and b.name not in hidden]
+        if not live:
+            return None
+        if len(live) == 1:
+            return live[0].shape
+        return kernel.compound([b.shape for b in live])
+
     def visible_planes(self) -> Dict[str, Any]:
         return {name: plane for name, plane in self.planes.items()
                 if name not in self.hidden_planes}
@@ -986,6 +1055,7 @@ class Document:
             "next_id": self._next_id,
             "rollback": self.rollback_index,
             "hidden_planes": sorted(self.hidden_planes),
+            "hidden_bodies": sorted(self.hidden_bodies),
             "origin_autohidden": self.origin_autohidden,
             "parameters": self.params.to_list(),
             "features": [f.to_dict() for f in self.features],
@@ -1015,6 +1085,7 @@ class Document:
         self._next_id = int(data.get("next_id", 1))
         self.rollback_index = data.get("rollback")
         self.hidden_planes = set(data.get("hidden_planes", []))
+        self.hidden_bodies = set(data.get("hidden_bodies", []))
         self.origin_autohidden = bool(data.get("origin_autohidden", False))
         self.params.load(data.get("parameters", []))
         self.features = []
@@ -1052,7 +1123,7 @@ class Document:
 
     @classmethod
     def load(cls, path: str) -> "Document":
-        """Open a DATUM part, or a legacy .forge file, and rebuild it."""
+        """Open a DATUM part and rebuild it."""
         opened = fileformat.read(path, expected_type=fileformat.PART)
         doc = cls()
         doc.load_dict(opened.geometry)

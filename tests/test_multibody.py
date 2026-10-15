@@ -47,11 +47,11 @@ def block(doc, x, y, z, dx=60, dy=40, dz=20, op=JOIN, name=""):
 # ==========================================================================
 print("the options are in Inventor's order")
 
-check("Join first, then Cut, Intersect, New Body",
+check("Join first, then Cut, Intersect, New Solid",
       OPERATIONS == (JOIN, CUT, INTERSECT, NEW_BODY), OPERATIONS)
 check("and they are labelled the way Inventor labels them",
       [OPERATION_LABELS[o] for o in OPERATIONS]
-      == ["Join", "Cut", "Intersect", "New Body"],
+      == ["Join", "Cut", "Intersect", "New Solid"],
       [OPERATION_LABELS[o] for o in OPERATIONS])
 
 

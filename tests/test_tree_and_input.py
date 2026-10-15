@@ -393,8 +393,9 @@ check("dead zone suppresses tiny motion", mouse._shaped()[0] == 0.0,
       mouse._shaped())
 
 mouse._state = [1.0, 0, 0, 0, 0, 0]
-check("full deflection reaches full scale",
-      abs(mouse._shaped()[0] - 1.0) < 1e-6, mouse._shaped())
+check("full deflection reaches full scale, times the overall speed",
+      abs(mouse._shaped()[0] - settings.sensitivity) < 1e-6,
+      mouse._shaped())
 
 settings.invert["tx"] = True
 check("axis inversion applies", mouse._shaped()[0] < 0, mouse._shaped())
@@ -478,7 +479,8 @@ check("invert checkbox writes through",
       win.spacemouse.settings.invert["rz"] is True)
 dialog._reset()
 check("reset restores defaults",
-      abs(win.spacemouse.settings.sensitivity - 1.0) < 1e-9
+      abs(win.spacemouse.settings.sensitivity
+          - SpaceMouseSettings().sensitivity) < 1e-9
       and win.spacemouse.settings.invert["rz"] is False,
       win.spacemouse.settings.to_dict())
 dialog._show_motion(0.1, 0.2, 0.3, 0.4, 0.5, 0.6)

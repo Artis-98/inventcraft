@@ -211,7 +211,9 @@ class TdxSensor:
 @dataclass
 class SpaceMouseSettings:
     enabled: bool = True
-    sensitivity: float = 1.0
+    # three times what it started at: at 1.0 a full push moved the model
+    # so slowly that everyone turned it up, and nothing kept the setting
+    sensitivity: float = 3.0
     deadzone: float = 0.06
     pan_speed: float = 1.0
     zoom_speed: float = 1.0

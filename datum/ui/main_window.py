@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import copy
+import math
 import os
 import sys
 from typing import Any, Callable, Dict, List, Optional  # noqa: F401
@@ -52,6 +53,43 @@ from .ribbon import Ribbon
 from .sketcher import SketchEditor
 from .startpage import StartPage
 from .spacemouse import SpaceMouse, SpaceMouseSettings
+from . import frame as _frame
+
+
+class _Follow(QtCore.QObject):
+    """Calls back whenever a widget is resized or moved."""
+
+    def __init__(self, widget, callback) -> None:
+        super().__init__(widget)
+        self._callback = callback
+        widget.installEventFilter(self)
+
+    def eventFilter(self, obj, event) -> bool:
+        if event.type() in (QtCore.QEvent.Resize, QtCore.QEvent.Move):
+            self._callback()
+        return False
+
+
+def _perpendicular(n):
+    """Some unit direction square to n, for laying a sheet out on it."""
+    a = (1.0, 0.0, 0.0) if abs(n[0]) < 0.9 else (0.0, 1.0, 0.0)
+    v = (n[1] * a[2] - n[2] * a[1], n[2] * a[0] - n[0] * a[2],
+         n[0] * a[1] - n[1] * a[0])
+    length = math.sqrt(sum(c * c for c in v)) or 1.0
+    return tuple(c / length for c in v)
+
+
+def _turn(v, axis, degrees: float):
+    """A direction turned about an axis through the origin."""
+    length = math.sqrt(sum(c * c for c in axis)) or 1.0
+    k = tuple(c / length for c in axis)
+    a = math.radians(degrees)
+    c, s = math.cos(a), math.sin(a)
+    dot = sum(k[i] * v[i] for i in range(3))
+    cross = (k[1] * v[2] - k[2] * v[1], k[2] * v[0] - k[0] * v[2],
+             k[0] * v[1] - k[1] * v[0])
+    return tuple(v[i] * c + cross[i] * s + k[i] * dot * (1 - c)
+                 for i in range(3))
 from .theme import C, stylesheet
 from .viewport import Viewport
 
@@ -200,6 +238,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(icons.app_icon())
         self.resize(1500, 940)
+        # On Windows the quick access row is the title bar, as in Inventor;
+        # DATUM_NATIVE_TITLE=1 puts the system one back.  Elsewhere the
+        # system's own stays: window managers differ too much to stand in
+        # for them safely.
+        self._custom_frame = (sys.platform == "win32"
+                              and os.environ.get("DATUM_NATIVE_TITLE") != "1")
+        self._frame_applied = False
 
         self._active_dialog: Optional[dialogs.FeatureDialog] = None
         self.measure_dialog: Optional[MeasureDialog] = None
@@ -213,7 +258,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.viewport = Viewport(self)
         self.editor = SketchEditor(self.viewport, self)
-        self.spacemouse = SpaceMouse(SpaceMouseSettings(), self)
+        # the puck's settings as they were last left, not the defaults
+        # every time the application starts
+        puck = SpaceMouseSettings()
+        puck.load(prefs.prefs().spacemouse)
+        self.spacemouse = SpaceMouse(puck, self)
         self.spacemouse_dialog: Optional[SpaceMouseDialog] = None
         self.assembly_ui = AssemblyController(self)
         self.cam_ui = CamController(self)
@@ -241,6 +290,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # width above the docks, the way Inventor lays its ribbon out.
         self.ribbon = Ribbon(self)
         self.setMenuWidget(self.ribbon)
+        self.ribbon.show_window_buttons(self._custom_frame)
+        self.ribbon.minimise_requested.connect(self.showMinimized)
+        self.ribbon.maximise_requested.connect(self.toggle_maximised)
+        self.ribbon.close_requested.connect(self.close)
 
         # the start page and the model view share the central area, with the
         # open-document tabs pinned under both - Inventor's layout, and the
@@ -320,7 +373,7 @@ class MainWindow(QtWidgets.QMainWindow):
         r.add_quick_action("iso", "Home view (F6)").clicked.connect(
             lambda: self.viewport.set_view("iso"))
         r.add_quick_action("fit", "Fit all (Home)").clicked.connect(
-            lambda: self.viewport.fit_all())
+            lambda: self.viewport.fit_all(animate=True))
         r.add_quick_separator()
         r.add_quick_action("params", "Parameters (Ctrl+P)").clicked.connect(
             self.edit_parameters)
@@ -461,12 +514,8 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = sketch.add_panel("Format")
         self.construction_btn = panel.add_small("offset", "Construction")
         self.construction_btn.clicked.connect(self.editor.toggle_construction)
-        self.snap_btn = panel.add_small("grid", "Snap to Grid", checkable=True)
-        self.snap_btn.setChecked(True)
-        self.snap_btn.toggled.connect(self._set_snap)
-        self.grid_btn = panel.add_small("grid", "Show Grid", checkable=True)
-        self.grid_btn.setChecked(False)
-        self.grid_btn.toggled.connect(self.editor.set_show_grid)
+        # Show Grid and Snap to Grid live on the status bar while sketching,
+        # with the rest of Inventor's sketch toggles
         panel.add_small("delete", "Delete").clicked.connect(
             self.editor.delete_selected)
 
@@ -737,14 +786,32 @@ class MainWindow(QtWidgets.QMainWindow):
         self.origin_btn = panel.add_small("plane", "Origin", checkable=True)
         self.origin_btn.setChecked(True)
         self.origin_btn.toggled.connect(self.viewport.set_show_origin)
-        self.section_btn = panel.add_small("section", "Section", checkable=True)
+        self.section_btn = panel.add_small(
+            "section", "Section View",
+            "Cut the view open at a flat face or a plane", checkable=True)
         self.section_btn.toggled.connect(self._toggle_section)
+        frame = panel.add_small("measure", "Frame Time",
+                                "Show how long each frame takes to draw, "
+                                "in the status bar", checkable=True)
+        frame.toggled.connect(self.viewport.set_frame_time)
+        self.viewport.frame_timed.connect(self._show_frame_time)
 
         panel = view.add_panel("Navigation")
         self.spacemouse_btn = panel.add_big(
             "spacemouse", "Space\nMouse", "3Dconnexion settings",
             checkable=True)
         self.spacemouse_btn.clicked.connect(self._spacemouse_clicked)
+
+    def _show_frame_time(self, ms: float) -> None:
+        label = getattr(self, "status_frame", None)
+        if label is None:
+            return
+        if ms < 0:
+            label.setText("")
+            label.setVisible(False)
+            return
+        label.setVisible(True)
+        label.setText("%.1f ms  %d fps" % (ms, 1000.0 / ms if ms > 0 else 0))
 
     def _build_file_menu(self) -> None:
         menu = QtWidgets.QMenu(self)
@@ -900,7 +967,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._component_docs[occurrence_id] = (path, loaded)
         return loaded
 
-    def _save_component_material(self, occurrence_id: int) -> None:
+    def _save_component_material(self, occurrence_id: int,
+                                 rebuild: bool = True) -> None:
         """Write a component's material back into its own file."""
         held = self._component_docs.get(occurrence_id)
         if held is None:
@@ -915,20 +983,48 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if self.assembly is not None:
             self.assembly.library.forget(path)
-            self.assembly_ui.rebuild()
+            if rebuild:
+                self.assembly_ui.rebuild()
+
+    def _material_targets(self):
+        """Every document the material pickers set: (component, document).
+
+        In a part, the part.  In an assembly, every component picked, from
+        the tree or with a box in the view, so several parts take one
+        material in one go; two copies of one part are one document.
+        """
+        if not self.in_assembly:
+            document = self._material_target()
+            return [(None, document)] if document is not None else []
+        out, seen = [], set()
+        for oid in self.assembly_ui.selected_occurrences():
+            document = self._component_document(oid)
+            if document is None or id(document) in seen:
+                continue
+            seen.add(id(document))
+            out.append((oid, document))
+        return out
 
     def set_material(self, name: str) -> None:
-        document = self._material_target()
-        if document is None or not name or document.material == name:
+        targets = [(oid, d) for oid, d in self._material_targets()
+                   if d.material != name]
+        if not name or not targets:
             return
-        document.push_undo()
-        document.material = name
-        # the density moves with it, so anything holding an override from
-        # an older file has to let go or the mass will not follow
-        document._density_override = None
-        document.modified = True
-        self._after_material_set()
+        for _oid, document in targets:
+            document.push_undo()
+            document.material = name
+            # the density moves with it, so anything holding an override
+            # from an older file has to let go or the mass will not follow
+            document._density_override = None
+            document.modified = True
+        self._after_material_set(targets)
         self._material_changed()
+        document = targets[0][1]
+        if len(targets) > 1:
+            self.status_message.setStyleSheet("")
+            self.status_message.setText(
+                "Material: %s, on %d parts" % (name, len(targets)))
+            return
         self.status_message.setStyleSheet("")
         # The new mass, when it costs nothing: measured already, or a body
         # small enough to measure without anybody noticing. A large import
@@ -949,25 +1045,33 @@ class MainWindow(QtWidgets.QMainWindow):
                                 if mass else ""))
 
     def set_appearance(self, name: str) -> None:
-        document = self._material_target()
-        if document is None or getattr(document, "appearance", "") == name:
+        targets = [(oid, d) for oid, d in self._material_targets()
+                   if getattr(d, "appearance", "") != name]
+        if not targets:
             return
-        document.push_undo()
-        document.appearance = name
-        document.modified = True
-        self._after_material_set()
+        for _oid, document in targets:
+            document.push_undo()
+            document.appearance = name
+            document.modified = True
+        self._after_material_set(targets)
         self._material_changed()
         self.status_message.setStyleSheet("")
         self.status_message.setText(
-            "Appearance: %s" % (name or "from the material"))
+            "Appearance: %s%s" % (name or "from the material",
+                                  ", on %d parts" % len(targets)
+                                  if len(targets) > 1 else ""))
 
-    def _after_material_set(self) -> None:
-        """If the pickers were aimed at a component, save it back."""
+    def _after_material_set(self, targets=None) -> None:
+        """If the pickers were aimed at components, save them back."""
         if not self.in_assembly:
             return
-        picked = self.assembly_ui.selected_occurrences()
-        if picked:
-            self._save_component_material(picked[0])
+        if targets is None:
+            picked = self.assembly_ui.selected_occurrences()
+            targets = [(picked[0], None)] if picked else []
+        saving = [oid for oid, _document in targets if oid is not None]
+        for i, oid in enumerate(saving):
+            # the assembly is rebuilt once, after the last of them
+            self._save_component_material(oid, rebuild=i == len(saving) - 1)
 
     def _material_changed(self) -> None:
         """Redraw with the new look, and refresh everything that shows it."""
@@ -975,7 +1079,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.assembly_ui.rebuild()
         elif self.document is not None:
             self.viewport.set_shape(
-                self.document.shape, keep_camera=True,
+                self.document.visible_shape(), keep_camera=True,
                 appearance=self.document.material_appearance)
         self.properties.update_from(self._material_target())
         self.material_bar.set_document(self._material_target())
@@ -1000,7 +1104,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_status_bar(self) -> None:
         bar = self.statusBar()
         self.status_message = QtWidgets.QLabel("Ready")
-        bar.addWidget(self.status_message, 1)
+        bar.addWidget(self.status_message, 0)
+
+        self._build_sketch_toggles(bar)
 
         self.status_sketch = QtWidgets.QLabel("")
         self.status_sketch.setStyleSheet("color: %s; padding-right: 12px;"
@@ -1015,6 +1121,11 @@ class MainWindow(QtWidgets.QMainWindow):
             "Press Local Update to take the change.")
         bar.addPermanentWidget(self.status_update)
 
+        # the frame time readout, shown only while View > Frame Time is on
+        self.status_frame = QtWidgets.QLabel("")
+        self.status_frame.setProperty("hint", True)
+        self.status_frame.setVisible(False)
+        bar.addPermanentWidget(self.status_frame)
         self.status_build = QtWidgets.QLabel("")
         self.status_build.setStyleSheet("padding-right: 12px;")
         bar.addPermanentWidget(self.status_build)
@@ -1262,6 +1373,10 @@ class MainWindow(QtWidgets.QMainWindow):
         b.suppress_toggled.connect(self.toggle_suppress)
         b.share_toggled.connect(self.toggle_share)
         b.plane_visibility_toggled.connect(self.toggle_plane_visibility)
+        b.item_clicked.connect(self._tree_item_clicked)
+        b.body_visibility_requested.connect(self.set_body_visibility)
+        b.picked_changed.connect(self._tree_picked)
+        b.hovered_changed.connect(self._tree_hovered)
         b.sketch_on_plane_requested.connect(self.start_sketch_on_plane)
         b.move_requested.connect(self.move_feature)
         b.reorder_requested.connect(self.reorder_feature)
@@ -1274,6 +1389,9 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.open_file_location(self.document.path))
 
         self.viewport.selection_changed.connect(self._on_viewport_selection)
+        self.viewport.section_drag_pressed.connect(self._section_drag_pressed)
+        self.viewport.axis_drag_moved.connect(self._section_drag_moved)
+        self.viewport.axis_drag_finished.connect(self._section_drag_finished)
         self.viewport.escape_pressed.connect(self._on_escape)
         self.viewport.context_menu_requested.connect(self._viewport_menu)
         self.viewport.component_activated.connect(self._component_activated)
@@ -1745,9 +1863,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return self.open_foreign(path)
 
         try:
-            manifest = (fileformat.peek(path)
-                        if not path.lower().endswith(fileformat.LEGACY_EXTENSION)
-                        else None)
+            manifest = fileformat.peek(path)
         except fileformat.UnsupportedVersionError as exc:
             QtWidgets.QMessageBox.warning(self, "Newer file", str(exc))
             return False
@@ -1788,8 +1904,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.start_page.remember(path, fileformat.PART)
 
         if document.migrated_from is not None:
-            source = ("a FORGE part" if document.migrated_from == 0
-                      else "schema %d" % document.migrated_from)
+            source = "schema %d" % document.migrated_from
             self.status_message.setText(
                 "Opened %s and brought it forward from %s - use Save As to "
                 "store it as a DATUM part."
@@ -2292,8 +2407,12 @@ class MainWindow(QtWidgets.QMainWindow):
         name = entry.label if entry is not None else document.title
         self.setWindowTitle("%s  -  %s%s" % (APP_NAME, name, mark))
         self.ribbon.set_document_label("%s%s" % (name, mark))
-        self.qat_undo.setEnabled(document.can_undo)
-        self.qat_redo.setEnabled(document.can_redo)
+        # in a sketch the arrows step through the sketch's own history,
+        # so that is what they show: the part's left Redo greyed out while
+        # the sketch had plenty to redo
+        history = self.editor if self.editor.active else document
+        self.qat_undo.setEnabled(bool(getattr(history, "can_undo", False)))
+        self.qat_redo.setEnabled(bool(getattr(history, "can_redo", False)))
         if entry is not None:
             self.doc_tabs.setTabText(
                 self.doc_tabs.currentIndex(), "%s%s" % (entry.label, mark))
@@ -2327,10 +2446,15 @@ class MainWindow(QtWidgets.QMainWindow):
         entry = self.session.by_document(self.document)
         if entry is not None:
             entry.note_change()
-        self.viewport.box_select_enabled = False
-        self.viewport.set_shape(self.document.shape,
-                                keep_camera=keep_camera,
-                                appearance=self.document.material_appearance)
+        # a box drag selects in a part as it does in an assembly, and it
+        # is always drawn, even where it takes nothing
+        self.viewport.box_select_enabled = True
+        # with a feature dialog open, the part as it was and what the
+        # feature does to it; otherwise the part
+        if not self._feature_preview(keep_camera):
+            self.viewport.set_shape(
+                self.document.visible_shape(), keep_camera=keep_camera,
+                appearance=self.document.material_appearance)
         self._draw_visible_planes()
         self._draw_visible_sketches()
         self.browser.refresh()
@@ -2356,8 +2480,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.run_rules()
 
     def pick_shape(self):
-        """The shape currently on screen - what the user is clicking on."""
-        return self.document.shape
+        """The shape currently on screen - what the user is clicking on.
+
+        While a feature previews, that is the part as it was before it: a
+        fillet's edges are picked on the sharp body, so a picked edge can
+        be clicked again to drop it.
+        """
+        base = getattr(self, "_preview_base", None)
+        return base if base is not None else self.document.shape
 
     def toggle_plane_visibility(self, name: str) -> None:
         self.document.set_plane_visible(name,
@@ -2365,6 +2495,123 @@ class MainWindow(QtWidgets.QMainWindow):
         self._draw_visible_planes()
         self.browser.refresh()
         self._update_title()
+
+    # the colours of what a feature does: green it adds, red it takes away
+    PREVIEW_ADD = "#4ee08a"
+    PREVIEW_CUT = "#e05a5a"
+    PREVIEW_INTERSECT = "#e0a355"
+    # past this many faces in a body the differences are not worked out,
+    # and the feature's result is shown as it is
+    PREVIEW_FACE_LIMIT = 2500
+
+    def _feature_preview(self, keep_camera: bool = True) -> bool:
+        """While a feature dialog is open, show what it will do.
+
+        The part as it was before the feature, and over it, see-through,
+        what the feature changes: green what it adds, red what it takes
+        away.  A feature that sweeps out a tool, an extrude, a revolve, a
+        hole, shows the whole tool, so a cut shows how far it reaches; a
+        fillet, a chamfer, a pattern or a mirror shows the material it
+        adds and removes.  Nothing to tell apart, and the result is shown
+        as it is: False, and the caller draws the part as usual.
+        """
+        vp = self.viewport
+        vp.remove_drawn(getattr(self, "_preview_drawn", []))
+        self._preview_drawn = []
+        self._preview_base = None
+        dialog = self._active_dialog
+        feature = getattr(dialog, "feature", None)
+        if (dialog is None or feature is None or self.in_assembly
+                or self.in_cam or getattr(dialog, "_closed", True)
+                or feature.error or feature.suppressed):
+            return False
+        try:
+            parts = self.document.preview_parts(feature.id)
+        except Exception:
+            parts = None
+        if not parts:
+            return False
+        from ..core.features import CUT, INTERSECT
+        hidden = getattr(self.document, "hidden_bodies", set())
+        before = [(n, s) for n, s in parts["before"] if n not in hidden]
+        after = [(n, s) for n, s in parts["after"] if n not in hidden]
+        ghosts = []
+        tool = parts.get("tool")
+        if tool is not None and tool[0] is not None:
+            shape, op = tool
+            colour = (self.PREVIEW_CUT if op == CUT else
+                      self.PREVIEW_INTERSECT if op == INTERSECT
+                      else self.PREVIEW_ADD)
+            ghosts.append((shape, colour))
+        else:
+            ghosts = self._preview_differences(before, after)
+            if ghosts is None:
+                return False
+        if not ghosts:
+            return False
+        base = (kernel.compound([s for _n, s in before]) if len(before) > 1
+                else before[0][1] if before else None)
+        self._preview_base = base
+        vp.set_shape(base, keep_camera=keep_camera,
+                     appearance=self.document.material_appearance)
+        with vp.collecting() as drawn:
+            for shape, colour in ghosts:
+                vp.draw_ghost(shape, colour)
+            self._preview_picks(feature, base)
+        self._preview_drawn = drawn
+        vp.redraw()
+        return True
+
+    def _preview_differences(self, before, after):
+        """What changed between two sets of bodies: (shape, colour) pairs.
+
+        None when it cannot be worked out cheaply enough to be worth it.
+        """
+        was = dict(before)
+        now = dict(after)
+        out = []
+        for name, shape in now.items():
+            old = was.get(name)
+            if old is None:
+                out.append((shape, self.PREVIEW_ADD))
+                continue
+            if old.IsSame(shape):
+                continue
+            if (len(kernel.faces(old)) > self.PREVIEW_FACE_LIMIT
+                    or len(kernel.faces(shape)) > self.PREVIEW_FACE_LIMIT):
+                return None
+            for left, right, colour in ((shape, old, self.PREVIEW_ADD),
+                                        (old, shape, self.PREVIEW_CUT)):
+                try:
+                    piece = kernel.boolean(left, right, "cut")
+                except Exception:
+                    # nothing left over: a fillet on an outside corner
+                    # only takes material, and adds none
+                    continue
+                if piece is not None and kernel.is_valid(piece) \
+                        and kernel.faces(piece):
+                    try:
+                        if kernel.volume(piece) < 1e-9:
+                            continue
+                    except Exception:
+                        pass
+                    out.append((piece, colour))
+        for name, shape in was.items():
+            if name not in now:
+                out.append((shape, self.PREVIEW_CUT))
+        return out
+
+    def _preview_picks(self, feature, base) -> None:
+        """The edges or faces a feature works on, picked out on the base."""
+        refs = getattr(feature, "refs", None)
+        if base is None or refs is None or not len(refs):
+            return
+        try:
+            found, _lost = refs.resolve_all(base)
+        except Exception:
+            return
+        for shape in found:
+            self.viewport.draw_shape(shape, C.highlight, 3.0)
 
     def _draw_visible_planes(self) -> None:
         """Keep the switched-on datum and work planes on screen.
@@ -2402,7 +2649,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 continue
             self.editor.draw_reference(feature.sketch, units)
         self._draw_work_axes()
-        self.viewport.redraw()
+        self._show_tree_pick()
 
     def _reference_sketches(self, feature_id: int) -> list:
         """The visible sketches above the one being edited, to show with it.
@@ -2918,8 +3165,10 @@ class MainWindow(QtWidgets.QMainWindow):
         moved = tuple(anchor[i] + n[i] * distance for i in range(3))
 
         self.viewport.clear_preview()
+        # a little stronger than the planes at rest, being the one that is
+        # moving, but still see-through so the part shows how far it went
         self.viewport.draw_plane(preview, size, C.warn, preview=True,
-                                 transparency=0.62, centre=centre)
+                                 transparency=0.82, centre=centre)
         self.viewport.draw_edge(anchor, moved, C.warn, 1.6, preview=True,
                                 dashed=True)
         self.viewport.draw_text(
@@ -3044,7 +3293,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.document.rollback_index = self.document.index_of(feature_id) + 1
         self.document.rebuild()
         self.viewport.set_shape(
-            self.document.shape, keep_camera=True,
+            self.document.visible_shape(), keep_camera=True,
             appearance=self.document.material_appearance)
 
         # where the camera was, to go back to when the sketch is finished
@@ -3054,6 +3303,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # a first dimension sizes the sketch only while there is no body
         # yet for it to be out of proportion with
         self.editor.autoscale = self.document.shape is None
+        # the part as it stands under the sketch: its corners and edge
+        # middles are places to snap to
+        self.editor.set_model_shape(self.document.shape)
         self.editor.begin(feature.sketch, self.document.parameter_view())
         self._draw_visible_planes()      # clears them while sketching
         # swing round to the plane rather than snapping, so it stays obvious
@@ -3063,6 +3315,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.refresh_grid()
         self.ribbon.set_tab_visible(TAB_SKETCH, True)
         self.ribbon.show_tab(TAB_SKETCH)
+        self.sketch_toggles.setVisible(True)
+        self._place_sketch_toggles()
+        if self.slice_btn.isChecked():
+            self.set_slice_graphics(True)
         self.browser.refresh()
         self.status_message.setText("Editing %s" % feature.name)
         self._sync_tool_buttons()
@@ -3075,6 +3331,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.document.rollback_index = getattr(self, "_saved_rollback", None)
         self.ribbon.show_tab(TAB_MODEL)
         self.ribbon.set_tab_visible(TAB_SKETCH, False)
+        self.sketch_toggles.setVisible(False)
+        self._place_sketch_toggles()
+        self.viewport.set_clip("slice", None)
         self.ribbon.set_hint("")
         self.status_sketch.setText("")
         self.status_message.setStyleSheet("")
@@ -3096,6 +3355,34 @@ class MainWindow(QtWidgets.QMainWindow):
         Built apart from the event that shows it, so what the user gets can
         be read back without having to put a menu on screen.
         """
+        # a dimension under the cursor gets its own choices first: it is
+        # picked, so it is plain which one they are about
+        cid = self._dimension_under_menu()
+        if cid is not None:
+            # on one of several picked, the choices are about all of them;
+            # anywhere else that one alone is picked first
+            if cid not in self.editor.selected_dimensions:
+                self.editor.select_constraint(cid)
+            cids = list(self.editor.selected_dimensions) or [cid]
+            constraints = self.editor.sketch.constraints
+            several = len(cids) > 1
+            delete = menu.addAction(
+                icons.icon("delete", 16),
+                "Delete %d Dimensions" % len(cids) if several
+                else "Delete Dimension")
+            delete.triggered.connect(
+                lambda _=False, c=tuple(cids):
+                self.editor.delete_dimensions(c))
+            driven = menu.addAction("Driven Dimension")
+            driven.setCheckable(True)
+            driven.setChecked(all(not constraints[c].driving for c in cids))
+            driven.setToolTip("A driven dimension reads the sketch instead "
+                              "of holding it, shown in brackets")
+            driven.toggled.connect(
+                lambda on, c=tuple(cids):
+                [self.editor.set_driven(k, on) for k in c])
+            menu.addSeparator()
+
         # OK comes first, because the common thing to want after drawing a
         # run of lines is to stop.  It is only offered when a tool is
         # actually running - with nothing going on there is nothing to OK.
@@ -3114,6 +3401,22 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.addAction(icons.icon("finish", 16),
                        "Finish Sketch").triggered.connect(self.finish_sketch)
         return menu
+
+    def _dimension_under_menu(self) -> Optional[int]:
+        """The sketch dimension the right click was on, if any."""
+        editor = self.editor
+        if not editor.active or editor.sketch is None:
+            return None
+        where = getattr(self.viewport, "_menu_pos", None)
+        if where is not None:
+            uv = self.viewport.plane_point(where.x(), where.y())
+            if uv is not None:
+                cid = editor.pick_dimension(uv[0], uv[1])
+                if cid is not None:
+                    return cid
+        picked = [c for c in editor.selected_dimensions
+                  if c in editor.sketch.constraints]
+        return picked[-1] if picked else None
 
     def ok_sketch_tool(self) -> None:
         """Finish the running sketch tool, from the right-click menu."""
@@ -3141,6 +3444,110 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _set_snap(self, on: bool) -> None:
         self.editor.snap_grid = on
+
+    DIM_DISPLAY_LABELS = (("value", "Value", "40 mm"),
+                          ("name", "Name", "d2"),
+                          ("expression", "Expression", "d0 * 2"),
+                          ("both", "Name and Value", "d2 = 40 mm"))
+
+    def _build_sketch_toggles(self, bar) -> None:
+        """Inventor's sketch toggles, on the status bar while sketching.
+
+        Show Grid, Snap to Grid, Show All Constraints, how dimensions read,
+        and Slice Graphics, beside the sketch's own status.
+        """
+        holder = QtWidgets.QWidget()
+        row = QtWidgets.QHBoxLayout(holder)
+        row.setContentsMargins(0, 0, 8, 0)
+        row.setSpacing(1)
+
+        def toggle(icon_name: str, tip: str, checked: bool, slot):
+            button = QtWidgets.QToolButton(holder)
+            button.setObjectName("QuickButton")
+            button.setIcon(icons.icon(icon_name, 16))
+            button.setIconSize(QtCore.QSize(16, 16))
+            button.setToolTip(tip)
+            button.setAutoRaise(True)
+            button.setCheckable(True)
+            button.setChecked(checked)
+            button.setFixedSize(24, 20)
+            button.toggled.connect(slot)
+            row.addWidget(button)
+            return button
+
+        self.grid_btn = toggle("grid", "Show Grid", False,
+                               self.editor.set_show_grid)
+        self.snap_btn = toggle("point", "Snap to Grid", True, self._set_snap)
+        self.all_constraints_btn = toggle(
+            "c_fix", "Show All Constraints", False,
+            self.editor.set_show_all_constraints)
+
+        self.dim_display_btn = QtWidgets.QToolButton(holder)
+        self.dim_display_btn.setObjectName("QuickButton")
+        self.dim_display_btn.setIcon(icons.icon("dimension", 16))
+        self.dim_display_btn.setIconSize(QtCore.QSize(16, 16))
+        self.dim_display_btn.setFixedSize(30, 20)
+        self.dim_display_btn.setToolTip("How dimensions read")
+        self.dim_display_btn.setPopupMode(
+            QtWidgets.QToolButton.InstantPopup)
+        menu = QtWidgets.QMenu(self.dim_display_btn)
+        group = QtGui.QActionGroup(menu)
+        self._dim_display_actions = {}
+        for key, label, example in self.DIM_DISPLAY_LABELS:
+            action = menu.addAction("%s   (%s)" % (label, example))
+            action.setCheckable(True)
+            action.setChecked(key == "value")
+            group.addAction(action)
+            action.triggered.connect(
+                lambda _=False, k=key: self.editor.set_dimension_display(k))
+            self._dim_display_actions[key] = action
+        self.dim_display_btn.setMenu(menu)
+        row.addWidget(self.dim_display_btn)
+
+        self.slice_btn = toggle("section", "Slice Graphics: cut the part away "
+                                "in front of the sketch", False,
+                                self.set_slice_graphics)
+        # On the left, under the start of the view, where a hand already is:
+        # out at the right end of a wide screen they were a long way to go
+        # for a toggle.  The message keeps the strip to the left of them,
+        # and the rest of the bar's free space sits after them.
+        bar.addWidget(holder, 0)
+        filler = QtWidgets.QWidget()
+        bar.addWidget(filler, 1)
+        holder.setVisible(False)
+        self.sketch_toggles = holder
+        self._toggles_follow = _Follow(self.viewport, self._place_sketch_toggles)
+
+    def _place_sketch_toggles(self) -> None:
+        """Line the sketch toggles up with the left edge of the view."""
+        message = self.status_message
+        if not self.sketch_toggles.isVisible():
+            message.setMinimumWidth(0)
+            message.setMaximumWidth(16777215)
+            return
+        left = self.viewport.mapTo(self, QtCore.QPoint(0, 0)).x()
+        width = max(120, left - 6)
+        message.setMinimumWidth(width)
+        message.setMaximumWidth(width)
+
+    def set_slice_graphics(self, on: bool) -> None:
+        """Cut the part away on the camera side of the sketch plane.
+
+        A sketch on XZ through a cylinder then shows the cylinder halved,
+        with the sketch on the cut.  The cut sits a hair in front of the
+        plane, so the sketch on it is never cut away with it.
+        """
+        vp = self.viewport
+        if not on or not self.editor.active or self.editor.sketch is None:
+            vp.set_clip("slice", None)
+            return
+        plane = self.editor.sketch.plane
+        # a sketch is looked at from the side its normal points to, so that
+        # is the side cut away, wherever the view has been turned since
+        keep = tuple(-c for c in plane.normal)
+        hair = max(1e-3, self._picker_size() * 1e-4)
+        origin = tuple(plane.origin[i] - keep[i] * hair for i in range(3))
+        vp.set_clip("slice", (origin, keep))
 
     def _on_sketch_changed(self) -> None:
         self.document.modified = True
@@ -3260,6 +3667,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.viewport.clear_selection()
 
     def _on_viewport_selection(self) -> None:
+        if self._section_picked():
+            return
         if self.in_cam:
             self.cam_ui.on_selection()
             return
@@ -3446,8 +3855,170 @@ class MainWindow(QtWidgets.QMainWindow):
             saved.append(os.path.basename(path))
         return saved
 
+    # ------------------------------------------------------- section view
+
     def _toggle_section(self, on: bool) -> None:
-        self.viewport.set_section(on, STANDARD_PLANES["XZ"], 0.0)
+        """Section View: pick a flat face or a plane, then cut there.
+
+        Pressed again, the section goes.  While on, the button stays lit.
+        """
+        if not on:
+            self._end_section(keep=False)
+            return
+        self._section = None
+        self._section_pick = True
+        # the planes are offered to click, as for a new sketch
+        planes = (self.document.planes if not self.in_assembly
+                  and hasattr(self.document, "planes")
+                  else dict(STANDARD_PLANES))
+        self.viewport.show_plane_picker(planes, self._picker_size())
+        self.set_pick_mode("face")
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Section View: click a flat face or a plane. Esc to stop.")
+
+    def _section_picked(self) -> bool:
+        """A click while Section View waits for its plane.  True if used."""
+        if not getattr(self, "_section_pick", False):
+            return False
+        from ..core.features import plane_from_face
+        vp = self.viewport
+        plane = None
+        datum = vp.picked_plane()
+        if datum is not None:
+            planes = (self.document.planes if hasattr(self.document, "planes")
+                      else STANDARD_PLANES)
+            plane = planes.get(datum) or STANDARD_PLANES.get(datum)
+        else:
+            faces = list(vp.selected_faces())
+            if not faces and self.in_assembly:
+                faces = [s for _o, s in vp.selected_component_shapes()]
+            for face in faces:
+                plane = plane_from_face(face)
+                if plane is not None:
+                    break
+            if faces and plane is None:
+                self.status_message.setText(
+                    "Section View: that face is curved. Pick a flat face or "
+                    "a plane.")
+                vp.clear_selection()
+                return True
+        if plane is None:
+            return True
+        self._section_pick = False
+        vp.hide_plane_picker()
+        self.set_pick_mode(None)
+        # the camera side is what goes, so what is kept is the far side
+        d = vp.looking()
+        n = plane.normal
+        keep = n if sum(n[i] * d[i] for i in range(3)) > 0 else tuple(
+            -c for c in n)
+        self._section = {"plane": plane, "keep": keep}
+        bar = getattr(self, "section_bar", None)
+        if bar is None:
+            from .panels import SectionBar
+            bar = self.section_bar = SectionBar(self)
+            bar.changed.connect(self._apply_section)
+            bar.accepted.connect(lambda: self._end_section(keep=True))
+            bar.rejected.connect(lambda: self._end_section(keep=False))
+        bar.offset, bar.angle, bar.flipped = 0.0, 0.0, False
+        bar.move_button.setChecked(True)
+        bar.set_offset(0.0)
+        geo = self.viewport.geometry()
+        bar.adjustSize()
+        bar.move(self.viewport.mapToGlobal(QtCore.QPoint(
+            (geo.width() - bar.width()) // 2, 14)))
+        bar.show()
+        vp.section_drag = True
+        self._apply_section()
+        self.status_message.setText(
+            "Section View: drag in the view to move the cut, or type it. "
+            "OK to keep it.")
+        return True
+
+    def _section_frame(self):
+        """Where the cut is now: (origin, the normal of what is kept)."""
+        section = self._section
+        bar = self.section_bar
+        plane, keep = section["plane"], section["keep"]
+        n = keep
+        origin = plane.origin
+        if bar.angle:
+            # turned about the plane's own X direction through its origin
+            n = _turn(n, plane.xdir, bar.angle)
+        if bar.flipped:
+            n = tuple(-c for c in n)
+        # moved along the way it faces as first picked, so a typed distance
+        # means the same thing whichever side is kept
+        origin = tuple(origin[i] + keep[i] * bar.offset for i in range(3))
+        return origin, n
+
+    def _apply_section(self) -> None:
+        if getattr(self, "_section", None) is None:
+            return
+        origin, n = self._section_frame()
+        vp = self.viewport
+        vp.set_clip("section", (origin, n))
+        # the cut's own sheet while it is being placed
+        vp.remove_drawn(getattr(self, "_section_drawn", []))
+        self._section_drawn = []
+        if self.section_bar.isVisible():
+            from ..core.sketch import SketchPlane
+            with vp.collecting() as drawn:
+                vp.draw_plane(SketchPlane(origin, n, _perpendicular(n)),
+                              self._picker_size() * 0.8, C.accent,
+                              transparency=0.85)
+            self._section_drawn = drawn
+        vp.redraw()
+
+    def _section_drag_pressed(self) -> None:
+        if getattr(self, "_section", None) is None:
+            return
+        if self.section_bar.rotating:
+            return
+        origin, _n = self._section_frame()
+        keep = self._section["keep"]
+        self._section_drag_from = self.section_bar.offset
+        self._section_dragging = True
+        self.viewport.begin_axis_drag(origin, keep)
+
+    def _section_drag_moved(self, distance: float) -> None:
+        if not getattr(self, "_section_dragging", False):
+            return
+        self.section_bar.set_offset(self._section_drag_from + distance)
+        self._apply_section()
+
+    def _section_drag_finished(self, distance: float) -> None:
+        if not getattr(self, "_section_dragging", False):
+            return
+        self._section_dragging = False
+        self._section_drag_moved(distance)
+
+    def _end_section(self, keep: bool) -> None:
+        """OK keeps the cut and puts the toolbar away; Cancel removes it."""
+        vp = self.viewport
+        self._section_pick = False
+        vp.section_drag = False
+        vp.remove_drawn(getattr(self, "_section_drawn", []))
+        self._section_drawn = []
+        bar = getattr(self, "section_bar", None)
+        if bar is not None:
+            bar.hide()
+        if vp.plane_picker_active:
+            vp.hide_plane_picker()
+            self.set_pick_mode(None)
+        if not keep:
+            self._section = None
+            vp.set_clip("section", None)
+            if self.section_btn.isChecked():
+                self.section_btn.blockSignals(True)
+                self.section_btn.setChecked(False)
+                self.section_btn.blockSignals(False)
+            self.status_message.setText("")
+        else:
+            self.status_message.setText(
+                "Section View is on. Click the button again to take it off.")
+        vp.redraw()
 
     # ============================================================ edit stack
 
@@ -3497,6 +4068,11 @@ class MainWindow(QtWidgets.QMainWindow):
     # ============================================================== plumbing
 
     def _on_escape(self) -> None:
+        if getattr(self, "_section_pick", False) or (
+                getattr(self, "section_bar", None) is not None
+                and self.section_bar.isVisible()):
+            self._end_section(keep=False)
+            return
         # cancel the innermost operation first; Esc never leaves a sketch
         if self.in_drawing:
             # placing views stops, or the selection on the sheet goes
@@ -4227,16 +4803,136 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         if not self.editor.active:
             return
-        if self.document.shape is None:
-            QtWidgets.QMessageBox.information(
-                self, "Project Geometry",
-                "There is no body to project from yet.")
-            return
+        # with no body yet there is still the origin to project
         self.editor.set_tool("project")
         self.status_message.setStyleSheet("")
         self.status_message.setText(
             "Project Geometry: click a model edge, or a face to bring its "
-            "whole outline onto this sketch. Esc when you are done.")
+            "whole outline onto this sketch, or an origin or work plane, "
+            "axis or point in the tree. Esc when you are done.")
+
+    def _tree_picked(self, kind: str, key: str) -> None:
+        self._tree_pick = (kind, key)
+        self._show_tree_pick()
+
+    def _tree_hovered(self, kind: str, key: str) -> None:
+        self._tree_hover = (kind, key)
+        self._show_tree_pick()
+
+    def _show_tree_pick(self) -> None:
+        """Show a hidden plane, axis or sketch while it is picked in the tree.
+
+        Highlighted, for as long as it stays picked: picking another puts
+        the first back out of sight.  Its saved visibility is not touched;
+        this is only so you can see what you are pointing at.
+        """
+        vp = self.viewport
+        vp.remove_drawn(getattr(self, "_tree_pick_drawn", []))
+        self._tree_pick_drawn = []
+        doc = self.document
+        if (doc is None or self.in_assembly or self.editor.active
+                or not hasattr(doc, "planes")):
+            vp.redraw()
+            return
+        # what is picked, and what the pointer is over in the tree, so
+        # running the pointer down a column of planes shows each in turn
+        wanted = []
+        for pair in (getattr(self, "_tree_pick", ("", "")),
+                     getattr(self, "_tree_hover", ("", ""))):
+            if pair[0] and pair not in wanted:
+                wanted.append(pair)
+        drawn = []
+        for kind, key in wanted:
+            drawn += self._draw_tree_item(kind, key)
+        self._tree_pick_drawn = drawn
+        vp.redraw()
+
+    def _draw_tree_item(self, kind: str, key: str) -> list:
+        """Draw one hidden tree item highlighted; what was drawn."""
+        vp = self.viewport
+        doc = self.document
+        from OCP.Graphic3d import Graphic3d_ZLayerId_Default
+        from ..core.features import SketchFeature, WorkPlaneFeature
+        size = self._picker_size()
+        colour = C.highlight
+        with vp.collecting() as drawn:
+            if kind == "plane" and key in doc.planes \
+                    and not doc.plane_visible(key):
+                vp.draw_plane(doc.planes[key], size, colour,
+                              layer=Graphic3d_ZLayerId_Default,
+                              transparency=0.8)
+            elif kind == "axis" and key in doc.axes and not vp.show_origin:
+                axis = doc.axes[key]
+                d, o = axis.direction, axis.origin
+                vp.draw_edge(tuple(o[i] - d[i] * size for i in range(3)),
+                             tuple(o[i] + d[i] * size for i in range(3)),
+                             colour, 2.2)
+            elif kind == "feature":
+                try:
+                    feature = doc.feature(int(key))
+                except (TypeError, ValueError):
+                    feature = None
+                if (isinstance(feature, SketchFeature)
+                        and feature.sketch is not None
+                        and self.browser.is_sketch_hidden(feature.id, doc)):
+                    self.editor.draw_reference(
+                        feature.sketch, getattr(doc, "units", "mm") or "mm",
+                        colour=colour)
+                elif (isinstance(feature, WorkPlaneFeature)
+                      and feature.name in doc.planes
+                      and not doc.plane_visible(feature.name)):
+                    vp.draw_plane(doc.planes[feature.name], size, colour,
+                                  layer=Graphic3d_ZLayerId_Default,
+                                  transparency=0.8)
+        return drawn
+
+    def set_body_visibility(self, action: str, name: str) -> None:
+        """Hide or show solid bodies, from the tree's right click."""
+        doc = self.document
+        if doc is None:
+            return
+        if action == "hide":
+            doc.set_body_visible(name, False)
+        elif action == "show":
+            doc.set_body_visible(name, True)
+        elif action == "others":
+            doc.hide_other_bodies(name)
+        elif action == "all":
+            doc.show_all_bodies()
+        self.viewport.set_shape(doc.visible_shape(), keep_camera=True,
+                                appearance=doc.material_appearance)
+        self.browser.refresh()
+        self._update_title()
+
+    def _tree_item_clicked(self, kind: str, key: str) -> None:
+        """A click in the tree: projects it, if Project Geometry is on."""
+        if not self.editor.active or self.editor.tool != "project":
+            return
+        from ..core.features import WorkAxisFeature, WorkPlaneFeature
+        doc = self.document
+        what, geometry = None, None
+        if kind == "plane":
+            what, geometry = "plane", doc.planes.get(key)
+        elif kind == "axis":
+            what, geometry = "axis", doc.axes.get(key)
+        elif kind == "origin_point":
+            what, geometry = "point", (0.0, 0.0, 0.0)
+        elif kind == "feature":
+            try:
+                feature = doc.feature(int(key))
+            except (TypeError, ValueError):
+                feature = None
+            if isinstance(feature, WorkPlaneFeature):
+                what, geometry = "plane", doc.planes.get(feature.name)
+            elif isinstance(feature, WorkAxisFeature):
+                what, geometry = "axis", doc.axes.get(feature.name)
+        if what is None:
+            return
+        made = self.editor.project_datum(what, geometry, self._picker_size())
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Projected it. Keep clicking, or Esc to finish." if made else
+            "That is already on the sketch, or lies square to it.")
 
     def _project_picked_edge(self) -> None:
         """One model edge was clicked while Project Geometry is running."""
@@ -4274,6 +4970,62 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._plane_base is not None:
             self.viewport.end_axis_drag()
             self._plane_drag_finished(10.0)
+
+    # ------------------------------------------------------- the title bar
+
+    def toggle_maximised(self) -> None:
+        if self.isMaximized():
+            self.showNormal()
+        else:
+            self.showMaximized()
+
+    def changeEvent(self, event: QtCore.QEvent) -> None:
+        if event.type() == QtCore.QEvent.WindowStateChange:
+            self.ribbon.set_maximised(self.isMaximized())
+        super().changeEvent(event)
+
+    def showEvent(self, event: QtGui.QShowEvent) -> None:
+        super().showEvent(event)
+        if self._custom_frame and not self._frame_applied:
+            self._frame_applied = True
+            _frame.take_over(int(self.winId()))
+
+    # how near the edge counts as the edge, for resizing, in pixels
+    RESIZE_BORDER = 6
+
+    def title_hit(self, global_pos: QtCore.QPoint) -> int:
+        """What Windows should take a point of the window to be.
+
+        An edge or a corner to resize by, the title row's empty space to
+        drag the window by (and double click to maximise, and drag to an
+        edge of the screen to snap), or the inside of the window.
+        """
+        pos = self.mapFromGlobal(global_pos)
+        x, y, w = pos.x(), pos.y(), self.width()
+        # the left, right and bottom borders are Windows' own, outside the
+        # window; only the top one, where the caption was, is answered here
+        if not self.isMaximized() and y < self.RESIZE_BORDER:
+            b = self.RESIZE_BORDER * 2
+            if x < b:
+                return _frame.HT_TOPLEFT
+            if x >= w - b:
+                return _frame.HT_TOPRIGHT
+            return _frame.HT_TOP
+        bar = self.ribbon.qat_bar
+        inside = bar.mapFrom(self, pos)
+        if bar.rect().contains(inside):
+            child = bar.childAt(inside)
+            if child is None or child in (self.ribbon.document_label,
+                                          self.ribbon.logo):
+                return _frame.HT_CAPTION
+        return _frame.HT_CLIENT
+
+    def nativeEvent(self, event_type, message):
+        if self._custom_frame:
+            handled = _frame.handle(self, message)
+            if handled is not None:
+                return True, handled
+        return super().nativeEvent(event_type, message)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         # Restarting for an update has already asked about unsaved work,

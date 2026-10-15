@@ -1143,6 +1143,15 @@ class AssemblyController(QtCore.QObject):
             return
         self._drag_snapshot = doc.snapshot()
         self._dragging = occurrence_id
+        occurrence = doc.occurrence(occurrence_id)
+        # where it was when the drag began, which is where its picture was
+        # drawn, and the middle it turns about, worked out once rather than
+        # on every move of the mouse
+        self._drag_from = (occurrence.placement.copy()
+                           if occurrence is not None else None)
+        placed = occurrence.placed() if occurrence is not None else None
+        self._drag_centre = (kernel.shape_centre(placed)
+                             if placed is not None else None)
 
     def _free_drag_allowed(self, occurrence_id: int) -> bool:
         """What the viewport asks before dragging with no tool armed."""
@@ -1154,15 +1163,26 @@ class AssemblyController(QtCore.QObject):
         if occurrence is None:
             return
         if self.tool == "rotate":
-            placed = occurrence.placed()
-            centre = kernel.shape_centre(placed) if placed is not None else None
+            centre = getattr(self, "_drag_centre", None)
+            if centre is None:
+                placed = occurrence.placed()
+                centre = (kernel.shape_centre(placed)
+                          if placed is not None else None)
             occurrence.placement = occurrence.placement.rotated(delta, centre)
         else:
             occurrence.placement = occurrence.placement.translated(delta)
         doc.modified = True
-        # move the body only; a full solve on every mouse move would fight
-        # the drag, and the constraints are re-solved on release
-        self.show_components(keep_camera=True)
+        # Move the body only; a full solve on every mouse move would fight
+        # the drag, and the constraints are re-solved on release.  Only its
+        # picture moves, too: rebuilding every component's on each mouse
+        # move is what left a part crawling along behind the cursor in a
+        # decent size assembly.
+        start = getattr(self, "_drag_from", None)
+        if start is None or not self.viewport.move_component(
+                occurrence.id,
+                occurrence.placement.trsf().Multiplied(
+                    start.trsf().Inverted())):
+            self.show_components(keep_camera=True)
 
     def _drag_finished(self) -> None:
         doc = self.document
@@ -1172,6 +1192,8 @@ class AssemblyController(QtCore.QObject):
         del doc._undo[:-60]
         doc._redo.clear()
         self._drag_snapshot = None
+        self._drag_from = None
+        self._drag_centre = None
         report = self.rebuild()
         self.host.status_message.setText(report.solver or report.message)
 

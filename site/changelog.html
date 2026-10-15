@@ -45,7 +45,7 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="live-version">Latest: 0.2.7</span></div>
+        <span id="live-version">Latest: 0.2.8</span></div>
       <h1 style="font-size:clamp(34px,5vw,52px)">Changelog</h1>
       <p class="lede">
         Every release, what changed in it, and why. DATUM updates itself,
@@ -53,7 +53,7 @@
         just here so you can see what arrived.
       </p>
       <a class="btn ghost" id="get-latest"
-         href="https://api.iiteg.com/datum/0.2.7/DATUM-0.2.7-setup.exe">
+         href="https://api.iiteg.com/datum/0.2.8/DATUM-0.2.8-setup.exe">
         Download the current version</a>
     </div>
   </div>
@@ -79,9 +79,71 @@
 
     <div class="release current">
       <div class="head">
+        <span class="ver">0.2.8</span>
+        <span class="when">15 October 2026</span>
+        <span class="badge">current</span>
+      </div>
+      <p style="color:var(--dim);margin:0 0 12px">
+        A smooth view, previews of every feature before OK, Section View,
+        and the window laid out the way Inventor's is.
+      </p>
+      <ul>
+        <li><strong>A smooth view.</strong> Orbit, pan and zoom move the
+          camera and draw once per frame, however fast the mouse sends:
+          on a big assembly two seconds of orbiting used to take over
+          twenty to catch up, and now keeps up. The SpaceMouse draws once
+          a frame on all six axes, its speed is remembered, and it starts
+          three times faster. Free Move slides the part you drag without
+          redrawing the rest, and a fit glides straight into place.</li>
+        <li><strong>See what a feature does before OK.</strong> The part
+          as it was, and over it, see through, green what the feature adds
+          and red what it takes away. An extrude or a cut shows its whole
+          length, a fillet the material it removes on the sharp body, and
+          a pattern or a mirror every copy.</li>
+        <li><strong>Section View</strong> on the View tab: click a flat
+          face or a plane and the near side is cut away, through parts
+          and assemblies, with Flip, Move, Rotate and a drag handle.</li>
+        <li><strong>One title bar.</strong> The quick access row is the
+          window's title bar on Windows, with the name in the middle and
+          minimise, maximise and close at the end.</li>
+        <li><strong>Sketching:</strong> Redo works. A centre rectangle and
+          a centre slot hold their centre on what you click, so a size each
+          way fixes them (<a href="https://github.com/Artis-98/datum/issues/4">#4</a>),
+          and every rectangle, slot, arc and polygon takes typed sizes at
+          each click. A polygon takes its number of sides and holds
+          together when dragged. Dimensions can be picked, with Ctrl or a
+          box, deleted, and made driven, shown in brackets; a dimension
+          written in terms of a driven one follows it. The model's corners
+          and edge midpoints are snap points. The origin's axes, planes
+          and centre point can be projected. Show Grid, Snap to Grid, Show
+          All Constraints, how dimensions read, and Slice Graphics sit on
+          the status bar.</li>
+        <li><strong>The Extrude panel is laid out as Inventor's</strong>,
+          with Direction as buttons and the boolean called New Solid.</li>
+        <li><strong>Fillets round holes in a cylinder</strong> have no line
+          across them, and a pattern repeats the fillet with the hole.</li>
+        <li><strong>Projected arcs</strong> come the right way round, and
+          planes are faintly coloured everywhere, see through when
+          highlighted.</li>
+        <li><strong>The tree:</strong> solid bodies hide and show from a
+          right click, and a hidden plane or sketch shows while the pointer
+          is over it.</li>
+        <li><strong>Selection boxes</strong> in parts, assemblies and
+          sketches, filled, red left to right and green right to left; in
+          an assembly the parts in a box all take a material at once.</li>
+        <li><strong>Preferences:</strong> choose the mouse buttons for orbit
+          and pan, Inventor's way or with the left button, and the wheel
+          either way round.</li>
+        <li><strong>Old FORGE files</strong> are no longer read.</li>
+        <li><strong>Linux:</strong>
+          <a href="https://github.com/Artis-98/datum/releases/download/v0.2.8/DATUM-0.2.8-linux-x86_64-preview.tar.gz">Linux preview</a>.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head">
         <span class="ver">0.2.7</span>
         <span class="when">8 October 2026</span>
-        <span class="badge">current</span>
       </div>
       <p style="color:var(--dim);margin:0 0 12px">
         Offset that shows you the result, fillets on rings, a new look,
@@ -514,7 +576,7 @@
         ask it now from File then Check for Updates.
       </p>
       <a class="btn primary" id="get-latest-2"
-         href="https://api.iiteg.com/datum/0.2.7/DATUM-0.2.7-setup.exe">
+         href="https://api.iiteg.com/datum/0.2.8/DATUM-0.2.8-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>

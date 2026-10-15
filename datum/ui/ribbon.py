@@ -351,6 +351,10 @@ class Ribbon(QtWidgets.QWidget):
     """The whole ribbon: tab strip plus the stacked tab pages."""
 
     tab_changed = QtCore.Signal(str)
+    # the window buttons at the right of the title row
+    minimise_requested = QtCore.Signal()
+    maximise_requested = QtCore.Signal()
+    close_requested = QtCore.Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -368,8 +372,18 @@ class Ribbon(QtWidgets.QWidget):
         # combo boxes were cut off half way up
         self.qat_bar.setFixedHeight(32)
         qat_layout = QtWidgets.QHBoxLayout(self.qat_bar)
-        qat_layout.setContentsMargins(7, 2, 8, 2)
+        qat_layout.setContentsMargins(7, 2, 0, 2)
         qat_layout.setSpacing(2)
+
+        # This row is the window's title bar too, as in Inventor: the mark
+        # first, the program and the document in the middle, and the
+        # window buttons at the right end.
+        self.logo = QtWidgets.QLabel(self.qat_bar)
+        self.logo.setPixmap(icons.app_icon().pixmap(18, 18))
+        self.logo.setFixedSize(22, 22)
+        self.logo.setAlignment(QtCore.Qt.AlignCenter)
+        qat_layout.addWidget(self.logo)
+        qat_layout.addSpacing(4)
 
         self.quick_access = QtWidgets.QHBoxLayout()
         self.quick_access.setContentsMargins(0, 0, 0, 0)
@@ -396,10 +410,34 @@ class Ribbon(QtWidgets.QWidget):
 
         qat_layout.addStretch(1)
 
-        self.document_label = QtWidgets.QLabel("")
+        # "DATUM  Part1.pdat", in the very centre of the row whatever sits
+        # either side of it, so it is laid over the row rather than in it;
+        # clicks go through it to the row, which drags the window
+        self.document_label = QtWidgets.QLabel("", self.qat_bar)
+        self.document_label.setObjectName("WindowTitle")
+        self.document_label.setAlignment(QtCore.Qt.AlignCenter)
         self.document_label.setStyleSheet(
-            "color: %s; font-size: 11px;" % C.text_dim)
-        qat_layout.addWidget(self.document_label)
+            "color: %s; font-size: 12px;" % C.text_dim)
+        self.document_label.setAttribute(
+            QtCore.Qt.WA_TransparentForMouseEvents, True)
+        self.qat_bar.installEventFilter(self)
+
+        self.window_buttons = QtWidgets.QWidget(self.qat_bar)
+        buttons = QtWidgets.QHBoxLayout(self.window_buttons)
+        buttons.setContentsMargins(0, 0, 0, 0)
+        buttons.setSpacing(0)
+        self.minimise_button = self._window_button("min", "Minimise")
+        self.maximise_button = self._window_button("max", "Maximise")
+        self.close_button = self._window_button("close", "Close")
+        self.close_button.setObjectName("WindowClose")
+        self.minimise_button.clicked.connect(self.minimise_requested)
+        self.maximise_button.clicked.connect(self.maximise_requested)
+        self.close_button.clicked.connect(self.close_requested)
+        for button in (self.minimise_button, self.maximise_button,
+                       self.close_button):
+            buttons.addWidget(button)
+        qat_layout.addWidget(self.window_buttons)
+        self.window_buttons.setVisible(False)
 
         root.addWidget(self.qat_bar)
 
@@ -534,6 +572,70 @@ class Ribbon(QtWidgets.QWidget):
         line.setStyleSheet("color: %s; margin: 3px 5px;" % C.border_light)
         self.quick_access.addWidget(line)
 
+    def _window_button(self, kind: str, tip: str) -> QtWidgets.QToolButton:
+        button = QtWidgets.QToolButton(self.window_buttons)
+        button.setObjectName("WindowButton")
+        button.setIcon(icons.window_icon(kind))
+        button.setIconSize(QtCore.QSize(12, 12))
+        button.setToolTip(tip)
+        button.setAutoRaise(True)
+        button.setFixedSize(46, 32)
+        return button
+
+    def show_window_buttons(self, on: bool) -> None:
+        """The title row's own minimise, maximise and close, when it is
+        the window's title bar."""
+        self.window_buttons.setVisible(on)
+        self.qat_bar.layout().setContentsMargins(7, 0 if on else 2,
+                                                 0 if on else 8,
+                                                 0 if on else 2)
+        self._place_title()
+
+    def set_maximised(self, maximised: bool) -> None:
+        self.maximise_button.setIcon(
+            icons.window_icon("restore" if maximised else "max"))
+        self.maximise_button.setToolTip(
+            "Restore Down" if maximised else "Maximise")
+
+    def eventFilter(self, obj, event) -> bool:
+        if obj is self.qat_bar and event.type() in (
+                QtCore.QEvent.Resize, QtCore.QEvent.LayoutRequest):
+            # after the row has laid itself out, so the pickers are where
+            # they are going to be
+            QtCore.QTimer.singleShot(0, self._place_title)
+        return super().eventFilter(obj, event)
+
+    def _place_title(self) -> None:
+        """The title in the middle of the row, or of the room there is.
+
+        In the very centre when nothing is in the way; on a narrow window,
+        where the material pickers reach the middle, centred in the gap
+        between them and the window buttons, shortened if it must be.
+        """
+        bar = self.qat_bar
+        label = self.document_label
+        text = getattr(self, "_title_text", label.text())
+        metrics = label.fontMetrics()
+        want = metrics.horizontalAdvance(text) + 12
+        left_end = 0
+        for child in bar.findChildren(QtWidgets.QWidget,
+                                      options=QtCore.Qt.FindDirectChildrenOnly):
+            if child in (label, self.window_buttons) or not child.isVisible():
+                continue
+            left_end = max(left_end, child.geometry().right() + 1)
+        right_start = (self.window_buttons.x() if self.window_buttons.isVisible()
+                       else bar.width())
+        gap_left, gap_right = left_end + 16, right_start - 16
+        x = (bar.width() - want) // 2
+        if x < gap_left or x + want > gap_right:
+            x = max(gap_left, (gap_left + gap_right - want) // 2)
+        width = max(0, min(want, gap_right - x))
+        label.setText(metrics.elidedText(text, QtCore.Qt.ElideMiddle,
+                                         max(0, width - 12)))
+        label.setGeometry(x, 0, width, bar.height())
+
     def set_document_label(self, text: str) -> None:
-        self.document_label.setText(text)
+        self._title_text = "DATUM  %s" % text if text else "DATUM"
+        self.document_label.setText(self._title_text)
+        self._place_title()
 

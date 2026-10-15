@@ -291,8 +291,7 @@ def main(argv=None) -> int:
 
     from .core import fileformat
 
-    openable = tuple(fileformat.EXTENSIONS.values()) + (
-        fileformat.LEGACY_EXTENSION,)
+    openable = tuple(fileformat.EXTENSIONS.values())
     for arg in argv[1:]:
         if arg.lower().endswith(openable) and os.path.exists(arg):
             window.open_path(arg)

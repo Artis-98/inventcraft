@@ -230,7 +230,9 @@ class LiveDimensionBar(QtWidgets.QWidget):
         """Update the fields the user has not taken over, and follow the cursor."""
         for i, value in enumerate(values):
             if i < len(self.fields) and not self.locked[i]:
-                self.fields[i].setText("%.3f" % value)
+                # a count, a polygon's sides, reads as a whole number
+                self.fields[i].setText("%d" % value if isinstance(value, int)
+                                       else "%.3f" % value)
         self.show_at(at)
 
     def type_key(self, key: int, text: str) -> bool:

@@ -8,7 +8,9 @@ OCCT presentations on the top Z-layers instead.
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
+import gc
 import math
 import os
 import sys
@@ -314,6 +316,14 @@ class Viewport(QtWidgets.QWidget):
         # select tool drags things - a drawing tool wants every press to be
         # a click, however much the hand is moving at the time.
         self.plane_drag_allowed = True
+        # while a section view is being placed, a left drag moves it
+        self.section_drag = False
+        # asked by a sketch whether a press lands on its geometry, so a left
+        # button that navigates does not pan away from a point being dragged
+        self.plane_press_hits: Optional[Callable[[float, float], bool]] = None
+        self._left_nav: Optional[str] = None
+        self._left_navigated = False
+        self._nav_kind = "pan"
 
         # pulling a work plane off a face
         self.plane_tool = False
@@ -997,8 +1007,11 @@ class Viewport(QtWidgets.QWidget):
     # it; dragged right to left, it takes anything it touches.  That is the
     # convention every CAD package shares, and the two colours are what
     # tell you which one you are doing before you let go.
-    BOX_WINDOW = "#4ea3f0"      # left to right: fully enclosed
+    # Filled and see-through, so it is plain what is inside.
+    BOX_WINDOW = "#e05a5a"      # left to right: fully enclosed
     BOX_CROSSING = "#4ee08a"    # right to left: anything touched
+    BOX_FILL = 0.85             # how see-through the fill is
+    TOPMOST_LAYER = Graphic3d_ZLayerId_Topmost
 
     def _draw_selection_box(self, start: QtCore.QPoint,
                             now: QtCore.QPoint) -> None:
@@ -1012,25 +1025,64 @@ class Viewport(QtWidgets.QWidget):
         line = Quantity_Color(colour.redF(), colour.greenF(), colour.blueF(),
                               Quantity_TOC_RGB)
 
-        if self._sel_band is None:
+        fresh = self._sel_band is None
+        if fresh:
             band = AIS_RubberBand(line, Aspect_TypeOfLine.Aspect_TOL_SOLID,
-                                  line, 0.18, 1.6)
+                                  line, self.BOX_FILL, 1.6)
             band.SetZLayer(Graphic3d_ZLayerId_TopOSD)
-            band.SetTransformPersistence(None)
+            # Left with the rubber band's own 2D persistence, so its corners
+            # are screen pixels and it sits flat on the glass whichever way
+            # the view is turned.  Switched off, they were read as model
+            # coordinates and the box hung on some plane in the scene.
             self._sel_band = band
-            self.context.Display(band, False)
         else:
             self._sel_band.SetLineColor(line)
             self._sel_band.SetFillColor(line)
 
-        height = self.height()
-        # the rubber band counts from the bottom, the mouse from the top
-        self._sel_band.SetRectangle(min(start.x(), now.x()),
-                                    height - max(start.y(), now.y()),
-                                    max(start.x(), now.x()),
-                                    height - min(start.y(), now.y()))
-        self.context.Redisplay(self._sel_band, False)
+        # in device pixels, counted from the bottom; the mouse gives
+        # logical ones from the top
+        x0, y0 = self._px(min(start.x(), now.x()), min(start.y(), now.y()))
+        x1, y1 = self._px(max(start.x(), now.x()), max(start.y(), now.y()))
+        height = self._px(0, self.height())[1]
+        self._sel_band.SetRectangle(x0, height - y1, x1, height - y0)
+        # filled only once it has corners: a fill with none to go round
+        # stops OCCT dead
+        self._sel_band.SetFilling(True)
+        if fresh:
+            self.context.Display(self._sel_band, False)
+        else:
+            self.context.Redisplay(self._sel_band, False)
         self.view.RedrawImmediate()
+
+    def draw_fill(self, corners, colour: str,
+                  transparency: float = 0.85,
+                  preview: bool = True,
+                  layer=Graphic3d_ZLayerId_Topmost) -> Optional[AIS_Shape]:
+        """A flat see-through polygon through 3D corners, such as a box."""
+        if not self._ready or len(corners) < 3:
+            return None
+        from OCP.BRepBuilderAPI import (BRepBuilderAPI_MakeFace,
+                                        BRepBuilderAPI_MakePolygon)
+        try:
+            ring = BRepBuilderAPI_MakePolygon()
+            for c in corners:
+                ring.Add(gp_Pnt(*c))
+            ring.Close()
+            face = BRepBuilderAPI_MakeFace(ring.Wire(), True).Face()
+        except Exception:
+            return None
+        ais = AIS_Shape(face)
+        ais.SetColor(_col(colour))
+        ais.SetDisplayMode(1)
+        ais.Attributes().SetFaceBoundaryDraw(False)
+        # over everything, as a selection box always is
+        self._add(ais, preview, layer)
+        # finite, or OCCT draws it as an outline only
+        ais.SetInfiniteState(False)
+        if self.context is not None:
+            self.context.SetTransparency(ais, transparency, False)
+            self.context.Redisplay(ais, False)
+        return ais
 
     def _clear_selection_box(self) -> None:
         if self._sel_band is not None:
@@ -1273,10 +1325,27 @@ class Viewport(QtWidgets.QWidget):
     # being drawn, which is overlay rather than scenery to OCCT
     fit_extra: Optional[Callable[[], Sequence[Tuple[float, float, float]]]] = None
 
-    def fit_all(self) -> None:
+    # how long a fit asked for by hand takes to glide into place
+    FIT_GLIDE_MS = 700
+
+    def fit_all(self, animate: bool = False) -> None:
+        """Bring everything into view.
+
+        Asked for by hand (the wheel clicked twice, the Fit button, Home) it
+        glides there over most of a second, so it is plain where the view
+        went; anything the program fits for itself jumps straight there.
+        """
         if not self._ready:
             return
+        if animate and self.isVisible():
+            self.animate_to(self._fit_camera, duration_ms=self.FIT_GLIDE_MS)
+            return
         self.finish_animation()
+        self._fit_camera()
+        self.redraw()
+
+    def _fit_camera(self) -> None:
+        """Put the camera where a fit wants it, drawing nothing."""
         extra = []
         if self.fit_extra is not None:
             try:
@@ -1291,7 +1360,6 @@ class Viewport(QtWidgets.QWidget):
             self.view.ZFitAll()
         except Exception:
             pass
-        self.redraw()
 
     def _fit_with(self, points) -> bool:
         """Fit the scene and some points besides it."""
@@ -1426,6 +1494,21 @@ class Viewport(QtWidgets.QWidget):
         self._animation_step = 0
         self._animation_end = end
 
+        # A move that only pans and zooms, which is what a fit is, slides
+        # the model straight to where it ends up.  Easing the centre and
+        # the zoom each on their own made it swing round in an arc on the
+        # way, because a point's place on screen is its offset over the
+        # zoom and the two did not keep step.
+        def facing(cam):
+            return _unit3(tuple(cam[1][i] - cam[0][i] for i in range(3)))
+
+        straight = (start[3] > 0 and end[3] > 0
+                    and sum(a * b for a, b in zip(facing(start), facing(end)))
+                    > 1.0 - 1e-9
+                    and sum(a * b for a, b in zip(_unit3(start[2]),
+                                                  _unit3(end[2])))
+                    > 1.0 - 1e-9)
+
         def tick() -> None:
             self._animation_step += 1
             t = self._animation_step / steps
@@ -1434,12 +1517,35 @@ class Viewport(QtWidgets.QWidget):
                 return
             # smoothstep, so the move settles instead of stopping dead
             e = t * t * (3.0 - 2.0 * t)
-            self._set_camera(
-                _lerp3(start[0], end[0], e),
-                _lerp3(start[1], end[1], e),
-                _lerp3(start[2], end[2], e),
-                start[3] + (end[3] - start[3]) * e,
-            )
+            # the zoom by ratio rather than by difference, so a big zoom
+            # out does not rush at the start and crawl at the end
+            if start[3] > 0 and end[3] > 0:
+                scale = start[3] * (end[3] / start[3]) ** e
+            else:
+                scale = start[3] + (end[3] - start[3]) * e
+            if straight:
+                # the centre placed so the point the view ends on crosses
+                # the screen in a straight line at an even pace
+                k = (scale / start[3]) * (1.0 - e)
+                centre = tuple(end[1][i] - k * (end[1][i] - start[1][i])
+                               for i in range(3))
+                back = _lerp3(tuple(start[0][i] - start[1][i]
+                                    for i in range(3)),
+                              tuple(end[0][i] - end[1][i] for i in range(3)),
+                              e)
+                eye = tuple(centre[i] + back[i] for i in range(3))
+                self._set_camera(eye, centre, end[2], scale)
+            else:
+                self._set_camera(
+                    _lerp3(start[0], end[0], e),
+                    _lerp3(start[1], end[1], e),
+                    _lerp3(start[2], end[2], e),
+                    scale,
+                )
+            try:
+                self.view.ZFitAll()      # nothing clipped on the way
+            except Exception:
+                pass
             self.redraw()
 
         self._set_camera(*start)
@@ -1532,9 +1638,183 @@ class Viewport(QtWidgets.QWidget):
         except Exception:
             pass
 
+    @contextlib.contextmanager
+    def collecting(self):
+        """Hand back what gets drawn in here, kept out of the overlay.
+
+        For pictures with a life of their own, like the hidden item the
+        tree has picked: an overlay is cleared whenever a sketch redraws,
+        and these come and go with the tree's selection instead.
+        """
+        start = len(self._overlay)
+        got: List[Any] = []
+        try:
+            yield got
+        finally:
+            got.extend(self._overlay[start:])
+            del self._overlay[start:]
+
+    def remove_drawn(self, drawn) -> None:
+        """Take away what collecting() handed out."""
+        if not self._ready:
+            return
+        for ais in drawn:
+            try:
+                self.context.Remove(ais, False)
+            except Exception:
+                pass
+
+    def move_component(self, occurrence_id: int, trsf) -> bool:
+        """Shift one component's picture, without rebuilding anything.
+
+        ``trsf`` takes it from where it was drawn to where it is now.  The
+        frame is drawn once the mouse has stopped sending moves for this
+        turn of the event loop, so a burst of them costs one redraw.
+        """
+        ais = self._component_ais.get(int(occurrence_id))
+        if not self._ready or ais is None:
+            return False
+        from OCP.TopLoc import TopLoc_Location
+        self.context.SetLocation(ais, TopLoc_Location(trsf))
+        self.request_frame()
+        return True
+
+    def request_frame(self) -> None:
+        """Redraw soon, once, however many times this is asked for."""
+        if not self._ready or getattr(self, "_frame_pending", False):
+            return
+        self._frame_pending = True
+
+        def draw() -> None:
+            self._frame_pending = False
+            self.redraw()
+
+        QtCore.QTimer.singleShot(0, draw)
+
+    # frame times are kept for the readout, the last this many
+    FRAME_SAMPLES = 30
+    # Antialiasing while the view is being moved; None leaves it alone.
+    # Measured on the excavator: with one frame per turn the view keeps up
+    # with a 1000 Hz mouse at the usual eight samples, and switching to
+    # none for the drag made it worse, the switch costing more than the
+    # samples saved.  Kept as a setting for weaker graphics.
+    MOVING_MSAA = None
+
+    frame_timed = QtCore.Signal(float)        # ms, averaged, when asked for
+    section_drag_pressed = QtCore.Signal()
+
     def redraw(self) -> None:
-        if self._ready and self.view is not None:
+        if not self._ready or self.view is None:
+            return
+        if getattr(self, "_frame_depth", 0):
+            # inside one_frame: drawn once, when it is done
+            self._frame_dirty = True
+            return
+        if not getattr(self, "show_frame_time", False):
             self.view.Redraw()
+            return
+        started = time.perf_counter()
+        self.view.Redraw()
+        took = (time.perf_counter() - started) * 1000.0
+        samples = getattr(self, "_frame_samples", [])
+        samples.append(took)
+        del samples[:-self.FRAME_SAMPLES]
+        self._frame_samples = samples
+        self.frame_timed.emit(sum(samples) / len(samples))
+
+    def set_frame_time(self, on: bool) -> None:
+        """Report how long each frame takes, for finding what is slow."""
+        self.show_frame_time = bool(on)
+        self._frame_samples = []
+        if not on:
+            self.frame_timed.emit(-1.0)
+
+    @contextlib.contextmanager
+    def camera_only(self):
+        """Move the camera without drawing; one frame is asked for after.
+
+        A mouse sends hundreds of moves a second, and each one used to draw
+        the whole model.  The frames queued up behind each other, so the
+        view stuttered and lagged behind the hand.  Now each move only
+        moves the camera, and however many arrive before the next frame
+        can be drawn, that frame shows where they all ended up.
+        """
+        with self.one_frame(defer=True):
+            yield
+
+    def begin_moving(self) -> None:
+        """The view starts moving: drawing gets lighter until it stops."""
+        if getattr(self, "_moving", False) or not self._ready:
+            return
+        self._moving = True
+        # a collection in the middle of a drag is a frame dropped for
+        # nothing; it can wait until the hand stops
+        self._gc_was = gc.isenabled()
+        gc.disable()
+        self._msaa_before = None
+        if self.MOVING_MSAA is not None:
+            try:
+                params = self.view.ChangeRenderingParams()
+                if params.NbMsaaSamples != self.MOVING_MSAA:
+                    self._msaa_before = params.NbMsaaSamples
+                    params.NbMsaaSamples = self.MOVING_MSAA
+            except Exception:
+                self._msaa_before = None
+
+    def end_moving(self) -> None:
+        """The view has stopped: full quality again, drawn at once."""
+        if not getattr(self, "_moving", False):
+            return
+        self._moving = False
+        if self._msaa_before is not None:
+            try:
+                self.view.ChangeRenderingParams().NbMsaaSamples = \
+                    self._msaa_before
+            except Exception:
+                pass
+            self._msaa_before = None
+        if getattr(self, "_gc_was", True):
+            gc.enable()
+        self.refresh_grid()
+        self.redraw()
+
+    @contextlib.contextmanager
+    def one_frame(self, defer: bool = False):
+        """Make several camera moves and draw the outcome once.
+
+        OCCT redraws after every camera call while immediate update is on,
+        so a SpaceMouse frame that panned, zoomed and turned drew the whole
+        model three or four times, and the grid once more; the more axes
+        pushed, the more frames behind the view fell.  Inside this, the
+        moves only move the camera, and the one redraw comes at the end.
+        """
+        if not self._ready or self.view is None:
+            yield
+            return
+        depth = getattr(self, "_frame_depth", 0)
+        if depth == 0:
+            self._frame_dirty = False
+            try:
+                self._frame_immediate = self.view.SetImmediateUpdate(False)
+            except Exception:
+                self._frame_immediate = None
+        self._frame_depth = depth + 1
+        try:
+            yield
+        finally:
+            self._frame_depth -= 1
+            if self._frame_depth == 0:
+                if self._frame_immediate is not None:
+                    try:
+                        self.view.SetImmediateUpdate(self._frame_immediate)
+                    except Exception:
+                        pass
+                if self._frame_dirty or defer:
+                    self._frame_dirty = False
+                    if defer:
+                        self.request_frame()
+                    else:
+                        self.redraw()
 
     # ------------------------------------------------------------- overlays
 
@@ -1611,23 +1891,71 @@ class Viewport(QtWidgets.QWidget):
         maker = BRepBuilderAPI_MakeFace(builder.Wire())
         return maker.Face() if maker.IsDone() else None
 
+    # How see-through a plane's sheet is, and its highlight when the
+    # cursor is on it: faint enough that the model shows through both.
+    PLANE_FILL = 0.92
+    PLANE_HIGHLIGHT = 0.78
+
     def draw_plane(self, plane: SketchPlane, size: float, colour: str,
-                   preview: bool = False, transparency: float = 0.72,
-                   centre: Tuple[float, float] = (0.0, 0.0)
-                   ) -> Optional[AIS_Shape]:
+                   preview: bool = False, transparency: float = PLANE_FILL,
+                   centre: Tuple[float, float] = (0.0, 0.0),
+                   layer=Graphic3d_ZLayerId_Top,
+                   edge_width: float = 2.2) -> Optional[AIS_Shape]:
         face = self.plane_face(plane, size, centre)
         if face is None:
             return None
         ais = AIS_Shape(face)
         tint = _col(colour)
         ais.SetColor(tint)
-        ais.SetTransparency(transparency)
         ais.SetDisplayMode(1)
         drawer = ais.Attributes()
         drawer.SetFaceBoundaryDraw(True)
         drawer.SetFaceBoundaryAspect(Prs3d_LineAspect(
-            tint, Aspect_TypeOfLine.Aspect_TOL_SOLID, 2.2))
-        return self._add(ais, preview)
+            tint, Aspect_TypeOfLine.Aspect_TOL_SOLID, edge_width))
+        self._add(ais, preview, layer)
+        # Every overlay is marked infinite so Fit All leaves it out, and
+        # OCCT draws an infinite shape as wireframe whatever its display
+        # mode: that is what left the plane picker, the Plane tool and a
+        # plane being dragged off a face as bare outlines.  A sheet is
+        # finite, so it gets its fill.
+        ais.SetInfiniteState(False)
+        self._see_through_highlight(ais)
+        # through the context once it is shown: set on the shape before,
+        # the fill was dropped and a plane was only ever its outline
+        if self.context is not None:
+            self.context.SetTransparency(ais, transparency, False)
+            # and drawn again: without it the sheet keeps the presentation
+            # it was first given, which has no fill at all
+            self.context.Redisplay(ais, False)
+        return ais
+
+    def _see_through_highlight(self, ais: AIS_Shape) -> None:
+        """Hover or pick a plane without it hiding what is behind it.
+
+        The context's own highlight is solid, which suits a face but turned
+        a plane under the cursor into a wall across the model.  The plane
+        gets the same colours, see-through.
+        """
+        ctx = self.context
+        if ctx is None:
+            return
+        for kind, setter in (
+                (Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_Dynamic,
+                 ais.SetDynamicHilightAttributes),
+                (Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_Selected,
+                 ais.SetHilightAttributes)):
+            try:
+                style = ctx.HighlightStyle(kind)
+                drawer = Prs3d_Drawer()
+                drawer.SetLink(style)
+                drawer.SetColor(style.Color())
+                drawer.SetMethod(style.Method())
+                drawer.SetDisplayMode(1)
+                drawer.SetZLayer(style.ZLayer())
+                drawer.SetTransparency(self.PLANE_HIGHLIGHT)
+                setter(drawer)
+            except Exception:
+                pass
 
     # -- planes shown on the model all the time -----------------------------
 
@@ -1647,12 +1975,16 @@ class Viewport(QtWidgets.QWidget):
 
         for key, plane in planes.items():
             colour = self.PLANE_COLOURS.get(key, "#c8a24f")
-            ais = self.draw_plane(plane, size, colour, transparency=0.86)
+            # a faint fill at the plane's true depth, so the part hides
+            # what is behind it and where the plane passes through the
+            # part can be seen, without the sheet getting in the way
+            ais = self.draw_plane(plane, size, colour,
+                                  layer=Graphic3d_ZLayerId_Default,
+                                  edge_width=1.6)
             if ais is None:
                 continue
             if ais in self._overlay:
                 self._overlay.remove(ais)
-            ais.SetInfiniteState(False)
             self.context.Activate(ais, SEL_SHAPE, True)
             self._plane_display[key] = ais
 
@@ -1694,13 +2026,16 @@ class Viewport(QtWidgets.QWidget):
         colours = self.PLANE_COLOURS
         for key, plane in planes.items():
             colour = colours.get(key, "#c8a24f")
-            ais = self.draw_plane(plane, size, colour)
+            # the same faint sheets as the planes always on show, at their
+            # true depth, so picking one looks like the planes you know
+            ais = self.draw_plane(plane, size, colour,
+                                  layer=Graphic3d_ZLayerId_Default,
+                                  edge_width=1.6)
             if ais is None:
                 continue
             # picker planes are clickable, unlike ordinary overlay geometry
             if ais in self._overlay:
                 self._overlay.remove(ais)
-            ais.SetInfiniteState(False)
             self.context.Activate(ais, SEL_SHAPE, True)
             self._plane_picker[key] = ais
 
@@ -1989,6 +2324,31 @@ class Viewport(QtWidgets.QWidget):
             ais.Attributes().SetWireAspect(aspect)
         return self._add(ais, preview, fittable=fittable)
 
+    def draw_ghost(self, shape: TopoDS_Shape, colour: str,
+                   transparency: float = 0.55) -> Optional[AIS_Shape]:
+        """A solid drawn see-through over everything, for a preview.
+
+        Over everything, so the whole of it shows: a cut runs through the
+        part, and what is wanted is to see how far it reaches.
+        """
+        if not self._ready or shape is None or shape.IsNull():
+            return None
+        ais = AIS_Shape(shape)
+        tint = _col(colour)
+        ais.SetColor(tint)
+        ais.SetDisplayMode(1)
+        drawer = ais.Attributes()
+        drawer.SetFaceBoundaryDraw(True)
+        drawer.SetFaceBoundaryAspect(Prs3d_LineAspect(
+            tint, Aspect_TypeOfLine.Aspect_TOL_SOLID, 1.2))
+        _hide_seams(drawer)
+        self._add(ais, False, Graphic3d_ZLayerId_Topmost)
+        # finite, or OCCT draws it as an outline only
+        ais.SetInfiniteState(False)
+        self.context.SetTransparency(ais, transparency, False)
+        self.context.Redisplay(ais, False)
+        return ais
+
     def draw_tint(self, shape: TopoDS_Shape, colour: str,
                   preview: bool = True) -> AIS_InteractiveObject:
         """A face washed over in a colour, or an edge drawn thick in it.
@@ -2117,12 +2477,23 @@ class Viewport(QtWidgets.QWidget):
                             gp_Dir(*plane.xdir))
                 self.viewer.SetPrivilegedPlane(ax)
             span = max(20.0, self.view_span())
+            # Rebuilt only when it would come out different: the step has
+            # changed, or the view has grown or shrunk past what the grid
+            # covers.  Every camera move asked for it, and building it each
+            # frame was half of what made the SpaceMouse lag in a sketch.
+            key = (id(plane), plane.origin if plane else None,
+                   plane.normal if plane else None, step,
+                   round(math.log(span * 1.5) * 4.0))
+            if key == getattr(self, "_grid_key", None):
+                return
+            self._grid_key = key
             self.viewer.SetRectangularGridValues(0.0, 0.0, step, step, 0.0)
             self.viewer.SetRectangularGridGraphicValues(span * 1.5, span * 1.5,
                                                         0.0)
             self.viewer.ActivateGrid(Aspect_GridType.Aspect_GT_Rectangular,
                                      Aspect_GridDrawMode.Aspect_GDM_Lines)
         else:
+            self._grid_key = None
             self.viewer.DeactivateGrid()
         self.redraw()
 
@@ -2352,9 +2723,15 @@ class Viewport(QtWidgets.QWidget):
         """
         if not self._ready:
             return
+        with self.one_frame():
+            self._spacemouse_frame(tx, ty, tz, rx, ry, rz, pan_speed,
+                                   zoom_speed, rotate_speed)
 
+    def _spacemouse_frame(self, tx, ty, tz, rx, ry, rz, pan_speed,
+                          zoom_speed, rotate_speed) -> None:
         span = self.view_span() or 100.0
         moved = False
+        zoomed = False
 
         # pan - the puck's X/Z slide
         pan_x = tx * pan_speed
@@ -2370,6 +2747,7 @@ class Viewport(QtWidgets.QWidget):
             if factor > 0.05:
                 self.view.SetZoom(factor, True)
                 moved = True
+                zoomed = True
 
         # orbit - tilt and twist, about the middle of the model.  On the
         # turntable the twist spins about Z and the tilt pitches, and the
@@ -2395,7 +2773,9 @@ class Viewport(QtWidgets.QWidget):
                 self.view.ZFitAll()
             except Exception:
                 pass
-            self.refresh_grid()
+            # only a zoom changes the grid's spacing
+            if zoomed:
+                self.refresh_grid()
             self.redraw()
 
     # ------------------------------------------------------------ turntable
@@ -2463,6 +2843,47 @@ class Viewport(QtWidgets.QWidget):
 
     _turntable_drag = False
 
+    @staticmethod
+    def navigation_for(button, modifiers) -> Optional[str]:
+        """"orbit", "pan" or None: what this button, held, does to the view.
+
+        From the preferences, so a person who pans with the left button or
+        orbits the way Inventor does gets that.  The wheel held with Shift
+        still orbits when nothing else is on it, and the wheel alone still
+        pans, because neither has anything better to do.
+        """
+        from ..core import prefs as core_prefs
+        p = core_prefs.prefs()
+        shift = bool(modifiers & QtCore.Qt.ShiftModifier)
+        if button == QtCore.Qt.LeftButton:
+            # Shift and the left button draw a selection box instead
+            key = None if shift else core_prefs.MOUSE_LEFT
+        elif button == QtCore.Qt.MiddleButton:
+            key = (core_prefs.MOUSE_SHIFT_MIDDLE if shift
+                   else core_prefs.MOUSE_MIDDLE)
+        elif button == QtCore.Qt.RightButton:
+            key = core_prefs.MOUSE_RIGHT
+        else:
+            return None
+        if key is None:
+            return None
+        if p.mouse_orbit == key:
+            return "orbit"
+        if p.mouse_pan == key:
+            return "pan"
+        if key == core_prefs.MOUSE_SHIFT_MIDDLE:
+            return "orbit"
+        if key == core_prefs.MOUSE_MIDDLE:
+            return "pan"
+        return None
+
+    def _begin_navigation(self, kind: str, pos: QtCore.QPoint) -> None:
+        self._navigating = True
+        self._nav_kind = kind
+        self.begin_moving()
+        if kind == "orbit":
+            self._start_orbit(pos)
+
     def _start_orbit(self, pos: QtCore.QPoint) -> None:
         """Begin a mouse orbit, free or turntable as the user prefers."""
         self._turntable_drag = self.turntable_wanted()
@@ -2491,23 +2912,56 @@ class Viewport(QtWidgets.QWidget):
 
     def set_section(self, enabled: bool, plane: Optional[SketchPlane] = None,
                     offset: float = 0.0) -> None:
+        if not enabled:
+            self.set_clip("section", None)
+            return
+        plane = plane or SketchPlane((0, 0, 0), (0, 1, 0), (1, 0, 0))
+        origin = tuple(plane.origin[i] + plane.normal[i] * offset
+                       for i in range(3))
+        self.set_clip("section", (origin, plane.normal))
+
+    def set_clip(self, name: str, plane, capping: bool = True) -> None:
+        """Cut the view away on one side of a plane, or stop cutting.
+
+        ``plane`` is (origin, normal); what is kept is the side the normal
+        points to.  Named, so a section view and a sketch's slice are two
+        cuts that come and go apart.  Capped, so a solid cut open shows a
+        face where it was cut rather than its empty inside.
+        """
         if not self._ready:
             return
-        if self._clip is not None:
-            self.view.RemoveClipPlane(self._clip)
+        clips = getattr(self, "_clips", {})
+        self._clips = clips
+        old = clips.pop(name, None)
+        if old is not None:
+            self.view.RemoveClipPlane(old)
+        if name == "section":
             self._clip = None
-        if enabled:
-            plane = plane or SketchPlane((0, 0, 0), (0, 1, 0), (1, 0, 0))
-            origin = tuple(plane.origin[i] + plane.normal[i] * offset
-                           for i in range(3))
+        if plane is not None:
+            origin, normal = plane
             clip = Graphic3d_ClipPlane(
-                gp_Pln(gp_Pnt(*origin), gp_Dir(*plane.normal)))
-            clip.SetCapping(True)
+                gp_Pln(gp_Pnt(*origin), gp_Dir(*normal)))
+            clip.SetCapping(capping)
             clip.SetCappingColor(_col("#8fa0b4"))
             clip.SetUseObjectMaterial(False)
             self.view.AddClipPlane(clip)
-            self._clip = clip
+            clips[name] = clip
+            if name == "section":
+                self._clip = clip
         self.redraw()
+
+    def clip_plane(self, name: str):
+        """The cut a name holds now, or None."""
+        return getattr(self, "_clips", {}).get(name)
+
+    def looking(self) -> Tuple[float, float, float]:
+        """The way the camera looks, from the eye into the scene."""
+        try:
+            camera = self.view.Camera()
+            d = camera.Direction()
+            return (d.X(), d.Y(), d.Z())
+        except Exception:
+            return (0.0, 0.0, -1.0)
 
     # ---------------------------------------------------------------- input
 
@@ -2518,20 +2972,28 @@ class Viewport(QtWidgets.QWidget):
             self._finish_arming()
         self.setFocus()
         self.finish_animation()      # touching the mouse takes over the camera
+        if getattr(self, "_moving", False) and not self._navigating:
+            self.end_moving()        # a release that never arrived
         pos = event.position().toPoint()
         self._last_pos = pos
         self._press_pos = pos
         self._button = event.button()
         mods = event.modifiers()
+        # a left button that navigates only does so once it is dragged, and
+        # only off anything a drag would otherwise move; a click is a click
+        self._left_nav = None
+        self._left_navigated = False
 
-        if event.button() == QtCore.Qt.MiddleButton:
-            self._navigating = True
-            if mods & QtCore.Qt.ShiftModifier:
-                self._start_orbit(pos)
-        elif event.button() == QtCore.Qt.RightButton:
-            self._navigating = True
-            self._start_orbit(pos)
+        if event.button() in (QtCore.Qt.MiddleButton, QtCore.Qt.RightButton):
+            kind = self.navigation_for(event.button(), mods)
+            if kind is not None:
+                self._begin_navigation(kind, pos)
+        elif (event.button() == QtCore.Qt.LeftButton
+              and self.section_drag and not self.plane_mode):
+            # the section being placed: a drag slides it along its normal
+            self.section_drag_pressed.emit()
         elif event.button() == QtCore.Qt.LeftButton:
+            left_nav = self.navigation_for(event.button(), mods)
             if self.plane_mode:
                 if self.cube_click(pos.x(), pos.y()):
                     return
@@ -2544,6 +3006,12 @@ class Viewport(QtWidgets.QWidget):
                     self.model_edge_picked.emit()
                     return
                 self._drag_armed = True
+                if left_nav is not None:
+                    uv = self.plane_point(pos.x(), pos.y())
+                    hits = self.plane_press_hits
+                    if (not self.plane_drag_allowed or uv is None
+                            or hits is None or not hits(uv[0], uv[1])):
+                        self._left_nav = left_nav
             elif self.component_tool:
                 # find out what was grabbed before anything moves, so the
                 # drag knows which component it is pushing around
@@ -2553,6 +3021,8 @@ class Viewport(QtWidgets.QWidget):
                     self._component_drag = occurrence
                     self._component_basis = self.screen_basis()
                     self.component_drag_started.emit(occurrence)
+                else:
+                    self._left_nav = left_nav
             elif self.plane_tool:
                 # resolve what is under the cursor straight away, so the drag
                 # that follows can start from the picked face
@@ -2578,6 +3048,10 @@ class Viewport(QtWidgets.QWidget):
                     self._component_drag = grabbed
                     self._component_basis = self.screen_basis()
                     self.component_drag_started.emit(grabbed)
+                elif left_nav is not None:
+                    # the left button navigates: a drag moves the view, and
+                    # a click still selects, on release
+                    self._left_nav = left_nav
                 elif self.box_select_enabled and self.component_under(
                         pos.x(), pos.y()) is None:
                     # nothing under the cursor, so this drag is a box
@@ -2593,22 +3067,28 @@ class Viewport(QtWidgets.QWidget):
         dy = pos.y() - self._last_pos.y()
         mods = event.modifiers()
 
+        if (self._left_nav is not None and not self._navigating
+                and self._moved_enough(pos)):
+            self._drag_armed = False
+            self._left_navigated = True
+            self._begin_navigation(self._left_nav, self._press_pos)
+            self._last_pos = self._press_pos
+            dx = pos.x() - self._last_pos.x()
+            dy = pos.y() - self._last_pos.y()
+
         if self._navigating:
-            if self._button == QtCore.Qt.RightButton or (
-                    self._button == QtCore.Qt.MiddleButton
-                    and mods & QtCore.Qt.ShiftModifier):
-                if self._turntable_drag:
-                    self.turntable(dx, dy)
-                    self.refresh_grid()
-                    self.redraw()
+            with self.camera_only():
+                if getattr(self, "_nav_kind", "pan") == "orbit":
+                    if self._turntable_drag:
+                        self.turntable(dx, dy)
+                    else:
+                        self.view.Rotation(*self._px(pos.x(), pos.y()))
                 else:
-                    self.view.Rotation(*self._px(pos.x(), pos.y()))
-            else:
-                # from the two positions, so the rounding never adds up
-                # and the model stays under the cursor
-                was = self._px(self._last_pos.x(), self._last_pos.y())
-                now = self._px(pos.x(), pos.y())
-                self.view.Pan(now[0] - was[0], was[1] - now[1])
+                    # from the two positions, so the rounding never adds
+                    # up and the model stays under the cursor
+                    was = self._px(self._last_pos.x(), self._last_pos.y())
+                    now = self._px(pos.x(), pos.y())
+                    self.view.Pan(now[0] - was[0], was[1] - now[1])
             self._last_pos = pos
             return
 
@@ -2637,7 +3117,7 @@ class Viewport(QtWidgets.QWidget):
             if not self._dragging_plane and not self._drag_armed:
                 # selection is off while sketching, so the only thing this
                 # can pre-highlight is the cube
-                self._detect(pos.x(), pos.y(), redraw=True)
+                self._hover_soon(pos)
             uv = self.plane_point(pos.x(), pos.y())
             if uv is not None:
                 if (self._drag_armed and not self._dragging_plane
@@ -2655,8 +3135,29 @@ class Viewport(QtWidgets.QWidget):
             self._last_pos = pos
             return
 
-        self._detect(pos.x(), pos.y(), redraw=True)
+        self._hover_soon(pos)
         self._last_pos = pos
+
+    def _hover_soon(self, pos: QtCore.QPoint) -> None:
+        """Pre-highlight under the cursor, once per turn of the event loop.
+
+        Finding what is under the cursor means a pick through the whole
+        model, and a mouse asks hundreds of times a second; only where it
+        has got to by the time there is a moment to look matters.
+        """
+        self._hover_at = QtCore.QPoint(pos)
+        if getattr(self, "_hover_pending", False):
+            return
+        self._hover_pending = True
+
+        def look() -> None:
+            self._hover_pending = False
+            at = self._hover_at
+            if (self._ready and at is not None and not self._navigating
+                    and self._component_drag is None):
+                self._detect(at.x(), at.y(), redraw=True)
+
+        QtCore.QTimer.singleShot(0, look)
 
     def _moved_enough(self, pos: QtCore.QPoint) -> bool:
         """Whether a press has travelled far enough to count as a drag.
@@ -2679,8 +3180,22 @@ class Viewport(QtWidgets.QWidget):
         pos = event.position().toPoint()
         moved = self._moved_enough(pos)
 
+        if event.button() == QtCore.Qt.LeftButton and self._left_navigated:
+            # that drag moved the view; it was not a click on anything
+            self._left_navigated = False
+            self._left_nav = None
+            self._navigating = False
+            self._drag_armed = False
+            self._dragging_plane = False
+            self._button = QtCore.Qt.NoButton
+            self.end_moving()
+            return
+        if event.button() == QtCore.Qt.LeftButton:
+            self._left_nav = None
+
         if event.button() in (QtCore.Qt.MiddleButton, QtCore.Qt.RightButton):
             self._navigating = False
+            self.end_moving()
             if event.button() == QtCore.Qt.RightButton and not moved \
                     and not self.busy:
                 # select whatever is under the cursor first, so the menu can
@@ -2765,16 +3280,19 @@ class Viewport(QtWidgets.QWidget):
         delta = event.angleDelta().y()
         if not delta:
             return
+        from ..core import prefs as core_prefs
+        if core_prefs.prefs().zoom_reversed:
+            delta = -delta
         pos = event.position().toPoint()
         step = 60
-        self.view.StartZoomAtPoint(*self._px(pos.x(), pos.y()))
-        self.view.ZoomAtPoint(0, 0, int(step if delta > 0 else -step), 0)
-        try:
-            self.view.ZFitAll()
-        except Exception:
-            pass
-        self.refresh_grid()
-        self.redraw()
+        with self.camera_only():
+            self.view.StartZoomAtPoint(*self._px(pos.x(), pos.y()))
+            self.view.ZoomAtPoint(0, 0, int(step if delta > 0 else -step), 0)
+            try:
+                self.view.ZFitAll()
+            except Exception:
+                pass
+            self.refresh_grid()
 
     def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent) -> None:
         if event.button() == QtCore.Qt.MiddleButton and self._ready:
@@ -2782,8 +3300,7 @@ class Viewport(QtWidgets.QWidget):
             # thing back into view, however far it has wandered off
             self._navigating = False
             self._button = QtCore.Qt.NoButton
-            self.fit_all()
-            self.refresh_grid()
+            self.fit_all(animate=True)
             return
         if event.button() == QtCore.Qt.LeftButton:
             pos = event.position().toPoint()
@@ -2828,7 +3345,7 @@ class Viewport(QtWidgets.QWidget):
         elif key == QtCore.Qt.Key_F6:
             self.set_view("iso")
         elif key == QtCore.Qt.Key_Home:
-            self.fit_all()
+            self.fit_all(animate=True)
         else:
             super().keyPressEvent(event)
 

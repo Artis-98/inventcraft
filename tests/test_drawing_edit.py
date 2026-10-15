@@ -272,7 +272,17 @@ print("the wheel clicked twice fits the sheet")
 canvas.zoom(3.0)
 send(QtCore.QEvent.MouseButtonDblClick, (100.0, 100.0),
      QtCore.Qt.MiddleButton, QtCore.Qt.MiddleButton)
-check("fitted", canvas._scale == 1.0 and canvas._pan == [0.0, 0.0])
+# it glides there now; where it ends up is what is being checked
+check("it glides there", canvas._glide is not None or not canvas.isVisible())
+for _ in range(300):
+    if canvas._glide is None:
+        break
+    loop = QtCore.QEventLoop()
+    QtCore.QTimer.singleShot(20, loop.quit)
+    loop.exec()
+check("fitted", abs(canvas._scale - 1.0) < 1e-9
+      and max(abs(v) for v in canvas._pan) < 1e-9,
+      (canvas._scale, canvas._pan))
 
 print()
 print("New asks what to make")

@@ -111,7 +111,35 @@ class SheetCanvas(QtWidgets.QWidget):
             - (base.scale * (self._scale - 1.0)) * height / 2.0,
             height=height)
 
-    def fit(self) -> None:
+    def fit(self, animate: bool = False) -> None:
+        """The whole sheet in view; gliding there when asked for by hand."""
+        glide = getattr(self, "_glide", None)
+        if glide is not None:
+            glide.stop()
+            self._glide = None
+        if animate and self._fitted and self.isVisible():
+            start_scale, start_pan = self._scale, list(self._pan)
+            clock = QtCore.QElapsedTimer()
+            clock.start()
+            duration = 700.0
+
+            def tick() -> None:
+                t = min(1.0, clock.elapsed() / duration)
+                e = t * t * (3.0 - 2.0 * t)
+                # zoom by ratio, so a big zoom out does not lurch
+                self._scale = start_scale * (1.0 / start_scale) ** e
+                self._pan = [start_pan[0] * (1.0 - e),
+                             start_pan[1] * (1.0 - e)]
+                self.update()
+                if t >= 1.0:
+                    self._glide.stop()
+                    self._glide = None
+
+            self._glide = QtCore.QTimer(self)
+            self._glide.setInterval(16)
+            self._glide.timeout.connect(tick)
+            self._glide.start()
+            return
         self._scale = 1.0
         self._pan = [0.0, 0.0]
         self._fitted = True
@@ -479,7 +507,7 @@ class SheetCanvas(QtWidgets.QWidget):
     def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent) -> None:
         # the wheel clicked twice fits the sheet, as Inventor's does
         if event.button() == QtCore.Qt.MiddleButton:
-            self.fit()
+            self.fit(animate=True)
             return
         if self.placer is not None:
             # the second of two quick clicks is still a click: the cube's
