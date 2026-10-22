@@ -326,6 +326,10 @@ class Viewport(QtWidgets.QWidget):
         self._left_nav: Optional[str] = None
         self._left_navigated = False
         self._nav_kind = "pan"
+        # a press the orientation gizmo consumed (see cube_click): the
+        # release belongs to it as well, and must not select, box, drag
+        # or - while sketching - drop a point on the plane
+        self._cube_pressed = False
 
         # pulling a work plane off a face
         self.plane_tool = False
@@ -2549,6 +2553,7 @@ class Viewport(QtWidgets.QWidget):
                          show_grid: bool = False) -> None:
         self.sketch_plane = plane
         self.plane_mode = True
+        self._cube_pressed = False
         # the grid is off by default - snapping does not need it drawn
         self.set_grid(show_grid, plane, grid_step)
         self.set_selection_mode("none")
@@ -2558,6 +2563,7 @@ class Viewport(QtWidgets.QWidget):
         self.edge_picking = False
         self.sketch_plane = None
         self.plane_drag_allowed = True
+        self._cube_pressed = False
         self.set_grid(False)
         self.clear_overlay()
         self.clear_preview()
@@ -3133,6 +3139,7 @@ class Viewport(QtWidgets.QWidget):
             left_nav = self.navigation_for(event.button(), mods)
             if self.plane_mode:
                 if self.cube_click(pos.x(), pos.y()):
+                    self._cube_pressed = True
                     return
                 if self.edge_picking:
                     # Project Geometry is running: this click is choosing a
@@ -3292,7 +3299,13 @@ class Viewport(QtWidgets.QWidget):
             at = self._hover_at
             if (self._ready and at is not None and not self._navigating
                     and self._component_drag is None):
-                self._detect(at.x(), at.y(), redraw=True)
+                if self.over_cube(at.x(), at.y()):
+                    # the gizmo, which is picked through its probe (see
+                    # _cube_probe): over_cube already ran the pick, so this
+                    # only puts the highlight on screen
+                    self.view.RedrawImmediate()
+                else:
+                    self._detect(at.x(), at.y(), redraw=True)
 
         QtCore.QTimer.singleShot(0, look)
 
@@ -3401,7 +3414,14 @@ class Viewport(QtWidgets.QWidget):
 
         if event.button() == QtCore.Qt.LeftButton:
             if self.plane_mode:
-                if self._dragging_plane:
+                if self._cube_pressed:
+                    # the press went to the orientation gizmo, which has
+                    # already snapped the view: no drag to finish and, above
+                    # all, no sketch point to drop for the release
+                    self._cube_pressed = False
+                    self._drag_armed = False
+                    self._dragging_plane = False
+                elif self._dragging_plane:
                     self.plane_drag_finished.emit()
                 elif not moved or not self.plane_drag_allowed:
                     # a drawing tool has no drag to have been doing instead,
