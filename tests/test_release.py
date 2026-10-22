@@ -121,7 +121,8 @@ def serve(url):
         return handle.read()
 
 
-release = update.check(BASE, fetcher=lambda base, name: serve(base + name))
+release = update.check(BASE, fetcher=lambda base, name: serve(base + name),
+                       platform="win32")      # the Windows feed, on any system
 check("the feed named the newest version", release.version == "0.2.1",
       release.version)
 check("with its notes", "Hatching" in release.notes)
@@ -237,7 +238,7 @@ update.PUBLIC_KEY_HEX = public_hex
 real_fetch = update.fetch
 update.fetch = lambda url, timeout=30.0: serve(url)
 try:
-    signed = update.check(BASE)
+    signed = update.check(BASE, platform="win32")
     check("a correctly signed feed is accepted", signed.version == "0.2.1",
           signed.version)
     body = update.fetch_signed(BASE, signed.manifest)

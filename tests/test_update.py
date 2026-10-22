@@ -230,13 +230,15 @@ except update.UpdateError as exc:
 # ==========================================================================
 print("the feed is read into something usable")
 
-feed = json.dumps({"version": "0.3.0", "released": "2026-10-01",
+# well past this build, whatever this build is
+feed = json.dumps({"version": "9.3.0", "released": "2026-10-01",
                    "notes": "Hatching on sections.",
-                   "manifest": "0.3.0/manifest.json",
+                   "manifest": "9.3.0/manifest.json",
                    "minimum": "0.2.0"}).encode("utf-8")
+# the Windows feed: a Linux copy reads its own entry, see test_batch18
 found = update.check("https://example.invalid/datum/",
-                     fetcher=lambda base, name: feed)
-check("the version came through", found.version == "0.3.0", found.version)
+                     fetcher=lambda base, name: feed, platform="win32")
+check("the version came through", found.version == "9.3.0", found.version)
 check("it is newer than this build", found.newer)
 check("the notes came through", "Hatching" in found.notes)
 check("and it does not demand a reinstall", not found.needs_reinstall)
@@ -244,7 +246,8 @@ check("and it does not demand a reinstall", not found.needs_reinstall)
 print("a jump too far to patch asks for the installer instead")
 far = update.check("https://example.invalid/datum/",
                    fetcher=lambda b, n: json.dumps(
-                       {"version": "2.0.0", "minimum": "1.5.0"}).encode())
+                       {"version": "2.0.0", "minimum": "1.5.0"}).encode(),
+                   platform="win32")
 check("it says so", far.needs_reinstall)
 
 print("a feed that says nothing useful is an error, not a silent no-op")
