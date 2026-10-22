@@ -27,6 +27,8 @@ import time
 import traceback
 from typing import Any, Callable, Dict
 
+from . import fileformat
+
 MARK = "\x1eDATUM "
 
 
@@ -303,7 +305,7 @@ def _import_assembly(path: str, folder: str,
     parts = []
     for name in os.listdir(parts_dir):
         stem, ext = os.path.splitext(name)
-        if ext.lower() != ".pdat":
+        if not fileformat.is_part(name):
             continue
         weight = os.path.getsize(os.path.join(parts_dir, name))
         brep = os.path.join(parts_dir, stem + ".brep")

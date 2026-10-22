@@ -104,14 +104,14 @@ def frame(centre, span, view=None):
 def go():
     # ---- the three parts, each on its own tab ---------------------------
     for stem in ("End Panel", "Side Panel", "Base"):
-        win.open_path(os.path.join(SRC, stem + ".pdat"))
+        win.open_path(os.path.join(SRC, stem + ".icpart"))
         settle(400)
         win.browser.expandAll()
         look("iso")
         shot("part_" + stem.lower().replace(" ", "_"))
 
     # ---- the assembly ---------------------------------------------------
-    win.open_assembly(os.path.join(SRC, "Tote.adat"))
+    win.open_assembly(os.path.join(SRC, "Tote.icasm"))
     settle(700)
     win.assembly_ui.browser.expandAll()
     look("iso")
@@ -126,7 +126,7 @@ def go():
     shot("assembly_joint_detail")
 
     # ---- the nest -------------------------------------------------------
-    win.open_cam(os.path.join(SRC, "Tote Nest.cdat"))
+    win.open_cam(os.path.join(SRC, "Tote Nest.iccam"))
     settle(700)
     win.cam_ui.browser.expandAll()
     look("top")

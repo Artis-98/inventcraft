@@ -281,13 +281,13 @@ check("well spaced parts are clean", report.ok, report.message)
 print("the CAM document ties it together")
 
 sheet_doc = CamDocument()
-sheet_doc.path = os.path.join(WORK, "nest.cdat")
+sheet_doc.path = os.path.join(WORK, "nest.iccam")
 sheet_doc.sheet_width, sheet_doc.sheet_height = "1000", "600"
 sheet_doc.sheet_thickness = "3"
 sheet_doc.tool_diameter = "6"
 first = sheet_doc.add_part(plate_path)
 check("a part can be added", first.name == "plate:1", first.name)
-check("the path is relative", first.ref.path == "plate.pdat", first.ref.path)
+check("the path is relative", first.ref.path == "plate.icpart", first.ref.path)
 
 # the profile has to exist before anything can be laid out, so the first
 # rebuild is what measures it
@@ -364,7 +364,7 @@ check("the hole moves to the other side", abs(flip_x + plain_x) < 1e-6,
 print("the sheet round-trips, and the link stays live")
 
 written = sheet_doc.save(sheet_doc.path)
-check("saved as .cdat", written.endswith(".cdat"), written)
+check("saved as .iccam", written.endswith(".iccam"), written)
 manifest = fileformat.peek(written)
 check("its manifest says cam", manifest.type == "cam", manifest.type)
 check("and lists every part", len(manifest.references) == 4)

@@ -198,7 +198,7 @@ check("volume is the whole union", near(volume, total, 4.0),
 
 print("the choice survives a save and reload")
 report, volume = use([0, 2, 4])
-path = win.document.save(os.path.join(WORK, "venn.pdat"))
+path = win.document.save(os.path.join(WORK, "venn.icpart"))
 reloaded = Document.load(path)
 check("same volume after reload",
       near(kernel.volume(reloaded.shape), volume, 1.0),

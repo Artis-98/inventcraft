@@ -1,4 +1,4 @@
-"""dLogic in the window: the panel, the editors, the triggers.
+"""cLogic in the window: the panel, the editors, the triggers.
 
 The core holds the promises about what code may do. These hold the ones
 about what a person sees: that a file with code in it says so the moment
@@ -13,7 +13,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-WORK = tempfile.mkdtemp(prefix="datum_dlogic_ui_")
+WORK = tempfile.mkdtemp(prefix="datum_clogic_ui_")
 os.environ["DATUM_CONFIG_DIR"] = os.path.join(WORK, "cfg")
 
 # every modal answers itself, so a run never stops to ask
@@ -56,7 +56,7 @@ SAMPLE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 print("a file with code in it says so when it opens")
 
-copy = os.path.join(WORK, "Stair Railing.pdat")
+copy = os.path.join(WORK, "Stair Railing.icpart")
 shutil.copy(SAMPLE, copy)
 check("the stair sample opens", win.open_path(copy))
 pump()
@@ -66,7 +66,7 @@ check("its code features have not run",
       all("trusted" in f.error for f in doc.features
           if isinstance(f, CodeFeature)),
       [f.error for f in doc.features])
-check("the dLogic panel opened by itself", win.rules_dock.isVisible())
+check("the cLogic panel opened by itself", win.rules_dock.isVisible())
 check("  on this document", panel._document is doc)
 check("  with the warning showing", panel.banner.isVisible())
 check("  naming what it carries",
@@ -116,11 +116,11 @@ print("before saving")
 stamp = doc.rules.add("Stamp", "props.Revision = 'C'")
 stamp.on_rebuild = False
 stamp.before_save = True
-harness.saving(os.path.join(WORK, "saved.pdat"))
+harness.saving(os.path.join(WORK, "saved.icpart"))
 win.save_document(as_new=True)
 check("a before-save rule ran", doc.properties.get("Revision") == "C")
 check("  and what it set was saved", os.path.exists(
-    os.path.join(WORK, "saved.pdat")))
+    os.path.join(WORK, "saved.icpart")))
 
 
 print()

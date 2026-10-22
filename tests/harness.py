@@ -22,7 +22,7 @@ A test that cares about the answer sets it, and can read back what was
 asked:
 
     harness.answer(question=QtWidgets.QMessageBox.Yes)
-    harness.saving("C:/tmp/part.pdat")
+    harness.saving("C:/tmp/part.icpart")
     harness.opening([a, b])
     ...
     assert "cannot place itself" in harness.text("warning")

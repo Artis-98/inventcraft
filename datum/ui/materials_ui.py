@@ -198,7 +198,7 @@ class MaterialEditor(QtWidgets.QDialog):
 
         if read_only:
             note = QtWidgets.QLabel(
-                "This one ships with DATUM, so it cannot be changed. "
+                "This one ships with InventCraft, so it cannot be changed. "
                 "Duplicate it to make one you can edit.")
             note.setWordWrap(True)
             note.setProperty("hint", True)
@@ -494,7 +494,7 @@ class MaterialBrowser(QtWidgets.QDialog):
                 QtGui.QIcon(swatch(look)), "%s\n%s" % (item.name, detail))
             entry.setData(QtCore.Qt.UserRole, item.name)
             if library.is_builtin(item.name, self.is_appearance):
-                entry.setToolTip("Ships with DATUM. Duplicate it to edit.")
+                entry.setToolTip("Ships with InventCraft. Duplicate it to edit.")
             self.list.addItem(entry)
         if chosen:
             self.select(chosen)

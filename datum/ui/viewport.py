@@ -46,7 +46,8 @@ from OCP.Graphic3d import (
 from OCP.OpenGl import OpenGl_GraphicDriver
 from OCP.GeomAbs import GeomAbs_Shape
 from OCP.Prs3d import (
-    Prs3d_Drawer, Prs3d_LineAspect, Prs3d_PointAspect, Prs3d_TextAspect,
+    Prs3d_DatumAspect, Prs3d_DatumParts, Prs3d_Drawer, Prs3d_LineAspect,
+    Prs3d_PointAspect, Prs3d_TextAspect,
     Prs3d_TypeOfHighlight,
 )
 from OCP.Quantity import Quantity_Color, Quantity_NOC_BLACK, Quantity_TOC_RGB
@@ -177,10 +178,10 @@ def _linux_gl_advice(exc: Exception) -> str:
     return (
         "The 3D view could not get an OpenGL window from the desktop "
         "(%s).\n\n"
-        "Qt is running on '%s' and the session is '%s'. DATUM needs X11 "
+        "Qt is running on '%s' and the session is '%s'. InventCraft needs X11 "
         "or XWayland with working OpenGL: 'glxinfo -B' should name your "
         "graphics card. Please report what it prints, and your graphics "
-        "card, at https://github.com/Artis-98/datum/issues."
+        "card, at https://github.com/Artis-98/inventcraft/issues."
         % (str(exc).strip() or type(exc).__name__,
            os.environ.get("QT_QPA_PLATFORM", "?"),
            os.environ.get("XDG_SESSION_TYPE", "?")))
@@ -440,7 +441,7 @@ class Viewport(QtWidgets.QWidget):
 
         self.view.TriedronDisplay(
             Aspect_TypeOfTriedronPosition.Aspect_TOTP_LEFT_LOWER,
-            _col("#c8d0da"), 0.09)
+            _col(C.axis_label), 0.09)
 
         self._make_view_cube()
         self.set_projection(orthographic=True)
@@ -512,8 +513,16 @@ class Viewport(QtWidgets.QWidget):
             # bigger, with a dark box behind near-white lettering - the stock
             # mid-grey cube makes FRONT / BACK / RIGHT almost unreadable
             cube.SetSize(64.0 * ratio)
-            cube.SetBoxColor(_col("#3a434f"))
-            cube.SetTextColor(_col("#ffffff"))
+            cube.SetBoxColor(_col(C.cube_box))
+            cube.SetTextColor(_col(C.cube_text))
+            # the X, Y and Z beside it, which otherwise come out in OCCT's
+            # stock yellow whatever is behind them
+            datum = Prs3d_DatumAspect()
+            for part in (Prs3d_DatumParts.Prs3d_DatumParts_XAxis,
+                         Prs3d_DatumParts.Prs3d_DatumParts_YAxis,
+                         Prs3d_DatumParts.Prs3d_DatumParts_ZAxis):
+                datum.TextAspect(part).SetColor(_col(C.cube_axis_label))
+            cube.Attributes().SetDatumAspect(datum)
             cube.SetFontHeight(12.0 * ratio)
             cube.SetTransparency(0.0)
             cube.SetDrawAxes(True)
@@ -1198,7 +1207,13 @@ class Viewport(QtWidgets.QWidget):
 
     # ------------------------------------------------------------ selection
 
-    def set_selection_mode(self, mode: str) -> None:
+    def set_selection_mode(self, mode: str, force: bool = False) -> None:
+        # Asking for the mode already in use changes nothing, and is not
+        # free: re-arming means taking every body's picking down and
+        # putting it back, which on an assembly of a few hundred parts is
+        # seconds, paid on every pick of a Place Constraint.
+        if mode == self.selection_mode and not force:
+            return
         self.selection_mode = mode
         self._apply_selection_mode()
 
@@ -1851,9 +1866,10 @@ class Viewport(QtWidgets.QWidget):
             self._origin_ais.append(ais)
 
         origin = AIS_Point(Geom_CartesianPoint(gp_Pnt(0, 0, 0)))
-        origin.SetColor(_col("#e8ecef"))
+        origin.SetColor(_col(C.origin_mark))
         origin.Attributes().SetPointAspect(Prs3d_PointAspect(
-            Aspect_TypeOfMarker.Aspect_TOM_O_PLUS, _col("#e8ecef"), 1.4))
+            Aspect_TypeOfMarker.Aspect_TOM_O_PLUS, _col(C.origin_mark),
+            1.4))
         origin.SetInfiniteState(True)
         ctx.Display(origin, False)
         ctx.Deactivate(origin)

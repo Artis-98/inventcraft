@@ -173,7 +173,7 @@ def keep_numbers(doc: Any, new: str) -> List[str]:
 
     notes = []
     if len(getattr(doc, "rules", ()) or ()):
-        notes.append("dLogic rules keep the numbers written in them")
+        notes.append("cLogic rules keep the numbers written in them")
     if any(getattr(f, "type_name", "") == "code" for f in doc.features):
         notes.append("code features keep the numbers written in them")
     return notes

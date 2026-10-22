@@ -59,8 +59,8 @@ def go():
         os.makedirs(folder, exist_ok=True)
         try:
             made = projects.create(name, folder, activate=False)
-            made.remember(os.path.join(folder, "Side Panel.pdat"))
-            made.remember(os.path.join(folder, "End Panel.pdat"))
+            made.remember(os.path.join(folder, "Side Panel.icpart"))
+            made.remember(os.path.join(folder, "End Panel.icpart"))
         except Exception as exc:
             print("skipped %s: %s" % (name, exc))
 

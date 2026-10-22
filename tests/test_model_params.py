@@ -220,7 +220,7 @@ print()
 print("they survive a save, and rules can drive them")
 
 ex.param_comments["distance"] = "plate thickness"
-path = os.path.join(tempfile.mkdtemp(prefix="datum_mparams_"), "p.pdat")
+path = os.path.join(tempfile.mkdtemp(prefix="datum_mparams_"), "p.icpart")
 doc.save(path)
 again = Document.load(path)
 again_ex = next(f for f in again.features if f.type_name == "extrude")

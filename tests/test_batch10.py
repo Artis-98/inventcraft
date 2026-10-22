@@ -351,7 +351,7 @@ check("committed", win._active_dialog is None)
 check("picking turned off", not win.viewport.profile_picking)
 
 print("the selection survives save and reload")
-path = win.document.save(os.path.join(WORK, "profiles.pdat"))
+path = win.document.save(os.path.join(WORK, "profiles.icpart"))
 from datum.core.document import Document
 
 reloaded = Document.load(path)

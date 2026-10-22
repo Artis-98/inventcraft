@@ -379,7 +379,8 @@ class Ribbon(QtWidgets.QWidget):
         # first, the program and the document in the middle, and the
         # window buttons at the right end.
         self.logo = QtWidgets.QLabel(self.qat_bar)
-        self.logo.setPixmap(icons.app_icon().pixmap(18, 18))
+        self.logo.setPixmap(icons.brand_pixmap(
+            20, self.devicePixelRatioF()))
         self.logo.setFixedSize(22, 22)
         self.logo.setAlignment(QtCore.Qt.AlignCenter)
         qat_layout.addWidget(self.logo)
@@ -635,7 +636,7 @@ class Ribbon(QtWidgets.QWidget):
         label.setGeometry(x, 0, width, bar.height())
 
     def set_document_label(self, text: str) -> None:
-        self._title_text = "DATUM  %s" % text if text else "DATUM"
+        self._title_text = "InventCraft  %s" % text if text else "InventCraft"
         self.document_label.setText(self._title_text)
         self._place_title()
 

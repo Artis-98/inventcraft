@@ -110,7 +110,7 @@ check("a round face gives its centre line", report.ok
       and on_line((0, 0, 0), doc.axes["Rod Axis"]) < 1e-6,
       report.message)
 
-path = os.path.join(tempfile.mkdtemp(prefix="datum_axis_"), "axes.pdat")
+path = os.path.join(tempfile.mkdtemp(prefix="datum_axis_"), "axes.icpart")
 doc.save(path)
 again = Document.load(path)
 again.rebuild()

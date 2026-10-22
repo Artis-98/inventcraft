@@ -108,7 +108,7 @@ pump()
 check("there is a CAM tile", win.start_page.cam_tile is not None)
 check("it is live", win.start_page.cam_tile.isEnabled())
 check("it names the extension",
-      ".cdat" in win.start_page.cam_tile.findChildren(QtWidgets.QLabel)[-1]
+      ".iccam" in win.start_page.cam_tile.findChildren(QtWidgets.QLabel)[-1]
       .text(), win.start_page.cam_tile.toolTip())
 check("part, assembly and CAM all work, drawing does not",
       win.start_page.part_tile.isEnabled()
@@ -123,8 +123,8 @@ check("the window knows it is a CAM sheet", win.in_cam)
 check("and not an assembly or a part",
       not win.in_assembly and not win.in_part)
 check("the document is a CamDocument", isinstance(win.cam, CamDocument))
-check("the extension is .cdat",
-      fileformat.extension_for(win.cam.doc_type) == ".cdat")
+check("the extension is .iccam",
+      fileformat.extension_for(win.cam.doc_type) == ".iccam")
 
 
 # ==========================================================================
@@ -449,9 +449,9 @@ check("the nest is sound again", win.cam.last_report.toolpath.ok,
 print("saving, closing and reopening")
 
 QtWidgets.QFileDialog.getSaveFileName = staticmethod(
-    lambda *a, **k: (os.path.join(WORK, "nest.cdat"), ""))
+    lambda *a, **k: (os.path.join(WORK, "nest.iccam"), ""))
 check("it saves", win.save_document())
-check("the file is there", os.path.exists(os.path.join(WORK, "nest.cdat")))
+check("the file is there", os.path.exists(os.path.join(WORK, "nest.iccam")))
 check("the title lost its dirty mark", "*" not in win.windowTitle(),
       win.windowTitle())
 
@@ -466,8 +466,8 @@ check("the CAM tab is put away",
       not win.ribbon._buttons[TAB_CAM].isVisible())
 check("nothing is left on the sheet", not win.viewport._component_ais)
 
-check("opening the .cdat works", win.open_path(os.path.join(WORK,
-                                                            "nest.cdat")))
+check("opening the .iccam works", win.open_path(os.path.join(WORK,
+                                                            "nest.iccam")))
 pump()
 check("we are in CAM again", win.in_cam)
 check("with both parts", len(win.cam.parts) == 2)
@@ -476,7 +476,7 @@ check("and the toolpath regenerated",
       len(win.cam.last_report.toolpath.cuts) == 4,
       len(win.cam.last_report.toolpath.cuts))
 check("the recent list remembers it as a CAM sheet",
-      any(e["path"].endswith("nest.cdat") and e["type"] == fileformat.CAM
+      any(e["path"].endswith("nest.iccam") and e["type"] == fileformat.CAM
           for e in win.start_page.projects.active().recent))
 
 
@@ -518,11 +518,11 @@ warned = []
 QtWidgets.QMessageBox.warning = staticmethod(
     lambda *a, **k: warned.append(a[2] if len(a) > 2 else "")
     or QtWidgets.QMessageBox.Ok)
-win.open_path(os.path.join(WORK, "nest.cdat"))
+win.open_path(os.path.join(WORK, "nest.iccam"))
 QtWidgets.QMessageBox.warning = original_warning
 pump()
 check("it tells the user", warned and "could not find" in warned[0], warned)
-check("it names the file", warned and "gusset.pdat" in warned[0], warned)
+check("it names the file", warned and "gusset.icpart" in warned[0], warned)
 check("the sheet still opened", win.in_cam)
 check("and the other part still cuts",
       len(win.viewport._component_ais) == 1,

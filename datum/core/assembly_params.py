@@ -27,7 +27,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from . import modelparams
+from . import fileformat, modelparams
 from .params import (
     CONSTANTS, FUNCTIONS, ExpressionError, evaluate, referenced_names,
 )
@@ -127,7 +127,7 @@ class AssemblyParameters:
         taken: Set[str] = set(self.assembly.params.names())
         for occurrence in getattr(self.assembly, "occurrences", ()):
             path = self.assembly.component_path(occurrence)
-            if not path or not path.lower().endswith(".pdat"):
+            if not path or not fileformat.is_part(path):
                 continue
             key = os.path.normcase(os.path.abspath(path))
             if key in seen:

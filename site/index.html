@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DATUM: free, open source parametric CAD for Windows and Linux</title>
-<meta name="description" content="DATUM is free and open source parametric CAD for Windows and Linux. Sketch, model, assemble, make drawings and cut parts, with a workflow that feels familiar if you know Inventor.">
+<title>InventCraft: free, open source parametric CAD for Windows and Linux</title>
+<meta name="description" content="InventCraft is free and open source parametric CAD for Windows and Linux. Sketch, model, assemble, make drawings and cut parts, with a workflow that feels familiar if you know Inventor.">
 <link rel="canonical" href="https://datum.iiteg.com/">
-<meta property="og:site_name" content="DATUM">
-<meta property="og:title" content="DATUM: free, open source parametric CAD">
+<meta property="og:site_name" content="InventCraft">
+<meta property="og:title" content="InventCraft: free, open source parametric CAD">
 <meta property="og:description" content="Sketch, model, assemble, draw and cut. Free and open source parametric CAD for Windows and Linux.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://datum.iiteg.com/">
@@ -21,13 +21,13 @@
     {
       "@type": "WebSite",
       "@id": "https://datum.iiteg.com/#website",
-      "name": "DATUM",
-      "alternateName": ["DATUM CAD", "DATUM parametric CAD"],
+      "name": "InventCraft",
+      "alternateName": ["InventCraft CAD", "DATUM", "DATUM CAD"],
       "url": "https://datum.iiteg.com/"
     },
     {
       "@type": "SoftwareApplication",
-      "name": "DATUM",
+      "name": "InventCraft",
       "description": "Free and open source parametric CAD: sketch, model, assemble, draw and cut.",
       "applicationCategory": "DesignApplication",
       "applicationSubCategory": "CAD",
@@ -35,16 +35,18 @@
       "url": "https://datum.iiteg.com/",
       "downloadUrl": "https://datum.iiteg.com/#download",
       "screenshot": "https://datum.iiteg.com/img/assembly.png",
-      "license": "https://github.com/Artis-98/datum/blob/main/LICENSE",
+      "license": "https://github.com/Artis-98/inventcraft/blob/main/LICENSE",
       "isAccessibleForFree": true,
       "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
       "publisher": {"@type": "Organization", "name": "IITEG", "url": "https://iiteg.com/"},
-      "sameAs": ["https://github.com/Artis-98/datum"]
+      "sameAs": ["https://github.com/Artis-98/inventcraft"]
     }
   ]
 }
 </script>
-<link rel="icon" href="img/mark.svg" type="image/svg+xml">
+<link rel="icon" href="img/favicon.ico" sizes="any">
+<link rel="icon" href="img/inventcraft-64.png" type="image/png">
+<link rel="apple-touch-icon" href="img/inventcraft-256.png">
 <link rel="stylesheet" href="style.css?v=5b2f351b31">
 </head>
 <body>
@@ -52,22 +54,13 @@
 <header class="top">
   <div class="wrap nav">
     <a class="brand" href="./">
-      <svg viewBox="0 0 181 181" aria-hidden="true">
-        <g fill="#69788b" transform="translate(5,6)">
-          <path d="M51 38H105L144 60L145 105L127 114L128 75L96 54H51Z"/>
-          <path d="M51 62H94L119 77V118L74 143H36L25 137V100L45 89V128L47 129L79 111H100V84L93 79H51Z"/>
-        </g>
-        <g fill="#d5dee8">
-          <path d="M51 38H105L144 60L145 105L127 114L128 75L96 54H51Z"/>
-          <path d="M51 62H94L119 77V118L74 143H36L25 137V100L45 89V128L47 129L79 111H100V84L93 79H51Z"/>
-        </g>
-      </svg>
-      DATUM
+      <img src="img/inventcraft-64.png" width="64" height="64" alt="">
+      InventCraft
     </a>
     <a class="link" href="#what">What it is</a>
     <a class="link" href="#tour">Tour</a>
     <a class="link" href="changelog.html">Changelog</a>
-    <a class="link" href="https://github.com/Artis-98/datum">Source</a>
+    <a class="link" href="https://github.com/Artis-98/inventcraft">Source</a>
     <a class="link" href="#contact">Contact</a>
   </div>
 </header>
@@ -77,17 +70,18 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="badge-version">Version 0.2.8 · free · open source</span>
+        <span id="badge-version">Version 0.3.0 · free · open source</span>
       </div>
       <h1>Parametric CAD<br><span class="quiet">that fits on a laptop.</span></h1>
       <p class="lede">
-        DATUM sketches, models, assembles, draws and cuts. It is built
+        InventCraft, formerly DATUM, sketches, models, assembles, draws and
+        cuts. It is built
         around a real geometry kernel and a real constraint solver, and it
         is small enough to learn in an afternoon.
       </p>
       <div class="cta-row">
         <a class="btn primary" id="download-btn"
-           href="https://api.iiteg.com/datum/0.2.8/DATUM-0.2.8-setup.exe">
+           href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round"
                stroke-linejoin="round" aria-hidden="true">
@@ -100,7 +94,7 @@
       <p class="cta-note">
         <strong id="size-note">106 MB</strong> · Windows 10 and 11, 64-bit ·
         installs without an administrator prompt · updates itself ·
-        <a href="https://github.com/Artis-98/datum/releases/download/v0.2.8/DATUM-0.2.8-linux-x86_64-preview.tar.gz">Linux preview</a>
+        <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.0/InventCraft-0.3.0-linux-x86_64.tar.gz">Linux</a>
       </p>
     </div>
 
@@ -108,10 +102,10 @@
       <div class="frame">
         <div class="frame-bar">
           <i></i><i></i><i></i>
-          <span>Excavator.adat — DATUM</span>
+          <span>Excavator.adat — InventCraft</span>
         </div>
-        <img src="img/assembly.png" width="1600" height="958"
-             alt="A tracked excavator of 48 components open in DATUM, with
+        <img src="img/assembly.png" width="1600" height="989"
+             alt="A tracked excavator of 48 components open in InventCraft, with
                   the component tree listing every part on the left.">
       </div>
     </div>
@@ -135,7 +129,7 @@
   <div class="wrap">
     <h2>A smaller way into CAD</h2>
     <p class="section-lede">
-      Most CAD packages assume you already know CAD. DATUM does the same
+      Most CAD packages assume you already know CAD. InventCraft does the same
       things the big ones do — history-based modelling, constrained
       sketches, assemblies, proper drawings — with far fewer places to get
       lost. If you have used Inventor or SolidWorks, it will feel familiar.
@@ -196,7 +190,7 @@
           stroke="currentColor" stroke-width="1.6"><path
           d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg></div>
         <h3>It keeps itself current</h3>
-        <p>DATUM checks for new versions and downloads only the files that
+        <p>InventCraft checks for new versions and downloads only the files that
           actually changed. A typical update is a few megabytes, not
           another install.</p>
       </div>
@@ -206,7 +200,7 @@
           stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/>
           </svg></div>
         <h3>The source is yours too</h3>
-        <p>DATUM is MIT licensed. Read it, learn from it, fork it, build
+        <p>InventCraft is MIT licensed. Read it, learn from it, fork it, build
           something else on top of it. No permission needed and nothing to
           ask anybody for.</p>
       </div>
@@ -235,8 +229,8 @@
             and there is nothing left to move.</p>
         </div>
         <div class="frame">
-          <img src="img/sketch.png" width="1600" height="958" loading="lazy"
-               alt="The DATUM sketcher with a plate and a hole, fully
+          <img src="img/sketch.png" width="1600" height="989" loading="lazy"
+               alt="The InventCraft sketcher with a plate and a hole, fully
                     constrained, and the Offset tool pulling a lip in from
                     the edge with its distance beside the cursor.">
         </div>
@@ -252,8 +246,8 @@
             else.</p>
         </div>
         <div class="frame">
-          <img src="img/part.png" width="1600" height="958" loading="lazy"
-               alt="An excavator bucket modelled in DATUM, shelled out of a
+          <img src="img/part.png" width="1600" height="989" loading="lazy"
+               alt="An excavator bucket modelled in InventCraft, shelled out of a
                     solid, with its feature tree beside it.">
         </div>
       </div>
@@ -268,7 +262,7 @@
             back up exactly one level at a time.</p>
         </div>
         <div class="frame">
-          <img src="img/inplace.png" width="1600" height="958" loading="lazy"
+          <img src="img/inplace.png" width="1600" height="989" loading="lazy"
                alt="An excavator boom being edited inside the assembly it
                     belongs to, with the rest of the machine ghosted.">
         </div>
@@ -285,8 +279,8 @@
             the table: it goes back into the part.</p>
         </div>
         <div class="frame">
-          <img src="img/bom.png" width="1600" height="958" loading="lazy"
-               alt="The Bill of Materials of an excavator in DATUM, parts
+          <img src="img/bom.png" width="1600" height="989" loading="lazy"
+               alt="The Bill of Materials of an excavator in InventCraft, parts
                     only, with thumbnails, part numbers, descriptions,
                     materials and masses, beside the machine itself.">
         </div>
@@ -296,7 +290,7 @@
         <div class="copy">
           <span class="tag">Automate</span>
           <h3>Models that build themselves</h3>
-          <p>dLogic drives a model from Python, the language DATUM itself
+          <p>cLogic drives a model from Python, the language InventCraft itself
             is written in. Rules move parameters, sketch dimensions,
             components and properties, and open forms with sliders that
             reshape the model as you drag. Code features build geometry
@@ -304,12 +298,12 @@
             handrail is one feature that follows its parameters. Every
             name a script can use is listed beside the editor, and
             nothing runs until you allow it.
-            <a href="https://github.com/Artis-98/datum/blob/main/docs/DLOGIC.md">What
+            <a href="https://github.com/Artis-98/inventcraft/blob/main/docs/CLOGIC.md">What
             it can do</a></p>
         </div>
         <div class="frame">
-          <img src="img/dlogic.png" width="1600" height="958" loading="lazy"
-               alt="A parametric staircase in DATUM, with the code feature
+          <img src="img/clogic.png" width="1600" height="989" loading="lazy"
+               alt="A parametric staircase in InventCraft, with the code feature
                     that builds its railing open beside it.">
         </div>
       </div>
@@ -324,9 +318,9 @@
             is made until OK, and a double-click brings it all back.</p>
         </div>
         <div class="frame">
-          <img src="img/baseview.png" width="1600" height="958"
+          <img src="img/baseview.png" width="1600" height="989"
                loading="lazy"
-               alt="A base view of a bearing housing being set up on a DATUM
+               alt="A base view of a bearing housing being set up on an InventCraft
                     sheet, with the view cube beside it, its projections
                     round it and the Drawing View box open.">
         </div>
@@ -343,8 +337,8 @@
             renumber themselves when the list does.</p>
         </div>
         <div class="frame">
-          <img src="img/drawing.png" width="1600" height="958" loading="lazy"
-               alt="A DATUM drawing of a bearing housing: front view, plan,
+          <img src="img/drawing.png" width="1600" height="989" loading="lazy"
+               alt="An InventCraft drawing of a bearing housing: front view, plan,
                     a hatched section through the bore and an isometric,
                     dimensioned, with the title block filled in from the
                     model.">
@@ -356,12 +350,12 @@
           <span class="tag">Cut</span>
           <h3>From the model to the machine</h3>
           <p>Lay flat parts out on a sheet, set the tool and the kerf, and
-            DATUM offsets the toolpaths, adds leads and puts relief in the
+            InventCraft offsets the toolpaths, adds leads and puts relief in the
             inside corners so slots actually fit. Out comes a DXF.</p>
         </div>
         <div class="frame">
-          <img src="img/cam.png" width="1343" height="932" loading="lazy"
-               alt="Flat parts nested on a sheet in DATUM with
+          <img src="img/cam.png" width="1343" height="963" loading="lazy"
+               alt="Flat parts nested on a sheet in InventCraft with
                     cutter-compensated toolpaths around each one.">
         </div>
       </div>
@@ -387,7 +381,7 @@
             Finish the sketch and press Extrude. From there, add holes,
             fillets and whatever else the part needs.</li>
           <li><strong>Put it on paper</strong>
-            New Drawing, place a base view, and DATUM projects the rest.
+            New Drawing, place a base view, and InventCraft projects the rest.
             Export a PDF when you are happy.</li>
         </ol>
       </div>
@@ -398,14 +392,14 @@
         </p>
         <div class="note" style="margin-bottom:18px">
           <strong>Windows will warn you the first time.</strong>
-          DATUM is not code-signed yet, so SmartScreen shows a blue
+          InventCraft is not code-signed yet, so SmartScreen shows a blue
           "unrecognised app" box. Click <em>More info</em> then
           <em>Run anyway</em>. A signing certificate costs a few hundred
           euro a year and is on the list.
         </div>
         <div class="note" style="border-left-color:var(--silver-deep)">
           <strong>It is young software.</strong>
-          DATUM is at version 0.2.8 and is used daily for real work at
+          InventCraft is at version 0.3.0 and is used daily for real work at
           IITEG, but it has not been through thousands of hands yet.
           Keep backups of anything that matters, and please tell me when
           something breaks.
@@ -420,7 +414,7 @@
   <div class="wrap">
     <h2>Coming next</h2>
     <p class="section-lede">
-      Asked for by the people using DATUM, and next in line. This list is
+      Asked for by the people using InventCraft, and next in line. This list is
       read live from my own task board, so it is always what I am actually
       working towards. Missing something? <a href="#contact">Tell me</a>.
     </p>
@@ -432,17 +426,17 @@
 <section id="download" class="rule">
   <div class="wrap">
     <div class="download-panel">
-      <h2>Download DATUM</h2>
+      <h2>Download InventCraft</h2>
       <p class="section-lede">
         Free, no account, no licence key. It updates itself from then on.
       </p>
       <a class="btn primary" id="download-btn-2"
-         href="https://api.iiteg.com/datum/0.2.8/DATUM-0.2.8-setup.exe">
+         href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        DATUM <span id="btn-version">0.2.8</span> for Windows
+        InventCraft <span id="btn-version">0.3.0</span> for Windows
       </a>
       <div class="meta-row">
         <span>Windows 10 / 11, 64-bit</span>
@@ -451,9 +445,9 @@
         <span><a href="changelog.html">What's new</a></span>
       </div>
       <div class="meta-row">
-        <span><a href="https://github.com/Artis-98/datum/releases/download/v0.2.8/DATUM-0.2.8-linux-x86_64-preview.tar.gz">Linux preview</a>, built on Ubuntu 22.04,
-          no automatic updates yet
-          (<a href="https://github.com/Artis-98/datum/blob/main/docs/LINUX.md">how to run it</a>)</span>
+        <span><a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.0/InventCraft-0.3.0-linux-x86_64.tar.gz">Linux</a>, for Ubuntu 20.04,
+          Debian 11, Fedora 32 and anything newer, and it updates itself too
+          (<a href="https://github.com/Artis-98/inventcraft/blob/main/docs/LINUX.md">how to install it</a>)</span>
       </div>
     </div>
   </div>
@@ -464,16 +458,16 @@
   <div class="wrap">
     <h2>Get in touch</h2>
     <p class="section-lede">
-      DATUM is built by one person at IITEG. Mail goes to a real inbox and
+      InventCraft is built by one person at IITEG. Mail goes to a real inbox and
       gets read.
     </p>
     <div class="grid">
       <div class="card">
         <h3>Something broke</h3>
         <p style="margin-bottom:14px">Tell me what you were doing and what
-          happened. If DATUM showed an error, the details box in it can be
+          happened. If InventCraft showed an error, the details box in it can be
           copied straight into the mail.</p>
-        <a class="btn ghost" href="mailto:datum@iiteg.com?subject=DATUM%20bug%20report">
+        <a class="btn ghost" href="mailto:datum@iiteg.com?subject=InventCraft%20bug%20report">
           datum@iiteg.com</a>
       </div>
       <div class="card">
@@ -481,13 +475,13 @@
         <p style="margin-bottom:14px">Feature requests are welcome,
           particularly from people learning CAD. The rough edges are
           easiest to see from the outside.</p>
-        <a class="btn ghost" href="mailto:datum@iiteg.com?subject=DATUM%20suggestion">
+        <a class="btn ghost" href="mailto:datum@iiteg.com?subject=InventCraft%20suggestion">
           datum@iiteg.com</a>
       </div>
       <div class="card">
         <h3>Everything else</h3>
         <p style="margin-bottom:14px">IITEG does mechanical design,
-          electronics and manufacturing. DATUM is one of the tools we
+          electronics and manufacturing. InventCraft is one of the tools we
           built for ourselves along the way.</p>
         <a class="btn ghost" href="https://iiteg.com">iiteg.com</a>
       </div>
@@ -499,7 +493,7 @@
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <h4>DATUM</h4>
+        <h4>InventCraft</h4>
         <a href="#what">What it is</a>
         <a href="#tour">Tour</a>
         <a href="#download">Download</a>
@@ -509,7 +503,7 @@
         <h4>Contact</h4>
         <a href="mailto:datum@iiteg.com">datum@iiteg.com</a>
         <a href="https://iiteg.com">iiteg.com</a>
-        <a href="https://github.com/Artis-98/datum">Source on GitHub</a>
+        <a href="https://github.com/Artis-98/inventcraft">Source on GitHub</a>
       </div>
       <div>
         <h4>Built on</h4>
@@ -520,7 +514,7 @@
       </div>
     </div>
     <div class="foot-bottom">
-      <span>DATUM is made by SIA IITEG in Latvia.</span>
+      <span>InventCraft is made by SIA IITEG in Latvia.</span>
       <span>Exploring what comes next.</span>
     </div>
   </div>
@@ -569,6 +563,13 @@
           var el = document.getElementById(id);
           if (el) { el.href = url; }
         });
+      }
+      /* the Linux archive, once the feed carries it */
+      if (feed.linux && feed.linux.url) {
+        var links = document.querySelectorAll("a.linux-link");
+        for (var i = 0; i < links.length; i++) {
+          links[i].href = feed.linux.url;
+        }
       }
       var released = when(feed.released);
       if (released) { set("meta-date", "Released " + released); }

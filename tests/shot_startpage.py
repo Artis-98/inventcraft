@@ -80,7 +80,7 @@ def click(u, v):
 
 def go():
     # give the recent list something to show
-    demo = os.path.join(OUT, "Bracket.pdat")
+    demo = os.path.join(OUT, "Bracket.icpart")
     win.new_document(prompt=False)
     win.start_sketch_on_plane("XY")
     settle(500)

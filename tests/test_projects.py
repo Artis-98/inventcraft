@@ -63,12 +63,12 @@ check("and reads back on its own", reopened.name == "Default", reopened.name)
 # ==========================================================================
 print("each project keeps its own recent list")
 
-default.remember(os.path.join(default.folder, "Bracket.pdat"))
-default.remember(os.path.join(default.folder, "Housing.pdat"),
+default.remember(os.path.join(default.folder, "Bracket.icpart"))
+default.remember(os.path.join(default.folder, "Housing.icpart"),
                  fileformat.ASSEMBLY)
 check("two files remembered", len(default.recent) == 2, default.recent)
 check("newest first",
-      default.recent[0]["path"].endswith("Housing.pdat"), default.recent[0])
+      default.recent[0]["path"].endswith("Housing.icpart"), default.recent[0])
 check("the type is kept too",
       default.recent[0]["type"] == fileformat.ASSEMBLY, default.recent[0])
 
@@ -79,13 +79,13 @@ check("it is where it was asked to be",
       os.path.normcase(tote.folder) == os.path.normcase(WORK), tote.folder)
 check("and it starts with nothing in its list", tote.recent == [], tote.recent)
 
-tote.remember(os.path.join(WORK, "Side Panel.pdat"))
+tote.remember(os.path.join(WORK, "Side Panel.icpart"))
 check("its own list fills up", len(manager.active().recent) == 1)
 
 manager.activate(default.path)
 check("switching back brings the other list with it",
       len(manager.active().recent) == 2
-      and manager.active().recent[0]["path"].endswith("Housing.pdat"),
+      and manager.active().recent[0]["path"].endswith("Housing.icpart"),
       manager.active().recent)
 check("and the Tote list is untouched",
       len(Project.load(tote.path).recent) == 1)
@@ -152,8 +152,8 @@ for _ in range(4):
 check("the window has a project to save into", bool(win.project_folder()),
       win.project_folder())
 check("a suggested filename lands inside it",
-      os.path.dirname(win.in_project("Part1.pdat")) == win.project_folder(),
-      win.in_project("Part1.pdat"))
+      os.path.dirname(win.in_project("Part1.icpart")) == win.project_folder(),
+      win.in_project("Part1.icpart"))
 check("the start page names it",
       win.start_page.project_button.text()
       == win.start_page.projects.active().name,
@@ -200,7 +200,7 @@ print("saving a document files it under the project")
 win.new_document(prompt=False)
 for _ in range(2):
     app.processEvents()
-suggested = win.in_project(win.document.title + ".pdat")
+suggested = win.in_project(win.document.title + ".icpart")
 check("the save dialog would start in the project",
       os.path.normcase(os.path.dirname(suggested))
       == os.path.normcase(WORK), suggested)

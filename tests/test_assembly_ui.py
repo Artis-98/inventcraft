@@ -170,7 +170,7 @@ check("the tree lists them", win.assembly_ui.browser.topLevelItem(0).childCount(
 check("the document is dirty", doc.modified)
 
 print("an assembly refuses to place itself")
-doc.path = os.path.join(WORK, "rig.adat")
+doc.path = os.path.join(WORK, "rig.icasm")
 warned = []
 original_warning = QtWidgets.QMessageBox.warning
 QtWidgets.QMessageBox.warning = staticmethod(
@@ -214,13 +214,23 @@ check("the frame is in part coordinates",
       dialog.constraint.a.frame.origin)
 check("focus moved to the second field", dialog.second.picking)
 
-print("both picks on one component are refused")
+print("a second pick on the same component replaces the first")
 stub_pick([(plate.id, bottom)])
 dialog.on_selection()
 pump()
-check("it explains why", "same component" in dialog.status.text(),
+check("it says so", "same component" in dialog.status.text(),
       dialog.status.text())
-check("and the second pick is still empty", not dialog.constraint.b.valid)
+check("the first pick is now that face",
+      abs(dialog.constraint.a.frame.origin[2]) < 1e-6,
+      dialog.constraint.a.frame.origin)
+check("and the second pick is still empty, and still wanted",
+      not dialog.constraint.b.valid and dialog.second.picking)
+stub_pick([(plate.id, top)])
+dialog.on_selection()
+pump()
+check("picking the top again puts it back",
+      abs(dialog.constraint.a.frame.origin[2] - 8.0) < 1e-6,
+      dialog.constraint.a.frame.origin)
 
 stub_pick([(peg.id, bottom)])
 dialog.on_selection()
@@ -464,13 +474,13 @@ check("cancel puts it back", abs(occ(0).placement.position[0]) < 1e-6,
 print("saving, closing and reopening")
 
 QtWidgets.QFileDialog.getSaveFileName = staticmethod(
-    lambda *a, **k: (os.path.join(WORK, "rig.adat"), ""))
+    lambda *a, **k: (os.path.join(WORK, "rig.icasm"), ""))
 check("it saves", win.save_document())
-check("the file is there", os.path.exists(os.path.join(WORK, "rig.adat")))
+check("the file is there", os.path.exists(os.path.join(WORK, "rig.icasm")))
 check("the title lost its dirty mark", "*" not in win.windowTitle(),
       win.windowTitle())
 check("it carries a thumbnail",
-      fileformat.thumbnail_of(os.path.join(WORK, "rig.adat")) is not None)
+      fileformat.thumbnail_of(os.path.join(WORK, "rig.icasm")) is not None)
 
 win.new_document(prompt=False)
 pump()
@@ -482,7 +492,7 @@ check("the 3D Model tab is back",
 check("no components are left on screen",
       not win.viewport._component_ais, win.viewport._component_ais)
 
-check("opening the .adat works", win.open_path(os.path.join(WORK, "rig.adat")))
+check("opening the .icasm works", win.open_path(os.path.join(WORK, "rig.icasm")))
 pump()
 check("we are in an assembly again", win.in_assembly)
 check("with both components", len(win.assembly.occurrences) == 2)
@@ -491,7 +501,7 @@ reopened = win.assembly.occurrences[1]
 seat = reopened.placement.apply_point(win.assembly.constraints[0].b.frame.origin)
 check("still seated on the plate", abs(seat[2] - 8.0) < 1e-4, seat)
 check("the recent list remembers it as an assembly",
-      any(e["path"].endswith("rig.adat") and e["type"] == fileformat.ASSEMBLY
+      any(e["path"].endswith("rig.icasm") and e["type"] == fileformat.ASSEMBLY
           for e in win.start_page.projects.active().recent))
 
 
@@ -509,11 +519,11 @@ warned = []
 QtWidgets.QMessageBox.warning = staticmethod(
     lambda *a, **k: warned.append(a[2] if len(a) > 2 else "")
     or QtWidgets.QMessageBox.Ok)
-win.open_path(os.path.join(WORK, "rig.adat"))
+win.open_path(os.path.join(WORK, "rig.icasm"))
 QtWidgets.QMessageBox.warning = original_warning
 pump()
 check("it tells the user", warned and "could not find" in warned[0], warned)
-check("it names the file", warned and "peg.pdat" in warned[0], warned)
+check("it names the file", warned and "peg.icpart" in warned[0], warned)
 check("the assembly still opened", win.in_assembly)
 check("and the plate is still drawn",
       len(win.viewport._component_ais) == 1, len(win.viewport._component_ais))

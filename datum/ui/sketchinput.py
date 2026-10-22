@@ -29,13 +29,13 @@ QLineEdit {
     font-family: %s;
     font-size: 12px;
     selection-background-color: %s;
-    /* a light silver highlight wants dark lettering on it */
-    selection-color: #171a20;
+    /* a light highlight wants dark lettering on it */
+    selection-color: %s;
 }
 QLineEdit[active="true"] {
     border: 1px solid %s;
     background: %s;
-    color: white;
+    color: %s;
 }
 QLineEdit[locked="true"] {
     border: 1px solid %s;
@@ -51,7 +51,7 @@ def _styled_field(width: int = 78) -> QtWidgets.QLineEdit:
     field.setFocusPolicy(QtCore.Qt.NoFocus)
     field.setStyleSheet(FIELD_STYLE % (
         C.panel_alt, C.border_light, C.text, MONO_STACK, C.accent,
-        C.accent, C.accent_soft, C.ok, C.ok,
+        C.on_accent, C.accent, C.accent_soft, C.text_bright, C.ok, C.ok,
     ))
     return field
 
@@ -82,7 +82,7 @@ class ValuePopup(QtWidgets.QWidget):
         self.field.setFixedWidth(104)
         self.field.setStyleSheet(FIELD_STYLE % (
             C.panel_alt, C.accent, C.text_bright, MONO_STACK, C.accent,
-            C.accent, C.accent_soft, C.ok, C.ok,
+            C.on_accent, C.accent, C.accent_soft, C.text_bright, C.ok, C.ok,
         ))
         layout.addWidget(self.field)
 

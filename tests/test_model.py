@@ -255,7 +255,7 @@ doc.rebuild()
 
 # --------------------------------------------------------------------------
 print("save / load / undo")
-tmp = os.path.join(tempfile.gettempdir(), "forge_roundtrip.pdat")
+tmp = os.path.join(tempfile.gettempdir(), "forge_roundtrip.icpart")
 tmp = doc.save(tmp)
 loaded = Document.load(tmp)
 check("file round trip: features", len(loaded.features) == len(doc.features))

@@ -1845,19 +1845,23 @@ class PatternFeature(Feature):
         if len(placements) <= 1:
             return
 
+        # Feature by feature, every copy of each at once: the copies of a
+        # hole go in as one cut, and a fillet round it is then done again
+        # on each.  One boolean per copy, on a body that grew each time,
+        # is what made a hundred teeth take minutes; see boolean_many.
         made = []
         missed = 0
-        for transform in placements[1:]:
-            for _fid, entry, edge_op in sources:
-                if edge_op is not None:
+        for _fid, entry, edge_op in sources:
+            if edge_op is not None:
+                for transform in placements[1:]:
                     if not replay_edge_op(ctx, edge_op, transform, self.name):
                         missed += 1
-                    continue
-                tool, op = entry
-                moved = transform(tool)
-                ctx.shape = kernel.boolean(ctx.shape, moved,
-                                           op if op != "new" else "join")
-                made.append((moved, op))
+                continue
+            tool, op = entry
+            moved = [transform(tool) for transform in placements[1:]]
+            ctx.shape = kernel.boolean_many(ctx.shape, moved,
+                                            op if op != "new" else "join")
+            made.extend((copy, op) for copy in moved)
         if missed:
             ctx.log.append("%s: %d copied fillet(s) or chamfer(s) found no "
                            "edges to work on" % (self.name, missed))
@@ -1891,10 +1895,8 @@ class PatternFeature(Feature):
                     ctx.bodies.append(Body(_copy_name(ctx, body.name, n),
                                            copy))
                 continue
-            merged = original
-            for copy in copies:
-                merged = kernel.combine(merged, copy, JOIN)
-            body.shape = merged
+            body.shape = kernel.unify(
+                kernel.boolean_many(original, copies, JOIN))
 
     def _axis(self, ctx: BuildContext, name: str) -> WorkAxis:
         """An origin axis or a work axis, by name.
@@ -2044,7 +2046,7 @@ class CodeFeature(Feature):
         if not ctx.code_allowed:
             raise FeatureError(
                 "%s is code, and code does not run until this document is "
-                "trusted.  Allow it from the dLogic panel." % self.name)
+                "trusted.  Allow it from the cLogic panel." % self.name)
         from .rules import run_code
 
         self.output = ""

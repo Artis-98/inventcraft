@@ -41,6 +41,11 @@ ORBIT_FREE = "free"
 ORBIT_TURNTABLE = "turntable"
 ORBITS = (ORBIT_FREE, ORBIT_TURNTABLE)
 
+# the colour schemes: InventCraft's light one, and the dark one DATUM had
+THEME_LIGHT = "light"
+THEME_DARK = "dark"
+THEMES = (THEME_LIGHT, THEME_DARK)
+
 # Which mouse button turns the view and which slides it; the wheel always
 # zooms.  "shift_middle" is the wheel held down with Shift, Inventor's
 # orbit.  A left button drag that navigates still leaves a plain click
@@ -53,7 +58,7 @@ ORBIT_BUTTONS = (MOUSE_RIGHT, MOUSE_SHIFT_MIDDLE, MOUSE_MIDDLE, MOUSE_LEFT)
 PAN_BUTTONS = (MOUSE_MIDDLE, MOUSE_LEFT, MOUSE_RIGHT)
 # the ready-made sets: (name, orbit, pan)
 MOUSE_SCHEMES = (
-    ("DATUM", MOUSE_RIGHT, MOUSE_MIDDLE),
+    ("InventCraft", MOUSE_RIGHT, MOUSE_MIDDLE),
     ("Inventor", MOUSE_SHIFT_MIDDLE, MOUSE_MIDDLE),
     ("Pan with the left button", MOUSE_RIGHT, MOUSE_LEFT),
 )
@@ -86,9 +91,13 @@ class Preferences:
     name: str = ""
     initials: str = ""
     company: str = ""
-    # what they want it to look like: theme colour name -> "#rrggbb"
-    colours: Dict[str, str] = field(default_factory=dict)
-    # folders whose documents may run their dLogic without asking.  Kept
+    # which colour scheme, and the colours they have changed in each:
+    # theme colour name -> "#rrggbb".  Kept apart, so a dark backdrop
+    # chosen for the dark scheme does not end up behind the light one.
+    theme: str = THEME_LIGHT
+    colours: Dict[str, str] = field(default_factory=dict)        # dark
+    light_colours: Dict[str, str] = field(default_factory=dict)
+    # folders whose documents may run their cLogic without asking.  Kept
     # here, on this machine, because a file must never vouch for itself.
     trusted_folders: List[str] = field(default_factory=list)
     orbit: str = ORBIT_FREE
@@ -105,7 +114,9 @@ class Preferences:
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
-                "company": self.company, "colours": dict(self.colours),
+                "company": self.company, "theme": self.theme,
+                "colours": dict(self.colours),
+                "light_colours": dict(self.light_colours),
                 "trusted_folders": list(self.trusted_folders),
                 "orbit": self.orbit, "units": self.units,
                 "spacemouse": dict(self.spacemouse),
@@ -116,12 +127,17 @@ class Preferences:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
         colours = data.get("colours") or {}
+        light = data.get("light_colours") or {}
         return cls(
             name=str(data.get("name", "")),
             initials=str(data.get("initials", "")),
             company=str(data.get("company", "")),
+            theme=(str(data.get("theme")) if data.get("theme") in THEMES
+                   else THEME_LIGHT),
             colours={str(k): str(v) for k, v in colours.items()
                      if k in COLOUR_KEYS and _is_colour(v)},
+            light_colours={str(k): str(v) for k, v in light.items()
+                           if k in COLOUR_KEYS and _is_colour(v)},
             trusted_folders=[str(f) for f in
                              data.get("trusted_folders", []) or [] if f],
             orbit=(str(data.get("orbit")) if data.get("orbit") in ORBITS
@@ -137,6 +153,16 @@ class Preferences:
                        and data.get("mouse_pan") != data.get("mouse_orbit")
                        else MOUSE_MIDDLE),
             zoom_reversed=bool(data.get("zoom_reversed", False)))
+
+    def colours_for(self, theme: str) -> Dict[str, str]:
+        """The colours changed in one scheme."""
+        return self.light_colours if theme == THEME_LIGHT else self.colours
+
+    def set_colours_for(self, theme: str, colours: Dict[str, str]) -> None:
+        if theme == THEME_LIGHT:
+            self.light_colours = dict(colours)
+        else:
+            self.colours = dict(colours)
 
     def stamp(self, properties: Dict[str, str],
               key: str = "Designer") -> Dict[str, str]:

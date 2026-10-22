@@ -1,4 +1,4 @@
-"""Building ahead from a dLogic form, in the window.
+"""Building ahead from a cLogic form, in the window.
 
 A form on a part that takes a moment to rebuild has the spare cores
 build the slider values either side of where it sits. Stepping onto one
@@ -88,7 +88,7 @@ def shown_volume():
 
 sample = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
     __file__))), "examples", "railing", "Stair Railing.pdat")
-stair = os.path.join(WORK, "Stair Railing.pdat")
+stair = os.path.join(WORK, "Stair Railing.icpart")
 shutil.copy(sample, stair)
 rules.trust_path(stair)
 

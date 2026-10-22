@@ -106,7 +106,7 @@ check("written into the active project, not beside the download",
           os.path.normcase(win.project_folder())),
       (win.assembly.path, win.project_folder()))
 clamps = [o for o in win.assembly.occurrences
-          if o.ref.path.lower().endswith(".adat")]
+          if o.ref.path.lower().endswith(".icasm")]
 drawn = win.viewport._component_ais.get(clamps[0].id) if clamps else None
 check("a sub-assembly is drawn with each of its parts in its own colour",
       isinstance(drawn, AIS_ColoredShape), type(drawn).__name__)

@@ -1,4 +1,4 @@
-"""The start page: what DATUM shows before a document is open.
+"""The start page: what InventCraft shows before a document is open.
 
 Modelled on Inventor's home screen - a New/Open rail on the left, a list of
 recent documents on the right, each with the thumbnail stored inside its own
@@ -115,16 +115,15 @@ class StartPage(QtWidgets.QWidget):
         # shows up round the mark.  The wordmark takes the mark's own colour
         # so the two never drift apart.
         mark = QtWidgets.QLabel()
-        mark.setPixmap(icons.mark_pixmap(34, field=False,
-                                         ratio=self.devicePixelRatioF()))
-        mark.setFixedSize(34, 34)
+        mark.setPixmap(icons.brand_pixmap(44, self.devicePixelRatioF()))
+        mark.setFixedSize(44, 44)
         lockup.addWidget(mark)
 
         title = QtWidgets.QLabel(APP_NAME)
         title.setStyleSheet(
-            "font-family: %s; font-size: 25px; font-weight: 800;"
-            " letter-spacing: 4px; color: %s;"
-            % (WORDMARK_STACK, icons.MARK_FACE))
+            "font-family: %s; font-size: 20px; font-weight: 800;"
+            " letter-spacing: 1px; color: %s;"
+            % (WORDMARK_STACK, C.wordmark))
         lockup.addWidget(title)
         lockup.addStretch(1)
         layout.addLayout(lockup)
@@ -203,13 +202,13 @@ class StartPage(QtWidgets.QWidget):
         tiles.setSpacing(14)
 
         self.part_tile = NewDocumentButton(
-            "box", "Part", "A single solid body  .pdat")
+            "box", "Part", "A single solid body  .icpart")
         self.part_tile.clicked.connect(
             lambda: self.new_requested.emit(fileformat.PART))
         tiles.addWidget(self.part_tile)
 
         self.assembly_tile = NewDocumentButton(
-            "pattern", "Assembly", "Components placed together  .adat")
+            "pattern", "Assembly", "Components placed together  .icasm")
         self.assembly_tile.setToolTip(
             "Place parts and constrain them to each other")
         self.assembly_tile.clicked.connect(
@@ -217,7 +216,7 @@ class StartPage(QtWidgets.QWidget):
         tiles.addWidget(self.assembly_tile)
 
         self.cam_tile = NewDocumentButton(
-            "export", "CAM Sheet", "Flat parts nested to cut  .cdat")
+            "export", "CAM Sheet", "Flat parts nested to cut  .iccam")
         self.cam_tile.setToolTip(
             "Lay flat parts on stock, offset for the cutter, export DXF")
         self.cam_tile.clicked.connect(
@@ -225,7 +224,7 @@ class StartPage(QtWidgets.QWidget):
         tiles.addWidget(self.cam_tile)
 
         self.drawing_tile = NewDocumentButton(
-            "dimension", "Drawing", "Sheets of views  .ddat")
+            "dimension", "Drawing", "Sheets of views  .icdraw")
         self.drawing_tile.setToolTip(
             "Views generated from a part or an assembly, on a sheet")
         self.drawing_tile.clicked.connect(

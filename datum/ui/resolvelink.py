@@ -102,7 +102,8 @@ class ResolveLinkDialog(QtWidgets.QDialog):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, "Find %s" % (link.reference.name or "the model"),
             self.base_dir,
-            "Parts and assemblies (*.pdat *.adat);;All files (*)")
+            "Parts and assemblies (%s);;All files (*)" % fileformat.patterns(
+                fileformat.PART, fileformat.ASSEMBLY))
         if not path:
             return
         self.fixed[index] = path

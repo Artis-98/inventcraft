@@ -1,6 +1,6 @@
-# dLogic
+# cLogic
 
-dLogic is DATUM's answer to iLogic: Python that lives inside a document
+cLogic is DATUM's answer to iLogic: Python that lives inside a document
 and drives it. There are two kinds of script, and they do different jobs.
 
 | | a **rule** | a **code feature** |
@@ -10,7 +10,7 @@ and drives it. There are two kinds of script, and they do different jobs.
 | does | changes things: parameters, dimensions, components, properties, material | builds a solid |
 | can ask | yes, with a window full of sliders | no |
 
-Open the panel with **Manage → dLogic** (parts), or the dLogic button on
+Open the panel with **Manage → cLogic** (parts), or the cLogic button on
 the Assemble, Drawing and CAM tabs. A code feature is **Manage → Code
 Feature**, or the Code feature button at the bottom of the panel.
 
@@ -162,7 +162,7 @@ if form("Size", slider("width", 20, 200)):
 ```
 
 **Forms that stay.** Tick **Show as a button** on a rule and it sits at the
-top of the dLogic panel as a button, one click from its window. That is
+top of the cLogic panel as a button, one click from its window. That is
 how a part becomes a small configurator.
 
 **Forms never open by themselves.** A rule that runs because something
@@ -280,7 +280,7 @@ rather read it there.
 
 A document carrying code can run it on whatever machine opens it. iLogic
 has that problem and it is a real one. Here a file arrives untrusted every
-time: its code features show as failed, the dLogic panel opens and says
+time: its code features show as failed, the cLogic panel opens and says
 why, and nothing runs until you press **Allow**. Only allow code from
 someone you trust.
 

@@ -286,10 +286,11 @@ class ConstraintDialog(QtWidgets.QDialog):
         if kind is None:
             return False
 
-        # the picked sub-shape is drawn where the component sits; dropping
-        # the location recovers the face exactly as the part stores it, which
-        # costs nothing because the placed body shares its geometry
-        local = shape.Located(TopLoc_Location())
+        # the picked sub-shape is drawn where the component sits; taking
+        # the placement off recovers the face exactly as the part stores
+        # it, which costs nothing because the placed body shares its
+        # geometry
+        local = occurrence.unplaced(shape)
         attachment = self.doc.attach(occurrence, kind, local)
 
         self._in_selection = True
@@ -309,10 +310,22 @@ class ConstraintDialog(QtWidgets.QDialog):
                  else self.constraint.a)
         if (other and other.valid
                 and other.occurrence == occurrence_id):
-            self.status.setStyleSheet("color: %s;" % C.warn)
+            # A constraint holds two components together, so a pick on the
+            # one the other pick is already on is taken as a better choice
+            # of face there: it replaces that pick, and the one still
+            # wanted stays armed.  Every click counts for something.
+            if field is self.first:
+                self.constraint.b = attachment
+            else:
+                self.constraint.a = attachment
+            self._sync_fields()
+            self.arm(field)
+            self.status.setStyleSheet("color: %s;" % C.text_dim)
             self.status.setText(
-                "Both picks are on the same component - a constraint holds "
-                "two different ones together.")
+                "That face replaces the %s pick, on the same component. "
+                "Now pick a face on the other component."
+                % ("second" if field is self.first else "first"))
+            self._changed()
             return True
 
         if field is self.first:
@@ -391,7 +404,7 @@ class ConstraintDialog(QtWidgets.QDialog):
             self.doc.add_constraint(self.constraint)
             self._live = True
 
-        report = self.controller.rebuild()
+        report = self.controller.resolve()
         self.ok_button.setEnabled(True)
         self.apply_button.setEnabled(True)
         if self.constraint.error:
@@ -432,8 +445,7 @@ class ConstraintDialog(QtWidgets.QDialog):
 
     def cancel(self) -> None:
         self._closed = True
-        self.doc.load_dict(json.loads(self._snapshot))
-        self.controller.rebuild()
+        self.controller.restore(self._snapshot)
         self.cancelled.emit()
         self.close()
 
@@ -532,7 +544,7 @@ class PlacementDialog(QtWidgets.QDialog):
         self.occurrence.placement.position = values[0:3]
         self.occurrence.placement.rotation = [math.radians(v)
                                               for v in values[3:6]]
-        report = self.controller.rebuild()
+        report = self.controller.resolve()
         if not self.occurrence.grounded and report.dof:
             self.note.setText(
                 "The solver may move it again - ground it to pin it down.")
@@ -544,8 +556,7 @@ class PlacementDialog(QtWidgets.QDialog):
 
     def cancel(self) -> None:
         self._closed = True
-        self.doc.load_dict(json.loads(self._snapshot))
-        self.controller.rebuild()
+        self.controller.restore(self._snapshot)
         self.close()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
@@ -613,6 +624,7 @@ class AssemblyController(QtCore.QObject):
         b.constraint_activated.connect(self.edit_constraint)
         b.constraint_selected.connect(self._constraint_selected)
         b.constraint_delete_requested.connect(self.delete_constraint)
+        b.delete_requested.connect(self.delete_items)
         b.constraint_suppress_toggled.connect(self.toggle_constraint_suppress)
         b.plane_visibility_toggled.connect(self.toggle_plane)
         b.place_requested.connect(self.place_component)
@@ -632,6 +644,72 @@ class AssemblyController(QtCore.QObject):
             return AssemblyReport()
         report = doc.rebuild()
         self.show_components(keep_camera=keep_camera)
+        return self._reported(report)
+
+    def resolve(self) -> AssemblyReport:
+        """Solve again and move what moved, without reloading or redrawing.
+
+        A rebuild reads every part and draws every component afresh,
+        which is right when files changed and far too much when only a
+        relationship did: on an assembly of a few hundred parts each offset
+        tried took seconds.  This solves with the bodies already loaded and
+        shifts only the components whose place changed.  Whenever the
+        picture cannot simply be shifted into line - something not drawn
+        yet, or drawn that should not be - it does the full rebuild.
+        """
+        doc = self.document
+        if doc is None:
+            return AssemblyReport()
+        drawn = getattr(self, "_drawn", None)
+        if not drawn or set(drawn) != self._showable():
+            return self.rebuild()
+        report = doc.resolve()
+        if set(drawn) != self._showable():
+            return self.rebuild()
+        applied = self._applied
+        for occurrence in doc.occurrences:
+            if occurrence.id not in drawn:
+                continue
+            now = occurrence.placement
+            key = (tuple(now.position), tuple(now.rotation))
+            if applied.get(occurrence.id) == key:
+                continue
+            trsf = now.trsf().Multiplied(drawn[occurrence.id].trsf().Inverted())
+            if not self.viewport.move_component(occurrence.id, trsf):
+                return self.rebuild()
+            applied[occurrence.id] = key
+        self._draw_arrows()
+        return self._reported(report)
+
+    def _showable(self):
+        """The components that should be on screen, by id."""
+        doc = self.document
+        return {o.id for o in doc.occurrences
+                if not o.suppressed and o.visible and o.shape is not None}
+
+    def restore(self, snapshot: str) -> AssemblyReport:
+        """Put the document back as a dialog found it, keeping the bodies.
+
+        Loading the snapshot makes every component afresh, without its
+        body; the bodies are the same files as a moment ago, so they are
+        handed back rather than read again.
+        """
+        doc = self.document
+        if doc is None:
+            return AssemblyReport()
+        bodies = {o.id: (o.ref.path, o.model_state, o.shape, o.error)
+                  for o in doc.occurrences}
+        doc.load_dict(json.loads(snapshot))
+        for occurrence in doc.occurrences:
+            kept = bodies.get(occurrence.id)
+            if kept and kept[0] == occurrence.ref.path \
+                    and kept[1] == occurrence.model_state:
+                occurrence.shape, occurrence.error = kept[2], kept[3]
+        return self.resolve()
+
+    def _reported(self, report: AssemblyReport) -> AssemblyReport:
+        """Say what the solve came to, in the tree and the status bar."""
+        doc = self.document
         self.browser.refresh()
         self.host.properties.update_from(doc)
         self.host.update_title()
@@ -675,7 +753,7 @@ class AssemblyController(QtCore.QObject):
                 "appearance": look,
                 "highlight": occurrence.id in selected,
             }
-            if path and path.lower().endswith(".adat"):
+            if path and fileformat.is_assembly(path):
                 # a sub-assembly: each of its parts in its own colour
                 item["looks"] = doc.library.looks(path)
             items.append(item)
@@ -698,6 +776,12 @@ class AssemblyController(QtCore.QObject):
         self.viewport.clear_overlay()
         self.viewport.set_shape(None, keep_camera=True)
         self.viewport.set_components(items + ghosts, keep_camera=keep_camera)
+        # where each was drawn, so a solve can shift the pictures into
+        # line rather than draw them all again; see resolve()
+        self._drawn = {item["id"]: doc.occurrence(item["id"]).placement.copy()
+                       for item in items}
+        self._applied = {oid: (tuple(p.position), tuple(p.rotation))
+                         for oid, p in self._drawn.items()}
         if held:
             self.viewport.select_components(held)
         self.viewport.show_planes(self.visible_planes(), self._plane_size())
@@ -772,8 +856,10 @@ class AssemblyController(QtCore.QObject):
         start = doc.base_dir or self.host.project_folder()
         paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
             self.host, "Place Component", start,
-            "Parts and assemblies (*.pdat *.adat);;"
-            "DATUM Part (*.pdat);;DATUM Assembly (*.adat);;All files (*)")
+            "Parts and assemblies (%s);;%s;;%s;;All files (*)" % (
+                fileformat.patterns(fileformat.PART, fileformat.ASSEMBLY),
+                fileformat.type_filter(fileformat.PART),
+                fileformat.type_filter(fileformat.ASSEMBLY)))
         if not paths:
             return
 
@@ -859,7 +945,8 @@ class AssemblyController(QtCore.QObject):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self.host, "Replace Component",
             doc.base_dir or self.host.project_folder(),
-            "Parts and assemblies (*.pdat *.adat);;All files (*)")
+            "Parts and assemblies (%s);;All files (*)" % fileformat.patterns(
+                fileformat.PART, fileformat.ASSEMBLY))
         if not path:
             return
         doc.push_undo()
@@ -901,14 +988,46 @@ class AssemblyController(QtCore.QObject):
         self._open(ConstraintDialog(self, constraint=constraint))
 
     def delete_constraint(self, constraint_id: int) -> None:
+        self.delete_items([], [constraint_id])
+
+    def delete_items(self, occurrence_ids, constraint_ids) -> None:
+        """Delete components and relationships together, as one undo step.
+
+        Whatever is selected goes, not the first of it: several
+        relationships picked in the tree and Delete pressed is a request
+        to remove all of them.
+        """
         doc = self.document
-        constraint = doc.constraint(constraint_id) if doc else None
-        if constraint is None:
+        if doc is None:
+            return
+        constraints = [doc.constraint(cid) for cid in constraint_ids]
+        constraints = [c for c in constraints if c is not None]
+        occurrence_ids = [oid for oid in occurrence_ids
+                          if doc.occurrence(oid) is not None]
+        if not constraints:
+            if occurrence_ids:
+                self.delete_occurrences(occurrence_ids)
+            return
+        if occurrence_ids:
+            # one step for both: the components' own report covers them,
+            # and the relationships go first so it does not count them twice
+            doc.push_undo()
+            for constraint in constraints:
+                doc.remove_constraint(constraint.id)
+            self.delete_occurrences(occurrence_ids, undo=False)
             return
         doc.push_undo()
-        doc.remove_constraint(constraint_id)
-        self.rebuild()
-        self.host.status_message.setText("Deleted %s." % constraint.name)
+        for constraint in constraints:
+            doc.remove_constraint(constraint.id)
+        self.resolve()
+        self.host.status_message.setStyleSheet("")
+        if len(constraints) == 1:
+            self.host.status_message.setText(
+                "Deleted %s." % constraints[0].name)
+        else:
+            self.host.status_message.setText(
+                "Deleted %d relationships.  Ctrl+Z puts them back."
+                % len(constraints))
 
     def toggle_constraint_suppress(self, constraint_id: int) -> None:
         doc = self.document
@@ -931,7 +1050,7 @@ class AssemblyController(QtCore.QObject):
         """
         self.delete_occurrences([occurrence_id])
 
-    def delete_occurrences(self, occurrence_ids) -> None:
+    def delete_occurrences(self, occurrence_ids, undo: bool = True) -> None:
         doc = self.document
         if doc is None:
             return
@@ -947,7 +1066,8 @@ class AssemblyController(QtCore.QObject):
                 if constraint.name not in lost:
                     lost.append(constraint.name)
 
-        doc.push_undo()
+        if undo:
+            doc.push_undo()
         for oid in wanted:
             doc.remove_occurrence(oid)
         self.rebuild()
@@ -981,7 +1101,7 @@ class AssemblyController(QtCore.QObject):
             return
         doc.push_undo()
         occurrence.grounded = not occurrence.grounded
-        report = self.rebuild()
+        report = self.resolve()
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
             "%s is %s.  %s" % (occurrence.label,
@@ -1116,9 +1236,10 @@ class AssemblyController(QtCore.QObject):
     def delete_selected(self) -> bool:
         """The Delete key, in the view or in the tree.  True if it did."""
         picked = self.selected_occurrences()
-        if not picked:
+        constraints = self.browser.selected_constraint_ids()
+        if not picked and not constraints:
             return False
-        self.delete_occurrences(picked)
+        self.delete_items(picked, constraints)
         return True
 
     def begin_tool(self, mode: Optional[str]) -> None:
@@ -1154,7 +1275,13 @@ class AssemblyController(QtCore.QObject):
                              if placed is not None else None)
 
     def _free_drag_allowed(self, occurrence_id: int) -> bool:
-        """What the viewport asks before dragging with no tool armed."""
+        """What the viewport asks before dragging with no tool armed.
+
+        Never while Section View is being placed: a press there picks the
+        face to cut at, or moves the cut, and must not carry off a part.
+        """
+        if getattr(self.host, "section_busy", lambda: False)():
+            return False
         return self.tool is None and self.freely_movable(occurrence_id)
 
     def _drag_moved(self, delta) -> None:
@@ -1177,12 +1304,17 @@ class AssemblyController(QtCore.QObject):
         # picture moves, too: rebuilding every component's on each mouse
         # move is what left a part crawling along behind the cursor in a
         # decent size assembly.
-        start = getattr(self, "_drag_from", None)
+        # from where its picture was drawn, which after a solve has
+        # shifted it is no longer where the drag began
+        start = (getattr(self, "_drawn", None) or {}).get(occurrence.id) \
+            or getattr(self, "_drag_from", None)
         if start is None or not self.viewport.move_component(
                 occurrence.id,
                 occurrence.placement.trsf().Multiplied(
                     start.trsf().Inverted())):
             self.show_components(keep_camera=True)
+        elif getattr(self, "_applied", None) is not None:
+            self._applied.pop(occurrence.id, None)
 
     def _drag_finished(self) -> None:
         doc = self.document
@@ -1194,7 +1326,7 @@ class AssemblyController(QtCore.QObject):
         self._drag_snapshot = None
         self._drag_from = None
         self._drag_centre = None
-        report = self.rebuild()
+        report = self.resolve()
         self.host.status_message.setText(report.solver or report.message)
 
     # --------------------------------------------------------- plumbing
@@ -1319,7 +1451,8 @@ class AssemblyController(QtCore.QObject):
                                  "%s Copy%s" % (stem, extension))
         target, _ = QtWidgets.QFileDialog.getSaveFileName(
             self.host, "Save and Replace", suggested,
-            "Parts and assemblies (*.pdat *.adat);;All files (*)")
+            "Parts and assemblies (%s);;All files (*)" % fileformat.patterns(
+                fileformat.PART, fileformat.ASSEMBLY))
         if not target:
             return
         if os.path.normcase(os.path.abspath(target)) == \

@@ -29,7 +29,7 @@ def check(name, cond, extra=""):
         FAILS.append(name)
 
 
-def part(height, name="block.pdat"):
+def part(height, name="block.icpart"):
     doc = Document()
     feature = PrimitiveFeature()
     feature.kind = "box"
@@ -84,7 +84,7 @@ imported = Document()
 feature = ImportFeature()
 feature.path = "somewhere.brep"
 imported.add_feature(feature)
-importer = imported.save(os.path.join(WORK, "importer.pdat"))
+importer = imported.save(os.path.join(WORK, "importer.icpart"))
 first_key = bodycache.key_for_part(importer)
 fileio.write_shape(kernel.box(5, 5, 9), source)
 check("changing the imported file changes the part's key",
@@ -104,7 +104,7 @@ check("a body that is nothing is not stored",
 print()
 print("a broken entry is a miss, not a crash")
 
-path = part(12, "third.pdat")
+path = part(12, "third.icpart")
 library = PartLibrary()
 library.shape(path)
 key = bodycache.key_for_part(path)
@@ -121,8 +121,8 @@ print()
 print("it stays inside its budget")
 
 for i in range(6):
-    part(10 + i, "budget%d.pdat" % i)
-    PartLibrary().shape(os.path.join(WORK, "budget%d.pdat" % i))
+    part(10 + i, "budget%d.icpart" % i)
+    PartLibrary().shape(os.path.join(WORK, "budget%d.icpart" % i))
 full = bodycache.size()
 check("there is something to prune", full > 0, full)
 freed = bodycache.prune(budget=full // 3)
@@ -136,9 +136,9 @@ check("clearing it empties the lot",
 print()
 print("an assembly built from cache matches one built without")
 
-parts = [part(10 + i, "asm%d.pdat" % i) for i in range(3)]
+parts = [part(10 + i, "asm%d.icpart" % i) for i in range(3)]
 asm = AssemblyDocument()
-asm.path = os.path.join(WORK, "rig.adat")
+asm.path = os.path.join(WORK, "rig.icasm")
 for source in parts:
     placed = asm.place(source, os.path.basename(source))
     placed.grounded = True

@@ -66,7 +66,7 @@ def to_pdf(doc: DrawingDocument, path: str,
     writer = QtGui.QPdfWriter(path)
     writer.setResolution(int(PDF_DPI))
     writer.setTitle(doc.properties.get("Title") or doc.title)
-    writer.setCreator("DATUM")
+    writer.setCreator("InventCraft")
 
     painter = QtGui.QPainter()
     started = False

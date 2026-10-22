@@ -1,4 +1,4 @@
-"""Telling somebody there is a new DATUM, and putting it there if they want it.
+"""Telling somebody there is a new InventCraft, and putting it there if they want it.
 
 A banner rather than a dialog.  An update is never urgent enough to take
 the window away from somebody in the middle of a sketch, and a modal box
@@ -75,6 +75,15 @@ class Worker(QtCore.QThread):
     def _download(self) -> None:
         import json
 
+        if self.release.package:
+            # Linux: one archive, and what changed is only known once it
+            # is unpacked
+            self.planned.emit(self.release, None)
+            plan = update.download_package(self.release,
+                                           update.install_dir(),
+                                           progress=self._tick)
+            self.staged.emit(plan)
+            return
         raw = update.fetch_signed(self.release.base, self.release.manifest)
         manifest = json.loads(raw.decode("utf-8"))
         plan = update.plan_for(manifest, update.install_dir(),
@@ -112,7 +121,8 @@ class UpdateBanner(QtWidgets.QFrame):
         row.setSpacing(10)
 
         self.mark = QtWidgets.QLabel()
-        self.mark.setPixmap(icons.mark_pixmap(18))
+        self.mark.setPixmap(icons.brand_pixmap(18,
+                                               self.devicePixelRatioF()))
         self.mark.setStyleSheet("background: transparent;")
         row.addWidget(self.mark)
 
@@ -158,7 +168,7 @@ class UpdateBanner(QtWidgets.QFrame):
     def offer(self, version: str, notes: str = "") -> None:
         self._mode = "offer"
         self.message.setText(
-            "DATUM %s is available.  You are on %s." % (version, __version__))
+            "InventCraft %s is available.  You are on %s." % (version, __version__))
         self.action.setText("Update")
         self.action.setEnabled(True)
         self.action.setVisible(True)
@@ -181,7 +191,7 @@ class UpdateBanner(QtWidgets.QFrame):
     def ready(self, version: str) -> None:
         self._mode = "ready"
         self.message.setText(
-            "DATUM %s is ready.  Restart to finish." % version)
+            "InventCraft %s is ready.  Restart to finish." % version)
         self.action.setText("Restart Now")
         self.action.setEnabled(True)
         self.action.setVisible(True)
@@ -310,7 +320,7 @@ class UpdateController(QtCore.QObject):
             if quiet:
                 self.banner.setVisible(False)
             else:
-                self.banner.problem("DATUM %s is the newest version."
+                self.banner.problem("InventCraft %s is the newest version."
                                     % __version__)
                 QtCore.QTimer.singleShot(
                     6000, lambda: self.banner.setVisible(False))
@@ -322,7 +332,7 @@ class UpdateController(QtCore.QObject):
         self.release = release
         if release.needs_reinstall:
             self.banner.problem(
-                "DATUM %s is available, but it is too big a jump to patch.  "
+                "InventCraft %s is available, but it is too big a jump to patch.  "
                 "Download the installer from iiteg.com." % release.version)
             return
         self.banner.offer(release.version, release.notes)
@@ -353,7 +363,12 @@ class UpdateController(QtCore.QObject):
 
     def _planned(self, release, plan) -> None:
         self.plan = plan
-        self.banner.working("Downloading DATUM %s: %s"
+        if plan is None:
+            self.banner.working("Downloading InventCraft %s (%s)" % (
+                release.version, update.human(release.package_size)),
+                0, max(1, release.package_size // 1024))
+            return
+        self.banner.working("Downloading InventCraft %s: %s"
                             % (release.version, plan.summary()),
                             0, max(1, len(plan.download)))
 
@@ -372,8 +387,8 @@ class UpdateController(QtCore.QObject):
             self.banner.setVisible(False)
             return
         if QtWidgets.QMessageBox.question(
-                self.host, "Restart DATUM",
-                "Restart now to finish updating to DATUM %s?" % waiting,
+                self.host, "Restart InventCraft",
+                "Restart now to finish updating to InventCraft %s?" % waiting,
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
                 ) != QtWidgets.QMessageBox.Yes:
             return
@@ -387,7 +402,7 @@ class UpdateController(QtCore.QObject):
         if said:
             QtWidgets.QMessageBox.warning(
                 self.host, "The last update did not finish",
-                "DATUM tried this before and could not complete it."
+                "InventCraft tried this before and could not complete it."
                 "\n\n%s\n\nThe full log is beside the installation "
                 "in datum-update-log.txt.  Trying again now."
                 % said.splitlines()[-1][:300])
@@ -414,8 +429,8 @@ class UpdateController(QtCore.QObject):
         if self.release is None:
             return
         box = QtWidgets.QMessageBox(self.host)
-        box.setWindowTitle("DATUM %s" % self.release.version)
-        box.setText("<b>DATUM %s</b>%s" % (
+        box.setWindowTitle("InventCraft %s" % self.release.version)
+        box.setText("<b>InventCraft %s</b>%s" % (
             self.release.version,
             ("  released %s" % self.release.released)
             if self.release.released else ""))

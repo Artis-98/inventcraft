@@ -268,8 +268,13 @@ check("let go, it stays where it was put",
       near(asm.occurrences[1].placement.position[0] - start[0], 15.0, 1e-6),
       asm.occurrences[1].placement.position)
 fresh = vp._component_ais[peg.id]
-check("drawn properly where it landed, with no leftover shift",
-      near(fresh.LocalTransformation().TranslationPart().X(), 0.0, 1e-9))
+from OCP.TopLoc import TopLoc_Location                             # noqa: E402
+drawn_at = kernel.shape_centre(fresh.Shape().Moved(
+    TopLoc_Location(fresh.LocalTransformation())))
+check("drawn where it landed, without drawing everything again",
+      all(near(a, b, 1e-6) for a, b in zip(
+          drawn_at, kernel.shape_centre(asm.occurrences[1].placed()))),
+      (drawn_at, kernel.shape_centre(asm.occurrences[1].placed())))
 win.toggle_component_tool("move")
 pump()
 
@@ -279,7 +284,7 @@ print("in an assembly a box picks several, and they all take the material")
 
 check("box selection is on in an assembly", vp.box_select_enabled)
 # saved, so its parts are found beside it and their files can be written
-asm.save(os.path.join(WORK, "rig.adat"))
+asm.save(os.path.join(WORK, "rig.icasm"))
 win.assembly_ui.browser.select_occurrences([o.id for o in asm.occurrences])
 pump()
 check("both picked", sorted(win.assembly_ui.selected_occurrences())

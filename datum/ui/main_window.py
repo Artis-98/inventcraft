@@ -168,13 +168,23 @@ class _EscapeAnywhere(QtCore.QObject):
             return False
         if focus is self.viewport or self.viewport.isAncestorOf(focus):
             return False
-        if isinstance(focus, self.TYPING):
+        # A field of the window's own keeps its Esc, unless a feature or
+        # constraint dialog is open: then Esc is for the dialog, wherever
+        # the keyboard happens to be, even with the dialog out of sight.
+        if isinstance(focus, self.TYPING) and not self._dialog_open():
             return False
         if (isinstance(focus, QtWidgets.QAbstractItemView)
                 and focus.state() == QtWidgets.QAbstractItemView.EditingState):
             return False
         self.viewport.escape_pressed.emit()
         return True
+
+    def _dialog_open(self) -> bool:
+        window = self.window
+        return any(dialog is not None for dialog in (
+            getattr(window, "_active_dialog", None),
+            getattr(getattr(window, "assembly_ui", None), "dialog", None),
+            getattr(getattr(window, "cam_ui", None), "dialog", None)))
 
 
 class _HoldInput(QtCore.QObject):
@@ -184,7 +194,7 @@ class _HoldInput(QtCore.QObject):
     back, because they could change the model the worker is building. The
     view keeps its middle and right buttons and the wheel, which only move
     the camera; its left button, which selects, waits with the rest.
-    Anything marked datum_live, a dLogic form, keeps all of its input.
+    Anything marked datum_live, a cLogic form, keeps all of its input.
     """
 
     BLOCKED = (
@@ -585,7 +595,7 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("material", "dProperties",
                         "Title, part number, units, mass and bounding box"
                         ).clicked.connect(self.show_properties)
-        panel.add_small("auto", "dLogic", "Rules that drive this assembly"
+        panel.add_small("auto", "cLogic", "Rules that drive this assembly"
                         ).clicked.connect(self.show_rules)
 
         # --------------------------------------------------------------- CAM
@@ -600,7 +610,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(self.cam_ui.regenerate)
         panel.add_small("params", "Parameters", "Named parameters (Ctrl+P)"
                         ).clicked.connect(self.edit_parameters)
-        panel.add_small("auto", "dLogic", "Rules that drive this sheet"
+        panel.add_small("auto", "cLogic", "Rules that drive this sheet"
                         ).clicked.connect(self.show_rules)
 
         panel = cam.add_panel("Parts")
@@ -701,7 +711,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         "Title, part number, units, mass and bounding box"
                         ).clicked.connect(
             self.show_properties)
-        panel.add_small("auto", "dLogic", "Rules that drive this drawing"
+        panel.add_small("auto", "cLogic", "Rules that drive this drawing"
                         ).clicked.connect(self.show_rules)
 
         panel = drawing_tab.add_panel("Output")
@@ -736,7 +746,7 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = manage.add_panel("Parameters")
         panel.add_big("params", "Parameters", "Named parameters (Ctrl+P)"
                       ).clicked.connect(self.edit_parameters)
-        panel.add_big("auto", "dLogic",
+        panel.add_big("auto", "cLogic",
                       "Rules that drive this document"
                       ).clicked.connect(self.show_rules)
         panel.add_big("code", "Code\nFeature",
@@ -875,7 +885,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dock.setMinimumWidth(230)
         self.browser_dock = dock
 
-        # dLogic sits above the tree, where iLogic sits in Inventor, and
+        # cLogic sits above the tree, where iLogic sits in Inventor, and
         # starts hidden: most documents have no rules and a panel for
         # nothing is a panel in the way.
         self.rules_panel = RulesPanel(self)
@@ -884,7 +894,7 @@ class MainWindow(QtWidgets.QMainWindow):
         core_rules.show_form = (
             lambda document, title, controls:
             open_form(self, document, title, controls))
-        rules_dock = QtWidgets.QDockWidget("dLogic", self)
+        rules_dock = QtWidgets.QDockWidget("cLogic", self)
         rules_dock.setObjectName("RulesDock")
         rules_dock.setWidget(self.rules_panel)
         rules_dock.setFeatures(QtWidgets.QDockWidget.DockWidgetMovable
@@ -1569,6 +1579,8 @@ class MainWindow(QtWidgets.QMainWindow):
                  keep_camera: bool = True) -> None:
         """Make one open document the one the whole window is editing."""
         if entry is None:
+            if not self.on_start_page:
+                self._stash_section(self.session.active)
             self.session.active = None
             self.show_start_page()
             self.refresh_tabs()
@@ -1583,6 +1595,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.finish_sketch()
         self.close_dialogs()
         self._stash_camera()
+        self._stash_section(self.session.active
+                            if not self.on_start_page else None)
 
         # the part or assembly last worked on: what a drawing's Base View
         # offers first, as Inventor does, since it is nearly always the one
@@ -1618,6 +1632,7 @@ class MainWindow(QtWidgets.QMainWindow):
         restored = self.viewport.restore_camera(entry.camera) if keep_camera \
             else False
         self.rebuild(keep_camera=restored)
+        self._restore_section(entry)
         if not restored:
             if self.in_cam:
                 self.viewport.set_view("top")
@@ -1845,7 +1860,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.open_path(path)
 
     def open_path(self, path: str) -> bool:
-        """Open a DATUM document, reporting exactly why if we cannot.
+        """Open an InventCraft document, reporting exactly why if we cannot.
 
         A file that is already open is not loaded twice: the window switches
         to its tab.  That is what makes editing a part from inside an
@@ -1882,7 +1897,7 @@ class MainWindow(QtWidgets.QMainWindow):
             label = fileformat.TYPE_LABELS.get(manifest.type, manifest.type)
             QtWidgets.QMessageBox.information(
                 self, "Not a part",
-                "%s is a DATUM %s.\n\nThis build edits parts (%s), assemblies "
+                "%s is an InventCraft %s.\n\nThis build edits parts (%s), assemblies "
                 "(%s) and CAM sheets (%s). The file itself is valid and will "
                 "open once %s editing is added."
                 % (os.path.basename(path), label,
@@ -1907,7 +1922,7 @@ class MainWindow(QtWidgets.QMainWindow):
             source = "schema %d" % document.migrated_from
             self.status_message.setText(
                 "Opened %s and brought it forward from %s - use Save As to "
-                "store it as a DATUM part."
+                "store it as an InventCraft part."
                 % (os.path.basename(path), source))
         else:
             self.status_message.setText("Opened %s" % os.path.basename(path))
@@ -2181,7 +2196,7 @@ class MainWindow(QtWidgets.QMainWindow):
             answer = QtWidgets.QMessageBox.question(
                 self, "Import",
                 "%s is %s.\n\nOpen it as an assembly instead? Every part "
-                "becomes its own DATUM part, placed where it was, with its "
+                "becomes its own InventCraft part, placed where it was, with its "
                 "name and colour, and a part used many times is stored "
                 "once. Large models stay quick that way.\n\n"
                 "Yes opens it as an assembly. No brings the whole thing "
@@ -2223,7 +2238,7 @@ class MainWindow(QtWidgets.QMainWindow):
             answer = QtWidgets.QMessageBox.question(
                 self, "Open %s" % os.path.basename(path),
                 "%s is %s.\n\nDATUM opens it as an assembly: every part "
-                "its own DATUM part, placed where it was, sub-assemblies, "
+                "its own InventCraft part, placed where it was, sub-assemblies, "
                 "names and colours kept, into a new folder:\n\n    %s\n\n"
                 "No opens it as a single part instead, everything in one "
                 "body."
@@ -2263,7 +2278,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def import_as_assembly(self, path: str,
                            folder: Optional[str] = None) -> bool:
-        """Write a foreign file out as DATUM parts and assemblies, and open it."""
+        """Write a foreign file out as InventCraft parts and assemblies, and open it."""
         folder = folder or self._import_folder(path)
         progress = QtWidgets.QProgressDialog(
             "Reading %s" % os.path.basename(path), "", 0, 0, self)
@@ -2881,11 +2896,42 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.raise_()
 
     def _position_dialog(self, dialog: QtWidgets.QDialog) -> None:
-        geo = self.viewport.geometry()
-        top_right = self.mapToGlobal(QtCore.QPoint(
-            geo.x() + geo.width() - dialog.sizeHint().width() - 24,
-            geo.y() + 18))
-        dialog.move(top_right)
+        """Top right of the 3D view, and always somewhere it can be seen.
+
+        Worked out from the view itself: its geometry is relative to
+        whatever holds it, not to the window, and taken as the window's it
+        could put a dialog off the edge of the screen, where it is as good
+        as lost.
+        """
+        size = dialog.sizeHint()
+        view = self.viewport
+        spot = view.mapToGlobal(QtCore.QPoint(
+            max(0, view.width() - size.width() - 24), 18))
+        screen = (QtGui.QGuiApplication.screenAt(spot)
+                  or self.screen() or QtGui.QGuiApplication.primaryScreen())
+        if screen is not None:
+            room = screen.availableGeometry()
+            spot.setX(max(room.left(), min(spot.x(),
+                                           room.right() - size.width())))
+            spot.setY(max(room.top(), min(spot.y(),
+                                          room.bottom() - size.height())))
+        dialog.move(spot)
+
+    def _raise_dialogs(self) -> None:
+        """Bring any open feature or constraint dialog back in front.
+
+        They belong to the window and Windows keeps them above it, but a
+        window that stopped answering for a while is swapped for a ghost
+        copy, and coming back from that can leave a dialog behind it, out
+        of sight, with the command still waiting on it.  So whenever the
+        window is activated, its dialogs are put back on top.
+        """
+        for widget in QtWidgets.QApplication.topLevelWidgets():
+            if (widget is not self and widget.isVisible()
+                    and isinstance(widget, QtWidgets.QDialog)
+                    and widget.parent() is self
+                    and not widget.isModal()):
+                widget.raise_()
 
     position_dialog = _position_dialog
 
@@ -3877,6 +3923,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status_message.setText(
             "Section View: click a flat face or a plane. Esc to stop.")
 
+    def section_busy(self) -> bool:
+        """Whether Section View is waiting for a face or being placed."""
+        bar = getattr(self, "section_bar", None)
+        return bool(getattr(self, "_section_pick", False)
+                    or (bar is not None and bar.isVisible()))
+
     def _section_picked(self) -> bool:
         """A click while Section View waits for its plane.  True if used."""
         if not getattr(self, "_section_pick", False):
@@ -3914,13 +3966,9 @@ class MainWindow(QtWidgets.QMainWindow):
         keep = n if sum(n[i] * d[i] for i in range(3)) > 0 else tuple(
             -c for c in n)
         self._section = {"plane": plane, "keep": keep}
-        bar = getattr(self, "section_bar", None)
-        if bar is None:
-            from .panels import SectionBar
-            bar = self.section_bar = SectionBar(self)
-            bar.changed.connect(self._apply_section)
-            bar.accepted.connect(lambda: self._end_section(keep=True))
-            bar.rejected.connect(lambda: self._end_section(keep=False))
+        # picked in what is on screen now, so nothing to carry
+        self._section_carry = None
+        bar = self._section_toolbar()
         bar.offset, bar.angle, bar.flipped = 0.0, 0.0, False
         bar.move_button.setChecked(True)
         bar.set_offset(0.0)
@@ -3935,6 +3983,16 @@ class MainWindow(QtWidgets.QMainWindow):
             "Section View: drag in the view to move the cut, or type it. "
             "OK to keep it.")
         return True
+
+    def _section_toolbar(self):
+        bar = getattr(self, "section_bar", None)
+        if bar is None:
+            from .panels import SectionBar
+            bar = self.section_bar = SectionBar(self)
+            bar.changed.connect(self._apply_section)
+            bar.accepted.connect(lambda: self._end_section(keep=True))
+            bar.rejected.connect(lambda: self._end_section(keep=False))
+        return bar
 
     def _section_frame(self):
         """Where the cut is now: (origin, the normal of what is kept)."""
@@ -3951,7 +4009,72 @@ class MainWindow(QtWidgets.QMainWindow):
         # moved along the way it faces as first picked, so a typed distance
         # means the same thing whichever side is kept
         origin = tuple(origin[i] + keep[i] * bar.offset for i in range(3))
-        return origin, n
+        return self._carry_point(origin), self._carry_direction(n)
+
+    # A section is made in the frame of the document it was made in.
+    # Editing a component in place shows that component in its own frame,
+    # with the assembly moved round it, so the cut is carried the same way
+    # and stays where it was set in the assembly, rather than cutting the
+    # part at the assembly's numbers in the part's frame.
+    def _carry_point(self, p):
+        carry = getattr(self, "_section_carry", None)
+        if carry is None:
+            return tuple(p)
+        from OCP.gp import gp_Pnt
+        q = gp_Pnt(*p).Transformed(carry)
+        return (q.X(), q.Y(), q.Z())
+
+    def _carry_direction(self, d):
+        carry = getattr(self, "_section_carry", None)
+        if carry is None:
+            return tuple(d)
+        from OCP.gp import gp_Dir
+        q = gp_Dir(*d).Transformed(carry)
+        return (q.X(), q.Y(), q.Z())
+
+    def _carry_section(self, trsf) -> None:
+        """Move the section's frame by ``trsf`` on top of where it is."""
+        carry = getattr(self, "_section_carry", None)
+        self._section_carry = (trsf if carry is None
+                               else trsf.Multiplied(carry))
+        if getattr(self, "_section", None) is not None:
+            self._apply_section()
+
+    def _stash_section(self, entry) -> None:
+        """Keep the open document's section with its tab, as it leaves."""
+        if getattr(self, "_section_pick", False):
+            self._end_section(keep=False)
+        bar = getattr(self, "section_bar", None)
+        if bar is not None and bar.isVisible():
+            self._end_section(keep=True)
+        if entry is None:
+            return
+        if getattr(self, "_section", None) is None:
+            entry.section = None
+            return
+        entry.section = {"section": dict(self._section),
+                         "offset": bar.offset, "angle": bar.angle,
+                         "flipped": bar.flipped,
+                         "carry": getattr(self, "_section_carry", None)}
+
+    def _restore_section(self, entry) -> None:
+        """The section a tab had when it was left, or none."""
+        state = getattr(entry, "section", None) if entry is not None else None
+        self.section_btn.blockSignals(True)
+        self.section_btn.setChecked(state is not None)
+        self.section_btn.blockSignals(False)
+        if state is None:
+            self._section = None
+            self._section_carry = None
+            self.viewport.set_clip("section", None)
+            return
+        bar = self._section_toolbar()
+        bar.offset, bar.angle = state["offset"], state["angle"]
+        bar.flipped = state["flipped"]
+        bar.set_offset(bar.offset)
+        self._section = dict(state["section"])
+        self._section_carry = state["carry"]
+        self._apply_section()
 
     def _apply_section(self) -> None:
         if getattr(self, "_section", None) is None:
@@ -3977,7 +4100,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.section_bar.rotating:
             return
         origin, _n = self._section_frame()
-        keep = self._section["keep"]
+        keep = self._carry_direction(self._section["keep"])
         self._section_drag_from = self.section_bar.offset
         self._section_dragging = True
         self.viewport.begin_axis_drag(origin, keep)
@@ -4198,6 +4321,8 @@ class MainWindow(QtWidgets.QMainWindow):
             "camera": seen,
             # how to carry the view back up: this level's placement
             "placement": where.Transformation(),
+            # and the section, as it was framed up there
+            "section_carry": getattr(self, "_section_carry", None),
         })
         # everything already ghosted, plus this level's siblings, all moved
         # into the frame of the thing we are stepping into
@@ -4208,6 +4333,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.viewport.clear_selection()
         self._show_in_place(child)
+        self._carry_section(back.Transformation())
         # The part stays in its own frame and the machine moves into it, so
         # the view moves with the machine: the same parts in the same places
         # on screen, only now the one double-clicked is the one being edited.
@@ -4245,6 +4371,10 @@ class MainWindow(QtWidgets.QMainWindow):
             # edit is there without a file having been written before
             # anybody decided it was finished
             self.assembly_ui.rebuild()
+        # the section exactly as it was set up there
+        self._section_carry = level.get("section_carry")
+        if getattr(self, "_section", None) is not None:
+            self._apply_section()
         if here is not None and level.get("placement") is not None:
             self.viewport.restore_camera(
                 Viewport.carried(here, level["placement"]))
@@ -4374,7 +4504,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rules_panel.set_document(self.active_document)
 
     def show_rules(self) -> None:
-        """Open the dLogic panel on whatever document is in front."""
+        """Open the cLogic panel on whatever document is in front."""
         self.rules_panel.set_document(self.active_document)
         self.rules_dock.show()
         self.rules_dock.raise_()
@@ -4479,7 +4609,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Wait for a worker without the window going dead.
 
         The window keeps painting, the view keeps panning, orbiting and
-        zooming, and a dLogic form keeps taking slider drags. What could
+        zooming, and a cLogic form keeps taking slider drags. What could
         change the model underneath the rebuild, a click in the tree, the
         ribbon, a key, waits until it is done: it is a moment, and the
         alternative is a rebuild answering a question nobody is asking
@@ -4561,7 +4691,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """A document just arrived: run it, or say plainly why not.
 
         Trusted, its on-open rules run. Not trusted but carrying code, the
-        dLogic panel opens on it so the reason its code features show as
+        cLogic panel opens on it so the reason its code features show as
         failed, and the button that fixes that, are both in front of you
         rather than somewhere you would have to know to look.
         """
@@ -4580,7 +4710,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_message.setStyleSheet("color: %s;" % C.warn)
             self.status_message.setText(
                 "This document carries code that has not been allowed to "
-                "run. Allow it in the dLogic panel if you trust where it "
+                "run. Allow it in the cLogic panel if you trust where it "
                 "came from.")
         QtCore.QTimer.singleShot(0, warn)
 
@@ -4644,6 +4774,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         if not self.in_place:
             return
+        # the section goes back to the frame of the top level, which is
+        # the document whose tab it stays with
+        self._section_carry = self.in_place[0].get("section_carry")
         self.in_place = []
         self._ghosts = []
         self.assembly_ui.ghosts = []
@@ -4982,6 +5115,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def changeEvent(self, event: QtCore.QEvent) -> None:
         if event.type() == QtCore.QEvent.WindowStateChange:
             self.ribbon.set_maximised(self.isMaximized())
+        elif (event.type() == QtCore.QEvent.ActivationChange
+              and self.isActiveWindow()):
+            self._raise_dialogs()
         super().changeEvent(event)
 
     def showEvent(self, event: QtGui.QShowEvent) -> None:
@@ -4989,6 +5125,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._custom_frame and not self._frame_applied:
             self._frame_applied = True
             _frame.take_over(int(self.winId()))
+            self._child_hits = _frame.install_child_filter(self)
 
     # how near the edge counts as the edge, for resizing, in pixels
     RESIZE_BORDER = 6

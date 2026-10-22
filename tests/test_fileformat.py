@@ -53,33 +53,33 @@ PNG = (b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
 
 # ==========================================================================
 print("extensions follow Inventor's convention")
-check("part is .pdat", fileformat.EXTENSIONS["part"] == ".pdat")
-check("assembly is .adat", fileformat.EXTENSIONS["assembly"] == ".adat")
-check("drawing is .ddat", fileformat.EXTENSIONS["drawing"] == ".ddat")
+check("part is .icpart", fileformat.EXTENSIONS["part"] == ".icpart")
+check("assembly is .icasm", fileformat.EXTENSIONS["assembly"] == ".icasm")
+check("drawing is .icdraw", fileformat.EXTENSIONS["drawing"] == ".icdraw")
 check("extension is added on save",
       fileformat.ensure_extension(os.path.join(WORK, "a"), "part")
-      == os.path.join(WORK, "a.pdat"))
-check("a wrong DATUM extension is corrected",
-      fileformat.ensure_extension(os.path.join(WORK, "a.adat"), "part")
-      == os.path.join(WORK, "a.pdat"))
+      == os.path.join(WORK, "a.icpart"))
+check("a wrong extension is corrected",
+      fileformat.ensure_extension(os.path.join(WORK, "a.icasm"), "part")
+      == os.path.join(WORK, "a.icpart"))
 check("a right one is left alone",
-      fileformat.ensure_extension(os.path.join(WORK, "a.pdat"), "part")
-      == os.path.join(WORK, "a.pdat"))
+      fileformat.ensure_extension(os.path.join(WORK, "a.icpart"), "part")
+      == os.path.join(WORK, "a.icpart"))
 check("type inferred from the path",
-      fileformat.type_for_path("x.adat") == "assembly")
+      fileformat.type_for_path("x.icasm") == "assembly")
 
 print("dialog filters name the right extension")
-check("part save filter", ".pdat" in fileformat.save_filter("part"),
+check("part save filter", ".icpart" in fileformat.save_filter("part"),
       fileformat.save_filter("part"))
-check("assembly save filter", ".adat" in fileformat.save_filter("assembly"))
-check("drawing save filter", ".ddat" in fileformat.save_filter("drawing"))
+check("assembly save filter", ".icasm" in fileformat.save_filter("assembly"))
+check("drawing save filter", ".icdraw" in fileformat.save_filter("drawing"))
 combined = fileformat.open_filter()
 check("open filter lists all three",
-      all(e in combined for e in (".pdat", ".adat", ".ddat")), combined)
+      all(e in combined for e in (".icpart", ".icasm", ".icdraw")), combined)
 check("the open filter no longer offers FORGE files",
       ".forge" not in combined)
 check("narrowed filter is only that type",
-      ".adat" not in fileformat.open_filter("part"),
+      ".icasm" not in fileformat.open_filter("part"),
       fileformat.open_filter("part"))
 
 # ==========================================================================
@@ -87,7 +87,7 @@ print("a part saves as a real ZIP archive")
 doc = make_part()
 volume = kernel.volume(doc.shape)
 path = doc.save(os.path.join(WORK, "bracket"), thumbnail=PNG)
-check("saved with the .pdat extension", path.endswith(".pdat"), path)
+check("saved with the .icpart extension", path.endswith(".icpart"), path)
 check("the file is a ZIP", zipfile.is_zipfile(path))
 
 with zipfile.ZipFile(path) as archive:
@@ -107,7 +107,8 @@ with zipfile.ZipFile(path) as archive:
 print("the manifest carries what it must")
 for key in ("format", "version", "type", "units", "created", "modified"):
     check("manifest has %s" % key, key in manifest, sorted(manifest))
-check("format is DATUM", manifest["format"] == "DATUM", manifest["format"])
+check("the format marker inside stays DATUM, so every version reads it",
+      manifest["format"] == "DATUM", manifest["format"])
 check("version is an integer", isinstance(manifest["version"], int))
 check("version starts at 1", manifest["version"] == 1, manifest["version"])
 check("type is part", manifest["type"] == "part")
@@ -139,17 +140,17 @@ check("modified is refreshed or equal", second.modified >= first.modified)
 
 # ==========================================================================
 print("bad files are refused with a reason")
-plain = os.path.join(WORK, "notdatum.pdat")
+plain = os.path.join(WORK, "notdatum.icpart")
 with open(plain, "w", encoding="utf-8") as handle:
     handle.write("just some text")
 try:
     fileformat.peek(plain)
     check("a non-archive is rejected", False)
 except FileFormatError as exc:
-    check("a non-archive is rejected", "not a DATUM document" in str(exc),
+    check("a non-archive is rejected", "not an InventCraft document" in str(exc),
           str(exc))
 
-no_manifest = os.path.join(WORK, "nomanifest.pdat")
+no_manifest = os.path.join(WORK, "nomanifest.icpart")
 with zipfile.ZipFile(no_manifest, "w") as archive:
     archive.writestr("geometry.json", "{}")
 try:
@@ -159,7 +160,7 @@ except FileFormatError as exc:
     check("an archive with no manifest is rejected", "manifest" in str(exc),
           str(exc))
 
-wrong_format = os.path.join(WORK, "wrongformat.pdat")
+wrong_format = os.path.join(WORK, "wrongformat.icpart")
 with zipfile.ZipFile(wrong_format, "w") as archive:
     archive.writestr("manifest.json", json.dumps(
         {"format": "SOMETHINGELSE", "version": 1, "type": "part"}))
@@ -168,10 +169,10 @@ try:
     fileformat.peek(wrong_format)
     check("a foreign format is rejected", False)
 except FileFormatError as exc:
-    check("a foreign format is rejected", "not a DATUM document" in str(exc),
+    check("a foreign format is rejected", "not an InventCraft document" in str(exc),
           str(exc))
 
-missing_format = os.path.join(WORK, "noformat.pdat")
+missing_format = os.path.join(WORK, "noformat.icpart")
 with zipfile.ZipFile(missing_format, "w") as archive:
     archive.writestr("manifest.json", json.dumps({"version": 1,
                                                   "type": "part"}))
@@ -184,7 +185,7 @@ except FileFormatError as exc:
           str(exc))
 
 print("a newer schema is refused, not half-read")
-future = os.path.join(WORK, "future.pdat")
+future = os.path.join(WORK, "future.icpart")
 with zipfile.ZipFile(future, "w") as archive:
     archive.writestr("manifest.json", json.dumps({
         "format": "DATUM", "version": fileformat.SCHEMA_VERSION + 5,
@@ -197,7 +198,7 @@ except UnsupportedVersionError as exc:
     message = str(exc)
     check("a newer file is refused", True)
     check("the message says why",
-          "newer version" in message and "Update DATUM" in message, message)
+          "newer version" in message and "Update InventCraft" in message, message)
 
 print("a part cannot be opened as an assembly, or the reverse")
 try:
@@ -245,17 +246,17 @@ right = make_part(30, 20, 5).save(os.path.join(parts_dir, "right"),
                                   thumbnail=PNG)
 
 asm = AssemblyDocument()
-asm.path = os.path.join(project, "frame.adat")
+asm.path = os.path.join(project, "frame.icasm")
 ref_left = asm.add_component(left, "Left Plate")
 asm.add_component(right, "Right Plate")
-check("relative path is stored", ref_left.path == "parts/left.pdat",
+check("relative path is stored", ref_left.path == "parts/left.icpart",
       ref_left.path)
-check("the file name is stored too", ref_left.name == "left.pdat",
+check("the file name is stored too", ref_left.name == "left.icpart",
       ref_left.name)
 check("a label is kept", ref_left.label == "Left Plate")
 
 asm_path = asm.save(asm.path, thumbnail=PNG)
-check("assembly saved as .adat", asm_path.endswith(".adat"), asm_path)
+check("assembly saved as .icasm", asm_path.endswith(".icasm"), asm_path)
 asm_manifest = fileformat.peek(asm_path)
 check("its manifest says assembly", asm_manifest.type == "assembly")
 check("the manifest lists its references",
@@ -263,7 +264,7 @@ check("the manifest lists its references",
 
 back = AssemblyDocument.load(asm_path)
 check("components round-trip", len(back.components) == 2)
-check("paths round-trip", back.components[0].path == "parts/left.pdat")
+check("paths round-trip", back.components[0].path == "parts/left.icpart")
 check("every link resolves", back.broken_links() == [], back.broken_links())
 resolved = back.resolved_components()
 check("components resolve to real files",
@@ -273,12 +274,12 @@ print("broken links are reported clearly")
 os.remove(right)
 broken = back.broken_links()
 check("the missing part is reported", len(broken) == 1, broken)
-check("it names the file", broken[0].reference.name == "right.pdat",
+check("it names the file", broken[0].reference.name == "right.icpart",
       broken[0].reference.name)
 check("and says what is wrong", "not found" in broken[0].reason,
       broken[0].reason)
 check("the description is readable",
-      "right.pdat" in broken[0].describe(), broken[0].describe())
+      "right.icpart" in broken[0].describe(), broken[0].describe())
 
 print("a moved part is found again by its remembered name")
 moved = make_part(30, 20, 5).save(os.path.join(project, "right"),
@@ -290,11 +291,11 @@ check("so it is no longer broken", back.broken_links() == [])
 
 print("a reference to the wrong kind of file is reported")
 drawing = DrawingDocument()
-drawing.path = os.path.join(project, "sheet.ddat")
+drawing.path = os.path.join(project, "sheet.icdraw")
 drawing.set_source(left)
 drawing_path = drawing.save(drawing.path, thumbnail=PNG)
 bad_asm = AssemblyDocument()
-bad_asm.path = os.path.join(project, "bad.adat")
+bad_asm.path = os.path.join(project, "bad.icasm")
 bad_asm.add_component(drawing_path)
 issues = bad_asm.broken_links()
 check("a drawing cannot be a component", len(issues) == 1, issues)
@@ -304,7 +305,7 @@ check("and the reason says so", "Drawing" in issues[0].reason,
 print("drawings are documents in their own right")
 sheet = DrawingDocument.load(drawing_path)
 check("drawing round-trips", sheet.sheet_size == "A3")
-check("its source is remembered", sheet.source.name == "left.pdat",
+check("its source is remembered", sheet.source.name == "left.icpart",
       sheet.source.name)
 check("its manifest type is drawing",
       fileformat.peek(drawing_path).type == "drawing")
@@ -317,7 +318,7 @@ check("assembly", isinstance(open_any(asm_path), AssemblyDocument))
 check("drawing", isinstance(open_any(drawing_path), DrawingDocument))
 
 print("saving never destroys the previous file on failure")
-guarded = os.path.join(WORK, "guarded.pdat")
+guarded = os.path.join(WORK, "guarded.icpart")
 make_part().save(guarded, thumbnail=PNG)
 before = os.path.getsize(guarded)
 try:

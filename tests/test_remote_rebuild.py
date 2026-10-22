@@ -2,7 +2,7 @@
 
 What has to hold: the model that comes back is the model a rebuild here
 would have made; the window keeps turning over while it waits; nothing
-that could change the model gets in while it waits, except a dLogic form,
+that could change the model gets in while it waits, except a cLogic form,
 whose last value is built as soon as the first build lands; and a worker
 dying in the middle costs a slower rebuild, never a wrong or missing one.
 """
@@ -62,7 +62,7 @@ def local_volume(changes):
 
 sample = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
     __file__))), "examples", "railing", "Stair Railing.pdat")
-stair = os.path.join(WORK, "Stair Railing.pdat")
+stair = os.path.join(WORK, "Stair Railing.icpart")
 shutil.copy(sample, stair)
 rules.trust_path(stair)
 

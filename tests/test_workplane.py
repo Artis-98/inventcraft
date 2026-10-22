@@ -291,7 +291,7 @@ win._on_escape()
 pump()
 
 print("save / load keeps the face reference")
-path = os.path.join(tempfile.mkdtemp(prefix="forge_wp_"), "p.pdat")
+path = os.path.join(tempfile.mkdtemp(prefix="forge_wp_"), "p.icpart")
 path = win.document.save(path)
 reloaded = Document.load(path)
 restored = [f for f in reloaded.features if isinstance(f, WorkPlaneFeature)][0]

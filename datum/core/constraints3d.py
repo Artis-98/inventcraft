@@ -612,7 +612,78 @@ def solve(placements: Dict[int, Placement],
 
     ``placements`` is updated in place.  Components not listed in ``free``
     are held exactly where they are - that is what grounding means.
+
+    The free components fall into groups that no constraint joins, and
+    each group is solved on its own.  A board with a hundred loose parts
+    and one of them mated is a problem in six unknowns, not six hundred:
+    solved as one, every offset tried took half a minute, and almost all
+    of that was the solver working out that the other ninety nine did not
+    need to move.  A component no constraint touches is not solved at all.
     """
+    order = [oid for oid in free if oid in placements]
+    live = [c for c in constraints
+            if c.occ_a in placements and c.occ_b in placements]
+
+    # which free components each constraint ties together; a grounded one
+    # holds its partner still but joins nothing to anything
+    parent = {oid: oid for oid in order}
+
+    def root(oid: int) -> int:
+        while parent[oid] != oid:
+            parent[oid] = parent[parent[oid]]
+            oid = parent[oid]
+        return oid
+
+    for c in live:
+        if c.occ_a in parent and c.occ_b in parent:
+            parent[root(c.occ_a)] = root(c.occ_b)
+
+    groups: Dict[int, List[int]] = {}
+    for oid in order:
+        groups.setdefault(root(oid), []).append(oid)
+    asked: Dict[int, List[ResolvedConstraint]] = {}
+    for c in live:
+        moving = c.occ_a if c.occ_a in parent else (
+            c.occ_b if c.occ_b in parent else None)
+        if moving is not None:
+            asked.setdefault(root(moving), []).append(c)
+
+    report = SolveReport(free=len(order))
+    for key, members in groups.items():
+        mine = asked.get(key, [])
+        if not mine:
+            report.dof += 6 * len(members)      # loose: nothing to solve
+            continue
+        part = _solve_group(placements, mine, members, max_iter)
+        report.dof += part.dof
+        report.ok = report.ok and part.ok
+        report.unsatisfied.extend(part.unsatisfied)
+
+    # constraints between two grounded components move nothing, but can
+    # still be broken (with nothing free at all there is nothing to say,
+    # as there never was)
+    for c in live if order else ():
+        if c.occ_a in parent or c.occ_b in parent:
+            continue
+        held = _unsatisfied(
+            [(c, np.asarray(c.frame_a.origin, dtype=float),
+              np.asarray(c.frame_a.direction, dtype=float),
+              np.asarray(c.frame_b.origin, dtype=float),
+              np.asarray(c.frame_b.direction, dtype=float))],
+            {oid: (np.asarray(placements[oid].position, dtype=float),
+                   placements[oid].matrix())
+             for oid in (c.occ_a, c.occ_b)})
+        if held:
+            report.ok = False
+            report.unsatisfied.extend(held)
+    report.message = _describe_state(report, len(live))
+    return report
+
+
+def _solve_group(placements: Dict[int, Placement],
+                 constraints: Sequence[ResolvedConstraint],
+                 free: Sequence[int], max_iter: int = 60) -> SolveReport:
+    """Solve one group of free components that constraints tie together."""
     report = SolveReport()
     order = [oid for oid in free if oid in placements]
     report.free = len(order)

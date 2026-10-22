@@ -137,7 +137,7 @@ def go():
     shot("assembly_empty")
 
     doc = win.assembly
-    doc.path = os.path.join(OUT, "Rig.adat")
+    doc.path = os.path.join(OUT, "Rig.icasm")
     for path in (plate_path, pin_path, pin_path):
         doc.place(path)
     doc.rebuild()

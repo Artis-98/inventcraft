@@ -254,7 +254,7 @@ def s_params_dialog():
 
 @step
 def s_save():
-    path = os.path.join(OUT_DIR, "demo_part.pdat")
+    path = os.path.join(OUT_DIR, "demo_part.icpart")
     path = win.document.save(path)
     print("saved:", os.path.basename(path),
           os.path.getsize(path), "bytes")

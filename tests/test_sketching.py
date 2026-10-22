@@ -14,6 +14,7 @@ from PySide6 import QtCore, QtWidgets  # noqa: E402
 from datum.core import kernel  # noqa: E402
 from datum.core.sketch import STANDARD_PLANES, Sketch  # noqa: E402
 from datum.ui.main_window import MainWindow  # noqa: E402
+from datum.ui import theme  # noqa: E402
 from datum.ui.theme import C, stylesheet  # noqa: E402
 
 FAILS = []
@@ -147,8 +148,8 @@ check("every edge now reads constrained",
 check("no free points left", s.free_points == set(), s.free_points)
 
 print("colours follow that state")
-check("constrained colour is white", C.sketch_line == "#e8ecef")
-check("free colour is purple-blue", C.sketch_free == "#9a8cf2")
+check("constrained colour is dark ink", C.sketch_line == theme.LIGHT["sketch_line"])
+check("free colour is purple-blue", C.sketch_free == theme.LIGHT["sketch_free"])
 win.finish_sketch()
 pump()
 

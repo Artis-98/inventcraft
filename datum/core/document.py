@@ -278,7 +278,7 @@ class Document:
         # whatever its file says, because who drew it is a fact about the
         # part and not about the machine it was opened on.
         self.properties: Dict[str, str] = prefs.prefs().stamp({})
-        # dLogic: rules belonging to this document.  They never run until
+        # cLogic: rules belonging to this document.  They never run until
         # the document is trusted, and trust is not something a file can
         # carry in from somewhere else.
         self.rules = RuleSet()
@@ -307,7 +307,7 @@ class Document:
         self._remote_shapes: Dict[str, TopoDS_Shape] = {}
         self._remote_recent: List[List[str]] = []
         # rebuilds of nearby parameter values done on spare cores while a
-        # dLogic form is open; see ahead.BuildAhead
+        # cLogic form is open; see ahead.BuildAhead
         self.ahead = None
         self._chain: Optional[str] = None
         self._applied_chain: Optional[str] = None
@@ -1105,7 +1105,7 @@ class Document:
 
     def save(self, path: Optional[str] = None,
              thumbnail: Optional[bytes] = None) -> str:
-        """Write the part as a DATUM archive, preview included."""
+        """Write the part as an InventCraft archive, preview included."""
         from .. import APP_NAME, __version__
 
         path = path or self.path
@@ -1123,7 +1123,7 @@ class Document:
 
     @classmethod
     def load(cls, path: str) -> "Document":
-        """Open a DATUM part and rebuild it."""
+        """Open an InventCraft part and rebuild it."""
         opened = fileformat.read(path, expected_type=fileformat.PART)
         doc = cls()
         doc.load_dict(opened.geometry)

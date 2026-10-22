@@ -1,4 +1,4 @@
-# PyInstaller build for DATUM.  Run it through tools/release.py, not by
+# PyInstaller build for InventCraft.  Run it through tools/release.py, not by
 # hand, so the version written into the executable matches the tag.
 #
 # Two things here are not boilerplate and will break the build if they are
@@ -46,6 +46,9 @@ binaries += collect_dynamic_libs("OCP")
 datas = [
     (str(ROOT / "datum" / "templates"), "datum/templates"),
     (str(ROOT / "datum" / "ui" / "assets"), "datum/ui/assets"),
+    # the beaver, at every size the window, the taskbar and the start page
+    # ask for
+    (str(ROOT / "datum" / "ui" / "brand"), "datum/ui/brand"),
 ]
 
 # Qt modules DATUM actually uses: Core, Gui, Widgets, Svg, PrintSupport.
@@ -98,14 +101,14 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="DATUM",
+    name="InventCraft",
     debug=False,
     strip=False,
     upx=False,                 # UPX changes every byte, which would make
                                # every update a full download
     console=False,
-    icon=str(ROOT / "tools" / "datum.ico")
-    if (ROOT / "tools" / "datum.ico").exists() else None,
+    icon=str(ROOT / "tools" / "inventcraft.ico")
+    if (ROOT / "tools" / "inventcraft.ico").exists() else None,
     version=str(ROOT / "build" / "version-info.txt")
     if (ROOT / "build" / "version-info.txt").exists() else None,
 )
@@ -120,5 +123,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="DATUM",
+    name="InventCraft",
 )

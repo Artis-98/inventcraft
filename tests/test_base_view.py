@@ -93,7 +93,7 @@ def make_box(name, a, b, c):
     dialog.c.set_text(c)
     dialog.commit()
     pump()
-    path = os.path.join(WORK, name + ".pdat")
+    path = os.path.join(WORK, name + ".icpart")
     win.document.path = path
     win.save_document()
     pump()
@@ -105,7 +105,7 @@ plate = make_box("Plate", "100", "10", "5")
 
 win.new_drawing(prompt=False)
 pump()
-win.drawing.path = os.path.join(WORK, "Sheet.ddat")
+win.drawing.path = os.path.join(WORK, "Sheet.icdraw")
 win.save_document()
 pump()
 ui = win.drawing_ui

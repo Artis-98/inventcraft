@@ -357,7 +357,7 @@ print("the quick access row is the title bar")
 ribbon = win.ribbon
 check("the DATUM mark leads the row", ribbon.logo.pixmap() is not None)
 check("the program and the document in the row",
-      ribbon.document_label.text().startswith("DATUM"),
+      ribbon.document_label.text().startswith("InventCraft"),
       ribbon.document_label.text())
 if win._custom_frame:
     check("with minimise, maximise and close at the right end",

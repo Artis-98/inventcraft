@@ -7,6 +7,7 @@ with no image assets and the icons stay crisp at any device pixel ratio.
 from __future__ import annotations
 
 import math
+import os
 from typing import Callable, Dict, Optional, Tuple
 
 from PySide6 import QtCore, QtGui
@@ -18,9 +19,10 @@ GRID = 24.0
 # Three tones of the mark's silver rather than two and a blue.  They have
 # to stay a clear step apart or a 16 pixel icon turns into one grey smudge,
 # so the middle one is well below the outline and the solid one below that.
-_LINE = "#d5dee8"
-_ACCENT = "#93a6bb"
-_SOLID = "#67737f"
+# The light scheme's tones; ``use_theme`` swaps them for the dark one.
+_LINE = "#2b3540"
+_ACCENT = "#b9820f"
+_SOLID = "#7a8693"
 # Amber and green stay: they are the two places an icon says something
 # rather than draws something, and a silver warning is no warning at all.
 _WARM = "#e0a355"
@@ -58,8 +60,11 @@ def _poly(*pts) -> QtGui.QPolygonF:
     return QtGui.QPolygonF([QtCore.QPointF(x, y) for x, y in pts])
 
 
-def _face(p: QtGui.QPainter, pts, colour: str = _SOLID, alpha: int = 90,
-          outline: Optional[str] = _LINE) -> None:
+def _face(p: QtGui.QPainter, pts, colour: Optional[str] = None,
+          alpha: int = 90, outline: Optional[str] = "line") -> None:
+    # resolved here, not in the signature, so a change of scheme reaches it
+    colour = _SOLID if colour is None else colour
+    outline = _LINE if outline == "line" else outline
     col = QtGui.QColor(colour)
     col.setAlpha(alpha)
     p.setBrush(QtGui.QBrush(col))
@@ -73,8 +78,10 @@ def _face(p: QtGui.QPainter, pts, colour: str = _SOLID, alpha: int = 90,
     p.drawPolygon(_poly(*pts))
 
 
-def _arrow(p: QtGui.QPainter, x1, y1, x2, y2, colour: str = _ACCENT,
+def _arrow(p: QtGui.QPainter, x1, y1, x2, y2,
+           colour: Optional[str] = None,
            head: float = 3.2, width: float = 1.7) -> None:
+    colour = _ACCENT if colour is None else colour
     _pen(p, colour, width)
     p.drawLine(QtCore.QPointF(x1, y1), QtCore.QPointF(x2, y2))
     ang = math.atan2(y2 - y1, x2 - x1)
@@ -87,12 +94,13 @@ def _arrow(p: QtGui.QPainter, x1, y1, x2, y2, colour: str = _ACCENT,
 
 
 def _box_iso(p: QtGui.QPainter, cx=12.0, cy=12.0, edge=8.0,
-             colour=_SOLID) -> None:
+             colour=None) -> None:
     """A cube in true isometric, every edge the same length.
 
     It used to be a block squashed to two thirds of its width, which read
     as a slab rather than as a part.
     """
+    colour = _SOLID if colour is None else colour
     half = edge * 0.866                 # half the width, at 30 degrees
     y0 = cy - edge                      # the top corner
     top = [(cx, y0), (cx + half, y0 + edge * 0.5), (cx, y0 + edge),
@@ -564,7 +572,8 @@ def _i_rect3_centre(p):
     p.drawEllipse(QtCore.QPointF(12, 14), 1.9, 1.9)
 
 
-def _slot_body(p, colour=_LINE, width=1.6):
+def _slot_body(p, colour=None, width=1.6):
+    colour = _LINE if colour is None else colour
     _pen(p, colour, width)
     p.drawArc(QtCore.QRectF(3, 8, 8, 8), 90 * 16, 180 * 16)
     p.drawArc(QtCore.QRectF(13, 8, 8, 8), -90 * 16, 180 * 16)
@@ -836,7 +845,9 @@ def _i_auto(p):
 # --------------------------------------------------------------------------
 
 
-def _block(p, x, y, w, h, depth=3.0, tone=_SOLID, top=_ACCENT):
+def _block(p, x, y, w, h, depth=3.0, tone=None, top=None):
+    tone = _SOLID if tone is None else tone
+    top = _ACCENT if top is None else top
     """A little isometric box: front face, top face, side face."""
     _fill(p, tone)
     p.drawPolygon(_poly((x, y), (x + w, y), (x + w, y + h), (x, y + h)))
@@ -998,6 +1009,18 @@ def pixmap(name: str, size: int = 24, ratio: float = 1.0) -> QtGui.QPixmap:
     return px
 
 
+def use_theme(name: str) -> None:
+    """Draw icons in a colour scheme's tones from now on."""
+    from .theme import ICON_TONES
+    global _LINE, _ACCENT, _SOLID
+    _LINE, _ACCENT, _SOLID = ICON_TONES.get(name, ICON_TONES["light"])
+    _cache.clear()
+
+
+def window_glyph_colour() -> str:
+    return _LINE
+
+
 def icon(name: str, size: int = 24) -> QtGui.QIcon:
     key = (name, size, "n")
     if key not in _cache:
@@ -1120,20 +1143,47 @@ def _window_glyph(kind: str, size: int, colour: str) -> QtGui.QIcon:
 
 
 def window_icon(kind: str, size: int = 12,
-                colour: str = "#d5dee8") -> QtGui.QIcon:
+                colour: Optional[str] = None) -> QtGui.QIcon:
     """One of the title bar's window buttons: min, max, restore, close."""
-    return _window_glyph(kind, size, colour)
+    return _window_glyph(kind, size, colour or _LINE)
+
+
+# The InventCraft beaver, drawn once by hand and kept as pictures, one per
+# size, so each size is scaled from the nearest larger one rather than from
+# a single big image.
+BRAND_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "brand")
+BRAND_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
+_brand_cache: Dict[Tuple[int, float], QtGui.QPixmap] = {}
+
+
+def brand_pixmap(size: int, ratio: float = 1.0) -> QtGui.QPixmap:
+    """The beaver tile at a size, sharp on a scaled display too."""
+    key = (size, ratio)
+    if key not in _brand_cache:
+        want = int(round(size * ratio))
+        pick = next((s for s in BRAND_SIZES if s >= want), BRAND_SIZES[-1])
+        source = QtGui.QPixmap(os.path.join(
+            BRAND_FOLDER, "inventcraft-%d.png" % pick))
+        if source.isNull():
+            # the pictures missing: the old drawn mark rather than nothing
+            return mark_pixmap(size, ratio=ratio)
+        px = source.scaled(want, want, QtCore.Qt.KeepAspectRatio,
+                           QtCore.Qt.SmoothTransformation)
+        px.setDevicePixelRatio(ratio)
+        _brand_cache[key] = px
+    return _brand_cache[key]
 
 
 def app_icon() -> QtGui.QIcon:
-    """Window / taskbar icon: the DATUM mark."""
+    """Window and taskbar icon: the InventCraft beaver."""
     ic = QtGui.QIcon()
-    for size in (16, 32, 48, 64, 128, 256):
-        px = QtGui.QPixmap(size, size)
-        px.fill(QtCore.Qt.transparent)
-        p = QtGui.QPainter(px)
-        p.scale(size / GRID, size / GRID)
-        draw_mark(p)
-        p.end()
-        ic.addPixmap(px)
+    for size in BRAND_SIZES:
+        px = QtGui.QPixmap(os.path.join(BRAND_FOLDER,
+                                        "inventcraft-%d.png" % size))
+        if not px.isNull():
+            ic.addPixmap(px)
+    if ic.isNull():
+        for size in (16, 32, 48, 64, 128, 256):
+            ic.addPixmap(mark_pixmap(size))
     return ic

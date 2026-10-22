@@ -9,7 +9,7 @@ import traceback
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from . import APP_NAME, __version__
+from . import APP_NAME, LEGACY_NAME, __version__
 
 
 def _excepthook(kind, value, tb) -> None:
@@ -165,7 +165,7 @@ def selftest(report_path: str = "") -> int:
 
         application.quit()
 
-        note("PASS  DATUM %s is a working build" % __version__)
+        note("PASS  %s %s is a working build" % (APP_NAME, __version__))
         return 0
     except Exception as exc:                            # noqa: BLE001
         import traceback
@@ -232,6 +232,15 @@ def main(argv=None) -> int:
     if "--version" in argv:
         print(__version__)
         return 0
+    if "--finish-update" in argv:
+        # Linux: this same program, started by the one that is closing,
+        # to put the staged update in place once it has gone
+        where = argv.index("--finish-update")
+        folder, pid, then = (argv[where + 1:where + 4] + ["", "0", ""])[:3]
+        from .core import swap
+        new = os.path.join(folder, os.path.basename(sys.executable))
+        return 0 if swap.finish(folder, int(pid or 0), new,
+                                relaunch=(then == "relaunch")) else 1
 
     QtCore.QCoreApplication.setAttribute(
         QtCore.Qt.AA_UseHighDpiPixmaps, True)
@@ -246,8 +255,13 @@ def main(argv=None) -> int:
             os.environ.get("DATUM_QT_PLATFORM") or "xcb")
 
     app = QtWidgets.QApplication(argv)
-    app.setApplicationName(APP_NAME)
+    # stored under the old name, shown under the new one: Qt keeps the
+    # settings in a place named after the application name
+    app.setApplicationName(LEGACY_NAME)
     app.setApplicationDisplayName(APP_NAME)
+    # the menu entry tools/linux/install.sh writes, so a Linux desktop
+    # puts the window under InventCraft's icon
+    app.setDesktopFileName("inventcraft")
     app.setApplicationVersion(__version__)
     app.setOrganizationName("IITEG")
 
@@ -261,12 +275,16 @@ def main(argv=None) -> int:
         except Exception:
             pass
 
-    from .ui import icons
-    from .ui.main_window import MainWindow
-    from .ui.theme import apply_colours, stylesheet
+    # The colour scheme, and the user's own colours in it, go on before
+    # anything is built with them: a few modules take a colour as they load.
+    from .core import prefs as user_prefs
+    from .ui import icons, theme
+    theme.set_theme(user_prefs.prefs().theme)
+    icons.use_theme(theme.current_theme())
+    theme.apply_colours()
 
-    # the user's own colours go on before anything is built with them
-    apply_colours()
+    from .ui.main_window import MainWindow
+    from .ui.theme import stylesheet
 
     app.setWindowIcon(icons.app_icon())
     app.setStyleSheet(stylesheet())
@@ -288,6 +306,10 @@ def main(argv=None) -> int:
     # After the window is up, never before: a staged update or a check is
     # not worth delaying the thing the person actually asked for.
     QtCore.QTimer.singleShot(1200, window.updater.on_start)
+    # a copy that updated itself from DATUM: the new file endings and the
+    # renamed shortcuts the installer would have seen to
+    from .core import shellreg
+    QtCore.QTimer.singleShot(3000, shellreg.settle_rename)
 
     from .core import fileformat
 

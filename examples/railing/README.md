@@ -4,7 +4,7 @@ A part that is almost all code: two code features and two rules.
 
 ![The stair](stair.png)
 
-Open `Stair Railing.pdat`, press **Allow** in the dLogic panel, then the
+Open `Stair Railing.pdat`, press **Allow** in the cLogic panel, then the
 **Size** button. Every tread, stringer, baluster and the handrail are
 worked out again from the sliders.
 
@@ -25,4 +25,4 @@ into the top post. **Size** is the form. **Keep it comfortable** watches
 rise, going and steps and writes the description.
 
 `python examples/build_railing.py` rebuilds the file. See
-[docs/DLOGIC.md](../../docs/DLOGIC.md) for everything a script can use.
+[docs/CLOGIC.md](../../docs/CLOGIC.md) for everything a script can use.

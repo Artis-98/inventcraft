@@ -50,8 +50,9 @@ def pump(n=4):
 
 # ==========================================================================
 print("branding")
-check("app is named DATUM", APP_NAME == "DATUM", APP_NAME)
-check("window title uses it", "DATUM" in win.windowTitle(), win.windowTitle())
+check("app is named InventCraft", APP_NAME == "InventCraft", APP_NAME)
+check("window title uses it", "InventCraft" in win.windowTitle(),
+      win.windowTitle())
 
 print("a real part saves with a rendered preview")
 win.new_document(prompt=False)
@@ -80,7 +81,7 @@ check("it is 256x256",
       and image.height() == fileformat.THUMBNAIL_SIZE,
       "%dx%d" % (image.width(), image.height()))
 
-path = os.path.join(WORK, "bracket.pdat")
+path = os.path.join(WORK, "bracket.icpart")
 win.document.path = path
 check("save succeeded", win.save_document())
 check("the file exists", os.path.exists(path))
@@ -95,7 +96,8 @@ check("the stored preview is a real 256px image",
       not stored_image.isNull() and stored_image.width() == 256,
       stored_image.width())
 check("manifest says part", manifest["type"] == "part")
-check("manifest names DATUM", manifest["format"] == "DATUM")
+check("the manifest keeps the DATUM format marker, so old and new "
+      "versions read each other", manifest["format"] == "DATUM")
 
 print("reopening it through the app")
 win.new_document(prompt=False)
@@ -105,7 +107,7 @@ check("the model came back", win.document.shape is not None)
 check("path remembered", win.document.path == path, win.document.path)
 
 print("the app refuses what it should")
-future = os.path.join(WORK, "future.pdat")
+future = os.path.join(WORK, "future.icpart")
 with zipfile.ZipFile(future, "w") as archive:
     archive.writestr("manifest.json", json.dumps({
         "format": "DATUM", "version": fileformat.SCHEMA_VERSION + 3,
@@ -132,7 +134,7 @@ check("a newer file is not opened", not win.open_path(future))
 check("and the user is told why",
       warnings and "newer version" in warnings[0], warnings)
 
-assembly_path = os.path.join(WORK, "frame.adat")
+assembly_path = os.path.join(WORK, "frame.icasm")
 asm = AssemblyDocument()
 asm.path = assembly_path
 asm.add_component(path, "Bracket")
@@ -146,12 +148,12 @@ check("with its component placed",
 win.open_path(path)
 check("and back to a part again", not win.in_assembly)
 
-junk = os.path.join(WORK, "junk.pdat")
+junk = os.path.join(WORK, "junk.icpart")
 with open(junk, "w", encoding="utf-8") as handle:
     handle.write("nope")
 check("junk is refused", not win.open_path(junk))
 check("with a clear reason",
-      critical and "not a DATUM document" in critical[0], critical)
+      critical and "not an InventCraft document" in critical[0], critical)
 
 QtWidgets.QMessageBox.warning = original
 QtWidgets.QMessageBox.information = original_info

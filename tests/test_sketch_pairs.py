@@ -392,7 +392,7 @@ check("the same entity ids are still the projection",
 
 print("and it all survives the file")
 import tempfile                                                # noqa: E402
-saved = doc.save(os.path.join(tempfile.mkdtemp(), "proj.pdat"))
+saved = doc.save(os.path.join(tempfile.mkdtemp(), "proj.icpart"))
 from datum.core.document import Document                       # noqa: E402
 again = Document.load(saved)
 again.rebuild()

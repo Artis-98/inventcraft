@@ -626,7 +626,7 @@ class CamController(QtCore.QObject):
         paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
             self.host, "Add Part to Sheet",
             doc.base_dir or self.host.project_folder(),
-            "DATUM Part (*.pdat);;All files (*)")
+            "%s;;All files (*)" % fileformat.type_filter(fileformat.PART))
         if not paths:
             return
 

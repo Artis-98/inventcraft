@@ -44,9 +44,15 @@ DRAWING = "drawing"
 CAM = "cam"
 DOCUMENT_TYPES = (PART, ASSEMBLY, DRAWING, CAM)
 
-EXTENSIONS = {PART: ".pdat", ASSEMBLY: ".adat", DRAWING: ".ddat",
-              CAM: ".cdat"}
-TYPE_BY_EXTENSION = {ext: kind for kind, ext in EXTENSIONS.items()}
+EXTENSIONS = {PART: ".icpart", ASSEMBLY: ".icasm", DRAWING: ".icdraw",
+              CAM: ".iccam"}
+# The endings DATUM used until 0.3.0.  Files with them open as they always
+# did, and saving one keeps its ending, so an assembly that names it by its
+# old file name still finds it.  Only new documents get the new endings.
+LEGACY_EXTENSIONS = {PART: ".pdat", ASSEMBLY: ".adat", DRAWING: ".ddat",
+                     CAM: ".cdat"}
+TYPE_BY_EXTENSION = {ext: kind for kind, ext in list(EXTENSIONS.items())
+                     + list(LEGACY_EXTENSIONS.items())}
 
 TYPE_LABELS = {PART: "Part", ASSEMBLY: "Assembly", DRAWING: "Drawing",
                CAM: "CAM Sheet"}
@@ -59,7 +65,7 @@ BLOB_COMPRESSION = zipfile.ZIP_STORED
 
 
 class FileFormatError(Exception):
-    """The file is not a readable DATUM document."""
+    """The file is not a readable InventCraft document."""
 
 
 class UnsupportedVersionError(FileFormatError):
@@ -84,31 +90,65 @@ def type_for_path(path: str) -> Optional[str]:
     return TYPE_BY_EXTENSION.get(os.path.splitext(path)[1].lower())
 
 
+def is_type(path: str, doc_type: str) -> bool:
+    """Whether a file name is one of this kind, by new ending or old."""
+    return type_for_path(path or "") == doc_type
+
+
+def is_part(path: str) -> bool:
+    return is_type(path, PART)
+
+
+def is_assembly(path: str) -> bool:
+    return is_type(path, ASSEMBLY)
+
+
 def ensure_extension(path: str, doc_type: str) -> str:
-    """Give a path the right extension for its document type."""
+    """Give a path the right extension for its document type.
+
+    A legacy ending of the right type is kept: saving an old ``.pdat``
+    writes it back as ``.pdat``, so whatever refers to it by that name
+    still finds it.
+    """
     wanted = extension_for(doc_type)
     stem, ext = os.path.splitext(path)
-    if ext.lower() == wanted:
+    if ext.lower() in (wanted, LEGACY_EXTENSIONS.get(doc_type)):
         return path
     if ext.lower() in TYPE_BY_EXTENSION:
-        return stem + wanted        # replace a wrong DATUM extension
+        return stem + wanted        # replace an ending of another type
     return path + wanted
 
 
+def patterns(*doc_types: str) -> str:
+    """The file dialog patterns for these types, new endings and old."""
+    out = []
+    for kind in doc_types or DOCUMENT_TYPES:
+        out.append("*%s" % extension_for(kind))
+        if kind in LEGACY_EXTENSIONS:
+            out.append("*%s" % LEGACY_EXTENSIONS[kind])
+    return " ".join(out)
+
+
+def type_filter(doc_type: str) -> str:
+    """One type, for an open dialog: "InventCraft Part (*.icpart *.pdat)"."""
+    return "InventCraft %s (%s)" % (TYPE_LABELS.get(doc_type, "Part"),
+                                    patterns(doc_type))
+
+
 def save_filter(doc_type: str) -> str:
-    return "DATUM %s (*%s)" % (TYPE_LABELS.get(doc_type, "Part"),
-                               extension_for(doc_type))
+    return "InventCraft %s (*%s)" % (TYPE_LABELS.get(doc_type, "Part"),
+                                     extension_for(doc_type))
 
 
 def open_filter(doc_type: Optional[str] = None) -> str:
     """Dialog filter, narrowed to one type or listing all of them."""
     if doc_type:
-        return "%s;;All files (*)" % save_filter(doc_type)
-    everything = " ".join("*%s" % extension_for(k) for k in DOCUMENT_TYPES)
+        return "%s;;All files (*)" % type_filter(doc_type)
+    everything = patterns(*DOCUMENT_TYPES)
     foreign = "*.step *.stp *.iges *.igs"
-    parts = ["Everything DATUM opens (%s %s)" % (everything, foreign),
-             "DATUM documents (%s)" % everything]
-    parts += [save_filter(k) for k in DOCUMENT_TYPES]
+    parts = ["Everything InventCraft opens (%s %s)" % (everything, foreign),
+             "InventCraft documents (%s)" % everything]
+    parts += [type_filter(k) for k in DOCUMENT_TYPES]
     parts.append("STEP and IGES, from other CAD systems (%s)" % foreign)
     parts.append("All files (*)")
     return ";;".join(parts)
@@ -226,14 +266,15 @@ def peek(path: str) -> Manifest:
         raise FileFormatError("file not found: %s" % path)
     if not zipfile.is_zipfile(path):
         raise FileFormatError(
-            "%s is not a DATUM document (expected a DATUM archive)"
+            "%s is not an InventCraft document (expected an InventCraft "
+            "archive)"
             % os.path.basename(path))
     try:
         with zipfile.ZipFile(path, "r") as archive:
             raw = archive.read(MANIFEST_NAME)
     except KeyError:
         raise FileFormatError(
-            "%s has no manifest, so it is not a DATUM document"
+            "%s has no manifest, so it is not an InventCraft document"
             % os.path.basename(path)) from None
     except zipfile.BadZipFile as exc:
         raise FileFormatError("%s is damaged: %s"
@@ -253,14 +294,14 @@ def _validate(manifest: Manifest, path: str) -> None:
     name = os.path.basename(path)
     if manifest.format != FORMAT:
         raise FileFormatError(
-            "%s is not a DATUM document - its manifest says format %r"
+            "%s is not an InventCraft document: its manifest says format %r"
             % (name, manifest.format or "(missing)"))
     if manifest.version <= 0:
         raise FileFormatError("%s has no schema version in its manifest" % name)
     if manifest.version > SCHEMA_VERSION:
         raise UnsupportedVersionError(
-            "%s was written by a newer version of DATUM (file schema %d, this "
-            "build reads up to %d). Update DATUM to open it."
+            "%s was written by a newer version of InventCraft (file schema "
+            "%d, this build reads up to %d). Update InventCraft to open it."
             % (name, manifest.version, SCHEMA_VERSION))
     if manifest.type not in DOCUMENT_TYPES:
         raise FileFormatError("%s declares an unknown document type %r"

@@ -81,7 +81,7 @@ check("Remove takes it out of the document",
 
 print()
 print("the file")
-path = os.path.join(WORK, "bracket.pdat")
+path = os.path.join(WORK, "bracket.icpart")
 part.save(path)
 again = Document.load(path)
 check("custom properties survive a save and a load",
@@ -107,7 +107,7 @@ check("a row with properties survives its own round trip",
       bom.Row.from_dict(rows[0].to_dict()).extra == rows[0].extra)
 
 assembly = AssemblyDocument()
-assembly.path = os.path.join(WORK, "frame.adat")
+assembly.path = os.path.join(WORK, "frame.icasm")
 assembly.place(path)
 assembly.place(path)
 listed = bom.rows_for(assembly, WORK)

@@ -58,18 +58,18 @@ for kind in ("warning", "information", "critical"):
 print("what was asked is written down")
 
 harness.reset()
-Box.warning(None, "Missing components", "rig.adat could not find peg.pdat")
+Box.warning(None, "Missing components", "rig.icasm could not find peg.icpart")
 Box.information(None, "Note", "all done")
 check("both were recorded", len(harness.shown) == 2, harness.shown)
 check("the warning can be read back",
-      "peg.pdat" in harness.text("warning"), harness.text("warning"))
+      "peg.icpart" in harness.text("warning"), harness.text("warning"))
 check("so can the information", harness.text("information") == "all done",
       harness.text("information"))
 check("and the latest of any kind", harness.text() == "all done",
       harness.text())
 check("asked() agrees", harness.asked("warning") and not harness.asked("about"))
 check("of_kind lists them", harness.of_kind("warning") ==
-      ["rig.adat could not find peg.pdat"], harness.of_kind("warning"))
+      ["rig.icasm could not find peg.icpart"], harness.of_kind("warning"))
 
 
 # ==========================================================================
@@ -101,22 +101,22 @@ check("open is cancelled", Files.getOpenFileName(None, "", "")[0] == "")
 check("open-many is cancelled", Files.getOpenFileNames(None, "", "")[0] == [])
 check("a folder too", Files.getExistingDirectory(None, "") == "")
 
-harness.saving("C:/tmp/part.pdat")
+harness.saving("C:/tmp/part.icpart")
 check("a save path can be set",
-      Files.getSaveFileName(None, "", "")[0] == "C:/tmp/part.pdat",
+      Files.getSaveFileName(None, "", "")[0] == "C:/tmp/part.icpart",
       Files.getSaveFileName(None, "", ""))
 
-harness.opening(["a.pdat", "b.pdat"])
+harness.opening(["a.icpart", "b.icpart"])
 check("so can several open paths",
-      Files.getOpenFileNames(None, "", "")[0] == ["a.pdat", "b.pdat"],
+      Files.getOpenFileNames(None, "", "")[0] == ["a.icpart", "b.icpart"],
       Files.getOpenFileNames(None, "", ""))
 check("and the single-file form follows it",
-      Files.getOpenFileName(None, "", "")[0] == "a.pdat",
+      Files.getOpenFileName(None, "", "")[0] == "a.icpart",
       Files.getOpenFileName(None, "", ""))
 
-harness.opening("only.pdat")
+harness.opening("only.icpart")
 check("one path works as well",
-      Files.getOpenFileName(None, "", "")[0] == "only.pdat",
+      Files.getOpenFileName(None, "", "")[0] == "only.icpart",
       Files.getOpenFileName(None, "", ""))
 
 

@@ -138,7 +138,7 @@ class CamBrowser(QtWidgets.QTreeWidget):
                 f = item.font(0)
                 f.setItalic(True)
                 item.setFont(0, f)
-                item.setForeground(0, QtGui.QBrush(QtGui.QColor("#666e78")))
+                item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.tree_faint)))
 
             face = QtWidgets.QTreeWidgetItem(
                 item, ["Cut face   %s" % placed.cut_face.describe()])

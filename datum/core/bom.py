@@ -16,6 +16,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from . import fileformat
+
 # Which columns a parts list can show, and what each one is called on the
 # sheet.  The keys are what a Row answers to.
 COLUMNS = {
@@ -152,7 +154,7 @@ def rows_for(document, base_dir: str = "", library=None,
 def _collect(occurrence, base: str, library, recurse: bool,
              grouped: Dict[str, Row], order: List[str], parent) -> None:
     path = occurrence.ref.resolve(base) if base else ""
-    if recurse and path and path.lower().endswith(".adat"):
+    if recurse and path and fileformat.is_assembly(path):
         inner = _open(path, library)
         if inner is not None:
             for child in getattr(inner, "occurrences", []):

@@ -66,7 +66,7 @@ def reference(path, base_dir):
 def drawing_of(part=BLOCK, orientation="front", scale=1.0, folder=None):
     folder = folder or WORK
     doc = DrawingDocument()
-    doc.path = os.path.join(folder, "d.ddat")
+    doc.path = os.path.join(folder, "d.icdraw")
     sheet = doc.add_sheet("A3")
     base = View(kind=BASE, orientation=orientation, scale=scale,
                 x=140.0, y=190.0, display=WITH_HIDDEN)
@@ -195,7 +195,7 @@ for kind, a, b, c, origin, operation in (
     step.operation = operation
     housing.add_feature(step)
 housing.rebuild()
-HOUSING = housing.save(os.path.join(WORK, "housing.pdat"))
+HOUSING = housing.save(os.path.join(WORK, "housing.icpart"))
 hdoc, hsheet, front = drawing_of(HOUSING)
 viewgen.Generator().rebuild(hdoc)
 fbox = front.projection.box
@@ -291,7 +291,7 @@ check("asking for a pattern by name wins", section.projection.hatch
 section.hatch_pattern = ""
 
 print("hatching survives a save and a reload")
-saved = os.path.join(WORK, "hatched.ddat")
+saved = os.path.join(WORK, "hatched.icdraw")
 doc.save(saved)
 again = DrawingDocument.load(saved)
 back = next(v for v in again.active().views if v.kind == SECTION)
@@ -456,7 +456,7 @@ doc.add_view(sheet, View(kind=PROJECTED, parent=base.id,
 doc.properties["Title"] = "ROUND TRIP"
 viewgen.Generator().rebuild(doc)
 written = doc.save(doc.path)
-check("it wrote a .ddat", written.endswith(".ddat") and os.path.isfile(written))
+check("it wrote a .icdraw", written.endswith(".icdraw") and os.path.isfile(written))
 
 reopened = DrawingDocument.load(written)
 check("the properties came back",
@@ -473,7 +473,7 @@ check("the cached lines are the same ones",
       == len(base.projection.lines))
 
 print("a model that has changed marks its views out of date")
-moved = os.path.join(WORK, "changing.pdat")
+moved = os.path.join(WORK, "changing.icpart")
 part = Document()
 f = PrimitiveFeature()
 f.kind, f.a, f.b, f.c = "box", "40", "30", "10"
@@ -517,8 +517,8 @@ templates.ensure_builtins()
 shipped = templates.available()
 check("some ship with the application", len(shipped) >= 3,
       [t.name for t in shipped])
-check("each is a real .ddat",
-      all(t.path.endswith(".ddat") and os.path.isfile(t.path)
+check("each is a real .icdraw",
+      all(t.path.endswith(".icdraw") and os.path.isfile(t.path)
           for t in shipped))
 
 a3 = templates.find("ISO A3")
@@ -533,7 +533,7 @@ check("and not the template's own views",
 
 project = tempfile.mkdtemp(prefix="datum_drawing_project_")
 started.properties["Company"] = "IITEG"
-started.path = os.path.join(project, "some.ddat")
+started.path = os.path.join(project, "some.icdraw")
 started.save()
 saved = templates.save_as_template(started, "IITEG A3", project)
 check("a drawing can become a template", os.path.isfile(saved))
@@ -541,7 +541,7 @@ check("the project's own comes first",
       templates.available(project)[0].name == "IITEG A3",
       [t.name for t in templates.available(project)])
 check("and saving it did not move the drawing",
-      started.path.endswith("some.ddat"), started.path)
+      started.path.endswith("some.icdraw"), started.path)
 
 
 # ==========================================================================
@@ -600,7 +600,7 @@ PLATE = make_part("plate", [("box", 40, 40, 5, "new")])
 PIN = make_part("pin", [("cylinder", 4, 30, 0, "new")])
 
 rig = AssemblyDocument()
-rig.path = os.path.join(WORK, "rig.adat")
+rig.path = os.path.join(WORK, "rig.icasm")
 for source, count in ((PLATE, 1), (PIN, 3)):
     for i in range(count):
         o = Occurrence(id=rig.new_id(), ref=reference(source, WORK),
@@ -683,7 +683,7 @@ check("and a rebuild puts the real numbers back",
 print("a balloon whose part has gone says so rather than lying")
 orphan = doc.add_annotation(sheet, Annotation(
     kind=BALLOON, view=base.id, points=[[0.0, 0.0]],
-    component=os.path.join(WORK, "never-existed.pdat")))
+    component=os.path.join(WORK, "never-existed.icpart")))
 check("it has no number to show", doc.balloon_number(sheet, orphan) == 0)
 check("and draws a question mark instead", orphan.caption() == "?",
       orphan.caption())
@@ -704,7 +704,7 @@ check("without the heading it is one shorter",
 table.heading = True
 
 print("a parts list survives the file, rows and all")
-saved = os.path.join(WORK, "listed.ddat")
+saved = os.path.join(WORK, "listed.icdraw")
 doc.save(saved)
 reopened = DrawingDocument.load(saved)
 back = reopened.active()

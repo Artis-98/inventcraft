@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .. import APP_NAME
+from .. import LEGACY_NAME
 from ..core import project as core
 from . import icons
 from .theme import C
@@ -24,7 +24,7 @@ class SettingsStore:
         # the organisation can be overridden so a test run does not disturb
         # the projects somebody is actually working in
         self._settings = QtCore.QSettings(
-            os.environ.get("DATUM_SETTINGS_ORG", "IITEG"), APP_NAME)
+            os.environ.get("DATUM_SETTINGS_ORG", "IITEG"), LEGACY_NAME)
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._settings.value(key, default)
@@ -180,7 +180,8 @@ class ProjectsDialog(QtWidgets.QDialog):
     def browse(self) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, "Add an existing project", "",
-            "DATUM project (*%s)" % core.EXTENSION)
+            "InventCraft project (*%s *%s)" % (core.EXTENSION,
+                                                core.LEGACY_EXTENSION))
         if not path:
             return
         try:

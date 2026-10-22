@@ -1,15 +1,19 @@
-# DATUM
+# InventCraft
 
 A parametric, history-based solid modeller with an Inventor-style interface,
 built on the OpenCASCADE kernel. Sketch with a constraint solver, model
 solids on a feature tree you can go back into, assemble, draw, and cut.
 
-[**Download for Windows**](https://datum.iiteg.com) &nbsp;·&nbsp;
+InventCraft was called DATUM until 0.3.0. Everything DATUM made still
+opens, its settings carry over, and a DATUM install updates itself into
+InventCraft.
+
+[**Download for Windows and Linux**](https://datum.iiteg.com) &nbsp;·&nbsp;
 [datum.iiteg.com](https://datum.iiteg.com) &nbsp;·&nbsp;
 [Changelog](https://datum.iiteg.com/changelog.html) &nbsp;·&nbsp;
 MIT licensed
 
-![DATUM](docs/screenshot.png)
+![InventCraft](docs/screenshot.png)
 
 ## Running it from source
 
@@ -160,7 +164,7 @@ or directly:
 - Undo / redo across the whole document
 - Live mass properties: volume, area, mass by material, centre of mass,
   bounding box
-- **dProperties**, DATUM's iProperties: title, part number, designer,
+- **dProperties**, InventCraft's iProperties: title, part number, designer,
   revision, project, stock number, vendor, cost and the rest, plus any
   number of **custom** properties with a name of your own. They are saved in
   the file, a parts list can show any of them as a column, and a title block
@@ -169,14 +173,19 @@ or directly:
 
 ## File format
 
-DATUM documents are ZIP archives, following Inventor's naming convention:
+InventCraft documents are ZIP archives, one ending per kind of document:
 
-| Extension | Type |
-| --- | --- |
-| `.pdat` | Part |
-| `.adat` | Assembly |
-| `.cdat` | CAM sheet |
-| `.ddat` | Drawing |
+| Extension | Type | DATUM's ending, still opened |
+| --- | --- | --- |
+| `.icpart` | Part | `.pdat` |
+| `.icasm` | Assembly | `.adat` |
+| `.iccam` | CAM sheet | `.cdat` |
+| `.icdraw` | Drawing | `.ddat` |
+
+The format inside did not change with the name, so a DATUM file is simply
+an InventCraft file with an older ending. Saving one keeps its ending, so
+an assembly or a drawing that refers to it by name still finds it; new
+documents get the new endings.
 
 Each archive holds:
 
@@ -189,8 +198,8 @@ thumbnail.png    256x256 preview, rendered from the viewport on save
 Because it is a plain ZIP with a real PNG inside, the OS and any file browser
 can show the preview without understanding the model.
 
-Reading always starts with the manifest. A file that does not declare itself
-as DATUM is rejected by name; one written by a **newer** schema is refused
+Reading always starts with the manifest. A file that does not declare the
+format, which keeps the name DATUM inside every file, is rejected by name; one written by a **newer** schema is refused
 outright rather than half-parsed. Older schemas — including the previous
 `.forge` files — migrate forward on open, and the status bar says so.
 
@@ -200,14 +209,14 @@ stored uncompressed, which keeps saves fast.
 
 Assemblies and CAM sheets reference their parts by **relative path**, so a
 project folder moves as a unit, and also store each referenced file's
-**name** — if a component goes missing, DATUM can say which file, where it
+**name** — if a component goes missing, InventCraft can say which file, where it
 expected it, and why it could not be used. Save As into another folder
 rebases the links rather than breaking them.
 
 > Parts, assemblies and CAM sheets are editable. The drawing document is
 > complete as a document — it round-trips, validates, migrates, carries a
 > thumbnail and reports broken links — but there is no editor for it yet,
-> and DATUM will tell you so if you try to open one.
+> and InventCraft will tell you so if you try to open one.
 
 ## Bodies and Booleans
 
@@ -303,7 +312,7 @@ body is reloaded from that file whenever it changes on disk.
 
 Flat parts laid out on stock, offset for the cutter, exported as DXF. Built
 for **MyPlasm CNC**, which takes 2D paths and does its own depth stepping, so
-DATUM exports geometry rather than G-code and applies the cutter
+InventCraft exports geometry rather than G-code and applies the cutter
 compensation itself.
 
 - A part is recognised as sheet stock by its **two opposed planar faces** —
@@ -392,7 +401,7 @@ datum/
     naming.py     persistent face/edge references across rebuilds
     features.py   the feature types and the rebuild context
     document.py   parameter table + feature tree + undo
-    fileformat.py the .pdat/.adat/.cdat/.ddat ZIP container
+    fileformat.py the .icpart/.icasm/.iccam/.icdraw ZIP container
     lstsq.py      damped least squares, shared by both solvers
     constraints3d.py  assembly constraints and the rigid-body solver
     assembly.py   assembly and drawing documents
@@ -443,7 +452,7 @@ A broken fillet costs you the fillet, not the model.
 
 ## Drawings
 
-A drawing (`.ddat`) holds no geometry. It references parts and assemblies by
+A drawing (`.icdraw`) holds no geometry. It references parts and assemblies by
 path and generates its views from them, so changing a model changes every
 drawing of it. What it does hold is the result of that generation, cached,
 plus a hash of each model - which is how it opens and prints without loading
@@ -486,7 +495,7 @@ placed. The links cover `{Model.*}` - resolved from the sheet's first base
 view, so a part and an assembly answer the same questions - and
 `{Drawing.*}`, `{Sheet.*}`.
 
-**Templates** are not a special file. A template is an ordinary `.ddat` in a
+**Templates** are not a special file. A template is an ordinary `.icdraw` in a
 folder called Templates, and New Drawing copies one. Anything you can draw
 you can keep as a template, and you can open one and check it. The project's
 own templates come before the shipped ones, so a company title block quietly
@@ -507,17 +516,19 @@ and that folder is where documents are saved and looked for. Switching
 project switches the place everything happens - and the recent list with
 it, so two jobs never leave their files interleaved in one directory.
 
-A fresh install has a project already: **Default**, in `Documents/DATUM`.
+A fresh install has a project already: **Default**, in `Documents/InventCraft`
+(or `Documents/DATUM`, where DATUM already made one).
 Nothing has to be set up before the first part can be saved.
 
 **File -> Projects...**, or the project name on the home page, opens the
-list. *New Project...* asks for a folder and a name and writes a `.dproj`
-there; *Add Existing...* picks up a `.dproj` that came with a folder from
+list. *New Project...* asks for a folder and a name and writes an `.icproj`
+there; *Add Existing...* picks up an `.icproj`, or DATUM's `.dproj`, that
+came with a folder from
 somewhere else. The active project cannot be removed from the list, because
 that would leave nowhere to save.
 
 What is *in* a project - its name, its recent documents - lives in the
-`.dproj` file. What is merely true of this machine - which projects are
+`.icproj` file. What is merely true of this machine - which projects are
 known about, which is active - is settings. That split is what lets a
 project folder be copied to another machine, or onto a memory stick, and
 still make sense when it gets there.
@@ -628,7 +639,7 @@ the target machine wants 2D paths and does its own depth passes.
 
 ## Releasing
 
-DATUM itself is about four megabytes of Python. The runtime under it is
+InventCraft itself is about four megabytes of Python. The runtime under it is
 569 MB, which is what a 0.2.1 build measures: 264 MB of VTK, 155 MB of
 OpenCASCADE, 91 MB of Qt after the exclude list has taken it down from
 641, and 26 MB of numpy. The installer compresses that to 106 MB.
@@ -649,9 +660,30 @@ the installer, and tags the commit. Nothing is published if any of it
 fails. Then copy `release/` to `https://api.iiteg.com/datum/`, keeping the
 layout.
 
+The build is `InventCraft.exe`, and every release carries a copy of it
+named `DATUM.exe` as well. A DATUM install that updates itself restarts
+`DATUM.exe` when the new files are in, and its shortcuts and file types
+point there; both names are the same program.
+
+The Linux build is made by GitHub when the tag is pushed
+(`.github/workflows/linux.yml`), and attached to the release. Once it is
+there,
+
+```bash
+python tools/release.py 0.3.0 --linux
+```
+
+downloads it, checks it, writes its hash into the feed and signs the feed
+again, and Linux copies are offered it. The archive stays on GitHub: the
+hash in the signed feed is what makes it trusted, so the key never goes
+near CI. A Linux update is the whole archive rather than the changed
+files, unpacked and compared on the machine, and put in place by
+InventCraft itself after it closes, since Linux lets a file in use be
+renamed over.
+
 **One thing in the build is not optional.** `cadquery-ocp` links
 OpenCASCADE's VTK bridge into a single `OCP.pyd`, so the VTK DLLs must be
-bundled even though DATUM never imports VTK and has no use for it. Without
+bundled even though InventCraft never imports VTK and has no use for it. Without
 them the build looks perfectly fine and dies on first import with `DLL
 load failed`. `OCP/__init__.py` also calls `os.add_dll_directory` on
 `vtk.libs` and `cadquery_ocp.libs` by name, so those folders have to keep
@@ -660,7 +692,8 @@ dependency is a link and not an import, which is why `tools/datum.spec`
 collects them by hand and why `release.py` starts the build before it will
 publish it.
 
-**Installing is per user**, into `%LOCALAPPDATA%\Programs\DATUM`. A
+**Installing is per user**, into `%LOCALAPPDATA%\Programs\InventCraft`
+(or wherever DATUM was, which the installer finds and installs over). A
 Program Files install would need an administrator prompt to update, which
 an application cannot raise for itself, so silent updates would be
 impossible.
@@ -668,17 +701,17 @@ impossible.
 Inno writes its uninstaller into that folder *after* the build is made, so
 `unins000.exe` is in no manifest. Treating "not in the manifest" as
 "delete" would have destroyed the uninstaller on the first update and left
-DATUM listed in Add or Remove Programs with nothing behind it, so
+InventCraft listed in Add or Remove Programs with nothing behind it, so
 `update.KEEP_ALWAYS` spares it.
 
 **The swap.** Windows will let a program rename its own executable but not
-touch a DLL it has loaded, and an installed DATUM has Qt, OpenCASCADE and
+touch a DLL it has loaded, and an installed InventCraft has Qt, OpenCASCADE and
 the Python runtime all mapped in. So the files cannot be replaced by the
 application using them. Downloads go to a staging folder inside the
 install and are all verified before anything is applied; on restart a
-small batch script waits for DATUM to exit, moves the staged files over,
+small batch script waits for InventCraft to exit, moves the staged files over,
 and starts it again. If it cannot finish, it leaves staging alone and
-DATUM offers it again next time, which is safe because everything in there
+InventCraft offers it again next time, which is safe because everything in there
 was checked before it was written.
 
 **Signing.** `tools/release.py --make-key` makes an Ed25519 key; the

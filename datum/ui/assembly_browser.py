@@ -45,6 +45,9 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     constraint_selected = QtCore.Signal(int)
     constraint_activated = QtCore.Signal(int)        # double-click -> edit
     constraint_delete_requested = QtCore.Signal(int)
+    # everything selected at once, as one undo step: components, then
+    # relationships
+    delete_requested = QtCore.Signal(list, list)
     constraint_suppress_toggled = QtCore.Signal(int)
 
     plane_visibility_toggled = QtCore.Signal(str)
@@ -136,7 +139,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             item.setData(0, ROLE_ID, key)
             if key in self.hidden_planes:
                 item.setText(0, "%s   (hidden)" % label)
-                item.setForeground(0, QtGui.QBrush(QtGui.QColor("#5d656e")))
+                item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.tree_hidden)))
 
         if not doc.occurrences:
             empty = QtWidgets.QTreeWidgetItem(
@@ -173,7 +176,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                 f = item.font(0)
                 f.setItalic(True)
                 item.setFont(0, f)
-                item.setForeground(0, QtGui.QBrush(QtGui.QColor("#666e78")))
+                item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.tree_faint)))
             elif occurrence.grounded:
                 item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.ok)))
 
@@ -202,7 +205,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                     f.setItalic(True)
                     child.setFont(0, f)
                     child.setForeground(0,
-                                        QtGui.QBrush(QtGui.QColor("#666e78")))
+                                        QtGui.QBrush(QtGui.QColor(C.tree_faint)))
                 else:
                     child.setForeground(0,
                                         QtGui.QBrush(QtGui.QColor(C.text_dim)))
@@ -299,12 +302,21 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     # ------------------------------------------------------------ selection
 
     def selected_occurrence_ids(self) -> List[int]:
-        return [int(i.data(0, ROLE_ID)) for i in self.selectedItems()
-                if i.data(0, ROLE_KIND) == "occurrence"]
+        return self._selected("occurrence")
 
     def selected_constraint_ids(self) -> List[int]:
-        return [int(i.data(0, ROLE_ID)) for i in self.selectedItems()
-                if i.data(0, ROLE_KIND) == "constraint"]
+        return self._selected("constraint")
+
+    def _selected(self, kind: str) -> List[int]:
+        """The ids picked, once each: a relationship is listed under both
+        of its components, and picking it in both places is one pick."""
+        out: List[int] = []
+        for item in self.selectedItems():
+            if item.data(0, ROLE_KIND) == kind:
+                found = int(item.data(0, ROLE_ID))
+                if found not in out:
+                    out.append(found)
+        return out
 
     def select_occurrences(self, ids: List[int]) -> None:
         if not ids:
@@ -410,7 +422,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                 lambda: self._rename(oid, occurrence.label))
             delete = menu.addAction(icons.icon("delete", 16), "Delete")
             delete.triggered.connect(
-                lambda: self.occurrence_delete_requested.emit(oid))
+                lambda: self._delete_from_menu("occurrence", oid))
 
         elif kind == "constraint":
             cid = int(item.data(0, ROLE_ID))
@@ -427,7 +439,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                 lambda: self.constraint_suppress_toggled.emit(cid))
             delete = menu.addAction(icons.icon("delete", 16), "Delete")
             delete.triggered.connect(
-                lambda: self.constraint_delete_requested.emit(cid))
+                lambda: self._delete_from_menu("constraint", cid))
 
         elif kind == "plane":
             key = str(item.data(0, ROLE_ID))
@@ -459,13 +471,25 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         if ok and text.strip():
             self.occurrence_rename_requested.emit(occurrence_id, text.strip())
 
+    def _delete_from_menu(self, kind: str, item_id: int) -> None:
+        """Delete on a right click: the whole selection when the item is
+        part of it, otherwise just the item that was clicked."""
+        occurrences = self.selected_occurrence_ids()
+        constraints = self.selected_constraint_ids()
+        chosen = occurrences if kind == "occurrence" else constraints
+        if item_id in chosen:
+            self.delete_requested.emit(occurrences, constraints)
+        elif kind == "occurrence":
+            self.occurrence_delete_requested.emit(item_id)
+        else:
+            self.constraint_delete_requested.emit(item_id)
+
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         if event.key() == QtCore.Qt.Key_Delete:
-            for cid in self.selected_constraint_ids():
-                self.constraint_delete_requested.emit(cid)
-                return
-            for oid in self.selected_occurrence_ids():
-                self.occurrence_delete_requested.emit(oid)
+            occurrences = self.selected_occurrence_ids()
+            constraints = self.selected_constraint_ids()
+            if occurrences or constraints:
+                self.delete_requested.emit(occurrences, constraints)
                 return
         elif event.key() == QtCore.Qt.Key_F2:
             ids = self.selected_occurrence_ids()

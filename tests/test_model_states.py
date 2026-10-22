@@ -82,7 +82,7 @@ check("a feature added in a state is in every state",
 
 print()
 print("saving, and placing a state")
-path = os.path.join(tempfile.mkdtemp(prefix="datum_states_"), "bolt.pdat")
+path = os.path.join(tempfile.mkdtemp(prefix="datum_states_"), "bolt.icpart")
 doc.rebuild()
 doc.save(path)
 again = Document.load(path)
@@ -93,7 +93,7 @@ check("and keep what they change", again.features[0].b == "40",
       again.features[0].b)
 
 asm = AssemblyDocument()
-asm.path = os.path.join(os.path.dirname(path), "pair.adat")
+asm.path = os.path.join(os.path.dirname(path), "pair.icasm")
 short = asm.place(path)
 long_one = asm.place(path)
 long_one.model_state = "Long"

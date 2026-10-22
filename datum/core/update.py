@@ -1,6 +1,6 @@
-"""Finding, fetching and staging a new version of DATUM.
+"""Finding, fetching and staging a new version of InventCraft.
 
-The shape of the problem decides the shape of the solution.  DATUM itself
+The shape of the problem decides the shape of the solution.  InventCraft itself
 is about four megabytes of Python; the Qt and OpenCASCADE runtime under it
 is closer to seven hundred.  So an update that ships the whole application
 again would be a seven hundred megabyte download to fix a typo, and nobody
@@ -12,7 +12,7 @@ OpenCASCADE move only when the dependency itself is bumped.
 Nothing here touches the running installation.  Downloads go into a
 staging folder and are checked, all of them, before anything is applied,
 because a half-applied update is a broken application with no way back.
-The swap happens after DATUM has exited, driven by :mod:`datum.core.swap`.
+The swap happens after InventCraft has exited, driven by :mod:`datum.core.swap`.
 
 None of this runs from a source checkout.  There is nothing sensible for
 an updater to do to a git working tree, so it turns itself off.
@@ -23,8 +23,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import ssl
 import sys
+import tarfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -51,6 +53,10 @@ PUBLIC_KEY_HEX = \
     "fef85a4d8378f0242f337153806c79f734ce1f97894b70dcd6707ce72ce11b91"
 
 STAGING = ".staging"
+# Where a Linux archive is unpacked before what changed in it is staged.
+# Inside the installation, so the files can be renamed into place rather
+# than copied across filesystems.
+UNPACK = ".unpack"
 
 # Files that live in the installation but are not part of a build, so a
 # release that does not mention them is not asking for them to go.
@@ -120,12 +126,10 @@ def install_dir() -> str:
 def can_update() -> Tuple[bool, str]:
     """Whether updating makes sense here, and why not when it does not."""
     if not frozen():
-        return (False, "DATUM is running from source; use git instead")
-    if sys.platform != "win32":
-        # the feed carries Windows builds, which a Linux build must never
-        # take in; a new one is downloaded the way this one was
-        return (False, "the update feed is for Windows; download the new "
-                       "build from datum.iiteg.com")
+        return (False, "InventCraft is running from source; use git instead")
+    if sys.platform != "win32" and not sys.platform.startswith("linux"):
+        return (False, "there is no update feed for this system; download "
+                       "the new build from datum.iiteg.com")
     target = install_dir()
     if not os.access(target, os.W_OK):
         return (False, "%s is not writable by this account" % target)
@@ -219,7 +223,7 @@ def fetch(url: str, timeout: float = TIMEOUT) -> bytes:
         raise UpdateError("refusing to fetch an update over %s"
                           % (url.split(":", 1)[0] or "an unknown scheme"))
     request = urllib.request.Request(
-        url, headers={"User-Agent": "DATUM/%s" % __version__})
+        url, headers={"User-Agent": "InventCraft/%s" % __version__})
     try:
         with _opener().open(request, timeout=timeout) as response:
             return response.read()
@@ -257,6 +261,12 @@ class Release:
     installer: str = ""         # a full reinstall, for big jumps
     minimum: str = "0.0.0"      # older than this cannot be patched forward
     base: str = ""
+    # The Linux build, which comes as one archive off GitHub rather than
+    # file by file off the server.  Its hash is in the signed feed, so the
+    # archive is as trusted as everything else wherever it is hosted.
+    package: str = ""
+    package_sha256: str = ""
+    package_size: int = 0
 
     @property
     def newer(self) -> bool:
@@ -268,7 +278,30 @@ class Release:
         return parse_version(__version__) < parse_version(self.minimum)
 
     @classmethod
-    def from_dict(cls, data: Dict, base: str) -> "Release":
+    def from_dict(cls, data: Dict, base: str,
+                  platform: str = "") -> "Release":
+        """What the feed offers this system.
+
+        Windows takes the release the feed is about.  Linux takes the
+        feed's ``linux`` entry, which is added once the archive has been
+        built, so until then a Linux copy is simply not offered anything.
+        """
+        if (platform or sys.platform).startswith("linux"):
+            linux = data.get("linux")
+            linux = linux if isinstance(linux, dict) else {}
+            try:
+                size = int(linux.get("size", 0) or 0)
+            except (TypeError, ValueError):
+                size = 0
+            return cls(version=str(linux.get("version", "")),
+                       released=str(linux.get("released",
+                                              data.get("released", ""))),
+                       notes=str(linux.get("notes", data.get("notes", ""))),
+                       minimum=str(linux.get("minimum", "0.0.0")),
+                       base=base,
+                       package=str(linux.get("url", "")),
+                       package_sha256=str(linux.get("sha256", "")),
+                       package_size=size)
         return cls(version=str(data.get("version", "")),
                    released=str(data.get("released", "")),
                    notes=str(data.get("notes", "")),
@@ -279,7 +312,8 @@ class Release:
 
 
 def check(feed: str = DEFAULT_FEED,
-          fetcher: Optional[Callable[[str, str], bytes]] = None) -> Release:
+          fetcher: Optional[Callable[[str, str], bytes]] = None,
+          platform: str = "") -> Release:
     """Ask the feed what the newest release is.
 
     ``fetcher`` exists so this can be tested without a network: it is
@@ -295,7 +329,7 @@ def check(feed: str = DEFAULT_FEED,
         raise UpdateError("the update feed is not readable: %s" % exc)
     if not isinstance(data, dict) or not data.get("version"):
         raise UpdateError("the update feed named no version")
-    return Release.from_dict(data, base)
+    return Release.from_dict(data, base, platform)
 
 
 # --------------------------------------------------------------- the diffing
@@ -444,6 +478,109 @@ def download(plan: Plan, release: Release,
 
     write_plan(plan)
     return staging
+
+
+def fetch_to(url: str, path: str,
+             progress: Optional[Callable[[int, int], bool]] = None,
+             total: int = 0, timeout: float = TIMEOUT) -> str:
+    """Download a URL into a file, a piece at a time, and return its hash.
+
+    For the Linux archive, which is a few hundred megabytes and so is not
+    held in memory the way the small files of a Windows update are.
+    ``progress`` gets (kilobytes done, kilobytes in all) and may return
+    False to cancel.
+    """
+    if not url.lower().startswith("https://"):
+        raise UpdateError("refusing to fetch an update over %s"
+                          % (url.split(":", 1)[0] or "an unknown scheme"))
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "InventCraft/%s" % __version__})
+    digest = hashlib.sha256()
+    done = 0
+    try:
+        with _opener().open(request, timeout=timeout) as response, \
+                open(path, "wb") as out:
+            length = int(response.headers.get("Content-Length") or 0)
+            total = length or total
+            for block in iter(lambda: response.read(CHUNK), b""):
+                out.write(block)
+                digest.update(block)
+                done += len(block)
+                if progress is not None and not progress(
+                        done // 1024, max(1, total // 1024)):
+                    raise UpdateError("the update was cancelled")
+    except urllib.error.HTTPError as exc:
+        raise UpdateError("%s said %s" % (url, exc.code)) from exc
+    except (urllib.error.URLError, OSError, ssl.SSLError) as exc:
+        raise UpdateError("cannot reach %s: %s" % (url, exc)) from exc
+    return digest.hexdigest()
+
+
+def download_package(release: Release, target: str,
+                     progress: Optional[Callable[[int, int], bool]] = None,
+                     fetcher: Optional[Callable[..., str]] = None) -> Plan:
+    """Fetch the Linux archive, check it, and stage what changed in it.
+
+    What it leaves behind is exactly what a Windows download leaves: the
+    changed files under the staging folder and the plan beside them, so
+    the swap and everything after it are the same on both.
+    """
+    if not release.package or not release.package_sha256:
+        raise UpdateError("the update feed has no build for this system")
+    target = os.path.abspath(target)
+    clear_staging(target)
+    unpack = os.path.join(target, UNPACK)
+    shutil.rmtree(unpack, ignore_errors=True)
+    os.makedirs(unpack)
+    archive = os.path.join(unpack, "package.tar.gz")
+    try:
+        got = (fetcher or fetch_to)(release.package, archive, progress,
+                                    release.package_size)
+        if got != release.package_sha256:
+            raise UpdateError(
+                "the downloaded build is not the one the signed feed "
+                "describes, so it has not been trusted.  Nothing has been "
+                "changed.")
+        root = _unpack(archive, unpack)
+        manifest = manifest_of(root)
+        plan = plan_for(manifest, target, release.version,
+                        keep=(STAGING, UNPACK))
+        staging = staging_dir(target)
+        for relative in plan.download:
+            source = os.path.join(root, relative.replace("/", os.sep))
+            destination = os.path.join(staging, relative.replace("/", os.sep))
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            os.replace(source, destination)
+        write_plan(plan)
+        return plan
+    except (OSError, tarfile.TarError) as exc:
+        clear_staging(target)
+        raise UpdateError("the new build could not be unpacked: %s"
+                          % exc) from exc
+    except UpdateError:
+        clear_staging(target)
+        raise
+    finally:
+        shutil.rmtree(unpack, ignore_errors=True)
+
+
+def _unpack(archive: str, into: str) -> str:
+    """Unpack the archive and return the application folder inside it.
+
+    Through tarfile's "data" filter, which refuses links and paths that
+    lead outside the folder and strips set-user-id bits.  The archive is
+    signed for, so none of that should ever be in it; this code still
+    writes files, and "the hash would have caught it" is not a reason to
+    let an archive put one anywhere it likes.
+    """
+    with tarfile.open(archive, "r:gz") as tar:
+        tar.extractall(into, filter="data")
+    os.remove(archive)
+    tops = [name for name in os.listdir(into)
+            if os.path.isdir(os.path.join(into, name))]
+    if len(tops) != 1:
+        raise UpdateError("the new build is not laid out as expected")
+    return os.path.join(into, tops[0])
 
 
 def posix_dir(path: str) -> str:

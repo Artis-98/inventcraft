@@ -57,11 +57,11 @@ def make_part(filename, number, size):
     return path
 
 
-box_path = make_part("box.pdat", "Box", (60, 40, 10))
-plate_path = make_part("plate.pdat", "", (100, 80, 5))
+box_path = make_part("box.icpart", "Box", (60, 40, 10))
+plate_path = make_part("plate.icpart", "", (100, 80, 5))
 
 asm = AssemblyDocument()
-asm.path = os.path.join(WORK, "frame.adat")
+asm.path = os.path.join(WORK, "frame.icasm")
 asm.place(box_path)
 asm.place(box_path)
 asm.place(plate_path)

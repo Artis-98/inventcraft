@@ -153,7 +153,7 @@ check("a solid that is gone is an error",
       not report.ok and "Gone" in (row.error or ""), row.error)
 row.bodies = ["Lug"]
 
-path = os.path.join(tempfile.mkdtemp(prefix="datum_solids_"), "s.pdat")
+path = os.path.join(tempfile.mkdtemp(prefix="datum_solids_"), "s.icpart")
 doc.save(path)
 again = Document.load(path)
 pattern = next(f for f in again.features if f.type_name == "pattern")

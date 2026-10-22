@@ -141,7 +141,7 @@ check("  and leaves nothing behind on the references",
 print()
 print("a cached body comes back ready to draw")
 
-part_path = os.path.join(WORK, "posts.pdat")
+part_path = os.path.join(WORK, "posts.icpart")
 doc = Document()
 feature = CodeFeature()
 feature.source = "result(cylinder(10, 120).fillet(2).repeat(6, x=40))"

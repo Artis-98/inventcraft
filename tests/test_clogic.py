@@ -1,4 +1,4 @@
-"""dLogic, the rest of it: code features, reach, triggers, trust.
+"""cLogic, the rest of it: code features, reach, triggers, trust.
 
 test_rules.py holds the first promises: a rule moves the model and does
 nothing until it is allowed to. This holds the ones that came after, and
@@ -12,7 +12,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-WORK = tempfile.mkdtemp(prefix="datum_dlogic_")
+WORK = tempfile.mkdtemp(prefix="datum_clogic_")
 os.environ["DATUM_CONFIG_DIR"] = os.path.join(WORK, "cfg")
 
 from datum.core import geometry, prefs, rules                 # noqa: E402
@@ -119,9 +119,9 @@ check("a code feature cannot set a parameter",
 
 doc, feature = code_part("result(box(1, 1, 1))", trusted=False)
 check("untrusted, it does not run", "trusted" in feature.error, feature.error)
-check("  and says how to allow it", "dLogic" in feature.error)
+check("  and says how to allow it", "cLogic" in feature.error)
 
-saved = os.path.join(WORK, "posts.pdat")
+saved = os.path.join(WORK, "posts.icpart")
 doc, feature = code_part("result(box(3, 4, 5))")
 doc.save(saved)
 back = Document.load(saved)
@@ -141,7 +141,7 @@ print("trust comes from this machine, never from the file")
 
 elsewhere = os.path.join(WORK, "shared")
 os.makedirs(elsewhere)
-kept = os.path.join(elsewhere, "kept.pdat")
+kept = os.path.join(elsewhere, "kept.icpart")
 doc.save(kept)
 check("a file somewhere new is not trusted",
       not rules.document_trusted(Document.load(kept)))
@@ -154,12 +154,12 @@ check("  and is remembered in the preferences",
 check("  which a file cannot write to",
       "trusted_folders" not in str(Document.load(kept).to_dict()))
 check("a sibling folder with a longer name is not let in",
-      not rules.is_trusted_path(elsewhere + "-evil" + os.sep + "x.pdat"))
+      not rules.is_trusted_path(elsewhere + "-evil" + os.sep + "x.icpart"))
 
-part = os.path.join(WORK, "inner.pdat")
+part = os.path.join(WORK, "inner.icpart")
 code_part("result(box(1, 1, 1))")[0].save(part)
 asm = AssemblyDocument()
-asm.path = os.path.join(WORK, "outer.adat")
+asm.path = os.path.join(WORK, "outer.icasm")
 asm.place(part)
 asm.save(asm.path)
 asm = AssemblyDocument.load(asm.path)

@@ -16,7 +16,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..core import prefs as core_prefs
 from . import icons
-from .theme import C, apply_colours, as_hex, shipped
+from .theme import C, apply_colours, as_hex, current_theme, shipped
 
 
 class ColourButton(QtWidgets.QPushButton):
@@ -157,6 +157,16 @@ class PreferencesDialog(QtWidgets.QDialog):
 
         form = QtWidgets.QFormLayout()
         form.setSpacing(8)
+        self.theme_combo = QtWidgets.QComboBox()
+        self.theme_combo.addItem("Light", core_prefs.THEME_LIGHT)
+        self.theme_combo.addItem("Dark", core_prefs.THEME_DARK)
+        self.theme_combo.setCurrentIndex(
+            max(0, self.theme_combo.findData(self.prefs.theme)))
+        self.theme_combo.setToolTip(
+            "Takes effect the next time InventCraft starts. The colours "
+            "below belong to the scheme in use now, and each scheme keeps "
+            "its own.")
+        form.addRow("Colour scheme", self.theme_combo)
         self.colour_buttons: Dict[str, ColourButton] = {}
         for key, label in self.COLOURS:
             button = ColourButton(as_hex(getattr(C, key)))
@@ -284,14 +294,16 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.prefs.zoom_reversed = self.zoom_reversed_box.isChecked()
         # only what differs from the shipped palette is written, so a
         # retuned default reaches everybody who never touched it
-        self.prefs.colours = {
+        self.prefs.set_colours_for(current_theme(), {
             key: button.colour() for key, button in self.colour_buttons.items()
-            if button.colour().lower() != as_hex(shipped(key)).lower()}
+            if button.colour().lower() != as_hex(shipped(key)).lower()})
+        self.prefs.theme = (self.theme_combo.currentData()
+                            or core_prefs.THEME_LIGHT)
 
     def apply(self) -> None:
         self.gather()
         self.prefs.save()
-        apply_colours(self.prefs.colours)
+        apply_colours(self.prefs.colours_for(current_theme()))
         self.display_changed.emit()
 
     def accept(self) -> None:

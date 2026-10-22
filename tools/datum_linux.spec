@@ -1,4 +1,4 @@
-# PyInstaller build for DATUM on Linux, the preview build.
+# PyInstaller build for InventCraft on Linux.
 #
 # The Windows build (datum.spec) copies the VTK and OCP DLL folders in by
 # hand, because on Windows OCP's link to VTK is invisible to PyInstaller.
@@ -22,6 +22,9 @@ binaries = collect_dynamic_libs("OCP")
 datas = [
     (str(ROOT / "datum" / "templates"), "datum/templates"),
     (str(ROOT / "datum" / "ui" / "assets"), "datum/ui/assets"),
+    # the beaver, at every size the window, the taskbar and the start page
+    # ask for
+    (str(ROOT / "datum" / "ui" / "brand"), "datum/ui/brand"),
 ]
 
 excluded_qt = [
@@ -110,7 +113,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="DATUM",
+    name="InventCraft",
     debug=False,
     strip=False,
     upx=False,
@@ -123,5 +126,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="DATUM",
+    name="InventCraft",
 )

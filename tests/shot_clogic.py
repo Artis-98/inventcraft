@@ -1,6 +1,6 @@
-"""Screenshot dLogic: the stair sample, its code, a rule and its form.
+"""Screenshot cLogic: the stair sample, its code, a rule and its form.
 
-    python tests/shot_dlogic.py OUT_DIR
+    python tests/shot_clogic.py OUT_DIR
 """
 import os
 import sys
@@ -63,13 +63,13 @@ win.open_path(SAMPLE)
 pump()
 win.viewport.set_view("iso")
 win.viewport.fit_all()
-grab(win, "dlogic_untrusted.png")
+grab(win, "clogic_untrusted.png")
 
 win.rules_panel.trust()
 pump()
 win.viewport.set_view("iso")
 win.viewport.fit_all()
-grab(win, "dlogic_stair.png")
+grab(win, "clogic_stair.png")
 
 railing = [f for f in win.document.features if f.name == "Railing"][0]
 win.edit_feature(railing.id)
@@ -77,7 +77,7 @@ pump(10)
 dialog = win._active_dialog
 dialog.resize(1100, 720)
 dialog.preview()
-grab(dialog, "dlogic_code.png")
+grab(dialog, "clogic_code.png")
 dialog.cancel()
 pump()
 
@@ -85,14 +85,14 @@ size = [r for r in win.document.rules if r.name == "Size"][0]
 editor = rules_ui.RuleEditor(size, win.document, win)
 editor.show()
 editor.run_now = lambda: None
-grab(editor, "dlogic_rule.png")
+grab(editor, "clogic_rule.png")
 broken = rules.Rule(name="Broken", source="w = params.width\n"
                     "params.depth = w * nothing\n")
 editor.script.editor.setPlainText(broken.source)
 result = rules.run(broken, win.document)
 editor.script.show_result("line %d: %s" % (result.line, result.error),
                           False, result.line)
-grab(editor, "dlogic_error.png")
+grab(editor, "clogic_error.png")
 editor.close()
 
 form = rules_ui.FormDialog(win, win.document, "Stair", [
@@ -104,5 +104,5 @@ form = rules_ui.FormDialog(win, win.document, "Stair", [
     rules.slider("baluster_gap", 80, 150, 5),
     rules.choice("sides", ["1", "2"])])
 form.show()
-grab(form, "dlogic_form.png")
+grab(form, "clogic_form.png")
 form.close()

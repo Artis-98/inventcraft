@@ -47,7 +47,7 @@ def near(a, b, tol=1e-4):
 
 
 # a 60 x 40 x 20 block with a 10 mm hole through it, 30 in from the left
-PART = os.path.join(WORK, "Block.pdat")
+PART = os.path.join(WORK, "Block.icpart")
 part = Document()
 block = PrimitiveFeature(kind="box", a="60", b="40", c="20")
 part.add_feature(block)
@@ -73,7 +73,7 @@ def pump(n=3):
 
 win.new_drawing(prompt=False)
 pump()
-win.drawing.path = os.path.join(WORK, "Block.ddat")
+win.drawing.path = os.path.join(WORK, "Block.icdraw")
 win.save_document()
 pump()
 ui = win.drawing_ui

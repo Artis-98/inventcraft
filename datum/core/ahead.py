@@ -1,6 +1,6 @@
 """Building ahead: the values a slider is heading for, built before it gets there.
 
-A dLogic form's slider rebuilds the part every time it moves. With cores
+A cLogic form's slider rebuilds the part every time it moves. With cores
 to spare, the values just past where it is are built in workers while it
 is still moving, each worker on a copy of the part it keeps, so when the
 slider lands on one of them the model is already made and only has to be

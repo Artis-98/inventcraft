@@ -202,13 +202,13 @@ def make_part(name, w, d, h):
     return part.save(os.path.join(WORK, name))
 
 
-BLOCK = make_part("block.pdat", 40, 30, 10)
-PLATE = make_part("plate.pdat", 60, 60, 5)
+BLOCK = make_part("block.icpart", 40, 30, 10)
+PLATE = make_part("plate.icpart", 60, 60, 5)
 
 win.new_assembly()
 pump(8)
 asm = win.assembly
-asm.path = os.path.join(WORK, "rig.adat")
+asm.path = os.path.join(WORK, "rig.icasm")
 for source in (BLOCK, PLATE):
     asm.occurrences.append(Occurrence(
         id=asm.new_id(),

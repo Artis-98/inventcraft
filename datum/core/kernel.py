@@ -1130,6 +1130,48 @@ def boolean(base: TopoDS_Shape, tool: TopoDS_Shape, op: str) -> TopoDS_Shape:
     return heal(result)
 
 
+def boolean_many(base: TopoDS_Shape, tools: Sequence[TopoDS_Shape],
+                 op: str) -> TopoDS_Shape:
+    """One boolean with many tools: every copy of a pattern at once.
+
+    The same as applying the tools one after another, for a join or a cut,
+    and far quicker: the result is worked out once, rather than once per
+    tool on a body that grows more complicated each time, and healed once
+    at the end.  A hundred teeth round a sprocket went from one boolean
+    each to one in all.  An intersection is not the same thing done this
+    way, the common part of the base with all the tools at once being
+    another answer, so it is still done one at a time.
+    """
+    tools = [t for t in tools if is_valid(t)]
+    if not tools:
+        return base
+    if op == "intersect" or len(tools) == 1 or not is_valid(base):
+        for tool in tools:
+            base = boolean(base, tool, op)
+        return base
+    builders = {"join": BRepAlgoAPI_Fuse, "cut": BRepAlgoAPI_Cut}
+    if op not in builders:
+        raise KernelError("unknown boolean operation %r" % op)
+    algo = builders[op]()
+    arguments = TopTools_ListOfShape()
+    arguments.Append(base)
+    listed = TopTools_ListOfShape()
+    for tool in tools:
+        listed.Append(tool)
+    algo.SetArguments(arguments)
+    algo.SetTools(listed)
+    algo.SetRunParallel(True)
+    algo.SetFuzzyValue(1e-6)
+    algo.SetNonDestructive(True)        # see boolean()
+    algo.Build()
+    if not algo.IsDone():
+        raise KernelError("%s operation failed" % op)
+    result = algo.Shape()
+    if not is_valid(result) or not explore(result, TopAbs_SOLID):
+        raise KernelError("%s removed all material" % op)
+    return heal(result)
+
+
 def edges_along(shape: TopoDS_Shape, guides: Sequence[TopoDS_Shape],
                 tol: float = 1e-3) -> List[TopoDS_Edge]:
     """The edges of a shape that lie along some guide edges.

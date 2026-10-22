@@ -235,7 +235,7 @@ win._active_dialog = None
 
 print()
 print("#114: dProperties and Open File Location")
-part = os.path.join(WORK, "Bracket.pdat")
+part = os.path.join(WORK, "Bracket.icpart")
 win.document.path = part
 win.save_document()
 pump()

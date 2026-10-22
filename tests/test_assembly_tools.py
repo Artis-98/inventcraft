@@ -55,8 +55,8 @@ def make_part(name, w, d, h):
     return doc.save(os.path.join(WORK, name))
 
 
-BLOCK = make_part("block.pdat", 40, 30, 10)
-PLATE = make_part("plate.pdat", 60, 60, 5)
+BLOCK = make_part("block.icpart", 40, 30, 10)
+PLATE = make_part("plate.icpart", 60, 60, 5)
 
 
 # ==========================================================================
@@ -65,7 +65,7 @@ print("one tool at a time")
 win.new_assembly()
 pump(8)
 doc = win.assembly
-doc.path = os.path.join(WORK, "rig.adat")
+doc.path = os.path.join(WORK, "rig.icasm")
 ui = win.assembly_ui
 
 # two components, placed straight onto the document
@@ -197,7 +197,7 @@ check("every name is still unique", len(names) == len(set(names)), names)
 # ==========================================================================
 print("Save and Replace points a component at its own copy")
 
-target = os.path.join(WORK, "block copy.pdat")
+target = os.path.join(WORK, "block copy.icpart")
 if os.path.exists(target):
     os.remove(target)
 
@@ -371,7 +371,7 @@ pump(8)
 check("the window is editing a part now", win.in_part, win.in_part)
 check("and not the assembly", not win.in_assembly)
 check("it is the part that component places",
-      os.path.basename(win.document.path or "") == "block.pdat",
+      os.path.basename(win.document.path or "") == "block.icpart",
       win.document.path)
 check("the rest of the assembly is drawn around it",
       len(win.viewport._component_ais) == count_before - 1,
@@ -467,18 +467,18 @@ from datum.core.constraints3d import Placement                 # noqa: E402
 
 inner = AssemblyDocument()
 # base_dir follows the path, so the path comes first
-inner.path = os.path.join(WORK, "inner.adat")
+inner.path = os.path.join(WORK, "inner.icasm")
 for source in (BLOCK, PLATE):
     placed = inner.place(source, os.path.basename(source))
     placed.grounded = True
 inner.occurrences[1].placement = Placement([0.0, 0.0, 20.0], [0.0, 0.0, 0.0])
 inner.rebuild()
-INNER = inner.save(os.path.join(WORK, "inner.adat"))
+INNER = inner.save(os.path.join(WORK, "inner.icasm"))
 
 win.new_assembly()
 pump(8)
 outer = win.assembly
-outer.path = os.path.join(WORK, "outer.adat")
+outer.path = os.path.join(WORK, "outer.icasm")
 for source in (INNER, PLATE):
     placed = outer.place(source, os.path.basename(source))
     placed.grounded = True

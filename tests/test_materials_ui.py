@@ -154,11 +154,11 @@ check("and it looks like steel again",
 # ==========================================================================
 print("it all survives the file")
 
-path = win.document.save(os.path.join(WORK, "panel.pdat"))
+path = win.document.save(os.path.join(WORK, "panel.icpart"))
 win.set_material("Brass")
 win.set_appearance("Powder Coat, RAL 3020")
 pump(3)
-path2 = win.document.save(os.path.join(WORK, "brass.pdat"))
+path2 = win.document.save(os.path.join(WORK, "brass.icpart"))
 win.open_path(path2)
 pump(8)
 check("the material came back", win.document.material == "Brass",

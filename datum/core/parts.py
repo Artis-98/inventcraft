@@ -48,7 +48,7 @@ def leaf_parts(path: str, depth: int = 0, seen=None) -> List[str]:
     if key in seen or depth > MAX_NESTING or not os.path.isfile(path):
         return []
     seen.add(key)
-    if not path.lower().endswith(".adat"):
+    if not fileformat.is_assembly(path):
         return [path]
     try:
         geometry = fileformat.read(path).geometry
@@ -177,7 +177,7 @@ class PartLibrary:
             if key in seen or not os.path.isfile(path):
                 continue
             seen.add(key)
-            if path.lower().endswith(".pdat") and not self.is_fresh(path):
+            if fileformat.is_part(path) and not self.is_fresh(path):
                 wanted.append(os.path.abspath(path))
         held = workers.pool()
         if held is None or not wanted:

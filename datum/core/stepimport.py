@@ -52,7 +52,7 @@ from OCP.TopExp import TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS_Shape
 
-from . import kernel
+from . import fileformat, kernel
 
 Progress = Callable[[str, int, int], None]
 
@@ -151,7 +151,7 @@ def _read_step(path: str, progress: Optional[Progress]) -> List[Product]:
         raise ImportError_("could not read %s as STEP"
                            % os.path.basename(path))
     if not reader.Transfer(document):
-        raise ImportError_("%s has nothing in it DATUM can use"
+        raise ImportError_("%s has nothing in it InventCraft can use"
                            % os.path.basename(path))
 
     shapes = XCAFDoc_DocumentTool.ShapeTool_s(document.Main())
@@ -395,7 +395,7 @@ def write(top: Product, folder: str,
         feature.operation = NEW_BODY
         feature.body_name = name
         part.add_feature(feature)
-        target = os.path.join(parts_dir, stem + ".pdat")
+        target = os.path.join(parts_dir, stem + fileformat.extension_for(fileformat.PART))
         part.save(target)
 
         if helpers is None and cache:
@@ -430,7 +430,7 @@ def write(top: Product, folder: str,
             else:
                 children.append((write_part(child, where), gp_Trsf(), label))
         stem = file_name(node.name) if is_top else unique(node.name)
-        target = os.path.join(folder, stem + ".adat")
+        target = os.path.join(folder, stem + fileformat.extension_for(fileformat.ASSEMBLY))
         doc = AssemblyDocument()
         doc.path = target
         names = set()

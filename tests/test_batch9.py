@@ -121,7 +121,7 @@ check("and a new part leaves that too", not win.in_drawing)
 
 print("recent files remember what was saved")
 make_box()
-path = os.path.join(WORK, "recent_demo.pdat")
+path = os.path.join(WORK, "recent_demo.icpart")
 win.document.path = path
 win.save_document()
 pump()
@@ -344,7 +344,7 @@ check("the summary says so", "1 profile" in extrude.summary(),
       extrude.summary())
 
 print("the selection survives a save and reload")
-path = os.path.join(WORK, "profiles.pdat")
+path = os.path.join(WORK, "profiles.icpart")
 path = win.document.save(path)
 from datum.core.document import Document
 

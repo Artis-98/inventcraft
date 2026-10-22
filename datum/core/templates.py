@@ -61,8 +61,8 @@ def available(project_dir: str = "") -> List[Template]:
         if not folder or not os.path.isdir(folder):
             continue
         for entry in sorted(os.listdir(folder)):
-            if not entry.lower().endswith(fileformat.EXTENSIONS[
-                    fileformat.DRAWING]):
+            # a template saved by DATUM, .ddat, is as good as a new one
+            if not fileformat.is_type(entry, fileformat.DRAWING):
                 continue
             name = os.path.splitext(entry)[0]
             if name.lower() in seen:

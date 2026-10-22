@@ -99,7 +99,7 @@ opened.load_dict(part.to_dict())
 check("properties survive a round trip",
       opened.properties.get("PartNumber") == "NAPE-0001", opened.properties)
 
-shown = model_properties("C:/somewhere/Rear Hub Body.pdat", None, opened)
+shown = model_properties("C:/somewhere/Rear Hub Body.icpart", None, opened)
 check("a title block asks the part, not the file name",
       shown["Model.PartNumber"] == "NAPE-0001", shown["Model.PartNumber"])
 check("and gets the title when there is one",
@@ -107,7 +107,7 @@ check("and gets the title when there is one",
 
 plain = Document()
 plain.properties = {}
-bare = model_properties("C:/somewhere/Rear Hub Body.pdat", None, plain)
+bare = model_properties("C:/somewhere/Rear Hub Body.icpart", None, plain)
 check("with nothing typed in, the file name still answers",
       bare["Model.PartNumber"] == "Rear Hub Body", bare["Model.PartNumber"])
 
@@ -140,13 +140,14 @@ check("the dialog writes the name through",
 check("and the colour is live at once", theme.C.sketch_free == "#00ff00",
       theme.C.sketch_free)
 check("only what differs from the palette is stored",
-      set(prefs.prefs().colours) == {"sketch_free"}, prefs.prefs().colours)
+      set(prefs.prefs().light_colours) == {"sketch_free"},
+      prefs.prefs().light_colours)
 
 dialog.reset_colours()
 check("reset puts the palette back",
       theme.C.sketch_free == theme.shipped("sketch_free"), theme.C.sketch_free)
-check("and stores nothing at all", prefs.prefs().colours == {},
-      prefs.prefs().colours)
+check("and stores nothing at all", prefs.prefs().light_colours == {},
+      prefs.prefs().light_colours)
 dialog.deleteLater()
 
 stored = Document()

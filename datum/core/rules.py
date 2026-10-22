@@ -1,4 +1,4 @@
-"""dLogic: rules that drive a document, and code that builds one.
+"""cLogic: rules that drive a document, and code that builds one.
 
 Inventor has iLogic, and the reason people ask for it is not the language,
 it is that a model can be told how to behave rather than only what shape
@@ -56,6 +56,8 @@ import os
 import traceback
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+
+from . import fileformat
 
 
 # --------------------------------------------------------------------- trust
@@ -153,7 +155,8 @@ def _component_paths(document, seen: set, depth: int = 0) -> List[str]:
             continue
         seen.add(key)
         out.append(path)
-        if depth < 16 and path.lower().endswith(".adat") and os.path.exists(path):
+        if (depth < 16 and fileformat.is_assembly(path)
+                and os.path.exists(path)):
             try:
                 from .assembly import AssemblyDocument
                 out += _component_paths(AssemblyDocument.load(path), seen,

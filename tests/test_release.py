@@ -57,7 +57,7 @@ write(build_0, "_internal/Qt6Core.dll", "qt, very large, rarely changes")
 write(build_0, "_internal/vtk.libs/vtkCommonCore.dll", "vtk, never changes")
 write(build_0, "_internal/datum/core/hlr.py", "hlr v1")
 write(build_0, "_internal/datum/ui/theme.py", "theme v1")
-write(build_0, "_internal/datum/templates/ISO A3.ddat", "a template")
+write(build_0, "_internal/datum/templates/ISO A3.icdraw", "a template")
 
 build_1 = os.path.join(WORK, "build-0.2.1")
 shutil.copytree(build_0, build_1)
@@ -197,7 +197,7 @@ if os.name == "nt":
           read(installed, "_internal/vtk.libs/vtkCommonCore.dll")
           == "vtk, never changes")
     check("the template survived",
-          read(installed, "_internal/datum/templates/ISO A3.ddat")
+          read(installed, "_internal/datum/templates/ISO A3.icdraw")
           == "a template")
 
     print("and afterwards the installation is byte for byte the new build")

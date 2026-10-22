@@ -142,8 +142,8 @@ check("a new part gets a tab", len(win.doc_tabs.keys) == 1,
       len(win.doc_tabs.keys))
 check("and it opens straight away", not win.on_start_page)
 check("it is a part", win.in_part)
-check("the tab says Part1.pdat",
-      win.session.active.label == "Part1.pdat", win.session.active.label)
+check("the tab says Part1.icpart",
+      win.session.active.label == "Part1.icpart", win.session.active.label)
 check("a document tab does have a close button",
       win.doc_tabs.tabButton(1, QtWidgets.QTabBar.RightSide) is not None)
 
@@ -244,7 +244,7 @@ close_everything()
 QtWidgets.QFileDialog.getOpenFileNames = staticmethod(
     lambda *a, **k: ([PLATE, PEG], ""))
 win.new_assembly()
-win.assembly.path = os.path.join(WORK, "rig.adat")
+win.assembly.path = os.path.join(WORK, "rig.icasm")
 win.assembly_ui.place_component()
 pump()
 assembly_entry = win.session.active
@@ -359,7 +359,7 @@ win.local_update()
 pump()
 
 win.new_cam()
-win.cam.path = os.path.join(WORK, "nest.cdat")
+win.cam.path = os.path.join(WORK, "nest.iccam")
 win.cam.sheet_width, win.cam.sheet_height = "600", "400"
 QtWidgets.QFileDialog.getOpenFileNames = staticmethod(
     lambda *a, **k: ([PLATE], ""))
@@ -434,7 +434,7 @@ print("tab labels carry the file name and the dirty mark")
 win.open_path(BLOCK)
 pump()
 entry = win.session.active
-check("the tab is the file name", entry.label == "block.pdat", entry.label)
+check("the tab is the file name", entry.label == "block.icpart", entry.label)
 check("clean at first", not entry.modified)
 win.document.modified = True
 win._update_title()

@@ -111,7 +111,7 @@ check("it is still made of steel", painted.material == "Steel, Mild")
 print("both survive the file")
 
 doc = panel("Aluminium 6061", "Powder Coat, RAL 3020")
-path = doc.save(os.path.join(WORK, "panel.pdat"))
+path = doc.save(os.path.join(WORK, "panel.icpart"))
 back = Document.load(path)
 back.rebuild()
 check("the material came back", back.material == "Aluminium 6061",
@@ -126,7 +126,7 @@ print("a file naming a material this machine lacks is believed, not reset")
 stranger = panel()
 stranger.material = "Unobtanium"
 stranger.density = 19.3
-path = stranger.save(os.path.join(WORK, "stranger.pdat"))
+path = stranger.save(os.path.join(WORK, "stranger.icpart"))
 back = Document.load(path)
 back.rebuild()
 check("the name is kept", back.material == "Unobtanium", back.material)

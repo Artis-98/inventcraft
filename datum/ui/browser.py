@@ -224,12 +224,12 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                                                  feature.error))
                 item.setText(0, feature.name + "   !")
             elif feature.suppressed:
-                item.setForeground(0, QtGui.QBrush(QtGui.QColor("#666e78")))
+                item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.tree_faint)))
                 f = item.font(0)
                 f.setItalic(True)
                 item.setFont(0, f)
             elif rolled_back:
-                item.setForeground(0, QtGui.QBrush(QtGui.QColor("#5d656e")))
+                item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.tree_hidden)))
             elif as_shared:
                 item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.ok)))
                 item.setToolTip(0, "%s\n\nShared sketch - available to any "
@@ -246,17 +246,21 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         for index, feature in enumerate(doc.features):
             consumed_by = consumers.get(feature.id)
 
+            # The marker goes in at the first feature past it, whatever
+            # that feature is.  It used to wait for a row of its own at
+            # exactly that index, and the feature there is often a sketch
+            # tucked under the extrude that used it, with no row at the
+            # top: the marker then never found its place and landed at
+            # the very bottom, with the model rolled back above it.
+            if rollback is not None and end is None and index >= rollback:
+                end = add_end_marker()
+
             # A consumed sketch lives under the feature that used it. It only
             # keeps a top-level row as well when it has been shared.
             if consumed_by is not None:
                 if self.is_shared(feature):
-                    if rollback is not None and index == rollback and end is None:
-                        end = add_end_marker()
                     add_feature_item(root, feature, index, as_shared=True)
                 continue
-
-            if rollback is not None and index == rollback and end is None:
-                end = add_end_marker()
 
             item = add_feature_item(root, feature, index, as_shared=False)
 
@@ -283,7 +287,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         if visible:
             item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text)))
         else:
-            item.setForeground(0, QtGui.QBrush(QtGui.QColor("#5d656e")))
+            item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.tree_hidden)))
             item.setText(0, item.text(0) + "   (hidden)")
 
     # ------------------------------------------------------- sketch nesting

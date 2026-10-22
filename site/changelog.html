@@ -3,17 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DATUM changelog: every release of the free parametric CAD</title>
-<meta name="description" content="Every release of DATUM, the free and open source parametric CAD, and what changed in it.">
+<title>InventCraft changelog: every release of the free parametric CAD</title>
+<meta name="description" content="Every release of InventCraft, the free and open source parametric CAD, and what changed in it.">
 <link rel="canonical" href="https://datum.iiteg.com/changelog.html">
-<meta property="og:site_name" content="DATUM">
-<meta property="og:title" content="DATUM changelog: every release of the free parametric CAD">
-<meta property="og:description" content="Every release of DATUM, the free and open source parametric CAD, and what changed in it.">
+<meta property="og:site_name" content="InventCraft">
+<meta property="og:title" content="InventCraft changelog: every release of the free parametric CAD">
+<meta property="og:description" content="Every release of InventCraft, the free and open source parametric CAD, and what changed in it.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://datum.iiteg.com/changelog.html">
 <meta property="og:image" content="https://datum.iiteg.com/img/assembly.png">
 <meta name="theme-color" content="#16181b">
-<link rel="icon" href="img/mark.svg" type="image/svg+xml">
+<link rel="icon" href="img/favicon.ico" sizes="any">
+<link rel="icon" href="img/inventcraft-64.png" type="image/png">
+<link rel="apple-touch-icon" href="img/inventcraft-256.png">
 <link rel="stylesheet" href="style.css?v=5b2f351b31">
 </head>
 <body>
@@ -21,22 +23,13 @@
 <header class="top">
   <div class="wrap nav">
     <a class="brand" href="./">
-      <svg viewBox="0 0 181 181" aria-hidden="true">
-        <g fill="#69788b" transform="translate(5,6)">
-          <path d="M51 38H105L144 60L145 105L127 114L128 75L96 54H51Z"/>
-          <path d="M51 62H94L119 77V118L74 143H36L25 137V100L45 89V128L47 129L79 111H100V84L93 79H51Z"/>
-        </g>
-        <g fill="#d5dee8">
-          <path d="M51 38H105L144 60L145 105L127 114L128 75L96 54H51Z"/>
-          <path d="M51 62H94L119 77V118L74 143H36L25 137V100L45 89V128L47 129L79 111H100V84L93 79H51Z"/>
-        </g>
-      </svg>
-      DATUM
+      <img src="img/inventcraft-64.png" width="64" height="64" alt="">
+      InventCraft
     </a>
     <a class="link" href="./#what">What it is</a>
     <a class="link" href="./#tour">Tour</a>
     <a class="link here" href="changelog.html">Changelog</a>
-    <a class="link" href="https://github.com/Artis-98/datum">Source</a>
+    <a class="link" href="https://github.com/Artis-98/inventcraft">Source</a>
     <a class="link" href="./#contact">Contact</a>
   </div>
 </header>
@@ -45,15 +38,15 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="live-version">Latest: 0.2.8</span></div>
+        <span id="live-version">Latest: 0.3.0</span></div>
       <h1 style="font-size:clamp(34px,5vw,52px)">Changelog</h1>
       <p class="lede">
-        Every release, what changed in it, and why. DATUM updates itself,
+        Every release, what changed in it, and why. InventCraft updates itself,
         so you do not need to come back here to get any of this — it is
         just here so you can see what arrived.
       </p>
       <a class="btn ghost" id="get-latest"
-         href="https://api.iiteg.com/datum/0.2.8/DATUM-0.2.8-setup.exe">
+         href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
         Download the current version</a>
     </div>
   </div>
@@ -72,16 +65,69 @@
         <span class="badge planned">planned</span>
       </div>
       <p style="color:var(--dim);margin:0 0 14px">
-        Asked for by the people using DATUM, read live from my task board.
+        Asked for by the people using InventCraft, read live from my task board.
       </p>
       <div class="upcoming-groups" id="upcoming-list"></div>
     </div>
 
     <div class="release current">
       <div class="head">
+        <span class="ver">0.3.0</span>
+        <span class="when">22 October 2026</span>
+        <span class="badge">current</span>
+      </div>
+      <p style="color:var(--dim);margin:0 0 12px">
+        DATUM is now InventCraft: a new name, a light look, a full Linux
+        release, and big assemblies and patterns that keep up.
+      </p>
+      <ul>
+        <li><strong>DATUM is now InventCraft.</strong> New name, new
+          beaver, same program. New files are <code>.icpart</code>,
+          <code>.icasm</code>, <code>.icdraw</code> and <code>.iccam</code>;
+          DATUM's <code>.pdat</code>, <code>.adat</code>, <code>.ddat</code>
+          and <code>.cdat</code> still open and keep their endings when
+          saved, so nothing that refers to them breaks. Settings, recent
+          files and projects carry over, and an installed DATUM updates
+          itself into InventCraft.</li>
+        <li><strong>Light by default.</strong> White, with the beaver's
+          amber for whatever is picked or in focus. The dark look is still
+          there under Preferences, Display, and each keeps its own
+          colours.</li>
+        <li><strong>Linux, properly.</strong> No longer a preview: the
+          archive has an install script that puts InventCraft on the menu
+          with its icon and file types, and from now on it updates itself
+          like the Windows build.</li>
+        <li><strong>dLogic is now cLogic.</strong> Rules and code features
+          written for it keep working.</li>
+        <li><strong>Big assemblies keep up.</strong> A change to a
+          relationship solves only the parts it ties together and moves
+          only what moved. On a board of 150 components each offset tried
+          took about 26 seconds, and now takes a tenth of one.</li>
+        <li><strong>Place Constraint:</strong> a face picked on an imported
+          part is used where it was picked, so the result lands where the
+          picks say. Every pick counts: a second pick on the component
+          already picked replaces that pick. Delete removes every selected
+          relationship at once, as one undo.</li>
+        <li><strong>Dialogs stay in front</strong>, and Esc closes an open
+          feature or constraint dialog from anywhere in the window.</li>
+        <li><strong>Patterns are fast.</strong> All the copies go in at
+          once: a 100 tooth sprocket in under a second, where it took
+          twenty.</li>
+        <li><strong>Section View in assemblies:</strong> dragging moves the
+          cut, never a part, and the cut stays where it was set when a part
+          is opened in place or in its own tab.</li>
+        <li><strong>End of Part</strong> stays where it is dropped.</li>
+        <li><strong>The window drags by its title bar</strong> again, and a
+          double click there maximises it.</li>
+        <li><strong>Linux:</strong>
+          <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.0/InventCraft-0.3.0-linux-x86_64.tar.gz">InventCraft 0.3.0 for Linux</a>.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head">
         <span class="ver">0.2.8</span>
         <span class="when">15 October 2026</span>
-        <span class="badge">current</span>
       </div>
       <p style="color:var(--dim);margin:0 0 12px">
         A smooth view, previews of every feature before OK, Section View,
@@ -108,7 +154,7 @@
           minimise, maximise and close at the end.</li>
         <li><strong>Sketching:</strong> Redo works. A centre rectangle and
           a centre slot hold their centre on what you click, so a size each
-          way fixes them (<a href="https://github.com/Artis-98/datum/issues/4">#4</a>),
+          way fixes them (<a href="https://github.com/Artis-98/inventcraft/issues/4">#4</a>),
           and every rectangle, slot, arc and polygon takes typed sizes at
           each click. A polygon takes its number of sides and holds
           together when dragged. Dimensions can be picked, with Ctrl or a
@@ -136,7 +182,7 @@
           either way round.</li>
         <li><strong>Old FORGE files</strong> are no longer read.</li>
         <li><strong>Linux:</strong>
-          <a href="https://github.com/Artis-98/datum/releases/download/v0.2.8/DATUM-0.2.8-linux-x86_64-preview.tar.gz">Linux preview</a>.</li>
+          <a href="https://github.com/Artis-98/inventcraft/releases/download/v0.2.8/DATUM-0.2.8-linux-x86_64-preview.tar.gz">Linux preview</a>.</li>
       </ul>
     </div>
 
@@ -186,13 +232,13 @@
         <li><strong>The mouse wheel clicked twice fits the view</strong> in
           parts, sketches and assemblies too.</li>
         <li><strong>Scaled displays:</strong> clicks land where you point
-          at 125 and 150 percent (<a href="https://github.com/Artis-98/datum/issues/2">#2</a>),
+          at 125 and 150 percent (<a href="https://github.com/Artis-98/inventcraft/issues/2">#2</a>),
           and a ribbon too wide for the window folds a group down to its
           icons, with the names on hover.</li>
         <li><strong>Linux:</strong> always runs through XWayland, and says
           plainly when the desktop gives it no OpenGL
-          (<a href="https://github.com/Artis-98/datum/issues/3">#3</a>):
-          <a href="https://github.com/Artis-98/datum/releases/download/v0.2.7/DATUM-0.2.7-linux-x86_64-preview.tar.gz">Linux preview</a>.</li>
+          (<a href="https://github.com/Artis-98/inventcraft/issues/3">#3</a>):
+          <a href="https://github.com/Artis-98/inventcraft/releases/download/v0.2.7/DATUM-0.2.7-linux-x86_64-preview.tar.gz">Linux preview</a>.</li>
       </ul>
     </div>
 
@@ -238,8 +284,8 @@
           dimensions shown and clickable from a new sketch.</li>
         <li><strong>New</strong> asks what to make.</li>
         <li><strong>Linux preview.</strong> A build for Linux, made and
-          tested on Ubuntu 22.04: <a href="https://github.com/Artis-98/datum/releases/download/v0.2.6/DATUM-0.2.6-linux-x86_64-preview.tar.gz">download it</a>, unpack it and
-          run it, <a href="https://github.com/Artis-98/datum/blob/main/docs/LINUX.md">as described here</a>. It does not update
+          tested on Ubuntu 22.04: <a href="https://github.com/Artis-98/inventcraft/releases/download/v0.2.6/DATUM-0.2.6-linux-x86_64-preview.tar.gz">download it</a>, unpack it and
+          run it, <a href="https://github.com/Artis-98/inventcraft/blob/main/docs/LINUX.md">as described here</a>. It does not update
           itself yet.</li>
       </ul>
     </div>
@@ -572,16 +618,16 @@
     <div class="download-panel">
       <h2>Get the current version</h2>
       <p class="section-lede">
-        Already have DATUM? It will offer the update itself, or you can
+        Already have InventCraft? It will offer the update itself, or you can
         ask it now from File then Check for Updates.
       </p>
       <a class="btn primary" id="get-latest-2"
-         href="https://api.iiteg.com/datum/0.2.8/DATUM-0.2.8-setup.exe">
+         href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        DATUM <span id="latest-ver">0.2.2</span> for Windows
+        InventCraft <span id="latest-ver">0.3.0</span> for Windows
       </a>
     </div>
   </div>
@@ -591,7 +637,7 @@
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <h4>DATUM</h4>
+        <h4>InventCraft</h4>
         <a href="./#what">What it is</a>
         <a href="./#tour">Tour</a>
         <a href="./#download">Download</a>
@@ -611,7 +657,7 @@
       </div>
     </div>
     <div class="foot-bottom">
-      <span>DATUM is made by SIA IITEG in Latvia.</span>
+      <span>InventCraft is made by SIA IITEG in Latvia.</span>
       <span>Exploring what comes next.</span>
     </div>
   </div>

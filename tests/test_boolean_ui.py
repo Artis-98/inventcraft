@@ -221,14 +221,14 @@ pump()
 print("it round-trips through a save")
 
 QtWidgets.QFileDialog.getSaveFileName = staticmethod(
-    lambda *a, **k: (os.path.join(WORK, "twobody.pdat"), ""))
+    lambda *a, **k: (os.path.join(WORK, "twobody.icpart"), ""))
 check("saved", win.save_document())
 before = [b.name for b in win.document.bodies]
 for entry in list(win.session.documents):
     entry.document.modified = False
     win.close_entry(entry)
 pump()
-check("reopened", win.open_path(os.path.join(WORK, "twobody.pdat")))
+check("reopened", win.open_path(os.path.join(WORK, "twobody.icpart")))
 pump()
 check("both bodies came back", len(win.document.bodies) == 2,
       len(win.document.bodies))

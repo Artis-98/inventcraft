@@ -169,7 +169,7 @@ check("persistent sheets restored", {"XY", "XZ", "YZ"} <= shown(), shown())
 print("visibility is saved with the part")
 win.toggle_plane_visibility("YZ")
 win.toggle_plane_visibility(wp.name)
-path = os.path.join(tempfile.mkdtemp(prefix="forge_vis_"), "p.pdat")
+path = os.path.join(tempfile.mkdtemp(prefix="forge_vis_"), "p.icpart")
 path = win.document.save(path)
 reloaded = Document.load(path)
 check("hidden set round-trips",

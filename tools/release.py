@@ -1,4 +1,4 @@
-"""Cut a DATUM release: build it, hash it, sign it, lay it out for upload.
+"""Cut an InventCraft release: build it, hash it, sign it, lay it out.
 
 One command does the whole thing, because a release assembled by hand is
 a release where the manifest and the files it describes eventually stop
@@ -8,7 +8,16 @@ agreeing, and the failure shows up on somebody else's machine.
 
 That bumps the version, runs the tests, builds, writes the manifest and
 the feed, signs both, and leaves everything under release/ ready to be
-copied to the server.  Nothing is uploaded and nothing is tagged until
+copied to the server.
+
+The Linux build is made by GitHub when the tag is pushed.  Once it is on
+the release, this puts it into the feed, so Linux copies are offered it:
+
+    python tools/release.py 0.3.0 --linux
+
+It downloads the archive, checks it, writes its hash into latest.json and
+signs the feed again.  The archive stays on GitHub; the hash in the signed
+feed is what makes it trusted, so the signing key never goes near CI.  Nothing is uploaded and nothing is tagged until
 the build has actually succeeded.
 
 The private signing key is read from DATUM_SIGNING_KEY (a path) or from
@@ -35,7 +44,14 @@ sys.path.insert(0, ROOT)
 from datum.core import update                                  # noqa: E402
 
 RELEASE = os.path.join(ROOT, "release")
-DIST = os.path.join(ROOT, "dist", "DATUM")
+DIST = os.path.join(ROOT, "dist", "InventCraft")
+EXE_NAME = "InventCraft.exe"
+# The program was DATUM until 0.3.0, and a copy updating itself from then
+# restarts DATUM.exe once the new files are in.  So every release carries
+# the executable twice, under both names: it is the same program, and
+# PyInstaller's one-folder executable runs from any name beside its
+# _internal folder.
+LEGACY_EXE_NAME = "DATUM.exe"
 INIT = os.path.join(ROOT, "datum", "__init__.py")
 # Deliberately NOT inside release/.  That folder is what gets copied to
 # the server, and a private signing key that goes up with it lets anybody
@@ -46,6 +62,9 @@ from datum.core import prefs                                   # noqa: E402
 
 KEY = prefs.config_path("signing-key.pem")
 LEGACY_KEY = os.path.join(RELEASE, "signing-key.pem")
+# where the Linux archive is published, by .github/workflows/linux.yml
+GITHUB_REPO = "Artis-98/inventcraft"
+LINUX_ARCHIVE = "InventCraft-%s-linux-x86_64.tar.gz"
 INNO = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs",
                     "Inno Setup 6", "ISCC.exe")
 
@@ -96,12 +115,12 @@ VERSION_INFO = """VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040904B0', [
         StringStruct('CompanyName', 'IITEG'),
-        StringStruct('FileDescription', 'DATUM'),
+        StringStruct('FileDescription', 'InventCraft'),
         StringStruct('FileVersion', '%(version)s'),
-        StringStruct('InternalName', 'DATUM'),
+        StringStruct('InternalName', 'InventCraft'),
         StringStruct('LegalCopyright', 'SIA IITEG'),
-        StringStruct('OriginalFilename', 'DATUM.exe'),
-        StringStruct('ProductName', 'DATUM'),
+        StringStruct('OriginalFilename', 'InventCraft.exe'),
+        StringStruct('ProductName', 'InventCraft'),
         StringStruct('ProductVersion', '%(version)s')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
@@ -189,8 +208,10 @@ def build(version: str) -> None:
         cwd=ROOT, env=environment)
     if result.returncode != 0:
         fail("the build failed")
-    if not os.path.exists(os.path.join(DIST, "DATUM.exe")):
-        fail("the build produced no DATUM.exe")
+    built = os.path.join(DIST, EXE_NAME)
+    if not os.path.exists(built):
+        fail("the build produced no %s" % EXE_NAME)
+    shutil.copy2(built, os.path.join(DIST, LEGACY_EXE_NAME))
 
 
 def smoke_test() -> None:
@@ -201,7 +222,7 @@ def smoke_test() -> None:
     find that here than to publish it.
     """
     say("checking the build actually starts")
-    exe = os.path.join(DIST, "DATUM.exe")
+    exe = os.path.join(DIST, EXE_NAME)
     report = os.path.join(ROOT, "build", "selftest.txt")
     if os.path.exists(report):
         os.remove(report)
@@ -243,7 +264,7 @@ def installer(version: str) -> str:
     if result.returncode != 0:
         fail("the installer failed:\n%s"
              % result.stdout.decode("utf-8", "replace")[-3000:])
-    name = "DATUM-%s-setup.exe" % version
+    name = "InventCraft-%s-setup.exe" % version
     return name if os.path.exists(
         os.path.join(RELEASE, version, name)) else ""
 
@@ -291,6 +312,62 @@ def publish(version: str, notes: str, minimum: str, key) -> str:
     return folder
 
 
+def add_linux(version: str, key, notes: str = "") -> None:
+    """Put the Linux archive GitHub built for a tag into the feed."""
+    import tarfile
+
+    feed_path = os.path.join(RELEASE, update.FEED_FILE)
+    if not os.path.exists(feed_path):
+        fail("there is no %s to add it to; cut the release first"
+             % feed_path)
+    if key is None and update.signing_enabled():
+        fail("no signing key, and a feed changed without one would be "
+             "refused by every installed copy")
+    with open(feed_path, encoding="utf-8") as handle:
+        feed = json.load(handle)
+
+    name = LINUX_ARCHIVE % version
+    url = "https://github.com/%s/releases/download/v%s/%s" % (
+        GITHUB_REPO, version, name)
+    folder = os.path.join(ROOT, "build")
+    os.makedirs(folder, exist_ok=True)
+    archive = os.path.join(folder, name)
+    say("downloading %s" % url)
+    try:
+        sha256 = update.fetch_to(url, archive, timeout=120)
+    except update.UpdateError as exc:
+        fail("could not download the Linux build: %s\n\nHas the tag's "
+             "workflow finished and attached it?" % exc)
+    size = os.path.getsize(archive)
+
+    # the archive has to be what an installed copy expects to unpack
+    with tarfile.open(archive, "r:gz") as tar:
+        names = tar.getnames()
+    if "InventCraft/InventCraft" not in names:
+        fail("%s does not hold InventCraft/InventCraft" % name)
+    say("%s, %s, sha256 %s" % (name, update.human(size), sha256))
+
+    feed["linux"] = {
+        "version": version,
+        "url": url,
+        "sha256": sha256,
+        "size": size,
+        "released": time.strftime("%Y-%m-%d"),
+        "notes": notes or feed.get("notes", ""),
+    }
+    with open(feed_path, "w", encoding="utf-8") as handle:
+        json.dump(feed, handle, indent=1)
+    sign_file(feed_path, key)
+    print("""
+Done.  The feed now offers %s to Linux.
+
+Upload only these two, to https://api.iiteg.com/datum/:
+
+    release/latest.json      ->  /datum/latest.json
+    release/latest.json.sig  ->  /datum/latest.json.sig
+""" % version)
+
+
 # --------------------------------------------------------------------- main
 
 
@@ -306,6 +383,9 @@ def main() -> int:
                         help="create the release signing key and stop")
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument("--no-tag", action="store_true")
+    parser.add_argument("--linux", action="store_true",
+                        help="add the Linux build GitHub made for this "
+                             "version to the feed, and stop")
     args = parser.parse_args()
 
     if args.make_key:
@@ -313,6 +393,9 @@ def main() -> int:
         return 0
     if not args.version:
         parser.error("a version is required, e.g. 0.2.1")
+    if args.linux:
+        add_linux(args.version.lstrip("v"), load_key(), args.notes)
+        return 0
 
     version = args.version.lstrip("v")
     if not re.match(r"^\d+\.\d+\.\d+", version):
@@ -330,7 +413,7 @@ def main() -> int:
                  "would be refused by every installed copy.  Set "
                  "DATUM_SIGNING_KEY or run --make-key.")
 
-    print("\nDATUM %s  (from %s)\n" % (version, current_version()))
+    print("\nInventCraft %s  (from %s)\n" % (version, current_version()))
     if version != current_version():
         say("setting the version")
         set_version(version)
@@ -344,17 +427,18 @@ def main() -> int:
     if not args.no_tag:
         say("tagging")
         subprocess.run(["git", "add", "-A"], cwd=ROOT)
-        subprocess.run(["git", "commit", "-m", "DATUM %s" % version],
+        subprocess.run(["git", "commit", "-m", "InventCraft %s" % version],
                        cwd=ROOT)
         subprocess.run(["git", "tag", "-a", "v%s" % version,
-                        "-m", args.notes or ("DATUM %s" % version)], cwd=ROOT)
+                        "-m", args.notes or ("InventCraft %s" % version)],
+                       cwd=ROOT)
 
     print("""
 Done.  %s
 
 Upload to https://api.iiteg.com/datum/, keeping the layout:
 
-    release/%s/       ->  /datum/%s/        (all of it, 545 files)
+    release/%s/       ->  /datum/%s/        (all of it)
     release/latest.json      ->  /datum/latest.json
     release/latest.json.sig  ->  /datum/latest.json.sig
 

@@ -247,7 +247,11 @@ class Link:
 # --------------------------------------------------------------- uploading
 
 # Small, name-stable, content-changing: never trust their size.
-ALWAYS_SEND = (".html", ".htm", ".json", ".xml", ".txt", ".htaccess")
+# A signature is the other one: every signature is 128 bytes, so a new
+# feed went up with the old feed's signature beside it, and every copy
+# refused the update as not signed by IITEG.
+ALWAYS_SEND = (".html", ".htm", ".json", ".xml", ".txt", ".htaccess",
+               ".sig")
 
 
 def upload_set(link: Link, pairs: List[Tuple[str, str]],

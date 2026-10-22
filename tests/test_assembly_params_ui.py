@@ -64,12 +64,12 @@ def make_part(filename, number, size):
     return doc.save(os.path.join(WORK, filename))
 
 
-box_path = make_part("box.pdat", "Box", (60, 40, 10))
-plate_path = make_part("plate.pdat", "", (100, 80, 5))
+box_path = make_part("box.icpart", "Box", (60, 40, 10))
+plate_path = make_part("plate.icpart", "", (100, 80, 5))
 asm = AssemblyDocument()
 asm.place(box_path)
 asm.place(plate_path)
-asm_path = asm.save(os.path.join(WORK, "frame.adat"))
+asm_path = asm.save(os.path.join(WORK, "frame.icasm"))
 
 print("opening the table on an assembly")
 win.open_path(asm_path)

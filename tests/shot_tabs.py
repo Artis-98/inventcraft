@@ -110,7 +110,7 @@ def go():
     win.open_path(plate)
     win.open_path(rib)
     win.new_assembly()
-    win.assembly.path = os.path.join(OUT, "Frame.adat")
+    win.assembly.path = os.path.join(OUT, "Frame.icasm")
     for path in (plate, rib):
         win.assembly.place(path)
     win.assembly.rebuild()

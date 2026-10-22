@@ -50,7 +50,7 @@ def part(name, kind, a, b, c, properties, material="Generic"):
     doc.properties = dict(properties)
     doc.material = material
     doc.rebuild()
-    path = os.path.join(WORK, name + ".pdat")
+    path = os.path.join(WORK, name + ".icpart")
     doc.save(path, thumbnail=b"\x89PNG not really, but kept as it is")
     return path
 
@@ -64,7 +64,7 @@ bolt = part("Bolt", "cylinder", "4", "30", "0",
 sub = AssemblyDocument()
 sub.place(bolt)
 sub.place(bolt)
-SUB = os.path.join(WORK, "Bolt pair.adat")
+SUB = os.path.join(WORK, "Bolt pair.icasm")
 sub.save(SUB)
 
 top = AssemblyDocument()
@@ -72,7 +72,7 @@ top.place(bracket)
 top.place(SUB)
 top.place(SUB)
 top.place(bolt)
-TOP = os.path.join(WORK, "Frame.adat")
+TOP = os.path.join(WORK, "Frame.icasm")
 top.save(TOP)
 
 app = QtWidgets.QApplication(sys.argv)

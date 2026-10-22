@@ -195,7 +195,7 @@ plate = make_part("box", 60, 40, 8, "plate")
 peg = make_part("cylinder", 5, 25, 0, "peg")
 
 asm = AssemblyDocument()
-asm.path = os.path.join(WORK, "rig.adat")
+asm.path = os.path.join(WORK, "rig.icasm")
 first = asm.place(plate)
 second = asm.place(peg)
 
@@ -205,7 +205,7 @@ check("occurrences are named Inventor-style",
       first.name == "plate:1" and second.name == "peg:1",
       (first.name, second.name))
 check("the legacy component view still works",
-      [c.name for c in asm.components] == ["plate.pdat", "peg.pdat"],
+      [c.name for c in asm.components] == ["plate.icpart", "peg.icpart"],
       [c.name for c in asm.components])
 
 report = asm.rebuild()
@@ -240,7 +240,7 @@ check("three DOF are left", report.dof == 3, report.dof)
 print("it round-trips through the archive")
 
 written = asm.save(asm.path)
-check("saved as .adat", written.endswith(".adat"), written)
+check("saved as .icasm", written.endswith(".icasm"), written)
 manifest = fileformat.peek(written)
 check("the manifest lists both references", len(manifest.references) == 2)
 
@@ -289,7 +289,7 @@ check("and the assembly still has a body", back.shape is not None)
 print("deleting an occurrence takes its constraints with it")
 
 asm2 = AssemblyDocument()
-asm2.path = os.path.join(WORK, "two.adat")
+asm2.path = os.path.join(WORK, "two.icasm")
 one = asm2.place(plate)
 two = asm2.place(plate)
 asm2.rebuild()
@@ -313,9 +313,9 @@ check("and brings it back", len(asm2.occurrences) == 1)
 print("save-as into another folder keeps the links")
 elsewhere = os.path.join(WORK, "deeper")
 os.makedirs(elsewhere, exist_ok=True)
-asm2.save(os.path.join(elsewhere, "two.adat"))
+asm2.save(os.path.join(elsewhere, "two.icasm"))
 check("paths were rebased",
-      asm2.components[0].path == "../plate.pdat", asm2.components[0].path)
+      asm2.components[0].path == "../plate.icpart", asm2.components[0].path)
 check("and still resolve",
       asm2.broken_links() == [], asm2.broken_links())
 

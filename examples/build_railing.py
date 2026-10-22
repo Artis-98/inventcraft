@@ -121,7 +121,7 @@ result(union(parts))
 '''
 
 SIZE = '''\
-"""Drag the stair to size.  Pinned as a button in the dLogic panel."""
+"""Drag the stair to size.  Pinned as a button in the cLogic panel."""
 form("Stair",
      note("Everything else follows: treads, stringers, balusters, rail."),
      slider("steps", 3, 20, 1),

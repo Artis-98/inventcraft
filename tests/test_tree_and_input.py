@@ -195,7 +195,7 @@ print("save / load keeps the shared flag")
 import tempfile
 from datum.core.document import Document
 
-path = os.path.join(tempfile.mkdtemp(prefix="forge_share_"), "p.pdat")
+path = os.path.join(tempfile.mkdtemp(prefix="forge_share_"), "p.icpart")
 win.toggle_share(profile.id)
 path = win.document.save(path)
 reloaded = Document.load(path)

@@ -1,4 +1,4 @@
-# DATUM for Linux, the preview build.
+# InventCraft for Linux.
 #
 # Built on Ubuntu 22.04, so it runs on that and anything newer: the
 # OpenCASCADE wheels need glibc 2.31 or later.  A tag v* builds it and
@@ -94,7 +94,7 @@ jobs:
         run: |
           version=$(python -c "import datum; print(datum.__version__)")
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "DATUM $version"
+          echo "InventCraft $version"
 
       - name: Core tests
         run: python tests/run.py --fast
@@ -110,13 +110,13 @@ jobs:
 
       - name: Self test
         run: |
-          xvfb-run -a -s "-screen 0 1600x1000x24" dist/DATUM/DATUM --selftest selftest.txt || true
+          xvfb-run -a -s "-screen 0 1600x1000x24" dist/InventCraft/InventCraft --selftest selftest.txt || true
           cat selftest.txt
           grep -q "PASS" selftest.txt
 
       - name: The 3D view opens, on this runner
         run: |
-          xvfb-run -a -s "-screen 0 1600x1000x24" dist/DATUM/DATUM --glcheck glcheck.txt || true
+          xvfb-run -a -s "-screen 0 1600x1000x24" dist/InventCraft/InventCraft --glcheck glcheck.txt || true
           cat glcheck.txt
           grep -q "PASS" glcheck.txt
 
@@ -134,7 +134,7 @@ jobs:
               fontconfig ttf-dejavu dbus > /dev/null
             cd /tmp
             LIBGL_DEBUG=verbose xvfb-run -a -s "-screen 0 1600x1000x24" \
-              /dist/DATUM/DATUM --glcheck /tmp/glcheck.txt || true
+              /dist/InventCraft/InventCraft --glcheck /tmp/glcheck.txt || true
             cat /tmp/glcheck.txt
             grep -q PASS /tmp/glcheck.txt'
 
@@ -156,13 +156,31 @@ jobs:
               /old/DATUM/DATUM /examples/excavator/Bucket.pdat > /tmp/old.txt 2>&1
             grep -iE "GL rendering|MESA|libstdc|GLIBCXX|failed to load|Error" /tmp/old.txt | grep -v Fontconfig | head -30'
 
+      - name: Desktop install script
+        run: |
+          cp docs/LINUX.md dist/InventCraft/README-LINUX.md
+          cp tools/linux/install.sh dist/InventCraft/install.sh
+          chmod +x dist/InventCraft/install.sh
+          # tried for real, into a scratch home: the copy, the menu entry,
+          # the icons and the file types, and then taken off again
+          export HOME="$RUNNER_TEMP/home" XDG_DATA_HOME=
+          mkdir -p "$HOME"
+          sh dist/InventCraft/install.sh
+          test -x "$HOME/.local/share/InventCraft/InventCraft"
+          grep -q 'Exec=".*/InventCraft" %f' "$HOME/.local/share/applications/inventcraft.desktop"
+          test -f "$HOME/.local/share/icons/hicolor/256x256/apps/inventcraft.png"
+          grep -q 'icpart' "$HOME/.local/share/mime/packages/inventcraft.xml"
+          sh "$HOME/.local/share/InventCraft/install.sh" --remove
+          test ! -e "$HOME/.local/share/InventCraft"
+          test ! -e "$HOME/.local/share/applications/inventcraft.desktop"
+
       - name: Pack
         id: pack
         run: |
-          name="DATUM-${{ steps.version.outputs.version }}-linux-x86_64-preview.tar.gz"
-          cp docs/LINUX.md dist/DATUM/README-LINUX.md
-          tar -czf "$name" -C dist DATUM
+          name="InventCraft-${{ steps.version.outputs.version }}-linux-x86_64.tar.gz"
+          tar -czf "$name" -C dist InventCraft
           ls -l "$name"
+          sha256sum "$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
@@ -178,7 +196,7 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME}"
           if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" --title "DATUM ${tag#v}" \
+            gh release create "$tag" --title "InventCraft ${tag#v}" \
               --notes "See https://datum.iiteg.com/changelog.html"
           fi
           gh release upload "$tag" "${{ steps.pack.outputs.name }}" --clobber

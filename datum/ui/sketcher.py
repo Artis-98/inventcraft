@@ -92,8 +92,6 @@ PICK_PIXELS = 8.0
 AXIS_SNAP_DEG = 2.5
 
 # other sketches left visible: drawn faintly, and their dimensions with them
-REFERENCE_LINE = "#7f8894"
-REFERENCE_DIM = "#95a0ad"
 REFERENCE_PICK_PIXELS = 14.0
 
 # Inventor folds the rectangle, slot and polygon variants into one
@@ -3946,7 +3944,8 @@ class SketchEditor(QtCore.QObject):
             if edge is not None:
                 vp.draw_shape(edge, colour or (
                     C.sketch_construction if ent.construction
-                    else REFERENCE_LINE), 1.2, dashed=ent.construction)
+                    else C.sketch_reference), 1.2,
+                    dashed=ent.construction)
 
         labels = []
         own, own_units = self.sketch, self._units_override
@@ -3959,7 +3958,7 @@ class SketchEditor(QtCore.QObject):
                     continue
                 try:
                     where = self._render_dimension(
-                        c, colour=colour or REFERENCE_DIM)
+                        c, colour=colour or C.sketch_reference_dim)
                     text = self._dimension_text(c)
                 except (KeyError, IndexError):
                     continue

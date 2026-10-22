@@ -417,7 +417,7 @@ check("mass properties computed", props.get("faces", 0) > 0)
 
 print("save, load, export")
 tmp = tempfile.mkdtemp(prefix="forge_ui_")
-path = os.path.join(tmp, "part.pdat")
+path = os.path.join(tmp, "part.icpart")
 path = win.document.save(path)
 check("saved", os.path.getsize(path) > 500)
 

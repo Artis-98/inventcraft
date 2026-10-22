@@ -24,10 +24,14 @@ from typing import Any, Dict, List, Optional
 
 from . import fileformat
 
-EXTENSION = ".dproj"
+EXTENSION = ".icproj"
+# what DATUM called its project files; opened as they always were
+LEGACY_EXTENSION = ".dproj"
 MAX_RECENT = 12
 DEFAULT_NAME = "Default"
-DEFAULT_FOLDER = "DATUM"
+DEFAULT_FOLDER = "InventCraft"
+# where DATUM put its first project, used still when it is already there
+LEGACY_FOLDER = "DATUM"
 
 
 class ProjectError(Exception):
@@ -131,6 +135,9 @@ class Project:
 def documents_folder(home: Optional[str] = None) -> str:
     """Where a fresh install puts its first project."""
     base = home or os.path.join(os.path.expanduser("~"), "Documents")
+    legacy = os.path.join(base, LEGACY_FOLDER)
+    if os.path.isdir(legacy):
+        return legacy
     return os.path.join(base, DEFAULT_FOLDER)
 
 

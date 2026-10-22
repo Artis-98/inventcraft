@@ -1,20 +1,32 @@
-# DATUM on Linux (preview)
+# InventCraft on Linux
 
-This is a preview. It is built and tested automatically on Ubuntu 22.04,
-but DATUM is used day to day on Windows, so expect rough edges and please
-report them at https://github.com/Artis-98/datum/issues.
+InventCraft is built and tested automatically on Ubuntu 22.04, and its 3D
+view is checked on a current Arch Linux as well, on every release. Please
+report anything that does not work at
+https://github.com/Artis-98/inventcraft/issues.
 
-## Running it
+## Installing
 
-Unpack the archive anywhere you like and start `DATUM` inside it:
+Unpack the archive and run the install script inside it:
 
 ```bash
-tar -xzf DATUM-*-linux-x86_64-preview.tar.gz
-./DATUM/DATUM
+tar -xzf InventCraft-*-linux-x86_64.tar.gz
+./InventCraft/install.sh
 ```
 
-Nothing is installed and nothing needs root. To remove it, delete the
-folder.
+That copies InventCraft to `~/.local/share/InventCraft`, puts it on your
+applications menu with its icon, makes it the program that opens
+`.icpart`, `.icasm`, `.icdraw` and `.iccam` files (and DATUM's `.pdat`,
+`.adat`, `.ddat` and `.cdat`), and adds an `inventcraft` command to
+`~/.local/bin`. Nothing needs root, and nothing outside your home folder
+is touched.
+
+To run it from where you unpacked it instead, use
+`./InventCraft/install.sh --here`, or skip the script and start
+`./InventCraft/InventCraft` directly.
+
+To remove it, run `~/.local/share/InventCraft/install.sh --remove`. Your
+documents and settings are kept.
 
 It needs glibc 2.31 or newer (Ubuntu 20.04, Debian 11, Fedora 32 and
 anything later) and an X11 or XWayland desktop with OpenGL. On a minimal
@@ -25,21 +37,34 @@ sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 \
   libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libgl1 libegl1
 ```
 
-## What is different from Windows
+## Updates
 
-* **No automatic updates.** The update feed carries Windows builds, so the
-  Linux build does not check it. Download a new build from
-  https://datum.iiteg.com when one is out and unpack it over this one.
+From 0.3.0 the Linux build updates itself, as the Windows one does. It
+checks for a new version on start and every six hours, or at once from
+File, Check for Updates. A new version is downloaded as one archive, its
+hash is checked against the signed update feed, and it is put in place
+when InventCraft restarts.
+
+It can only update a folder your account can write to, which the install
+script's copy always is. A copy unpacked somewhere owned by root has to be
+replaced by hand.
+
+Builds older than 0.3.0 do not update themselves: download this one and
+run its install script.
+
+## Other differences from Windows
+
 * **SpaceMouse** support needs read access to the device. 3Dconnexion's
   own udev rule, or one granting your user the hidraw device, does that.
-* Documents go in `~/Documents/DATUM` and settings under `~/.config`,
-  the same places a Linux desktop keeps everything else.
+* Documents go in `~/Documents/InventCraft` (or `~/Documents/DATUM`, if
+  you already have that folder) and settings under `~/.config`.
 
 ## If the 3D view will not start
 
-DATUM always runs through X11, XWayland on a Wayland desktop, because the
-OpenCASCADE viewer draws into an X11 window. If it reports that it could
-not get an OpenGL window, check that XWayland has working OpenGL:
+InventCraft always runs through X11, XWayland on a Wayland desktop,
+because the OpenCASCADE viewer draws into an X11 window. If it reports
+that it could not get an OpenGL window, check that XWayland has working
+OpenGL:
 
 ```bash
 glxinfo -B

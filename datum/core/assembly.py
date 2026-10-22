@@ -40,6 +40,18 @@ from .rules import RuleSet
 from .params import ParameterTable, evaluate, ExpressionError
 from .parts import MAX_NESTING, PartLibrary          # noqa: F401  (re-export)
 
+
+def _same_trsf(a, b, tol: float = 1e-9) -> bool:
+    """Whether two transforms put a shape in the same place."""
+    return all(abs(a.Value(r, c) - b.Value(r, c)) <= tol
+               for r in (1, 2, 3) for c in (1, 2, 3, 4))
+
+
+# Constrained faces already found on a body, by the body and the
+# reference: see AssemblyDocument._frame_for.
+_FRAMES: Dict[Any, Any] = {}
+FRAME_CACHE_SIZE = 20000
+
 # how far a rebound frame's direction may have turned in the part's own
 # coordinates and still be taken for the same geometry
 DIRECTION_TOLERANCE = 0.9
@@ -114,7 +126,7 @@ class Occurrence:
 
     @property
     def icon(self) -> str:
-        return "pattern" if self.ref.path.lower().endswith(".adat") else "box"
+        return "pattern" if fileformat.is_assembly(self.ref.path) else "box"
 
     def summary(self) -> str:
         if self.error:
@@ -135,6 +147,20 @@ class Occurrence:
         if self.shape is None or self.shape.IsNull():
             return None
         return self.shape.Moved(self.placement.location())
+
+    def unplaced(self, picked: TopoDS_Shape) -> TopoDS_Shape:
+        """A face or edge picked where the component sits, as the part
+        itself holds it.
+
+        Only the placement comes off.  A part's own shape can carry a
+        location of its own, as anything read from a STEP file does, and
+        its faces sit where that puts them; dropping every location, as
+        this once did, took them back to wherever the file first drew them,
+        and a constraint built on that put the component somewhere else
+        entirely.
+        """
+        inverse = self.placement.location().Inverted()
+        return picked.Located(inverse.Multiplied(picked.Location()))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -572,6 +598,34 @@ class AssemblyDocument:
                     os.path.basename(path), exc)
                 report.errors.append(occurrence.error)
 
+        return self._solve_and_place(report, base, started)
+
+    def resolve(self, base_dir: Optional[str] = None) -> AssemblyReport:
+        """Solve again with the bodies already loaded.
+
+        What a change to the relationships needs, and all it needs: a new
+        constraint, an offset tried at 12 and then 13, a component let go
+        after a drag.  Nothing is read from disk, which on a big assembly
+        kept on a network drive is most of a rebuild.  Anything not loaded
+        yet sends it the long way round.
+        """
+        started = time.perf_counter()
+        base = base_dir if base_dir is not None else self.base_dir
+        if any(o.shape is None and not o.error for o in self.active()):
+            return self.rebuild(base_dir)
+        report = AssemblyReport()
+        for occurrence in self.active():
+            if not occurrence.error:
+                continue
+            if occurrence.error.startswith("file not found"):
+                report.missing.append(occurrence.label)
+            else:
+                report.errors.append(occurrence.error)
+        return self._solve_and_place(report, base, started)
+
+    def _solve_and_place(self, report: AssemblyReport, base: Optional[str],
+                         started: float) -> AssemblyReport:
+        """Find the constrained geometry, solve, and put everything there."""
         resolved = self._resolve_constraints(report)
 
         placements = {o.id: o.placement.copy() for o in self.active()
@@ -723,14 +777,31 @@ class AssemblyDocument:
         if ref is None:
             return cached if cached else None
 
+        # Finding a face again means looking through every face of the
+        # body, which for a part read from a STEP file is thousands, and
+        # it was done for every relationship on every solve.  The same
+        # body and the same reference find the same face, so the answer is
+        # kept until the body changes.
+        try:
+            key = (hash(shape), json.dumps(ref.to_dict(), sort_keys=True))
+        except Exception:                                   # noqa: BLE001
+            key = None
+        if key is not None and key in _FRAMES:
+            frame = _FRAMES[key]
+            if frame is not None and _same_sort(cached, frame):
+                attachment.frame = frame
+                return frame
+            return cached if cached else None
+
         try:
             found = ref.resolve(shape)
         except Exception:
             found = None
-        if found is None:
-            return cached if cached else None
-
-        frame = frame_from_shape(found)
+        frame = frame_from_shape(found) if found is not None else None
+        if key is not None:
+            if len(_FRAMES) > FRAME_CACHE_SIZE:
+                _FRAMES.clear()
+            _FRAMES[key] = frame
         if frame is None or not _same_sort(cached, frame):
             return cached if cached else None
 
@@ -753,6 +824,22 @@ class AssemblyDocument:
                 else kernel.faces(occurrence.shape))
         index = next((i for i, candidate in enumerate(pool)
                       if candidate.IsSame(local_subshape)), None)
+        if index is None:
+            # The same face, held through a different chain of locations
+            # that comes to the same place: taking the placement off a
+            # picked face composes it with its inverse rather than undoing
+            # it.  A part that repeats one face in many places, the pins of
+            # an imported chip, has to be told apart by where each sits.
+            want = local_subshape.Location().Transformation()
+            index = next((i for i, candidate in enumerate(pool)
+                          if candidate.IsPartner(local_subshape)
+                          and _same_trsf(candidate.Location().Transformation(),
+                                         want)), None)
+        if index is None:
+            # the same surface, wherever it is held, as a last resort
+            index = next((i for i, candidate in enumerate(pool)
+                          if candidate.TShape() == local_subshape.TShape()),
+                         None)
         ref = (ShapeRef.capture(pool[index], kind, index)
                if index is not None
                else ShapeRef.capture(local_subshape, kind, 0))

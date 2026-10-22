@@ -114,16 +114,17 @@ print("opened as an assembly")
 folder = os.path.join(WORK, "Machine")
 top = stepimport.import_assembly(step, folder)
 check("the top assembly is named for the product, not the export",
-      os.path.basename(top) == "Machine.adat", top)
+      os.path.basename(top) == "Machine.icasm", top)
 parts = sorted(n for n in os.listdir(os.path.join(folder, "Parts"))
-               if n.endswith(".pdat"))
+               if n.endswith(".icpart"))
 check("each distinct part is written once",
-      parts == ["Base.pdat", "Bracket.pdat", "Pin.pdat"], parts)
+      parts == ["Base.icpart", "Bracket.icpart", "Pin.icpart"], parts)
 check("with its geometry beside it",
-      all(os.path.exists(os.path.join(folder, "Parts", p[:-5] + ".brep"))
+      all(os.path.exists(os.path.join(folder, "Parts",
+                                      os.path.splitext(p)[0] + ".brep"))
           for p in parts))
 check("the sub-assembly is an assembly of its own",
-      os.path.exists(os.path.join(folder, "Hinge.adat")))
+      os.path.exists(os.path.join(folder, "Hinge.icasm")))
 
 asm = AssemblyDocument.load(top)
 asm.rebuild()
@@ -144,11 +145,11 @@ check("  and held where the file put them",
 check("no component failed", not any(o.error for o in asm.occurrences),
       [o.error for o in asm.occurrences if o.error])
 
-base_part = Document.load(os.path.join(folder, "Parts", "Base.pdat"))
+base_part = Document.load(os.path.join(folder, "Parts", "Base.icpart"))
 check("a part keeps its colour", base_part.appearance == "#ff0000",
       base_part.appearance)
 check("  and its name", base_part.properties.get("PartNumber") == "Base")
-look = asm.library.looks(os.path.join(folder, "Hinge.adat"))
+look = asm.library.looks(os.path.join(folder, "Hinge.icasm"))
 check("a sub-assembly lists each of its parts' looks, in order",
       look and [l.colour for l in look] == ["#0000ff", "#9aa7b6", "#9aa7b6"]
       or look and look[0].colour == "#0000ff", look and [l.colour for l in look])
@@ -161,7 +162,7 @@ moved = os.path.join(WORK, "elsewhere", "Machine copy")
 shutil.copytree(folder, moved)
 shutil.rmtree(folder)
 fileio._READ.clear()
-again = AssemblyDocument.load(os.path.join(moved, "Machine.adat"))
+again = AssemblyDocument.load(os.path.join(moved, "Machine.icasm"))
 again.rebuild()
 check("moved somewhere else it still opens whole",
       again.shape is not None
@@ -188,7 +189,7 @@ boxes = sorted(round(kernel.bounding_box(s)[0]) for s in
 check("it is baked into a mirrored copy of the part", boxes == [-60, 10],
       boxes)
 check("  kept as a part of its own", os.path.exists(os.path.join(
-    WORK, "Pair", "Parts", "Handle (mirrored).pdat")))
+    WORK, "Pair", "Parts", "Handle (mirrored).icpart")))
 
 
 print()

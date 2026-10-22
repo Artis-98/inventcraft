@@ -55,6 +55,9 @@ class OpenDocument:
     sources: Dict[str, int] = field(default_factory=dict)
 
     camera: Any = None
+    # the Section View this document had when its tab was left, so each
+    # tab keeps its own cut and gets it back unchanged
+    section: Any = None
     untitled: int = 0
     # digest of the document's contents the last time it was looked at, so a
     # rebuild that changed nothing does not count as a change

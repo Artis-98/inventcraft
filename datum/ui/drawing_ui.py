@@ -1632,8 +1632,10 @@ class BaseViewDialog(QtWidgets.QDialog):
         start = self.doc.base_dir or self.controller.host.project_folder()
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, "Pick a part or assembly", start,
-            "Parts and assemblies (*.pdat *.adat);;"
-            "DATUM Part (*.pdat);;DATUM Assembly (*.adat);;All files (*)")
+            "Parts and assemblies (%s);;%s;;%s;;All files (*)" % (
+                fileformat.patterns(fileformat.PART, fileformat.ASSEMBLY),
+                fileformat.type_filter(fileformat.PART),
+                fileformat.type_filter(fileformat.ASSEMBLY)))
         if path:
             self.choose_file(path)
 

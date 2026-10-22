@@ -1,22 +1,29 @@
-"""Putting a staged update in place once DATUM has closed.
+"""Putting a staged update in place once InventCraft has closed.
 
 Windows will let you rename a running executable but it will not let you
-touch a DLL that is loaded, and an installed DATUM has Qt, OpenCASCADE and
+touch a DLL that is loaded, and an installed InventCraft has Qt, OpenCASCADE and
 the Python runtime all mapped into the process.  So the files cannot be
 replaced by the application that is using them.  Something else has to do
 it, after that application has gone.
 
-That something is a batch script.  It is not elegant, but it is the only
+On Windows that something is a batch script.  It is not elegant, but it is the only
 helper that is guaranteed to exist on every Windows machine and that does
 not itself live among the files being replaced.  A second executable would
 have to be excluded from its own update; a script copied to the temp
 folder simply is not there when the move happens.
 
-The script waits for DATUM's process id to disappear, deletes whatever the
+The script waits for InventCraft's process id to disappear, deletes whatever the
 release dropped, moves the staged files over the installation in one pass,
-and starts DATUM again.  If it cannot finish, it leaves the staging folder
-alone: DATUM finds it on the next start and offers to apply it again,
+and starts InventCraft again.  If it cannot finish, it leaves the staging folder
+alone: InventCraft finds it on the next start and offers to apply it again,
 which is safe because everything in there has already been checked.
+
+Linux has no such rule: a file in use can be renamed over, and whoever
+has it open keeps the old one until they let go.  There the helper is
+InventCraft itself, started again with ``--finish-update``, which waits
+for the window to close and renames each staged file into place.  Doing
+it in Python rather than a shell script keeps the paths out of anybody's
+quoting rules.
 """
 
 from __future__ import annotations
@@ -26,6 +33,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Dict, Optional, Sequence
 
 from . import update
@@ -68,11 +76,11 @@ def script_for(target: str, staging: str, executable: str, pid: int,
     lines = [
         "@echo off",
         "setlocal EnableExtensions",
-        "title DATUM update",
+        "title InventCraft update",
         'set "LOG=%s"' % log,
-        '> "%LOG%" echo DATUM update, target ' + target,
+        '> "%LOG%" echo InventCraft update, target ' + target,
         "",
-        "rem Wait for DATUM to close.  Its files cannot be replaced while",
+        "rem Wait for InventCraft to close.  Its files cannot be replaced while",
         "rem the process still has them open.",
         'set "TRIES=0"',
         ":wait",
@@ -112,8 +120,8 @@ def script_for(target: str, staging: str, executable: str, pid: int,
         "goto done",
         "",
         ":giveup",
-        'echo DATUM never closed, so nothing was changed. >> "%LOG%"',
-        "rem DATUM never closed.  Leave everything alone; it will be",
+        'echo InventCraft never closed, so nothing was changed. >> "%LOG%"',
+        "rem InventCraft never closed.  Leave everything alone; it will be",
         "rem offered again next time it starts.",
         "goto done",
         "",
@@ -161,6 +169,16 @@ def apply(target: Optional[str] = None, executable: Optional[str] = None,
         raise update.UpdateError("there is no staged update to apply")
 
     exe = executable or sys.executable
+    if sys.platform != "win32":
+        command = [exe, "--finish-update", folder,
+                   str(os.getpid() if pid is None else pid),
+                   "relaunch" if relaunch else "stay"]
+        subprocess.Popen(command, start_new_session=True, close_fds=True,
+                         stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+        return " ".join(command)
+
     script = script_for(folder, update.staging_dir(folder), exe,
                         os.getpid() if pid is None else pid,
                         plan.get("delete") or [], relaunch)
@@ -188,6 +206,94 @@ def apply(target: Optional[str] = None, executable: Optional[str] = None,
                      creationflags=CREATE_NO_WINDOW,
                      close_fds=True)
     return path
+
+
+def _alive(pid: int) -> bool:
+    """Whether a process is still running.  Asked without signals on
+    Windows, where os.kill with any other signal ends the process."""
+    if sys.platform == "win32":
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        handle = kernel.OpenProcess(0x1000, False, pid)     # query only
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        ok = kernel.GetExitCodeProcess(handle, ctypes.byref(code))
+        kernel.CloseHandle(handle)
+        return bool(ok) and code.value == 259               # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def finish(target: str, pid: int, executable: str = "",
+           relaunch: bool = True, timeout: float = 60.0) -> bool:
+    """Put a staged update in place once ``pid`` has gone: the Linux swap.
+
+    Each file is renamed over the old one, which Linux allows even for an
+    executable or a library something still has open.  A run that stops
+    part way leaves the staging folder and the plan as they are, and the
+    next one skips whatever already moved, so trying again finishes it.
+    """
+    folder = os.path.abspath(target)
+    log = log_for(folder)
+
+    def note(text: str) -> None:
+        try:
+            with open(log, "a", encoding="utf-8") as handle:
+                handle.write(text + "\n")
+        except OSError:
+            pass
+
+    deadline = time.monotonic() + timeout
+    while _alive(pid):
+        if time.monotonic() > deadline:
+            note("InventCraft never closed, so nothing was changed.")
+            return False
+        time.sleep(0.2)
+
+    plan = update.read_plan(folder)
+    if not plan:
+        return False
+    staging = update.staging_dir(folder)
+    try:
+        for relative in plan.get("delete") or []:
+            if not update._safe_relative(relative):
+                continue
+            try:
+                os.remove(os.path.join(folder, relative))
+            except FileNotFoundError:
+                pass
+        for relative in plan.get("download") or []:
+            if not update._safe_relative(relative):
+                continue
+            source = os.path.join(staging, relative)
+            if not os.path.exists(source):
+                continue                # moved by an earlier attempt
+            destination = os.path.join(folder, relative)
+            os.makedirs(os.path.dirname(destination), exist_ok=True)
+            os.replace(source, destination)
+    except OSError as exc:
+        note("The update did not finish: %s" % exc)
+        return False
+
+    update.clear_staging(folder)
+    try:
+        os.remove(log)
+    except OSError:
+        pass
+    if relaunch and executable:
+        subprocess.Popen([executable], start_new_session=True,
+                         close_fds=True, stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+    return True
 
 
 def last_failure(target: Optional[str] = None) -> str:

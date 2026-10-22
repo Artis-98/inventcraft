@@ -1,6 +1,6 @@
-# Contributing to DATUM
+# Contributing to InventCraft
 
-Thanks for wanting to help. DATUM is an Inventor style parametric CAD built
+Thanks for wanting to help. InventCraft is an Inventor style parametric CAD built
 by one person in the evenings, so every bug report, test and pull request
 makes a real difference.
 
@@ -9,7 +9,7 @@ makes a real difference.
 - **Bug reports** with the steps to get there. A small `.pdat` that shows
   the problem is worth more than any description of it.
 - **Inventor behaviour we got wrong.** The goal is for an Inventor user to
-  feel at home, so "Inventor does X here and DATUM does Y" is a perfectly
+  feel at home, so "Inventor does X here and InventCraft does Y" is a perfectly
   good issue on its own.
 - **Pull requests** for anything on the
   [Coming next](https://datum.iiteg.com/changelog.html) list, or anything
@@ -17,11 +17,11 @@ makes a real difference.
   so nobody builds the same thing twice.
 
 Issues and pull requests go to
-[github.com/Artis-98/datum](https://github.com/Artis-98/datum).
+[github.com/Artis-98/inventcraft](https://github.com/Artis-98/inventcraft).
 
 ## Getting it running
 
-You need Python 3.14. DATUM is developed on Windows; Linux should mostly
+You need Python 3.14. InventCraft is developed on Windows; Linux should mostly
 work from source but is not tested yet, and reports from Linux are very
 welcome.
 
@@ -74,7 +74,7 @@ A good test fails without your change. It is worth checking that once.
 - **Errors say what to do.** A feature that fails tells the user why in
   words they can act on ("pick the plane to extrude to"), never a Python
   exception.
-- **Inventor is the reference** for how a command behaves. Where DATUM does
+- **Inventor is the reference** for how a command behaves. Where InventCraft does
   something differently on purpose, the README says so.
 
 ### Line endings and encodings
@@ -95,7 +95,7 @@ setting, turn it on.
   `tools/release.py` and signed with a key that never leaves the
   maintainer's machine.
 - By contributing you agree that your work is released under the
-  [MIT licence](LICENSE), like the rest of DATUM.
+  [MIT licence](LICENSE), like the rest of InventCraft.
 
 Not sure about something? Open an issue and ask. There are no silly
 questions here.
