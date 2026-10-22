@@ -2490,6 +2490,11 @@ class Viewport(QtWidgets.QWidget):
         if not self._ready or self._cube is None:
             return False
         try:
+            # the offset is baked for the backing ratio at creation; a
+            # display move (or a ratio that settles after first show) leaves
+            # it stale with no resize to refresh it, so re-seat lazily here
+            # where a wrong V would be picked against
+            self._sync_cube_offset()
             # the gizmo lives within ~165 points of the top-right corner;
             # anything further off never reaches it, and skipping the pick
             # keeps ordinary clicks to a single one
