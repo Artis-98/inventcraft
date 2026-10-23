@@ -19,6 +19,10 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_dynamic_libs
 
 ROOT = Path(SPECPATH).parent
+VERSION = os.environ.get("DATUM_VERSION", "0.0.0")
+# made from tools/macos/inventcraft-1024.png by .github/workflows/macos.yml,
+# which has iconutil; a build without it simply has the default icon
+ICON = ROOT / "build" / "InventCraft.icns"
 
 binaries = collect_dynamic_libs("OCP")
 
@@ -94,4 +98,15 @@ app = BUNDLE(
     coll,
     name="InventCraft.app",
     bundle_identifier="com.iiteg.inventcraft",
+    icon=str(ICON) if ICON.exists() else None,
+    info_plist={
+        "CFBundleName": "InventCraft",
+        "CFBundleDisplayName": "InventCraft",
+        "CFBundleShortVersionString": VERSION,
+        "CFBundleVersion": VERSION,
+        "NSHighResolutionCapable": True,
+        # PySide6's wheels need macOS 13
+        "LSMinimumSystemVersion": "13.0",
+        "NSHumanReadableCopyright": "SIA IITEG, MIT licence",
+    },
 )
