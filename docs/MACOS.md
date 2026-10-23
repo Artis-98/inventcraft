@@ -5,7 +5,8 @@ or later. It is built and tested automatically on GitHub's Macs, but
 nobody at IITEG uses a Mac every day, so please report anything that does
 not work at https://github.com/Artis-98/inventcraft/issues.
 
-macOS support was contributed by [@calumk](https://github.com/calumk).
+macOS support was contributed by [@DanWake](https://github.com/DanWake)
+and [@calumk](https://github.com/calumk).
 
 ## Opening it
 

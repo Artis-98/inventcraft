@@ -22,8 +22,8 @@ Issues and pull requests go to
 ## Getting it running
 
 You need Python 3.14. InventCraft is developed on Windows and released for
-Windows and Linux. It runs on macOS from source too, thanks to
-[@calumk](https://github.com/calumk), and reports from Linux and macOS are
+Windows and Linux. It runs on macOS too, thanks to
+[@DanWake](https://github.com/DanWake) and [@calumk](https://github.com/calumk), and reports from Linux and macOS are
 very welcome.
 
 ```bash
