@@ -75,6 +75,8 @@ LIGHT = {
     "sketch_preview": _screen("#6f7c8a"),
     "sketch_reference": _screen("#7a8591"),
     "sketch_reference_dim": _screen("#5f6b78"),
+    # what the view draws to be read: an extrude's arrow, a measurement
+    "annotation": _screen("#a96a00"),
     "axis_label": _screen("#3a434d"),
     "cube_box": "#cfd5dc",
     "cube_text": "#000000",
@@ -130,6 +132,7 @@ DARK = {
     "sketch_preview": "#aebbc9",
     "sketch_reference": "#7f8894",
     "sketch_reference_dim": "#95a0ad",
+    "annotation": "#ffcf4d",
     "axis_label": "#c8d0da",
     "cube_box": "#3a434f",
     "cube_text": "#ffffff",

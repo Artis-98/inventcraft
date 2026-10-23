@@ -21,7 +21,8 @@ from datum.core.features import (  # noqa: E402
 )
 from datum.core.naming import RefSet  # noqa: E402
 from datum.ui.main_window import MainWindow  # noqa: E402
-from datum.ui.panels import MeasureDialog, ParametersDialog  # noqa: E402
+from datum.ui.measure import MeasureDialog                   # noqa: E402
+from datum.ui.panels import ParametersDialog                 # noqa: E402
 from datum.ui.theme import stylesheet  # noqa: E402
 
 FAILS = []

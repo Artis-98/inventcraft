@@ -219,6 +219,133 @@ check("OK keeps the dragged feature",
 check("and the arrow goes with the dialog",
       vp.drag_handle is None and not dialog._handle_drawn)
 
+# ==========================================================================
+print("#126 keyboard shortcuts of your own")
+
+from datum.ui import shortcuts                                      # noqa: E402
+
+keys = {c: a.shortcut().toString() for c, a in win._shortcut_actions.items()}
+check("every command in the table has its key on",
+      all(keys[c] == shortcuts.normal(k) for c, k in shortcuts.DEFAULTS.items()),
+      keys)
+check("M measures, V and G move and turn, as Inventor's do",
+      keys["measure"] == "M" and keys["free_move"] == "V"
+      and keys["free_rotate"] == "G")
+check("no two commands share a key by default",
+      not shortcuts.clashes(shortcuts.DEFAULTS))
+
+mine = prefs.prefs()
+mine.shortcuts = {"extrude": "Ctrl+Shift+E", "fillet": ""}
+win.apply_shortcuts()
+check("one set in Preferences goes on at once",
+      win._shortcut_actions["extrude"].shortcut().toString()
+      == "Ctrl+Shift+E")
+check("and an emptied one has no key",
+      win._shortcut_actions["fillet"].shortcut().isEmpty())
+check("the rest keep theirs",
+      win._shortcut_actions["revolve"].shortcut().toString() == "R")
+
+dialog = PreferencesDialog()
+check("Preferences lists every command",
+      dialog.shortcut_table.rowCount() == len(shortcuts.COMMANDS))
+check("with the keys in use",
+      dialog.shortcut_edits["extrude"].keySequence().toString()
+      == "Ctrl+Shift+E")
+dialog.shortcut_edits["sketch"].setKeySequence(QtGui.QKeySequence("R"))
+dialog._shortcut_set("sketch")
+check("keys another command had are taken from it",
+      dialog.shortcut_edits["revolve"].keySequence().isEmpty()
+      and "Revolve" in dialog.shortcut_note.text(),
+      dialog.shortcut_note.text())
+dialog.gather()
+check("only what differs from the defaults is kept",
+      dialog.prefs.shortcuts == {"extrude": "Ctrl+Shift+E", "fillet": "",
+                                 "sketch": "R", "revolve": ""},
+      dialog.prefs.shortcuts)
+dialog.reset_shortcuts()
+dialog.gather()
+check("Reset to defaults keeps nothing", dialog.prefs.shortcuts == {})
+check("and the file round trips", prefs.Preferences.from_dict(
+    {"shortcuts": {"extrude": "X"}}).shortcuts == {"extrude": "X"}
+      and prefs.Preferences.from_dict({"shortcuts": "nonsense"}).shortcuts
+      == {})
+dialog.deleteLater()
+mine.shortcuts = {}
+win.apply_shortcuts()
+
+# ==========================================================================
+print("#90 Measure, the Inventor way")
+
+from OCP.TopAbs import TopAbs_VERTEX                               # noqa: E402
+
+win.new_document(prompt=False)
+win.new_primitive("box")
+pump()
+win._active_dialog.commit()
+pump()
+box = win.document.shape
+corners = kernel.explore(box, TopAbs_VERTEX)
+low = min(corners, key=lambda v: sum(kernel.shape_centre(v)))
+high = max(corners, key=lambda v: sum(kernel.shape_centre(v)))
+faces = kernel.faces(box)
+top = max(faces, key=lambda f: kernel.shape_centre(f)[2])
+bottom = min(faces, key=lambda f: kernel.shape_centre(f)[2])
+side = min(faces, key=lambda f: kernel.shape_centre(f)[0])
+
+win._shortcut_actions["measure"].trigger()
+pump()
+measure = win.measure_dialog
+check("M opens Measure", measure is not None and measure.isVisible())
+check("and points, edges and faces can all be picked",
+      vp.selection_mode == "measure")
+check("with nothing picked it says what to do",
+      "Select geometry" in measure.readout.toPlainText())
+
+real = vp.selected_shapes
+
+
+def pick(shape):
+    vp.selected_shapes = lambda: [shape]
+    win._on_viewport_selection()
+    vp.selected_shapes = real
+    pump()
+
+
+pick(high)
+text = measure.readout.toPlainText()
+check("one point says where it is", "Point" in text and "X 40" in text
+      and "Y 30" in text and "Z 20" in text, text)
+pick(low)
+text = measure.readout.toPlainText()
+check("a second point measures straight across to it",
+      "Distance  53.85" in text, text)
+check("with the X, Y and Z distances",
+      "dX 40" in text and "dY 30" in text and "dZ 20" in text, text)
+check("and a line between them in the view", bool(measure._drawn))
+pick(top)
+text = measure.readout.toPlainText()
+check("a third pick starts again", text.startswith("First")
+      and "Face" in text and "Second" not in text, text)
+check("a face says its area", "Area 1200" in text, text)
+pick(bottom)
+text = measure.readout.toPlainText()
+check("two faces: the distance between them", "Distance  20" in text, text)
+check("and the angle between them", "Angle     180 deg" in text, text)
+pick(side)
+pick(top)
+text = measure.readout.toPlainText()
+check("square faces are at 90", "Angle     90 deg" in text, text)
+measure.copy()
+check("Copy puts the readout on the clipboard",
+      "Angle" in QtWidgets.QApplication.clipboard().text())
+measure.restart()
+check("Restart forgets both", not measure.picks and not measure._drawn)
+measure.close()
+pump()
+check("closing puts the picking back as it was",
+      vp.selection_mode == "face" and win.measure_dialog is None,
+      vp.selection_mode)
+
 print()
 if FAILS:
     print("%d FAILURES: %s" % (len(FAILS), ", ".join(FAILS)))

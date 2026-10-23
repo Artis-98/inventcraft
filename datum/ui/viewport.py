@@ -90,6 +90,8 @@ SELECTION_MODES = {
     # Project Geometry takes an edge, or a whole face's outline: an edge
     # wins where the cursor is on one, the face everywhere else on it
     "project": (SEL_EDGE, SEL_FACE),
+    # Measure takes a point, an edge or a face, whichever is nearest
+    "measure": (SEL_VERTEX, SEL_EDGE, SEL_FACE),
 }
 
 VIEW_DIRECTIONS = {
@@ -1717,6 +1719,17 @@ class Viewport(QtWidgets.QWidget):
         finally:
             got.extend(self._overlay[start:])
             del self._overlay[start:]
+
+    def on_top(self, drawn) -> None:
+        """Draw these over the model, never hidden by it: a measurement's
+        line through a solid, an arrow inside a see-through preview."""
+        if not self._ready:
+            return
+        for ais in drawn:
+            try:
+                self.context.SetZLayer(ais, Graphic3d_ZLayerId_Topmost)
+            except Exception:
+                pass
 
     def remove_drawn(self, drawn) -> None:
         """Take away what collecting() handed out."""

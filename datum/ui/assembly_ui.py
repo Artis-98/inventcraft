@@ -767,7 +767,8 @@ class AssemblyController(QtCore.QObject):
         held = self.viewport.selected_components()
 
         self.viewport.box_select_enabled = True
-        if self.tool is None and self.dialog is None:
+        if (self.tool is None and self.dialog is None
+                and getattr(self.host, "measure_dialog", None) is None):
             # an assembly picks whole components unless something has
             # deliberately asked for faces; it used to rest in face mode
             # until a tool had been used once, which is not the state it

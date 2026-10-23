@@ -85,6 +85,7 @@ class PreferencesDialog(QtWidgets.QDialog):
         tabs = QtWidgets.QTabWidget()
         tabs.addTab(self._general_page(), "General")
         tabs.addTab(self._display_page(), "Display")
+        tabs.addTab(self._shortcuts_page(), "Shortcuts")
         root.addWidget(tabs, 1)
 
         where = QtWidgets.QLabel("Kept in %s" % core_prefs.config_path())
@@ -249,6 +250,91 @@ class PreferencesDialog(QtWidgets.QDialog):
         outer.addLayout(row)
         return page
 
+    # -- shortcuts ----------------------------------------------------------
+
+    def _shortcuts_page(self) -> QtWidgets.QWidget:
+        """Every command and its keys: click one, press the new keys."""
+        from . import shortcuts
+
+        page = QtWidgets.QWidget()
+        outer = QtWidgets.QVBoxLayout(page)
+        outer.setContentsMargins(12, 12, 12, 12)
+        outer.setSpacing(8)
+        note = QtWidgets.QLabel(
+            "Click a command's keys and press the ones you want. Keys "
+            "another command had are taken from it, so no two share one. "
+            "Backspace clears a command's keys.")
+        note.setWordWrap(True)
+        note.setProperty("hint", True)
+        outer.addWidget(note)
+
+        self.shortcut_table = QtWidgets.QTableWidget(len(shortcuts.COMMANDS),
+                                                     2)
+        self.shortcut_table.setHorizontalHeaderLabels(["Command", "Keys"])
+        self.shortcut_table.verticalHeader().setVisible(False)
+        self.shortcut_table.horizontalHeader().setStretchLastSection(True)
+        self.shortcut_table.setSelectionMode(
+            QtWidgets.QAbstractItemView.NoSelection)
+        self.shortcut_edits: Dict[str, QtWidgets.QKeySequenceEdit] = {}
+        keys = shortcuts.effective(self.prefs.shortcuts)
+        for row, (command, what, _default) in enumerate(shortcuts.COMMANDS):
+            label = QtWidgets.QTableWidgetItem(what)
+            label.setFlags(QtCore.Qt.ItemIsEnabled)
+            self.shortcut_table.setItem(row, 0, label)
+            edit = QtWidgets.QKeySequenceEdit(
+                QtGui.QKeySequence(keys.get(command, "")))
+            try:
+                edit.setMaximumSequenceLength(1)
+                edit.setClearButtonEnabled(True)
+            except AttributeError:
+                pass
+            edit.editingFinished.connect(
+                lambda c=command: self._shortcut_set(c))
+            self.shortcut_table.setCellWidget(row, 1, edit)
+            self.shortcut_edits[command] = edit
+        self.shortcut_table.resizeColumnToContents(0)
+        outer.addWidget(self.shortcut_table, 1)
+
+        self.shortcut_note = QtWidgets.QLabel("")
+        self.shortcut_note.setProperty("hint", True)
+        outer.addWidget(self.shortcut_note)
+
+        row = QtWidgets.QHBoxLayout()
+        row.addStretch(1)
+        reset = QtWidgets.QPushButton("Reset to defaults")
+        reset.clicked.connect(self.reset_shortcuts)
+        row.addWidget(reset)
+        outer.addLayout(row)
+        return page
+
+    def shortcut_keys(self) -> Dict[str, str]:
+        from . import shortcuts
+        return {command: shortcuts.normal(edit.keySequence().toString(
+                    QtGui.QKeySequence.PortableText))
+                for command, edit in self.shortcut_edits.items()}
+
+    def _shortcut_set(self, command: str) -> None:
+        """New keys for one command: whoever had them gives them up."""
+        from . import shortcuts
+
+        keys = self.shortcut_keys()
+        mine = keys.get(command, "")
+        taken = [other for other, value in keys.items()
+                 if other != command and mine and value == mine]
+        for other in taken:
+            self.shortcut_edits[other].clear()
+        self.shortcut_note.setText(
+            "%s was taken from %s." % (
+                mine, ", ".join(shortcuts.LABELS[t] for t in taken))
+            if taken else "")
+
+    def reset_shortcuts(self) -> None:
+        from . import shortcuts
+        for command, edit in self.shortcut_edits.items():
+            edit.setKeySequence(QtGui.QKeySequence(
+                shortcuts.DEFAULTS[command]))
+        self.shortcut_note.setText("")
+
     # -- the mouse ----------------------------------------------------------
 
     def _set_mouse(self, orbit: str, pan: str) -> None:
@@ -304,6 +390,8 @@ class PreferencesDialog(QtWidgets.QDialog):
                                 or core_prefs.MOUSE_MIDDLE)
         self.prefs.zoom_reversed = self.zoom_reversed_box.isChecked()
         self.prefs.old_versions = self.versions_spin.value()
+        from . import shortcuts
+        self.prefs.shortcuts = shortcuts.changes(self.shortcut_keys())
         # only what differs from the shipped palette is written, so a
         # retuned default reaches everybody who never touched it
         self.prefs.set_colours_for(current_theme(), {

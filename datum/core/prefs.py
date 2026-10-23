@@ -114,6 +114,9 @@ class Preferences:
     # how many of the files a save replaces are kept in OldVersions beside
     # it, as Inventor's setting is: 0 none, a negative number every one
     old_versions: int = 1
+    # keyboard shortcuts somebody changed: command -> keys ("" for none);
+    # see ui.shortcuts for the commands and their defaults
+    shortcuts: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
@@ -126,7 +129,8 @@ class Preferences:
                 "mouse_orbit": self.mouse_orbit,
                 "mouse_pan": self.mouse_pan,
                 "zoom_reversed": self.zoom_reversed,
-                "old_versions": self.old_versions}
+                "old_versions": self.old_versions,
+                "shortcuts": dict(self.shortcuts)}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
@@ -157,7 +161,11 @@ class Preferences:
                        and data.get("mouse_pan") != data.get("mouse_orbit")
                        else MOUSE_MIDDLE),
             zoom_reversed=bool(data.get("zoom_reversed", False)),
-            old_versions=_count(data.get("old_versions"), 1))
+            old_versions=_count(data.get("old_versions"), 1),
+            shortcuts={str(k): str(v) for k, v in
+                       (data.get("shortcuts") or {}).items()
+                       if isinstance(v, str)}
+            if isinstance(data.get("shortcuts"), dict) else {})
 
     def colours_for(self, theme: str) -> Dict[str, str]:
         """The colours changed in one scheme."""

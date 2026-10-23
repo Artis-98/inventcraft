@@ -539,13 +539,15 @@ class ExtrudeDialog(FeatureDialog):
             viewport.redraw()
             return
         with viewport.collecting() as drawn:
-            viewport.draw_arrow(tip, axis[1], C.accent, preview=False)
+            viewport.draw_arrow(tip, axis[1], C.annotation, preview=False,
+                                width=4.0)
             label = unitlib.length_text(self.distance.value(),
                                         self.distance.doc_unit)
             length = max(2.0, viewport.view_span() * 0.11)
             beside = tuple(tip[i] + axis[1][i] * length * 1.15
                            for i in range(3))
-            viewport.draw_text(label, beside, C.accent, 15.0)
+            viewport.draw_text(label, beside, C.annotation, 16.0)
+        viewport.on_top(drawn)
         self._handle_drawn = drawn
         viewport.redraw()
 

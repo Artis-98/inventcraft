@@ -46,7 +46,7 @@ from .drawing_ui import DrawingController
 from .sheet_canvas import SheetCanvas
 from .materials_ui import MaterialBar, MaterialBrowser
 from .panels import (
-    DocumentProperties, MeasureDialog, ParametersDialog, PropertiesPanel,
+    DocumentProperties, ParametersDialog, PropertiesPanel,
     SpaceMouseDialog,
 )
 from .ribbon import Ribbon
@@ -90,6 +90,7 @@ def _turn(v, axis, degrees: float):
              k[0] * v[1] - k[1] * v[0])
     return tuple(v[i] * c + cross[i] * s + k[i] * dot * (1 - c)
                  for i in range(3))
+from .measure import MeasureDialog
 from .theme import C, stylesheet
 from .viewport import Viewport
 
@@ -1309,47 +1310,67 @@ class MainWindow(QtWidgets.QMainWindow):
     # -- shortcuts ----------------------------------------------------------
 
     def _build_shortcuts(self) -> None:
-        def add(sequence: str, slot: Callable) -> None:
+        """Every command with a key, from the one table in ui.shortcuts.
+
+        The keys come from there and from Preferences, where somebody may
+        have set their own; apply_shortcuts puts new ones on at once.
+        Return is deliberately NOT among them: it belongs to whatever is
+        being typed into, and an app-wide one swallowed it before the
+        sketcher's heads-up fields ever saw it.
+        """
+        slots: Dict[str, Callable] = {
+            "new": self.new_any,
+            "open": self.open_document,
+            "save": self.save_document,
+            "save_as": lambda: self.save_document(as_new=True),
+            "close": lambda: self.close_entry(self.session.active),
+            "undo": self.undo,
+            "redo": self.redo,
+            "redo_alt": self.redo,
+            "parameters": self.edit_parameters,
+            "local_update": self.local_update,
+            "next_document": lambda: self.cycle_documents(1),
+            "previous_document": lambda: self.cycle_documents(-1),
+            "copy": self._copy_shortcut,
+            "paste": self._paste_shortcut,
+            "measure": self.open_measure,
+            "sketch": self.start_sketch,
+            "extrude": lambda: self.new_feature(ExtrudeFeature),
+            "revolve": lambda: self.new_feature(RevolveFeature),
+            "hole": lambda: self.new_feature(HoleFeature),
+            "fillet": lambda: self.new_feature(FilletFeature),
+            "line": lambda: self.set_sketch_tool("line"),
+            # the same keys mean the assembly commands while an assembly is
+            # open, which is how Inventor's contextual shortcuts read
+            "circle": lambda: (self.assembly_ui.constrain(MATE)
+                               if self.in_assembly
+                               else self.set_sketch_tool("circle")),
+            "arc": lambda: self.set_sketch_tool("arc"),
+            "rectangle": lambda: self.set_sketch_tool("rect"),
+            "dimension": lambda: self.set_sketch_tool("dimension"),
+            "place": self._place_shortcut,
+            "free_move": self._move_shortcut,
+            "free_rotate": lambda: (self.toggle_component_tool("rotate")
+                                    if self.in_assembly else None),
+            "cam_sheet": lambda: (self.cam_ui.sheet_dialog() if self.in_cam
+                                  else None),
+        }
+        self._shortcut_actions: Dict[str, QtGui.QAction] = {}
+        for command, slot in slots.items():
             action = QtGui.QAction(self)
-            action.setShortcut(QtGui.QKeySequence(sequence))
             action.setShortcutContext(QtCore.Qt.ApplicationShortcut)
             action.triggered.connect(slot)
             self.addAction(action)
+            self._shortcut_actions[command] = action
+        self.apply_shortcuts()
 
-        add("Ctrl+N", self.new_any)
-        add("Ctrl+O", self.open_document)
-        add("Ctrl+S", self.save_document)
-        add("Ctrl+Shift+S", lambda: self.save_document(as_new=True))
-        add("Ctrl+Z", self.undo)
-        add("Ctrl+Y", self.redo)
-        add("Ctrl+Shift+Z", self.redo)
-        add("Ctrl+P", self.edit_parameters)
-        add("S", self.start_sketch)
-        add("E", lambda: self.new_feature(ExtrudeFeature))
-        add("R", lambda: self.new_feature(RevolveFeature))
-        add("H", lambda: self.new_feature(HoleFeature))
-        add("F", lambda: self.new_feature(FilletFeature))
-        add("L", lambda: self.set_sketch_tool("line"))
-        # the same keys mean the assembly commands while an assembly is open,
-        # which is how Inventor's contextual shortcuts read
-        add("C", lambda: (self.assembly_ui.constrain(MATE) if self.in_assembly
-                          else self.set_sketch_tool("circle")))
-        add("P", self._place_shortcut)
-        add("M", self._move_shortcut)
-        add("A", lambda: self.set_sketch_tool("arc"))
-        add("Ctrl+E", lambda: (self.cam_ui.sheet_dialog() if self.in_cam
-                               else None))
-        add("Ctrl+U", self.local_update)
-        add("Ctrl+W", lambda: self.close_entry(self.session.active))
-        add("Ctrl+C", self._copy_shortcut)
-        add("Ctrl+V", self._paste_shortcut)
-        add("Ctrl+Tab", lambda: self.cycle_documents(1))
-        add("Ctrl+Shift+Tab", lambda: self.cycle_documents(-1))
-        add("D", lambda: self.set_sketch_tool("dimension"))
-        add("Ctrl+R", lambda: self.set_sketch_tool("rect"))
-        # Return is deliberately NOT an application shortcut: it belongs to
-        # whatever is being typed into, and an app-wide one swallowed it
-        # before the sketcher's heads-up fields ever saw it.
+    def apply_shortcuts(self) -> None:
+        """Put the keys on: the defaults, and anybody's own over them."""
+        from . import shortcuts
+
+        keys = shortcuts.effective()
+        for command, action in self._shortcut_actions.items():
+            action.setShortcut(QtGui.QKeySequence(keys.get(command, "")))
 
     def _copy_shortcut(self) -> None:
         if self.in_assembly:
@@ -1816,6 +1837,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _preferences_applied(self) -> None:
         """Repaint with whatever Preferences just changed."""
+        self.apply_shortcuts()
         self.viewport.apply_background()
         if self.editor.active:
             self.editor.render()
@@ -3715,6 +3737,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_viewport_selection(self) -> None:
         if self._section_picked():
             return
+        if self.measure_dialog is not None:
+            # while Measure is open a pick is a measurement, whatever else
+            # is going on
+            self.measure_dialog.on_selection()
+            return
         if self.in_cam:
             self.cam_ui.on_selection()
             return
@@ -3739,12 +3766,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self._active_dialog is not None:
             self._active_dialog.on_selection()
-        if self.measure_dialog is not None:
-            self.measure_dialog.refresh()
 
     def open_measure(self) -> None:
+        """Measure, the Inventor way: two picks (M)."""
         if self.measure_dialog is None:
             self.measure_dialog = MeasureDialog(self, self)
+            self._position_dialog(self.measure_dialog)
         self.measure_dialog.show()
         self.measure_dialog.raise_()
 

@@ -387,9 +387,13 @@ reverse settings, with a live readout of the six axes.
 ## Shortcuts
 
 `Ctrl+N` new · `Ctrl+O` open · `Ctrl+S` save · `Ctrl+Z` / `Ctrl+Y` undo/redo ·
-`Ctrl+P` parameters · `S` sketch · `E` extrude · `R` revolve · `H` hole ·
-`F` fillet · `L` line · `C` circle · `A` arc · `Ctrl+R` rectangle ·
-`D` dimension · `Esc` cancel the current tool
+`Ctrl+P` parameters · `M` measure · `S` sketch · `E` extrude · `R` revolve ·
+`H` hole · `F` fillet · `L` line · `C` circle (constrain, in an assembly) ·
+`A` arc · `Ctrl+R` rectangle · `D` dimension · `P` place · `V` free move ·
+`G` free rotate · `Esc` cancel the current tool
+
+Every one of them can be changed under File, Preferences, Shortcuts. The
+defaults are Inventor's where Inventor has one.
 
 ## How it is put together
 
