@@ -53,8 +53,11 @@ jobs:
       - name: Core tests
         run: python tests/run.py --fast
 
+      # capped: with no graphics card a window suite can wait for ever on
+      # a view that never draws, and the first run sat here over an hour
       - name: Window tests (for information)
         continue-on-error: true
+        timeout-minutes: 15
         run: python tests/run.py -j 2
 
       - name: The beaver, as a Mac icon
