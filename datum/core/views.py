@@ -132,10 +132,15 @@ def outline(box: Sequence[float], direction: Sequence[float],
     return (max(across) - min(across), max(upward) - min(upward))
 
 
-def named_orientation(direction: Sequence[float]) -> str:
-    """Which standard view looks this way, "front" and so on, or ""."""
+def named_orientation(direction: Sequence[float], setup=None) -> str:
+    """Which standard view looks this way, "front" and so on, or "".
+
+    ``setup`` is the model's own Front and Top (core.viewsetup), when it
+    has moved them; the names follow it."""
     look = _unit(direction)
-    for name, (d, _up) in hlr.ORIENTATIONS.items():
+    for name in hlr.ORIENTATIONS:
+        d = (setup.orientation(name)[0] if setup is not None
+             else hlr.ORIENTATIONS[name][0])
         if math.dist(look, _unit(d)) < 1e-6:
             return name
     return ""

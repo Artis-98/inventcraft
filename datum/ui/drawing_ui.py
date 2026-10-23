@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from PySide6 import QtCore, QtGui, QtPrintSupport, QtWidgets
 
 from ..core import bom, drawing as dwg, fileformat, hlr, kernel
-from ..core import templates
+from ..core import templates, viewsetup
 from ..core import views as viewgen
 from ..core.drawing import (
     ANGULAR, Annotation, BASE, DETAIL, DIAMETER, DrawingDocument, LINEAR,
@@ -286,7 +286,8 @@ class DrawingController(QtCore.QObject):
         view.name = settings.get("name") or view.name
         view.direction = [float(c) for c in direction]
         view.up = [float(c) for c in up]
-        view.orientation = viewgen.named_orientation(direction) or "front"
+        view.orientation = viewgen.named_orientation(
+            direction, self.setup_of(path or current or "")) or "front"
 
         shift = (x - view.x, y - view.y)
         view.x, view.y = x, y
@@ -401,6 +402,23 @@ class DrawingController(QtCore.QObject):
         boxes[path] = (stamp, box)
         return box
 
+    def setup_of(self, path: str):
+        """The Front and Top a model file was given, or the stock ones."""
+        if not path:
+            return viewsetup.ViewSetup()
+        doc = self.document
+        if doc is not None and not os.path.isabs(path):
+            path = os.path.join(doc.base_dir, path)
+        return viewsetup.of_file(path)
+
+    def setup_for(self, sheet: Sheet, view: View):
+        """The Front and Top of the model a view on the sheet is of."""
+        doc = self.document
+        model = doc.view_model(sheet, view) if doc is not None else None
+        if model is None or not model.ref.path:
+            return viewsetup.ViewSetup()
+        return self.setup_of(model.ref.resolve(doc.base_dir) or "")
+
     def fit_scale(self, path: str, sheet: Sheet) -> float:
         """The standard scale a front view of this model and two
         projections of it fit the sheet at, the way Inventor picks one."""
@@ -431,8 +449,8 @@ class DrawingController(QtCore.QObject):
             return None
         doc.push_undo()
         base = View(kind=BASE,
-                    orientation=viewgen.named_orientation(direction)
-                    or "front",
+                    orientation=viewgen.named_orientation(
+                        direction, self.setup_of(path)) or "front",
                     direction=[float(c) for c in direction],
                     up=[float(c) for c in up],
                     scale=float(settings.get("scale") or 1.0), x=x, y=y,
@@ -1490,6 +1508,13 @@ class ViewDialog(QtWidgets.QDialog):
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
+    def _setup(self):
+        """The Front and Top of the model this view is of."""
+        model = self.doc.view_model(self.sheet, self.view)
+        if model is None or not model.ref.path:
+            return viewsetup.ViewSetup()
+        return viewsetup.of_file(model.ref.resolve(self.doc.base_dir) or "")
+
     def apply(self) -> None:
         view = self.view
         view.name = self.name.text().strip() or view.name
@@ -1497,6 +1522,11 @@ class ViewDialog(QtWidgets.QDialog):
             view.orientation = self.orientation.currentData() or "front"
             view.direction = []
             view.up = []
+            setup = self._setup()
+            if not setup.is_default():
+                # Front is where the model says it is
+                look, up = setup.orientation(view.orientation)
+                view.direction, view.up = list(look), list(up)
         typed = dwg.parse_scale(self.scale.currentText())
         if view.parent and not self.own_scale.isChecked():
             view.scale = 0.0
@@ -1782,7 +1812,9 @@ class BaseViewSession(QtCore.QObject):
         self.sheet = sheet
         self.dialog: Optional[BaseViewDialog] = dialog
         self.editing = editing
-        self.direction, self.up = hlr.ORIENTATIONS["front"]
+        self.setup = controller.setup_of(dialog.path())
+        self._setup_path = dialog.path()
+        self.direction, self.up = self.setup.orientation("front")
         self.x, self.y = self._middle()
         self.children: List[List[float]] = []
         # which view on the sheet each child is, 0 for one not made yet
@@ -1801,6 +1833,7 @@ class BaseViewSession(QtCore.QObject):
                     self.child_ids.append(child.id)
             self.hidden = {editing.id} | set(self.child_ids)
         self.cube = OrientationCube()
+        self.cube.set_setup(self.setup)
         self.cube.set_view(self.direction, self.up)
         self.cursor: Optional[Tuple[float, float]] = None
         self.placed: List[int] = []
@@ -1848,7 +1881,7 @@ class BaseViewSession(QtCore.QObject):
         direction, up = viewgen.projected_orientation(
             self.direction, self.up, dx, dy, doc.angle if doc else
             dwg.FIRST_ANGLE)
-        name = viewgen.named_orientation(direction)
+        name = viewgen.named_orientation(direction, self.setup)
         return (direction, up,
                 hlr.ORIENTATION_LABELS.get(name, "Projected View"), False)
 
@@ -2071,6 +2104,19 @@ class BaseViewSession(QtCore.QObject):
                               self.y + (c[1] - self.y) * ratio]
                              for c in self.children]
         self._last_scale = scale
+        # another model, with a Front of its own: a view still on the old
+        # one's Front moves to the new one's
+        path = self.dialog.path() if self.dialog is not None else ""
+        if path != self._setup_path:
+            before = self.setup.orientation("front")
+            self._setup_path = path
+            self.setup = self.controller.setup_of(path)
+            self.cube.set_setup(self.setup)
+            if self.editing is None and all(
+                    abs(self.direction[i] - before[0][i]) < 1e-9
+                    for i in range(3)):
+                self.direction, self.up = self.setup.orientation("front")
+                self.cube.set_view(self.direction, self.up)
         self._refresh()
 
     def _refresh(self) -> None:
@@ -2196,7 +2242,8 @@ class ViewPlacer:
             return (spot, direction, up, "Isometric")
         direction, up = viewgen.projected_orientation(pd, pu, dx, dy,
                                                       doc.angle)
-        name = viewgen.named_orientation(direction)
+        name = viewgen.named_orientation(
+            direction, self.controller.setup_for(self.sheet, parent))
         return (spot, direction, up,
                 hlr.ORIENTATION_LABELS.get(name, "Projected View"))
 

@@ -19,6 +19,7 @@ from OCP.TopoDS import TopoDS_Shape
 
 from . import fileformat, kernel, materials, modelparams, modelstates, prefs
 from .rules import RuleSet
+from .viewsetup import ViewSetup
 from .features import (
     FEATURE_TYPES, STANDARD_AXES, Body, BuildContext, CodeFeature, Feature,
     FeatureError, ImportFeature, SketchFeature,
@@ -288,6 +289,9 @@ class Document:
         # means when they pick a material and nothing else.  Setting it is
         # an override, and it changes not one gram.
         self.appearance = ""
+        # which face is Front, and where Home is: Inventor keeps both in
+        # the document, so a part opens the way it was set up
+        self.view = ViewSetup()
         self._density_override = None
         self.modified = False
         self.rollback_index: Optional[int] = None
@@ -1117,6 +1121,7 @@ class Document:
             "parameters": self.params.to_list(),
             "features": [f.to_dict() for f in self.features],
             "model_states": self.model_states.to_dict(self),
+            "view": self.view.to_dict(),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1144,6 +1149,7 @@ class Document:
         self.hidden_planes = set(data.get("hidden_planes", []))
         self.hidden_bodies = set(data.get("hidden_bodies", []))
         self.origin_autohidden = bool(data.get("origin_autohidden", False))
+        self.view = ViewSetup.from_dict(data.get("view"))
         self.params.load(data.get("parameters", []))
         self.features = []
         for entry in data.get("features", []):

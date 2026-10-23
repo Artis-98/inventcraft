@@ -129,11 +129,18 @@ def _face_corners(normal: Vec) -> List[Vec]:
 
 
 class OrientationCube:
-    """The cube, where it was last drawn, and what a click on it means."""
+    """The cube, where it was last drawn, and what a click on it means.
+
+    Its faces are named the way the model has them: a part whose Front
+    was moved (Set Current View as Front) has its cube say so here too,
+    and a click on FRONT is that part's front view.
+    """
 
     SIZE = 34.0          # half the cube's width, in pixels, near enough
 
     def __init__(self) -> None:
+        from ..core.viewsetup import ViewSetup
+        self.setup = ViewSetup()
         self.direction: Vec = (0.0, 1.0, 0.0)
         self.up: Vec = (0.0, 0.0, 1.0)
         self.hover: Optional[str] = None
@@ -148,6 +155,18 @@ class OrientationCube:
                  up: Sequence[float]) -> None:
         self.direction = _unit(direction)
         self.up = square_up(self.direction, up)
+
+    def set_setup(self, setup) -> None:
+        """The model's Front and Top, which name the faces."""
+        from ..core.viewsetup import ViewSetup
+        self.setup = setup if setup is not None else ViewSetup()
+
+    def faces(self) -> Dict[str, Tuple[Vec, str]]:
+        """Each face by name: which way it faces, and what it says."""
+        if self.setup.is_default():
+            return FACES
+        return {name: (self.setup.face_normal(name), label)
+                for name, (_normal, label) in FACES.items()}
 
     # -- drawing ----------------------------------------------------------
 
@@ -169,7 +188,7 @@ class OrientationCube:
                                             cam_right, scale)
 
         visible = [(name, normal, label) for name, (normal, label)
-                   in FACES.items() if _dot(normal, look) < -1e-6]
+                   in self.faces().items() if _dot(normal, look) < -1e-6]
         # far faces first, so the near ones are painted over them
         visible.sort(key=lambda f: _dot(f[1], look), reverse=True)
 
@@ -233,7 +252,8 @@ class OrientationCube:
 
     def _label(self, painter: QtGui.QPainter, font: QtGui.QFont,
                normal: Vec, name: str, label: str, project) -> None:
-        upward = (0.0, 1.0, 0.0) if name in ("top", "bottom")             else (0.0, 0.0, 1.0)
+        # upright the way that face's own view has it
+        upward = self.setup.orientation(name)[1]
         across = right_of(_neg(normal), upward)
         corner = lambda a, b: project(  # noqa: E731
             [normal[i] + a * across[i] * 0.86 + b * upward[i] * 0.86
@@ -332,11 +352,16 @@ class OrientationCube:
     def view_for(self, element: str) -> Optional[Tuple[Vec, Vec]]:
         """Where a click on this element points the view."""
         if element in FACES:
-            return face_view(element)
+            if self.setup.is_default():
+                return face_view(element)
+            look, up = self.setup.orientation(element)
+            return (_unit(look), square_up(look, up))
         if element.startswith("corner:") or element.startswith("edge:"):
-            return looking_at(_parse(element))
+            d = _unit(_neg(_parse(element)))
+            return (d, square_up(d, self.setup.top))
         if element == "home":
-            return (_unit(ISO[0]), square_up(ISO[0], ISO[1]))
+            look, up = self.setup.orientation("iso")
+            return (_unit(look), square_up(look, up))
         if element.startswith("turn:"):
             return turned(self.direction, self.up, element[5:])
         return None

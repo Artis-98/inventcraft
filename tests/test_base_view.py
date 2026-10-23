@@ -341,6 +341,42 @@ send(QtCore.QEvent.MouseButtonPress, (20.0, 20.0), QtCore.Qt.RightButton,
 pump()
 check("a right-click ends it", ui._placer is None)
 
+# -------------------------------------------------------- a moved Front
+print()
+print("a part whose Front was moved is placed from that Front (#263)")
+from datum.core.document import Document as _Part                   # noqa: E402
+
+turned = _Part.load(block)
+# the block's right end is its Front now
+turned.view.set_front((-1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+turned_path = os.path.join(WORK, "Turned.icpart")
+turned.save(turned_path)
+ui.place_base_view()
+pump()
+session = ui._placer
+harness.opening(turned_path)
+session.dialog._browse()
+pump()
+check("the view starts on that part's own Front",
+      same(session.direction, (-1.0, 0.0, 0.0))
+      and same(session.up, (0.0, 0.0, 1.0)), session.direction)
+check("and the cube beside it says FRONT on that face",
+      same(session.cube.faces()["front"][0], (1.0, 0.0, 0.0)))
+settle()
+box = session._box(session.views()[0])
+scale = session._scale()
+check("so the block is seen end on: 40 by 20",
+      near(box[2] - box[0], 40.0 * scale, 1e-3)
+      and near(box[3] - box[1], 20.0 * scale, 1e-3), (box, scale))
+harness.opening(block)
+session.dialog._browse()
+pump()
+check("back on a part with the stock Front, so is the view",
+      same(session.direction, hlr.ORIENTATIONS["front"][0]))
+send(QtCore.QEvent.MouseButtonPress, (20.0, 20.0), QtCore.Qt.RightButton,
+     QtCore.Qt.RightButton)
+pump()
+
 print()
 print("FAILED: " + ", ".join(FAILS) if FAILS else "all passed")
 sys.exit(1 if FAILS else 0)

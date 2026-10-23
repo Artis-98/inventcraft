@@ -4,6 +4,7 @@ Every save keeps the file it replaces in OldVersions.  An extrude's
 distance is dragged with an arrow in the view.
 """
 
+import json
 import os
 import sys
 import tempfile
@@ -743,6 +744,124 @@ check("OK keeps it, and the file builds the same",
       matched.match_shape and matched.match_flip
       and near(kernel.volume(again.shape), kernel.volume(win.document.shape),
                1e-3))
+
+# ==========================================================================
+print("#262 a Home button beside the view cube")
+
+
+def looking():
+    """Which way the camera looks, and which way is up."""
+    eye, centre, up = vp.camera_state()[:3]
+    look = [centre[i] - eye[i] for i in range(3)]
+    size = sum(c * c for c in look) ** 0.5
+    return tuple(c / size for c in look), tuple(up)
+
+
+def along(a, b, tol=1e-4):
+    size = sum(c * c for c in b) ** 0.5
+    return all(abs(a[i] - b[i] / size) < tol for i in range(3))
+
+
+win.new_document(prompt=False)
+win.new_primitive("box")
+pump()
+win._active_dialog.commit()
+pump()
+vp.set_view("front")
+pump()
+home = (vp.width() - vp.HOME_AT[0], vp.HOME_AT[1])
+check("the house is drawn, top left of the cube",
+      vp._home_ais is not None and vp.over_home(*home))
+check("and nowhere else", not vp.over_home(home[0] - 40, home[1] + 40))
+mouse(QtCore.QEvent.MouseButtonPress, home, LEFT, LEFT)
+mouse(QtCore.QEvent.MouseButtonRelease, home, LEFT, QtCore.Qt.NoButton)
+vp.finish_animation()
+pump()
+look, up = looking()
+check("a click on it goes home: the isometric", along(look, (-1, 1, -1))
+      and up[2] > 0.5, (look, up))
+check("without selecting anything", not vp.selected_shapes())
+
+vp.set_view("top")
+pump()
+vp.view.SetZoom(0.5)
+top_camera = vp.camera_state()
+win.set_home(fit=False)
+check("Set Current View as Home keeps the camera in the document",
+      win.document.view.home is not None
+      and win.document.view.home["fit"] is False and win.document.modified)
+vp.set_view("front")
+win.go_home(animate=False)
+pump()
+state = vp.camera_state()
+check("and Fixed Distance goes back to exactly that",
+      all(abs(a - b) < 1e-6 for a, b in zip(state[0], top_camera[0]))
+      and abs(state[3] - top_camera[3]) < 1e-9, (state, top_camera))
+win.set_home(fit=True)
+vp.set_view("front")
+win.go_home(animate=False)
+pump()
+look, _up = looking()
+check("Fit to View looks the same way, fitted",
+      along(look, (0, 0, -1)) and abs(vp.camera_state()[3] - top_camera[3])
+      > 1e-6, (look, vp.camera_state()[3]))
+path = os.path.join(WORK, "homed.pdat")
+win.document.save(path)
+again = Document()
+again.load_dict(json.loads(json.dumps(win.document.to_dict())))
+check("saved with the part", again.view.home == win.document.view.home)
+win.reset_home()
+win.go_home(animate=False)
+look, _up = looking()
+check("Reset Home: the isometric again", win.document.view.home is None
+      and along(look, (-1, 1, -1)), look)
+vp.set_view("front")
+# a copy, since the part itself is open already and only gets its tab back
+fresh = os.path.join(WORK, "homed copy.pdat")
+__import__("shutil").copyfile(path, fresh)
+win.open_path(fresh)
+pump()
+look, _up = looking()
+check("a part opens at the home it was given", along(look, (0, 0, -1)),
+      look)
+
+# ==========================================================================
+print("#263 the view cube's Front can be any face")
+
+win.reset_home()            # the copy came with the home it was given
+vp.set_view("right")
+pump()
+win.set_front("front")
+pump()
+check("Set Current View as Front: the face looked at says FRONT",
+      vp.cube_label((1, 0, 0)) == "FRONT"
+      and vp.cube_label((0, 1, 0)) == "RIGHT"
+      and vp.cube_label((0, -1, 0)) == "LEFT"
+      and vp.cube_label((0, 0, 1)) == "TOP",
+      [vp.cube_label(n) for n in ((1, 0, 0), (0, 1, 0), (0, -1, 0))])
+vp.set_view("front")
+pump()
+look, up = looking()
+check("Front is that face now", along(look, (-1, 0, 0))
+      and along(up, (0, 0, 1)), (look, up))
+vp.set_view("right")
+pump()
+look, _up = looking()
+check("and Right the one beside it", along(look, (0, -1, 0)), look)
+win.go_home(animate=False)
+look, _up = looking()
+check("Home's isometric turns with it", along(look, (-1, -1, -1)), look)
+check("it is the document's, saved with it",
+      win.document.view.to_dict()["front"] == [1.0, 0.0, 0.0])
+win.reset_front()
+pump()
+check("Reset Front: the stock faces again",
+      vp.cube_label((0, -1, 0)) == "FRONT" and win.document.view.is_default())
+vp.set_view("top")
+pump()
+win.set_front("top")
+check("Set Current View as Top on the top changes nothing",
+      win.document.view.is_default(), win.document.view)
 
 print()
 if FAILS:

@@ -106,6 +106,16 @@ VIEW_DIRECTIONS = {
     "bottom": V3d_TypeOfOrientation.V3d_Zneg,
 }
 
+# the cube's six faces by which way they face, for naming them
+_CUBE_FACES = {
+    V3d_TypeOfOrientation.V3d_Xpos: (1.0, 0.0, 0.0),
+    V3d_TypeOfOrientation.V3d_Xneg: (-1.0, 0.0, 0.0),
+    V3d_TypeOfOrientation.V3d_Ypos: (0.0, 1.0, 0.0),
+    V3d_TypeOfOrientation.V3d_Yneg: (0.0, -1.0, 0.0),
+    V3d_TypeOfOrientation.V3d_Zpos: (0.0, 0.0, 1.0),
+    V3d_TypeOfOrientation.V3d_Zneg: (0.0, 0.0, -1.0),
+}
+
 _PyCapsule_New = ctypes.pythonapi.PyCapsule_New
 _PyCapsule_New.restype = ctypes.py_object
 _PyCapsule_New.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p]
@@ -334,6 +344,11 @@ class Viewport(QtWidgets.QWidget):
         # release belongs to it as well, and must not select, box, drag
         # or - while sketching - drop a point on the plane
         self._cube_pressed = False
+        # the house beside the cube, and what says which face is Front
+        self._home_ais = None
+        self._home_hot = False
+        self._home_pressed = False
+        self.view_setup_of: Optional[Callable[[], Any]] = None
 
         # pulling a work plane off a face
         self.plane_tool = False
@@ -442,6 +457,7 @@ class Viewport(QtWidgets.QWidget):
             self.context.Redisplay(self._cube, False)
         except Exception:
             pass
+        self._make_home_button()
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         if self._ready and self.view is not None:
@@ -597,6 +613,7 @@ class Viewport(QtWidgets.QWidget):
             self._cube = cube
         except Exception:
             self._cube = None
+        self._make_home_button()
 
     # --------------------------------------------------------- model display
 
@@ -1362,6 +1379,12 @@ class Viewport(QtWidgets.QWidget):
     def set_view(self, name: str) -> None:
         if not self._ready:
             return
+        setup = self.view_setup()
+        if not setup.is_default() and name in VIEW_DIRECTIONS:
+            # a document with a Front of its own: Front is where it says
+            look, up = setup.orientation(name)
+            self.aim(look, up)
+            return
         orient = VIEW_DIRECTIONS.get(name)
         if orient is None:
             return
@@ -1373,6 +1396,127 @@ class Viewport(QtWidgets.QWidget):
         except Exception:
             pass
         self.fit_all()
+
+    def aim(self, look: Sequence[float], up: Sequence[float],
+            fit: bool = True, animate: bool = False) -> None:
+        """Look along ``look`` with ``up`` up the screen, fitted to
+        everything unless ``fit`` is off."""
+        if not self._ready:
+            return
+
+        def place() -> None:
+            self.view.SetProj(-look[0], -look[1], -look[2])
+            self.view.SetUp(up[0], up[1], up[2])
+            if fit:
+                self._fit_camera()
+
+        if animate and self.isVisible():
+            self.animate_to(place, duration_ms=self.FIT_GLIDE_MS)
+            return
+        self.finish_animation()
+        place()
+        self.redraw()
+
+    def view_setup(self):
+        """Which face is Front, and where Home is, for what is on screen."""
+        from ..core.viewsetup import ViewSetup
+        setup = self.view_setup_of() if self.view_setup_of else None
+        return setup if setup is not None else ViewSetup()
+
+    def label_cube(self) -> None:
+        """Name the cube's faces the way the document on screen has them."""
+        if self._cube is None or self.context is None:
+            return
+        from OCP.TCollection import TCollection_AsciiString
+        setup = self.view_setup()
+        try:
+            for orientation, normal in _CUBE_FACES.items():
+                name = setup.face_at(normal) or ""
+                self._cube.SetBoxSideLabel(orientation,
+                                           TCollection_AsciiString(
+                                               name.upper()))
+            self._cube.SetToUpdate()
+            self.context.Redisplay(self._cube, False)
+            self.redraw()
+        except Exception:
+            pass
+
+    def cube_label(self, normal: Sequence[float]) -> str:
+        """What the cube says on the face facing this way."""
+        if self._cube is None:
+            return ""
+        for orientation, facing in _CUBE_FACES.items():
+            if tuple(facing) == tuple(float(c) for c in normal):
+                return self._cube.BoxSideLabel(orientation).ToCString()
+        return ""
+
+    # -- the house -----------------------------------------------------------
+    #
+    # Inventor's Home, top left of the view cube.  Drawn by OCCT in screen
+    # space as the cube is, since nothing Qt paints shows over this window,
+    # and found by where it was put rather than by OCCT's picking.
+
+    HOME_AT = (200, 22)        # its middle, in points from the top right
+    HOME_REACH = 12            # how near it a click counts
+
+    def _make_home_button(self) -> None:
+        if self.context is None:
+            return
+        from OCP.Graphic3d import (Graphic3d_TransformPers,
+                                   Graphic3d_TransModeFlags)
+        if self._home_ais is not None:
+            try:
+                self.context.Remove(self._home_ais, False)
+            except Exception:
+                pass
+            self._home_ais = None
+        try:
+            dpr = self.devicePixelRatioF() or 1.0
+            size = self._occt_ratio()
+            outline = BRepBuilderAPI_MakePolygon()
+            for x, y in ((0.0, 9.0), (9.0, 0.5), (6.0, 0.5), (6.0, -7.5),
+                         (-6.0, -7.5), (-6.0, 0.5), (-9.0, 0.5)):
+                outline.Add(gp_Pnt(x * size, y * size, 0.0))
+            outline.Close()
+            house = AIS_Shape(outline.Wire())
+            house.SetColor(_col(C.accent if self._home_hot else C.cube_text))
+            house.SetWidth(2.0 * size)
+            house.SetTransformPersistence(Graphic3d_TransformPers(
+                Graphic3d_TransModeFlags.Graphic3d_TMF_2d,
+                Aspect_TypeOfTriedronPosition.Aspect_TOTP_RIGHT_UPPER,
+                Graphic3d_Vec2i(int(self.HOME_AT[0] * dpr),
+                                int(self.HOME_AT[1] * dpr))))
+            house.SetZLayer(Graphic3d_ZLayerId_TopOSD)
+            house.SetInfiniteState(True)
+            self.context.Display(house, False)
+            self.context.Deactivate(house)
+            self._home_ais = house
+        except Exception:
+            self._home_ais = None
+
+    def over_home(self, x: int, y: int) -> bool:
+        """Is the house under this point?"""
+        if self._home_ais is None:
+            return False
+        cx, cy = self.width() - self.HOME_AT[0], self.HOME_AT[1]
+        return (abs(x - cx) <= self.HOME_REACH
+                and abs(y - cy) <= self.HOME_REACH)
+
+    def _hover_home(self, pos: QtCore.QPoint) -> None:
+        hot = self.over_home(pos.x(), pos.y())
+        if hot == self._home_hot:
+            return
+        self._home_hot = hot
+        if self._home_ais is not None:
+            self._home_ais.SetColor(_col(C.accent if hot else C.cube_text))
+            self.context.Redisplay(self._home_ais, False)
+            self.redraw()
+        if hot:
+            QtWidgets.QToolTip.showText(
+                self.mapToGlobal(pos),
+                "Home view\nRight-click to set it, or put it back", self)
+        else:
+            QtWidgets.QToolTip.hideText()
 
     def set_projection(self, orthographic: bool) -> None:
         if not self._ready:
@@ -2536,6 +2680,9 @@ class Viewport(QtWidgets.QWidget):
             return False
         try:
             owner = self.context.DetectedOwner()
+            if isinstance(owner, AIS_ViewCubeOwner) \
+                    and self._named_face_click(owner):
+                return True
             if isinstance(owner, AIS_ViewCubeOwner):
                 # the owner knows which face it is and snaps the camera to
                 # it; SelectDetected on its own only highlights the gizmo.
@@ -2560,6 +2707,27 @@ class Viewport(QtWidgets.QWidget):
             self.view.Redraw()
         except Exception:
             return False
+        return True
+
+    def _named_face_click(self, owner) -> bool:
+        """A face of the cube in a document with a Front of its own: the
+        named view that face now is, with its own way up, rather than
+        OCCT's snap to the face as it stands."""
+        setup = self.view_setup()
+        if setup.is_default():
+            return False
+        try:
+            normal = _CUBE_FACES.get(owner.MainOrientation())
+        except Exception:
+            return False
+        name = setup.face_at(normal) if normal is not None else None
+        if name is None:
+            return False
+        try:
+            self.context.ClearSelected(False)
+        except Exception:
+            pass
+        self.set_view(name)
         return True
 
     def apply_background(self) -> None:
@@ -3176,6 +3344,10 @@ class Viewport(QtWidgets.QWidget):
         self._left_nav = None
         self._left_navigated = False
 
+        if (event.button() == QtCore.Qt.LeftButton
+                and self.over_home(pos.x(), pos.y())):
+            self._home_pressed = True
+            return
         if event.button() in (QtCore.Qt.MiddleButton, QtCore.Qt.RightButton):
             kind = self.navigation_for(event.button(), mods)
             if kind is not None:
@@ -3265,6 +3437,8 @@ class Viewport(QtWidgets.QWidget):
         dx = pos.x() - self._last_pos.x()
         dy = pos.y() - self._last_pos.y()
         mods = event.modifiers()
+        if self._button == QtCore.Qt.NoButton:
+            self._hover_home(pos)
 
         if (self._left_nav is not None and not self._navigating
                 and self._moved_enough(pos)):
@@ -3385,6 +3559,13 @@ class Viewport(QtWidgets.QWidget):
         pos = event.position().toPoint()
         moved = self._moved_enough(pos)
 
+        if event.button() == QtCore.Qt.LeftButton and self._home_pressed:
+            self._home_pressed = False
+            self._button = QtCore.Qt.NoButton
+            if self.over_home(pos.x(), pos.y()):
+                self.home_clicked.emit()
+            return
+
         if event.button() == QtCore.Qt.LeftButton and self._left_navigated:
             # that drag moved the view; it was not a click on anything
             self._left_navigated = False
@@ -3413,6 +3594,16 @@ class Viewport(QtWidgets.QWidget):
             self._navigating = False
             self.end_moving()
             if event.button() == QtCore.Qt.RightButton and not moved \
+                    and self.over_home(pos.x(), pos.y()):
+                self.home_menu_requested.emit(self.mapToGlobal(pos))
+            elif event.button() == QtCore.Qt.RightButton and not moved \
+                    and self.over_cube(pos.x(), pos.y()):
+                try:
+                    self.context.ClearSelected(False)
+                except Exception:
+                    pass
+                self.cube_menu_requested.emit(self.mapToGlobal(pos))
+            elif event.button() == QtCore.Qt.RightButton and not moved \
                     and not self.busy:
                 # select whatever is under the cursor first, so the menu can
                 # offer actions for that face rather than generic ones
@@ -3566,7 +3757,7 @@ class Viewport(QtWidgets.QWidget):
         elif key in (QtCore.Qt.Key_Delete, QtCore.Qt.Key_Backspace):
             self.delete_pressed.emit()
         elif key == QtCore.Qt.Key_F6:
-            self.set_view("iso")
+            self.home_clicked.emit()
         elif key == QtCore.Qt.Key_Home:
             self.fit_all(animate=True)
         else:
@@ -3575,6 +3766,11 @@ class Viewport(QtWidgets.QWidget):
     # ------------------------------------------------------------ context menu
 
     context_menu_requested = QtCore.Signal(QtCore.QPoint)
+    # the house: a click goes home, a right click asks what home is; a
+    # right click on the cube asks which face is Front
+    home_clicked = QtCore.Signal()
+    home_menu_requested = QtCore.Signal(QtCore.QPoint)
+    cube_menu_requested = QtCore.Signal(QtCore.QPoint)
 
     def _context_menu(self, pos: QtCore.QPoint) -> None:
         self.context_menu_requested.emit(self.mapToGlobal(pos))

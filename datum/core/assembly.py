@@ -37,6 +37,7 @@ from .fileformat import (
 )
 from .naming import ShapeRef
 from .rules import RuleSet
+from .viewsetup import ViewSetup
 from .params import ParameterTable, evaluate, ExpressionError
 from .parts import MAX_NESTING, PartLibrary          # noqa: F401  (re-export)
 
@@ -375,6 +376,9 @@ class AssemblyDocument:
         # means when they pick a material and nothing else.  Setting it is
         # an override, and it changes not one gram.
         self.appearance = ""
+        # which face is Front, and where Home is: Inventor keeps both in
+        # the document, so a part opens the way it was set up
+        self.view = ViewSetup()
         self._density_override = None
 
         self.library = PartLibrary()
@@ -928,6 +932,7 @@ class AssemblyDocument:
             # anything that only wants to know what this file depends on can
             # read it without understanding placements
             "components": [o.ref.to_dict() for o in self.occurrences],
+            "view": self.view.to_dict(),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -935,6 +940,7 @@ class AssemblyDocument:
         self.properties = {str(k): str(v)
                            for k, v in (data.get("properties") or {}).items()}
         self.bom_columns = [str(c) for c in data.get("bom_columns") or []]
+        self.view = ViewSetup.from_dict(data.get("view"))
         trusted = self.rules.trusted
         self.rules.load(data.get("rules"))
         self.rules.trusted = trusted

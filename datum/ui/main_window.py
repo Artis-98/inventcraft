@@ -382,7 +382,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.qat_redo.clicked.connect(self.redo)
         r.add_quick_separator()
         r.add_quick_action("iso", "Home view (F6)").clicked.connect(
-            lambda: self.viewport.set_view("iso"))
+            lambda: self.go_home())
         r.add_quick_action("fit", "Fit all (Home)").clicked.connect(
             lambda: self.viewport.fit_all(animate=True))
         r.add_quick_separator()
@@ -772,8 +772,9 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = view.add_panel("Navigate")
         panel.add_big("fit", "Fit All", "Zoom to the whole model (Home)"
                       ).clicked.connect(self.viewport.fit_all)
-        panel.add_big("iso", "Home", "Isometric view (F6)"
-                      ).clicked.connect(lambda: self.viewport.set_view("iso"))
+        panel.add_big("iso", "Home", "Home view (F6): the isometric, or "
+                      "wherever Home was set").clicked.connect(
+            lambda: self.go_home())
         panel.add_small("front", "Front").clicked.connect(
             lambda: self.viewport.set_view("front"))
         panel.add_small("top", "Top").clicked.connect(
@@ -1429,6 +1430,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.axis_drag_finished.connect(self._section_drag_finished)
         self.viewport.escape_pressed.connect(self._on_escape)
         self.viewport.context_menu_requested.connect(self._viewport_menu)
+        self.viewport.view_setup_of = self._view_setup
+        self.viewport.home_clicked.connect(lambda: self.go_home())
+        self.viewport.home_menu_requested.connect(self._home_menu)
+        self.viewport.cube_menu_requested.connect(self._cube_menu)
         self.viewport.component_activated.connect(self._component_activated)
         self.viewport.delete_pressed.connect(self._viewport_delete)
         self.viewport.plane_tool_pressed.connect(self._plane_tool_pressed)
@@ -1654,14 +1659,21 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.cam_ui.browser.set_document(self.cam)
 
+        self.viewport.label_cube()
         restored = self.viewport.restore_camera(entry.camera) if keep_camera \
             else False
         self.rebuild(keep_camera=restored)
         self._restore_section(entry)
         if not restored:
+            setup = self._view_setup()
             if self.in_cam:
                 self.viewport.set_view("top")
-            self.viewport.fit_all()
+                self.viewport.fit_all()
+            elif setup is not None and setup.home:
+                # a part opens at the home it was given
+                self.go_home(animate=False)
+            else:
+                self.viewport.fit_all()
         self._update_title()
         self.refresh_tabs()
 
@@ -4501,6 +4513,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.assembly = document if is_assembly else None
         self._set_workspace(doc_type)
         self._sync_in_place()
+        self.viewport.label_cube()
 
         if is_assembly:
             self.assembly_ui.browser.set_active(None)
@@ -4871,7 +4884,145 @@ class MainWindow(QtWidgets.QMainWindow):
             menu.addAction(icons.icon("fit", 16), "Fit All").triggered.connect(
                 self.viewport.fit_all)
             menu.addAction(icons.icon("iso", 16), "Home View").triggered.connect(
-                lambda: self.viewport.set_view("iso"))
+                lambda: self.go_home())
+        menu.exec(global_pos)
+
+    # -- Home, and which face is Front --------------------------------------
+    #
+    # Inventor's house beside the view cube goes to the document's home
+    # view; a right click on it sets that, or puts it back.  A right click
+    # on the cube makes the face being looked at Front, or Top, and the
+    # cube's faces and every named view follow.  Both are saved in the
+    # document.
+
+    def _view_setup(self):
+        """Front, Top and Home of what is on screen; None for a CAM sheet,
+        which keeps the stock ones."""
+        if self.in_cam:
+            return None
+        doc = (self.assembly if self.in_assembly and self.assembly is not None
+               else self.document)
+        return getattr(doc, "view", None)
+
+    def _view_document(self):
+        return (self.assembly if self.in_assembly and self.assembly is not None
+                else self.document)
+
+    def go_home(self, animate: bool = True) -> None:
+        """The home view: as it was set, or the isometric, fitted."""
+        from ..core.viewsetup import ViewSetup
+        setup = self._view_setup() or ViewSetup()
+        vp = self.viewport
+        home = setup.home
+        if home and not home.get("fit") and home.get("camera"):
+            camera = home["camera"]
+            if animate:
+                vp.animate_to(lambda: vp.restore_camera(camera),
+                              duration_ms=vp.FIT_GLIDE_MS)
+            else:
+                vp.restore_camera(camera)
+            return
+        if home and home.get("camera"):
+            eye, centre, up = home["camera"][:3]
+            look = [centre[i] - eye[i] for i in range(3)]
+        else:
+            look, up = setup.orientation("iso")
+        vp.aim(look, up, fit=True, animate=animate)
+
+    def set_home(self, fit: bool) -> None:
+        """Set Current View as Home: Fixed Distance keeps the camera as it
+        is; Fit to View keeps the way it looks and fits whatever is there."""
+        setup = self._view_setup()
+        state = self.viewport.camera_state()
+        if setup is None or state is None:
+            return
+        eye, centre, up, scale, orthographic = state
+        setup.home = {"fit": bool(fit),
+                      "camera": [list(eye), list(centre), list(up),
+                                 float(scale), bool(orthographic)]}
+        self._view_document().modified = True
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Home is this view%s." % (", fitted to the part when you go there"
+                                      if fit else ", exactly as it is"))
+
+    def reset_home(self) -> None:
+        setup = self._view_setup()
+        if setup is None or not setup.home:
+            return
+        setup.home = None
+        self._view_document().modified = True
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText("Home is the isometric again.")
+
+    def set_front(self, which: str = "front") -> None:
+        """Set Current View as Front (or Top): the face being looked at
+        takes the name, and the cube and the named views follow."""
+        setup = self._view_setup()
+        state = self.viewport.camera_state()
+        if setup is None or state is None:
+            return
+        eye, centre, up = state[0], state[1], state[2]
+        look = [centre[i] - eye[i] for i in range(3)]
+        if which == "top":
+            setup.set_top(look, up)
+        else:
+            setup.set_front(look, up)
+        self._view_document().modified = True
+        self.viewport.label_cube()
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "This face is %s now: the cube, Front, Top and the rest follow."
+            % ("Top" if which == "top" else "Front"))
+
+    def reset_front(self) -> None:
+        setup = self._view_setup()
+        if setup is None or setup.is_default():
+            return
+        setup.reset_front()
+        self._view_document().modified = True
+        self.viewport.label_cube()
+        self._update_title()
+
+    def _home_menu(self, global_pos: QtCore.QPoint) -> None:
+        setup = self._view_setup()
+        menu = QtWidgets.QMenu(self)
+        menu.addAction(icons.icon("iso", 16), "Go Home").triggered.connect(
+            lambda: self.go_home())
+        if setup is not None:
+            menu.addSeparator()
+            fixed = menu.addAction("Set Current View as Home: Fixed Distance")
+            fixed.setToolTip("Home is the view exactly as it is now")
+            fixed.triggered.connect(lambda: self.set_home(False))
+            fit = menu.addAction("Set Current View as Home: Fit to View")
+            fit.setToolTip("Home looks this way, fitted to the whole part")
+            fit.triggered.connect(lambda: self.set_home(True))
+            reset = menu.addAction("Reset Home")
+            reset.setEnabled(bool(setup.home))
+            reset.triggered.connect(self.reset_home)
+        menu.exec(global_pos)
+
+    def _cube_menu(self, global_pos: QtCore.QPoint) -> None:
+        setup = self._view_setup()
+        menu = QtWidgets.QMenu(self)
+        menu.addAction(icons.icon("iso", 16), "Go Home").triggered.connect(
+            lambda: self.go_home())
+        if setup is not None:
+            menu.addAction("Set Current View as Home: Fit to View"
+                           ).triggered.connect(lambda: self.set_home(True))
+            menu.addSeparator()
+            menu.addAction(icons.icon("front", 16),
+                           "Set Current View as Front").triggered.connect(
+                lambda: self.set_front("front"))
+            menu.addAction(icons.icon("top", 16),
+                           "Set Current View as Top").triggered.connect(
+                lambda: self.set_front("top"))
+            reset = menu.addAction("Reset Front")
+            reset.setEnabled(not setup.is_default())
+            reset.triggered.connect(self.reset_front)
         menu.exec(global_pos)
 
     def _add_plane_menu(self, menu: QtWidgets.QMenu, name: str) -> None:
