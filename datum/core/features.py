@@ -1799,6 +1799,123 @@ class MirrorFeature(Feature):
 
 
 @dataclass
+class SplitFeature(Feature):
+    """Inventor's Split: faces, or whole solids, cut along a plane.
+
+    The tool is an origin or work plane by name, or a flat face of the part
+    picked in the view, which wins when there is one.  Split Faces leaves
+    the solid whole with the picked faces, or all of them, divided where
+    the plane crosses them, ready to be coloured or drafted apart.  Split
+    Solid cuts each chosen solid in two; the half on the side the plane
+    faces keeps the name, the other becomes a body of its own.
+    """
+
+    type_name: str = "split"
+    icon: str = "split"
+    name: str = "Split"
+    mode: str = "solid"              # solid / faces
+    plane: str = "XY"
+    tool: RefSet = field(default_factory=RefSet)      # a flat face
+    faces: RefSet = field(default_factory=RefSet)     # for Split Faces
+    all_faces: bool = False
+    solids: List[str] = field(default_factory=list)   # empty: every one
+
+    def tool_plane(self, ctx: BuildContext):
+        """(origin, normal) of what cuts."""
+        if len(self.tool):
+            found, _lost = self.tool.resolve_all(ctx.shape)
+            plane = plane_from_face(found[0]) if found else None
+            if plane is None:
+                raise FeatureError("%s: the face it cuts with is gone or "
+                                   "not flat" % self.name)
+            return plane.origin, plane.normal
+        plane = ctx.planes.get(self.plane)
+        if plane is None:
+            raise FeatureError("%s: plane %s no longer exists"
+                               % (self.name, self.plane))
+        return plane.origin, plane.normal
+
+    def build(self, ctx: BuildContext) -> None:
+        ctx.require_shape(self.name)
+        origin, normal = self.tool_plane(ctx)
+        try:
+            if self.mode == "faces":
+                self._split_faces(ctx, origin, normal)
+            else:
+                self._split_solids(ctx, origin, normal)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+
+    def _split_faces(self, ctx, origin, normal) -> None:
+        if self.all_faces:
+            owners = list(ctx.live)
+            chosen = {id(b): kernel.faces(b.shape) for b in owners}
+        else:
+            found, lost = self.faces.resolve_all(ctx.shape)
+            if lost:
+                ctx.log.append("%s: %d face(s) could not be found"
+                               % (self.name, len(lost)))
+            if not found:
+                raise FeatureError("%s: pick the faces to split, or All "
+                                   "Faces" % self.name)
+            owners, chosen = [], {}
+            for face in found:
+                body = ctx.owner_of(face) or ctx.require_body(self.name)
+                if id(body) not in chosen:
+                    owners.append(body)
+                    chosen[id(body)] = []
+                chosen[id(body)].append(face)
+        cut = 0
+        for body in owners:
+            body.shape, lines = kernel.split_faces(
+                body.shape, chosen[id(body)], origin, normal)
+            cut += lines
+        if not cut:
+            raise FeatureError("%s: the plane does not cross those faces"
+                               % self.name)
+
+    def _split_solids(self, ctx, origin, normal) -> None:
+        wanted = set(self.solids)
+        targets = [b for b in ctx.live if not wanted or b.name in wanted]
+        if wanted and not targets:
+            raise FeatureError("%s: the solids it splits are gone"
+                               % self.name)
+        split = 0
+        for body in targets:
+            pieces = kernel.split_solid(body.shape, origin, normal)
+            if len(pieces) < 2:
+                continue
+            body.shape = pieces[0]
+            for piece in pieces[1:]:
+                ctx.bodies.append(Body(ctx.next_name(), piece))
+            split += 1
+        if not split:
+            raise FeatureError("%s: the plane does not cross the solid"
+                               % self.name)
+
+    def summary(self) -> str:
+        what = ("all faces" if self.all_faces else
+                "%d face(s)" % len(self.faces)) if self.mode == "faces" \
+            else ("solids %s" % ", ".join(self.solids) if self.solids
+                  else "the solid")
+        tool = "a face" if len(self.tool) else self.plane
+        return "%s: %s along %s" % (self.name, what, tool)
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"mode": self.mode, "plane": self.plane,
+                "tool": self.tool.to_list(), "faces": self.faces.to_list(),
+                "all_faces": self.all_faces, "solids": list(self.solids)}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.mode = "faces" if data.get("mode") == "faces" else "solid"
+        self.plane = str(data.get("plane", "XY"))
+        self.tool = RefSet.from_list(data.get("tool", []))
+        self.faces = RefSet.from_list(data.get("faces", []))
+        self.all_faces = bool(data.get("all_faces", False))
+        self.solids = [str(n) for n in (data.get("solids") or []) if n]
+
+
+@dataclass
 class PatternFeature(Feature):
     """Rectangular or circular pattern of earlier features."""
 
@@ -2081,5 +2198,6 @@ FEATURE_TYPES: Dict[str, type] = {
         SweepFeature, LoftFeature, HoleFeature, PrimitiveFeature,
         ImportFeature, FilletFeature, ChamferFeature, ShellFeature,
         MirrorFeature, PatternFeature, MoveFeature, CodeFeature,
+        SplitFeature,
     )
 }

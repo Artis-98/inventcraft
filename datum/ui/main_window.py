@@ -26,7 +26,7 @@ from ..core.features import (
     ImportFeature, LoftFeature, MirrorFeature, MoveFeature, PatternFeature,
     PrimitiveFeature, RevolveFeature, ShellFeature, SketchFeature,
     SweepFeature, WorkPlaneFeature, plane_from_face, CodeFeature,
-    WorkAxisFeature,
+    WorkAxisFeature, SplitFeature,
 )
 from ..core.naming import RefSet, ShapeRef
 from ..core.sketch import STANDARD_PLANES, Sketch, SketchPlane
@@ -426,6 +426,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(lambda: self.new_feature(ChamferFeature))
         panel.add_small("shell", "Shell", "Hollow the body out"
                         ).clicked.connect(lambda: self.new_feature(ShellFeature))
+        panel.add_small("split", "Split",
+                        "Split faces, or cut a solid in two, along a plane "
+                        "or a flat face").clicked.connect(
+            lambda: self.new_feature(SplitFeature))
         panel.add_small("move", "Move Body").clicked.connect(
             lambda: self.new_feature(MoveFeature))
 

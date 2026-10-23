@@ -24,6 +24,7 @@ from ..core.features import (
     PatternFeature, PrimitiveFeature, RevolveFeature, ShellFeature,
     SketchFeature, SweepFeature, WorkPlaneFeature, CodeFeature,
     AXIS_PREFIX, WorkAxisFeature,
+    SplitFeature,
 )
 from ..core.naming import RefSet
 from . import icons
@@ -1323,6 +1324,148 @@ class MirrorDialog(FeatureDialog):
         self.feature.plane = self.plane.currentData()
 
 
+class SplitDialog(FeatureDialog):
+    """Inventor's Split: the tool, the method, and what it splits."""
+
+    METHODS = [
+        ("faces", "split_faces",
+         "Split Faces - divide faces where the tool crosses them; the solid "
+         "stays whole"),
+        ("solid", "split_solid",
+         "Split Solid - cut a solid in two along the tool, each half a "
+         "solid of its own"),
+    ]
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Split", "split", is_new, snapshot)
+
+    def build(self):
+        self.form.add_section("Input Geometry")
+        self.plane = self.plane_combo(self.feature.plane)
+        self.plane.setToolTip(
+            "An origin plane or a work plane to split along, or pick a flat "
+            "face of the part with the button beside it")
+        self.tool_pick = SelectionField("Select face")
+        self.tool_pick.pick_toggled.connect(
+            lambda on: self._arm(self.tool_pick if on else None))
+        self.tool_pick.cleared.connect(self._clear_tool)
+        tool = QtWidgets.QWidget()
+        row = QtWidgets.QHBoxLayout(tool)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        row.addWidget(self.plane, 1)
+        row.addWidget(self.tool_pick)
+        self.form.add("Split Tool", tool)
+
+        self.form.add_section("Method")
+        self.method = SegmentedControl(self.METHODS)
+        self.bind(self.method)
+        self.form.add("Method", self.method)
+
+        self.faces_pick = SelectionField("Select faces")
+        self.faces_pick.pick_toggled.connect(
+            lambda on: self._arm(self.faces_pick if on else None))
+        self.faces_pick.cleared.connect(self._clear_faces)
+        self.form.add("Faces", self.faces_pick)
+        self.all_faces = QtWidgets.QCheckBox("All Faces")
+        self.all_faces.setToolTip("Split every face the tool crosses")
+        self.bind(self.all_faces)
+        self.form.add("", self.all_faces)
+
+        self.solids_row()
+        self.method.changed.connect(lambda _k: self._sync_enabled())
+        self.all_faces.toggled.connect(lambda _on: self._sync_enabled())
+
+    # -- which field is picking --------------------------------------------
+
+    def _arm(self, field) -> None:
+        for candidate in (self.tool_pick, self.faces_pick):
+            if candidate is not field and candidate.picking:
+                candidate.blockSignals(True)
+                candidate.set_picking(False)
+                candidate.blockSignals(False)
+        self.host.set_pick_mode("face" if field is not None else None)
+
+    def wants_selection(self):
+        return ("face" if self.tool_pick.picking or self.faces_pick.picking
+                else None)
+
+    def on_selection(self):
+        if self._in_selection:
+            return
+        picked = self.host.viewport.selected_faces()
+        base = self.host.pick_shape()
+        if not picked or base is None:
+            return
+        self._in_selection = True
+        try:
+            if self.tool_pick.picking:
+                from ..core.features import plane_from_face
+                flat = [f for f in picked if plane_from_face(f) is not None]
+                if flat:
+                    self.feature.tool = RefSet()
+                    self.feature.tool.capture_from(base, "face", flat[:1])
+                    self.tool_pick.set_count(1, "face")
+                    self.tool_pick.set_picking(False)
+                    if (self.method.value() == "faces"
+                            and not self.all_faces.isChecked()):
+                        self.faces_pick.set_picking(True)
+                    else:
+                        self._arm(None)
+            elif self.faces_pick.picking:
+                fresh = RefSet()
+                fresh.capture_from(base, "face", picked)
+                for ref in fresh:
+                    match = next((e for e in self.feature.faces
+                                  if e.same_as(ref)), None)
+                    if match is not None:
+                        self.feature.faces.refs.remove(match)
+                    else:
+                        self.feature.faces.add(ref)
+                self.faces_pick.set_count(len(self.feature.faces), "face")
+            self.host.viewport.clear_selection()
+        finally:
+            self._in_selection = False
+        self._sync_enabled()
+        self.preview()
+
+    def _clear_tool(self):
+        self.feature.tool = RefSet()
+        self.tool_pick.set_count(0, "face")
+        self._sync_enabled()
+        self.preview()
+
+    def _clear_faces(self):
+        self.feature.faces = RefSet()
+        self.faces_pick.set_count(0, "face")
+        self.host.viewport.clear_selection()
+        self.preview()
+
+    def _sync_enabled(self):
+        faces = self.method.value() == "faces"
+        self.form.set_visible(self.faces_pick, faces)
+        self.form.set_visible(self.all_faces, faces)
+        self.faces_pick.setEnabled(not self.all_faces.isChecked())
+        if getattr(self, "solids", None) is not None:
+            self.form.set_visible(self.solids, not faces)
+        # a picked face is the tool; the plane list stands aside for it
+        self.plane.setEnabled(not len(self.feature.tool))
+
+    def load(self):
+        self.method.set_value(self.feature.mode)
+        self.all_faces.setChecked(self.feature.all_faces)
+        self.tool_pick.set_count(len(self.feature.tool), "face")
+        self.faces_pick.set_count(len(self.feature.faces), "face")
+        self._sync_enabled()
+
+    def store(self):
+        self.feature.mode = self.method.value()
+        self.feature.plane = self.plane.currentData() or "XY"
+        self.feature.all_faces = self.all_faces.isChecked()
+        self.feature.solids = (self.picked_solids()
+                               if self.feature.mode == "solid" else [])
+
+
 class PrimitiveDialog(FeatureDialog):
     LABELS = {
         "box": ("Length X", "Length Y", "Length Z"),
@@ -1591,6 +1734,7 @@ DIALOGS = {
     WorkPlaneFeature: WorkPlaneDialog,
     WorkAxisFeature: WorkAxisDialog,
     MoveFeature: MoveDialog,
+    SplitFeature: SplitDialog,
 }
 
 

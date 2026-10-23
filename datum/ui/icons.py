@@ -426,6 +426,26 @@ def _i_shell(p):
     p.drawPolygon(_poly((7, 9.4), (12, 6.9), (17, 9.4), (12, 11.9)))
 
 
+def _i_split(p):
+    # a block, and the plane that splits it, dashed across
+    _block(p, 5, 9, 12, 10, 3.5)
+    _pen(p, _ACCENT, 1.6, dashed=True)
+    p.drawLine(QtCore.QPointF(2.5, 14.5), QtCore.QPointF(21.5, 11.0))
+
+
+def _i_split_faces(p):
+    # one block, its face drawn in two by the line across it
+    _block(p, 5, 7, 12, 12, 3.5)
+    _pen(p, _ACCENT, 1.9)
+    p.drawLine(QtCore.QPointF(5.0, 13.0), QtCore.QPointF(17.0, 13.0))
+
+
+def _i_split_solid(p):
+    # the block cut through, its two halves pulled apart
+    _block(p, 5, 3, 12, 7, 3.0)
+    _block(p, 5, 13, 12, 7, 3.0, top=_WARM)
+
+
 def _i_pattern_rect(p):
     for i in range(3):
         for j in range(2):
@@ -846,9 +866,9 @@ def _i_auto(p):
 
 
 def _block(p, x, y, w, h, depth=3.0, tone=None, top=None):
+    """A little isometric box: front face, top face, side face."""
     tone = _SOLID if tone is None else tone
     top = _ACCENT if top is None else top
-    """A little isometric box: front face, top face, side face."""
     _fill(p, tone)
     p.drawPolygon(_poly((x, y), (x + w, y), (x + w, y + h), (x, y + h)))
     _fill(p, top)
@@ -959,6 +979,8 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "file": _i_file, "exit": _i_exit,
     "hole": _i_hole, "fillet": _i_fillet,
     "chamfer": _i_chamfer, "shell": _i_shell, "pattern": _i_pattern_rect,
+    "split": _i_split, "split_faces": _i_split_faces,
+    "split_solid": _i_split_solid,
     "pattern_circ": _i_pattern_circ, "mirror": _i_mirror, "move": _i_move,
     "box": _i_box, "cylinder": _i_cylinder, "sphere": _i_sphere,
     "plane": _i_plane, "axis": _i_axis, "import": _i_import, "export": _i_export,

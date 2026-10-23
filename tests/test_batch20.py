@@ -346,6 +346,83 @@ check("closing puts the picking back as it was",
       vp.selection_mode == "face" and win.measure_dialog is None,
       vp.selection_mode)
 
+# ==========================================================================
+print("#190 Split: faces, or a solid in two, along a plane or a face")
+
+from datum.core.features import SplitFeature, WorkPlaneFeature     # noqa: E402
+from datum.core.naming import RefSet                               # noqa: E402
+from datum.ui import icons                                         # noqa: E402
+
+check("it has its icons", all(not icons.icon(n, 24).isNull()
+                              for n in ("split", "split_faces",
+                                        "split_solid")))
+win.new_document(prompt=False)
+win.new_primitive("box")
+pump()
+win._active_dialog.commit()
+pump()
+level = WorkPlaneFeature()
+level.base, level.offset = "XY", "8"
+win.document.add_feature(level)
+win.rebuild()
+pump()
+win.new_feature(SplitFeature)
+pump()
+split = win._active_dialog
+check("the Split dialog opens", type(split).__name__ == "SplitDialog")
+split.plane.setCurrentIndex(split.plane.findData(level.name))
+split.method.set_value("solid")
+split.preview()
+pump()
+names = [b.name for b in win.document.bodies]
+check("Split Solid cuts it in two solids", names == ["Solid1", "Solid2"],
+      names)
+volumes = sorted(round(kernel.volume(b.shape)) for b in win.document.bodies)
+check("at the plane", volumes == [9600, 14400], volumes)
+split.method.set_value("faces")
+split.all_faces.setChecked(True)
+split.preview()
+pump()
+check("Split Faces with All Faces divides every face it crosses",
+      len(win.document.bodies) == 1
+      and len(kernel.faces(win.document.shape)) == 10,
+      len(kernel.faces(win.document.shape)))
+split.all_faces.setChecked(False)
+base = win.pick_shape()
+left = min(kernel.faces(base), key=lambda f: kernel.shape_centre(f)[0])
+real_faces = vp.selected_faces
+vp.selected_faces = lambda: [left]
+split.faces_pick.set_picking(True)
+split.on_selection()
+vp.selected_faces = real_faces
+pump()
+check("or only the faces picked", len(kernel.faces(win.document.shape)) == 7,
+      len(kernel.faces(win.document.shape)))
+# a flat face of the part as the tool: the left end, cutting along X
+split.method.set_value("solid")
+vp.selected_faces = lambda: [left]
+split.tool_pick.set_picking(True)
+split.on_selection()
+vp.selected_faces = real_faces
+pump()
+check("a picked face is the tool, and the plane list stands aside",
+      len(split.feature.tool) == 1 and not split.plane.isEnabled())
+check("which misses the solid it is a face of, and says so",
+      "does not cross" in (split.feature.error or ""), split.feature.error)
+split._clear_tool()
+split.plane.setCurrentIndex(split.plane.findData(level.name))
+split.commit()
+pump()
+check("OK keeps it, saved and read back", any(
+    isinstance(f, SplitFeature) and f.mode == "solid"
+    for f in win.document.features))
+again = Document()
+again.load_dict(win.document.to_dict())
+again.rebuild()
+check("and builds the same from the file",
+      [b.name for b in again.bodies] == ["Solid1", "Solid2"],
+      [b.name for b in again.bodies])
+
 print()
 if FAILS:
     print("%d FAILURES: %s" % (len(FAILS), ", ".join(FAILS)))

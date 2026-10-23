@@ -1172,6 +1172,85 @@ def boolean_many(base: TopoDS_Shape, tools: Sequence[TopoDS_Shape],
     return heal(result)
 
 
+def _cutting_face(shape: TopoDS_Shape, origin: Sequence[float],
+                  normal: Sequence[float]) -> TopoDS_Face:
+    """A square of the plane big enough to cross the whole shape."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+
+    x0, y0, z0, x1, y1, z1 = bounding_box(shape)
+    size = math.dist((x0, y0, z0), (x1, y1, z1)) * 2.0 + 10.0
+    centre = ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (z0 + z1) / 2.0)
+    n = list(normal)
+    # the shape's middle, dropped onto the plane, is where the square goes
+    off = sum((centre[i] - origin[i]) * n[i] for i in range(3))
+    foot = [centre[i] - off * n[i] for i in range(3)]
+    plane = gp_Pln(pnt(foot), direction(normal))
+    return BRepBuilderAPI_MakeFace(plane, -size, size, -size, size).Face()
+
+
+def split_solid(shape: TopoDS_Shape, origin: Sequence[float],
+                normal: Sequence[float]) -> List[TopoDS_Shape]:
+    """The solids a plane cuts a shape into: the side the normal points to
+    first.  One solid back means the plane missed it."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
+
+    splitter = BRepAlgoAPI_Splitter()
+    arguments = TopTools_ListOfShape()
+    arguments.Append(shape)
+    tools = TopTools_ListOfShape()
+    tools.Append(_cutting_face(shape, origin, normal))
+    splitter.SetArguments(arguments)
+    splitter.SetTools(tools)
+    splitter.SetRunParallel(True)
+    splitter.SetNonDestructive(True)
+    splitter.SetFuzzyValue(1e-6)
+    splitter.Build()
+    if not splitter.IsDone():
+        raise KernelError("the split failed")
+    pieces = explore(splitter.Shape(), TopAbs_SOLID)
+
+    def side(piece):
+        c = shape_centre(piece)
+        return sum((c[i] - origin[i]) * normal[i] for i in range(3))
+
+    return sorted(pieces, key=side, reverse=True)
+
+
+def split_faces(shape: TopoDS_Shape, faces: Sequence[TopoDS_Shape],
+                origin: Sequence[float],
+                normal: Sequence[float]) -> Tuple[TopoDS_Shape, int]:
+    """The shape with these faces split where the plane crosses them, and
+    how many lines were cut.  The solid itself is one piece still."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Section
+    from OCP.BRepFeat import BRepFeat_SplitShape
+    from OCP.TopTools import TopTools_SequenceOfShape
+
+    if not faces:
+        return shape, 0
+    plane = gp_Pln(pnt(origin), direction(normal))
+    section = BRepAlgoAPI_Section(compound(list(faces)), plane, False)
+    section.ComputePCurveOn1(True)
+    section.Approximation(True)
+    section.Build()
+    if not section.IsDone():
+        raise KernelError("the plane could not be crossed with the faces")
+    cuts = explore(section.Shape(), TopAbs_EDGE)
+    if not cuts:
+        return shape, 0
+    # handed over all together: OCCT then finds each line's face itself,
+    # and a line ending where two faces meet splits both consistently
+    edges_in = TopTools_SequenceOfShape()
+    for edge in cuts:
+        edges_in.Append(edge)
+    splitter = BRepFeat_SplitShape(shape)
+    if not splitter.Add(edges_in):
+        raise KernelError("the split lines do not lie on the faces")
+    splitter.Build()
+    if not splitter.IsDone() or not is_valid(splitter.Shape()):
+        raise KernelError("the faces could not be split")
+    return splitter.Shape(), len(cuts)
+
+
 def edges_along(shape: TopoDS_Shape, guides: Sequence[TopoDS_Shape],
                 tol: float = 1e-3) -> List[TopoDS_Edge]:
     """The edges of a shape that lie along some guide edges.
