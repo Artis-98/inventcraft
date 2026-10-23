@@ -11,6 +11,7 @@ InventCraft.
 [**Download for Windows and Linux**](https://datum.iiteg.com) &nbsp;·&nbsp;
 [datum.iiteg.com](https://datum.iiteg.com) &nbsp;·&nbsp;
 [Changelog](https://datum.iiteg.com/changelog.html) &nbsp;·&nbsp;
+[Contributors](CONTRIBUTORS.md) &nbsp;·&nbsp;
 MIT licensed
 
 ![InventCraft](docs/screenshot.png)

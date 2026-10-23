@@ -2736,7 +2736,17 @@ class Viewport(QtWidgets.QWidget):
         reports 1.5x the widget size, so neither 1.0 nor the device ratio
         (3.0) is right there either.  The window itself is asked whenever
         it exists; the platform rules below are only the fallback.
+
+        Only on macOS.  Elsewhere the device ratio is exactly right, and
+        the window is not a safe thing to ask: while the view is being
+        set up it has not taken its final size yet, and on Windows the
+        view cube was measured then and drawn at 45 pixels instead of 64.
         """
+        if sys.platform != "darwin":
+            try:
+                return self.devicePixelRatioF() or 1.0
+            except Exception:
+                return 1.0
         try:
             view = getattr(self, "view", None)
             if view is not None and self.width() > 0:
@@ -2749,12 +2759,7 @@ class Viewport(QtWidgets.QWidget):
                         return ratio
         except Exception:
             pass
-        if sys.platform == "darwin":
-            return 1.0
-        try:
-            return self.devicePixelRatioF() or 1.0
-        except Exception:
-            return 1.0
+        return 1.0
 
     def _px(self, x: float, y: float) -> Tuple[int, int]:
         """A widget position as OCCT counts pixels.
@@ -3142,6 +3147,9 @@ class Viewport(QtWidgets.QWidget):
             self.section_drag_pressed.emit()
         elif event.button() == QtCore.Qt.LeftButton:
             left_nav = self.navigation_for(event.button(), mods)
+            # whatever the last press was, this one starts afresh: a release
+            # that never arrived must not swallow the next click's
+            self._cube_pressed = False
             if self.plane_mode:
                 if self.cube_click(pos.x(), pos.y()):
                     self._cube_pressed = True
@@ -3437,10 +3445,6 @@ class Viewport(QtWidgets.QWidget):
                                                       event.modifiers())
                 self._dragging_plane = False
                 self._drag_armed = False
-            elif not moved and self.cube_click(pos.x(), pos.y()):
-                # the orientation gizmo took it: the view has snapped and
-                # there is nothing to select
-                pass
             elif not moved:
                 scheme = (AIS_SelectionScheme.AIS_SelectionScheme_XOR
                           if event.modifiers() & QtCore.Qt.ControlModifier

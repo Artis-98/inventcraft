@@ -21,9 +21,10 @@ Issues and pull requests go to
 
 ## Getting it running
 
-You need Python 3.14. InventCraft is developed on Windows; Linux should mostly
-work from source but is not tested yet, and reports from Linux are very
-welcome.
+You need Python 3.14. InventCraft is developed on Windows and released for
+Windows and Linux. It runs on macOS from source too, thanks to
+[@calumk](https://github.com/calumk), and reports from Linux and macOS are
+very welcome.
 
 ```bash
 python -m venv .venv
@@ -96,6 +97,10 @@ setting, turn it on.
   maintainer's machine.
 - By contributing you agree that your work is released under the
   [MIT licence](LICENSE), like the rest of InventCraft.
+
+Everyone whose pull request is merged is listed in
+[CONTRIBUTORS.md](CONTRIBUTORS.md), and shows on the repository's
+contributors list once their commits are in.
 
 Not sure about something? Open an issue and ask. There are no silly
 questions here.

@@ -25,6 +25,8 @@ binaries = collect_dynamic_libs("OCP")
 datas = [
     (str(ROOT / "datum" / "templates"), "datum/templates"),
     (str(ROOT / "datum" / "ui" / "assets"), "datum/ui/assets"),
+    # the beaver, for the window, the Dock and the start page
+    (str(ROOT / "datum" / "ui" / "brand"), "datum/ui/brand"),
 ]
 
 excluded_qt = [
