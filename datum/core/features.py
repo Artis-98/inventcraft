@@ -1743,19 +1743,46 @@ class MirrorFeature(Feature):
     icon: str = "mirror"
     name: str = "Mirror"
     plane: str = "XY"
-    scope: str = "body"          # body / features
+    scope: str = "body"          # body (solids) / features
     parents: List[int] = field(default_factory=list)
+    # a flat face of the part as the mirror plane, which wins when set
+    plane_ref: RefSet = field(default_factory=RefSet)
+    # the solids mirrored, by name; none means the whole part, as before
+    solids: List[str] = field(default_factory=list)
 
     def depends_on(self) -> List[int]:
         return list(self.parents) if self.scope == "features" else []
 
-    def build(self, ctx: BuildContext) -> None:
-        body = ctx.require_shape(self.name)
+    def mirror_plane(self, ctx: BuildContext):
+        if len(self.plane_ref):
+            found, _lost = self.plane_ref.resolve_all(ctx.shape)
+            plane = plane_from_face(found[0]) if found else None
+            if plane is None:
+                raise FeatureError("%s: the face it mirrors about is gone "
+                                   "or not flat" % self.name)
+            return plane
         plane = ctx.planes.get(self.plane)
         if plane is None:
             raise FeatureError("%s: plane %s no longer exists"
                                % (self.name, self.plane))
+        return plane
 
+    def build(self, ctx: BuildContext) -> None:
+        body = ctx.require_shape(self.name)
+        plane = self.mirror_plane(ctx)
+
+        if self.scope == "body" and self.solids:
+            made = []
+            for name in self.solids:
+                solid = ctx.body(name)
+                if solid is None or not solid.valid:
+                    raise FeatureError("%s: the solid %s no longer exists"
+                                       % (self.name, name))
+                copy = kernel.mirror(solid.shape, plane)
+                solid.shape = kernel.combine(solid.shape, copy, JOIN)
+                made.append((copy, JOIN))
+            remember_tools(ctx, self.id, made)
+            return
         if self.scope == "body":
             copy = kernel.mirror(body, plane)
             ctx.shape = kernel.boolean(body, copy, "join")
@@ -1786,16 +1813,53 @@ class MirrorFeature(Feature):
         remember_tools(ctx, self.id, made)
 
     def summary(self) -> str:
-        return "%s: about %s (%s)" % (self.name, self.plane, self.scope)
+        about = "a face" if len(self.plane_ref) else self.plane
+        what = ("features" if self.scope == "features" else
+                ", ".join(self.solids) if self.solids else "the part")
+        return "%s: %s about %s" % (self.name, what, about)
 
     def field_dict(self) -> Dict[str, Any]:
         return {"plane": self.plane, "scope": self.scope,
-                "parents": list(self.parents)}
+                "parents": list(self.parents),
+                "plane_ref": self.plane_ref.to_list(),
+                "solids": list(self.solids)}
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.plane = data.get("plane", "XY")
         self.scope = data.get("scope", "body")
         self.parents = [int(i) for i in data.get("parents", [])]
+        self.plane_ref = RefSet.from_list(data.get("plane_ref", []))
+        self.solids = [str(n) for n in (data.get("solids") or []) if n]
+
+
+def axis_from_shape(shape) -> Optional[WorkAxis]:
+    """A line from something picked: a straight edge runs along itself, a
+    round edge or face turns about its centre line, a flat face points out
+    of itself.  None for anything else."""
+    from .constraints3d import AXIS, PLANE, frame_from_shape
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_CurveType
+    from OCP.TopAbs import TopAbs_EDGE
+
+    if shape is None:
+        return None
+    if shape.ShapeType() == TopAbs_EDGE:
+        try:
+            curve = BRepAdaptor_Curve(TopoDS.Edge_s(shape))
+            if curve.GetType() == GeomAbs_CurveType.GeomAbs_Line:
+                start = curve.Value(curve.FirstParameter())
+                end = curve.Value(curve.LastParameter())
+                d = (end.X() - start.X(), end.Y() - start.Y(),
+                     end.Z() - start.Z())
+                return WorkAxis((start.X(), start.Y(), start.Z()),
+                                _unit(d), "edge")
+        except Exception:
+            return None
+    frame = frame_from_shape(shape)
+    if frame is not None and frame.kind in (AXIS, PLANE):
+        return WorkAxis(tuple(frame.origin), _unit(frame.direction),
+                        frame.label)
+    return None
 
 
 @dataclass
@@ -1939,6 +2003,15 @@ class PatternFeature(Feature):
     of: str = "features"            # features / bodies
     bodies: List[str] = field(default_factory=list)
     copies: str = JOIN              # join / new
+    # a straight edge, a round edge or face, or a flat face picked in the
+    # view for a direction or the axis; each wins over its name when set
+    dir1_ref: RefSet = field(default_factory=RefSet)
+    dir2_ref: RefSet = field(default_factory=RefSet)
+    axis_ref: RefSet = field(default_factory=RefSet)
+    # Inventor's flip buttons: the first direction (or the turn) and the
+    # second the other way
+    flip1: bool = False
+    flip2: bool = False
 
     def depends_on(self) -> List[int]:
         return list(self.parents) if self.of == "features" else []
@@ -2015,16 +2088,27 @@ class PatternFeature(Feature):
             body.shape = kernel.unify(
                 kernel.boolean_many(original, copies, JOIN))
 
-    def _axis(self, ctx: BuildContext, name: str) -> WorkAxis:
-        """An origin axis or a work axis, by name.
+    def _axis(self, ctx: BuildContext, name: str,
+              ref: Optional[RefSet] = None, flip: bool = False) -> WorkAxis:
+        """An origin axis or a work axis, by name, or what was picked.
 
         Directions and the rotation axis used to be X, Y or Z only, which
         are the origin axes' own names, so files written then still read.
         """
-        axis = ctx.axes.get(name)
-        if axis is None:
-            raise FeatureError("%s: axis %s no longer exists"
-                               % (self.name, name))
+        if ref is not None and len(ref):
+            found, _lost = ref.resolve_all(ctx.shape)
+            axis = axis_from_shape(found[0]) if found else None
+            if axis is None:
+                raise FeatureError("%s: the edge or face it runs along is "
+                                   "gone" % self.name)
+        else:
+            axis = ctx.axes.get(name)
+            if axis is None:
+                raise FeatureError("%s: axis %s no longer exists"
+                                   % (self.name, name))
+        if flip:
+            axis = WorkAxis(axis.origin, tuple(-c for c in axis.direction),
+                            axis.name)
         return axis
 
     def _rect_placements(self, ctx: BuildContext) -> List[Callable]:
@@ -2032,8 +2116,10 @@ class PatternFeature(Feature):
         n2 = max(1, int(round(ctx.evaluate(self.count2, "%s count" % self.name))))
         s1 = ctx.evaluate(self.spacing1, "%s spacing" % self.name)
         s2 = ctx.evaluate(self.spacing2, "%s spacing" % self.name)
-        d1 = _unit(self._axis(ctx, self.dir1).direction)
-        d2 = _unit(self._axis(ctx, self.dir2).direction) if n2 > 1 else d1
+        d1 = _unit(self._axis(ctx, self.dir1, self.dir1_ref,
+                              self.flip1).direction)
+        d2 = (_unit(self._axis(ctx, self.dir2, self.dir2_ref,
+                               self.flip2).direction) if n2 > 1 else d1)
 
         out = []
         for i in range(n1):
@@ -2047,7 +2133,7 @@ class PatternFeature(Feature):
         total = 360.0 if self.full_circle else ctx.evaluate(
             self.angle, "%s angle" % self.name)
         # round the axis itself, wherever it is, not round the origin
-        about = self._axis(ctx, self.axis)
+        about = self._axis(ctx, self.axis, self.axis_ref, self.flip1)
         origin, axis = about.origin, _unit(about.direction)
         step = total / n if self.full_circle else (total / max(1, n - 1))
 
@@ -2076,6 +2162,10 @@ class PatternFeature(Feature):
             "full_circle": self.full_circle,
             "of": self.of, "bodies": list(self.bodies),
             "copies": self.copies,
+            "dir1_ref": self.dir1_ref.to_list(),
+            "dir2_ref": self.dir2_ref.to_list(),
+            "axis_ref": self.axis_ref.to_list(),
+            "flip1": self.flip1, "flip2": self.flip2,
         }
 
     def load_fields(self, data: Dict[str, Any]) -> None:
@@ -2093,6 +2183,11 @@ class PatternFeature(Feature):
         self.of = "bodies" if data.get("of") == "bodies" else "features"
         self.bodies = [str(n) for n in (data.get("bodies") or []) if n]
         self.copies = NEW_BODY if data.get("copies") == NEW_BODY else JOIN
+        self.dir1_ref = RefSet.from_list(data.get("dir1_ref", []))
+        self.dir2_ref = RefSet.from_list(data.get("dir2_ref", []))
+        self.axis_ref = RefSet.from_list(data.get("axis_ref", []))
+        self.flip1 = bool(data.get("flip1", False))
+        self.flip2 = bool(data.get("flip2", False))
 
 
 @dataclass

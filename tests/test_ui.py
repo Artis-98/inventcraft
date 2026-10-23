@@ -234,11 +234,8 @@ check("boss joined on", boss_volume > after_fillet, boss_volume)
 cylinder_id = win.document.features[-1].id
 win.new_feature(PatternFeature)
 dlg = win._active_dialog
-dlg.mode.setCurrentIndex(0)
-for i in range(dlg.parents.count()):
-    item = dlg.parents.item(i)
-    if item.data(QtCore.Qt.UserRole) == cylinder_id:
-        item.setCheckState(QtCore.Qt.Checked)
+dlg.kind.set_value("rectangular")
+dlg.parents.toggle(cylinder_id)
 dlg.count1.set_text("3")
 dlg.spacing1.set_text("15")
 dlg.preview()
@@ -250,8 +247,8 @@ pump()
 
 win.new_feature(MirrorFeature)
 dlg = win._active_dialog
-dlg.scope.setCurrentIndex(0)
-dlg.plane.setCurrentIndex(dlg.plane.findData("YZ"))
+dlg.scope.set_value("body")
+dlg.plane.set_name("YZ")
 dlg.preview()
 pump()
 check("mirror produced a bigger body", volume() > patterned, volume())

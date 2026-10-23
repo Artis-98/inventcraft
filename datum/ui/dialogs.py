@@ -89,7 +89,16 @@ class FeatureDialog(QtWidgets.QDialog):
         root.addLayout(header)
 
         self.form = FormRows()
-        root.addWidget(self.form)
+        # Inventor's strip of buttons down the right of a dialog: what kind
+        # of thing it works on, which kind of pattern
+        body = QtWidgets.QHBoxLayout()
+        body.setSpacing(10)
+        body.addWidget(self.form, 1)
+        self.side = QtWidgets.QVBoxLayout()
+        self.side.setSpacing(6)
+        body.addLayout(self.side)
+        root.addLayout(body)
+        self._pick_fields: List[SelectionField] = []
 
         self.status = QtWidgets.QLabel("")
         self.status.setProperty("hint", True)
@@ -131,10 +140,165 @@ class FeatureDialog(QtWidgets.QDialog):
 
     def wants_selection(self) -> Optional[str]:
         """Viewport selection mode to use while this dialog is open."""
-        return None
+        field = self.armed_picker()
+        return getattr(field, "pick_mode", None) if field else None
+
+    # -- pick fields ----------------------------------------------------------
+    #
+    # Inventor picks what a feature works on in the view or the browser,
+    # rather than off a list of everything there is: a field switched on,
+    # a click on the thing, and the field counts what it has.  One field is
+    # switched on at a time.
+
+    def picker(self, label: str, noun: str, mode: str,
+               on_view: Callable, on_tree: Optional[Callable] = None
+               ) -> SelectionField:
+        """A pick field: ``on_view(shapes)`` for picks in the view in
+        ``mode``, ``on_tree(kind, key)`` for a click in the tree, which says
+        whether it was taken."""
+        field = SelectionField(label)
+        field.pick_mode = mode
+        field.noun = noun
+        field.on_view = on_view
+        field.on_tree = on_tree
+        field.pick_toggled.connect(
+            lambda on, f=field: self._picker_toggled(f, on))
+        self._pick_fields.append(field)
+        return field
+
+    def armed_picker(self) -> Optional[SelectionField]:
+        return next((f for f in self._pick_fields if f.picking), None)
+
+    def _picker_toggled(self, field: SelectionField, on: bool) -> None:
+        if on:
+            for other in self._pick_fields:
+                if other is not field and other.picking:
+                    other.blockSignals(True)
+                    other.set_picking(False)
+                    other.blockSignals(False)
+            profiles = getattr(self, "profiles", None)
+            if profiles is not None and profiles.picking:
+                profiles.set_picking(False)
+            self.host.set_pick_mode(field.pick_mode)
+        elif self.armed_picker() is None:
+            self.host.set_pick_mode(None)
+
+    def arm(self, field: Optional[SelectionField]) -> None:
+        if field is None:
+            armed = self.armed_picker()
+            if armed is not None:
+                armed.set_picking(False)
+        else:
+            field.set_picking(True)
 
     def on_selection(self) -> None:
-        """Called when the viewport selection changes."""
+        field = self.armed_picker()
+        if field is None or self._in_selection:
+            return
+        shapes = self.host.viewport.selected_shapes()
+        if not shapes:
+            return
+        self._in_selection = True
+        try:
+            field.on_view(shapes)
+            self.host.viewport.clear_selection()
+        finally:
+            self._in_selection = False
+        self.preview()
+
+    def on_tree_pick(self, kind: str, key: str) -> bool:
+        """A click in the design tree while a pick field is on."""
+        field = self.armed_picker()
+        if field is None or field.on_tree is None:
+            return False
+        if not field.on_tree(kind, key):
+            return False
+        self.preview()
+        return True
+
+    def feature_picker(self, kinds, selected: List[int]) -> SelectionField:
+        """Features, picked in the tree or by a face they made in the view."""
+        self._picked_features = [fid for fid in selected
+                                 if self.doc.feature(fid) is not None]
+        index = self.doc.index_of(self.feature.id)
+
+        def usable(fid) -> bool:
+            f = self.doc.feature(fid)
+            return (f is not None and self.doc.index_of(fid) < index
+                    and not isinstance(f, SketchFeature)
+                    and (not kinds or isinstance(f, kinds)))
+
+        def toggle(fid) -> bool:
+            if not usable(fid):
+                return False
+            if fid in self._picked_features:
+                self._picked_features.remove(fid)
+            else:
+                self._picked_features.append(fid)
+            field.set_count(len(self._picked_features), "feature")
+            return True
+
+        def from_view(shapes):
+            from OCP.TopAbs import TopAbs_FACE
+            for shape in shapes:
+                if shape.ShapeType() == TopAbs_FACE:
+                    fid = self.doc.feature_of_face(shape, self.feature.id)
+                    if fid is not None:
+                        toggle(fid)
+
+        def from_tree(kind, key):
+            return kind == "feature" and toggle(int(key))
+
+        field = self.picker("Select features", "feature", "face",
+                            from_view, from_tree)
+        field.toggle = toggle
+        field.cleared.connect(lambda: (self._picked_features.clear(),
+                                       field.set_count(0, "feature"),
+                                       self.preview()))
+        field.setToolTip("Pick the features in the tree, or click a face "
+                         "one of them made")
+        field.set_count(len(self._picked_features), "feature")
+        return field
+
+    def picked_features(self, _field=None) -> List[int]:
+        return list(getattr(self, "_picked_features", []))
+
+    def solids_picker(self, selected: List[str]) -> SelectionField:
+        """Solids, picked by any face of theirs or their row in the tree."""
+        self._picked_solids = list(selected)
+        names = (self.doc.bodies_before(self.feature.id)
+                 if hasattr(self.doc, "bodies_before") else [])
+
+        def toggle(name) -> bool:
+            if name not in names and name not in self._picked_solids:
+                return False
+            if name in self._picked_solids:
+                self._picked_solids.remove(name)
+            else:
+                self._picked_solids.append(name)
+            field.set_count(len(self._picked_solids), "solid")
+            return True
+
+        def from_view(shapes):
+            for shape in shapes:
+                name = self.doc.solid_of(shape, self.feature.id)
+                if name is not None:
+                    toggle(name)
+
+        def from_tree(kind, key):
+            return kind == "body" and toggle(str(key))
+
+        field = self.picker("Select solids", "solid", "face", from_view,
+                            from_tree)
+        field.toggle = toggle
+        field.names = names
+        field.cleared.connect(lambda: (self._picked_solids.clear(),
+                                       field.set_count(0, "solid"),
+                                       self.preview()))
+        field.setToolTip("Pick a solid by any of its faces, or by its row "
+                         "under Solid Bodies in the tree")
+        field.set_count(len(self._picked_solids), "solid")
+        return field
 
     # -- plumbing -----------------------------------------------------------
 
@@ -266,6 +430,12 @@ class FeatureDialog(QtWidgets.QDialog):
         self.on_profile_clicked(best["sketch_id"], best["centre"])
 
     def _toggle_profile_pick(self, on: bool) -> None:
+        if on:
+            for field in self._pick_fields:
+                if field.picking:
+                    field.blockSignals(True)
+                    field.set_picking(False)
+                    field.blockSignals(False)
         self.host.set_profile_pick(self if on else None)
 
     def _clear_profiles(self) -> None:
@@ -340,21 +510,14 @@ class FeatureDialog(QtWidgets.QDialog):
                  if hasattr(self.doc, "bodies_before") else [])
         names += [n for n in self.feature.solids if n not in names]
         self.solids = None
+        self._picked_solids = list(self.feature.solids)
         if len(names) < 2:
             return
-        self.solids = QtWidgets.QListWidget()
-        self.solids.setMaximumHeight(92)
+        self.solids = self.solids_picker(self.feature.solids)
         self.solids.setToolTip(
-            "The solids this works on. None ticked: the one it meets. A "
-            "join fuses the new material and every ticked solid into one.")
-        for name in names:
-            item = QtWidgets.QListWidgetItem(icons.icon("box", 15), name)
-            item.setData(QtCore.Qt.UserRole, name)
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Checked if name in self.feature.solids
-                               else QtCore.Qt.Unchecked)
-            self.solids.addItem(item)
-        self.solids.itemChanged.connect(lambda _i: self.preview())
+            "The solids this works on, picked by a face or in the tree. "
+            "None picked: the one it meets. A join fuses the new material "
+            "and every picked solid into one.")
         self.form.add("Solids", self.solids)
 
     def _sync_solids(self) -> None:
@@ -366,14 +529,7 @@ class FeatureDialog(QtWidgets.QDialog):
         self.form.set_visible(self.solids, operation != NEW_BODY)
 
     def picked_solids(self) -> List[str]:
-        if getattr(self, "solids", None) is None:
-            return list(self.feature.solids)
-        out = []
-        for i in range(self.solids.count()):
-            item = self.solids.item(i)
-            if item.checkState() == QtCore.Qt.Checked:
-                out.append(str(item.data(QtCore.Qt.UserRole)))
-        return out
+        return list(getattr(self, "_picked_solids", self.feature.solids))
 
     def load_boolean(self) -> None:
         if getattr(self, "operation", None) is not None:
@@ -430,26 +586,8 @@ class FeatureDialog(QtWidgets.QDialog):
         self.bind(combo)
         return combo
 
-    def feature_picker(self, kinds, selected: List[int]) -> QtWidgets.QListWidget:
-        """A checklist of earlier features, for pattern / mirror parents."""
-        widget = QtWidgets.QListWidget()
-        widget.setMaximumHeight(110)
-        index = self.doc.index_of(self.feature.id)
-        for f in self.doc.features:
-            if self.doc.index_of(f.id) >= index or isinstance(f, SketchFeature):
-                continue
-            if kinds and not isinstance(f, kinds):
-                continue
-            item = QtWidgets.QListWidgetItem(icons.icon(f.icon, 15), f.name)
-            item.setData(QtCore.Qt.UserRole, f.id)
-            item.setCheckState(QtCore.Qt.Checked if f.id in selected
-                               else QtCore.Qt.Unchecked)
-            widget.addItem(item)
-        widget.itemChanged.connect(lambda _i: self.preview())
-        return widget
-
     @staticmethod
-    def picked_features(widget: QtWidgets.QListWidget) -> List[int]:
+    def checked_features(widget: QtWidgets.QListWidget) -> List[int]:
         out = []
         for i in range(widget.count()):
             item = widget.item(i)
@@ -872,7 +1010,7 @@ class LoftDialog(FeatureDialog):
         self.load_boolean()
 
     def store(self):
-        self.feature.sections = self.picked_features(self.sections)
+        self.feature.sections = self.checked_features(self.sections)
         self.feature.ruled = self.ruled.isChecked()
         self.feature.closed = True
         self.store_boolean()
@@ -1150,42 +1288,172 @@ class ShellDialog(FeatureDialog):
         self.feature.thickness = self.thickness.text()
 
 
+class AxisField(QtWidgets.QWidget):
+    """Inventor's direction pick: quick buttons for the origin's own, or
+    something picked in the view or the tree, and a flip.
+
+    For a direction or an axis the buttons are X, Y and Z and a pick is a
+    straight edge, a round edge or face, a flat face or a work axis; for a
+    mirror plane they are XY, XZ and YZ and a pick is a flat face or a
+    work plane.  A pick wins over a name, the way the feature reads it.
+    """
+
+    changed = QtCore.Signal()
+
+    def __init__(self, dialog: "FeatureDialog", names, noun: str,
+                 tree_kind: str, flip: bool = True) -> None:
+        super().__init__()
+        self.dialog = dialog
+        self.noun = noun
+        self.tree_kind = tree_kind
+        self.name = names[0]
+        self.ref = RefSet()
+        self.flipped = False
+        row = QtWidgets.QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(3)
+        self.buttons: Dict[str, QtWidgets.QToolButton] = {}
+        for name in names:
+            button = QtWidgets.QToolButton()
+            button.setText(name)
+            button.setCheckable(True)
+            button.setFixedSize(30, 26)
+            button.setToolTip("The origin's %s %s" % (name, noun))
+            button.clicked.connect(lambda _=False, n=name: self.set_name(n))
+            row.addWidget(button)
+            self.buttons[name] = button
+        mode = "project" if noun != "plane" else "face"
+        self.pick = dialog.picker("Select", noun, mode, self._from_view,
+                                  self._from_tree)
+        self.pick.button.setMinimumWidth(72)
+        self.pick.cleared.connect(lambda: self.set_name(names[0]))
+        self.pick.setToolTip(
+            "Pick %s in the view or the tree" % (
+                "a flat face or a work plane" if noun == "plane" else
+                "a straight edge, a round edge or face, a flat face or a "
+                "work axis"))
+        row.addWidget(self.pick, 1)
+        self.flip_button = None
+        if flip:
+            self.flip_button = QtWidgets.QToolButton()
+            self.flip_button.setIcon(icons.icon("dir_flipped", 18))
+            self.flip_button.setCheckable(True)
+            self.flip_button.setFixedSize(30, 26)
+            self.flip_button.setToolTip("Flip: the other way")
+            self.flip_button.toggled.connect(self._flip)
+            row.addWidget(self.flip_button)
+        self._show()
+
+    def set_name(self, name: str) -> None:
+        self.name = name
+        self.ref = RefSet()
+        self._show()
+        self.changed.emit()
+
+    def set_value(self, name: str, ref: RefSet, flipped: bool = False) -> None:
+        self.name = name or self.name
+        self.ref = ref if ref is not None else RefSet()
+        self.flipped = flipped
+        if self.flip_button is not None:
+            self.flip_button.blockSignals(True)
+            self.flip_button.setChecked(flipped)
+            self.flip_button.blockSignals(False)
+        self._show()
+
+    def _flip(self, on: bool) -> None:
+        self.flipped = on
+        self.changed.emit()
+
+    def _show(self) -> None:
+        picked = bool(len(self.ref))
+        for name, button in self.buttons.items():
+            button.setChecked(not picked and name == self.name)
+        if picked:
+            text = "a picked %s" % ("face" if self.noun == "plane"
+                                    else "edge or face")
+        elif self.name in self.buttons:
+            text = "%s %s" % (self.name, self.noun)
+        else:
+            text = self.name
+        self.pick.count.setText(text)
+        self.pick.count.setStyleSheet("color: %s;" % C.ok)
+
+    def _from_view(self, shapes) -> None:
+        from ..core.features import axis_from_shape, plane_from_face
+        from OCP.TopAbs import TopAbs_FACE
+        base = self.dialog.host.pick_shape()
+        if base is None:
+            return
+        for shape in shapes:
+            if self.noun == "plane":
+                if (shape.ShapeType() != TopAbs_FACE
+                        or plane_from_face(shape) is None):
+                    continue
+                kind = "face"
+            else:
+                if axis_from_shape(shape) is None:
+                    continue
+                kind = ("face" if shape.ShapeType() == TopAbs_FACE
+                        else "edge")
+            ref = RefSet()
+            ref.capture_from(base, kind, [shape])
+            if len(ref):
+                self.ref = ref
+                self._show()
+                self.pick.set_picking(False)
+                self.changed.emit()
+                return
+
+    def _from_tree(self, kind: str, key: str) -> bool:
+        from ..core.features import WorkAxisFeature, WorkPlaneFeature
+        if kind == "feature":
+            # a work axis or work plane is a feature row of its own
+            try:
+                made = self.dialog.doc.feature(int(key))
+            except (TypeError, ValueError):
+                made = None
+            wanted = (WorkPlaneFeature if self.noun == "plane"
+                      else WorkAxisFeature)
+            if not isinstance(made, wanted):
+                return False
+            key = made.name
+        elif kind != self.tree_kind:
+            return False
+        self.set_name(str(key))
+        self.pick.set_picking(False)
+        return True
+
+
 class PatternDialog(FeatureDialog):
+    """Inventor's Rectangular and Circular Pattern, in one dialog.
+
+    The strip down the right says what is patterned, features or solids,
+    and which kind of pattern; the features or solids are picked, and so
+    are the directions and the axis, with X, Y and Z a click away.
+    """
+
+    KINDS = [("rectangular", "pattern", "Rectangular Pattern"),
+             ("circular", "pattern_circ", "Circular Pattern")]
+    WHAT = [("features", "extrude", "Pattern features"),
+            ("bodies", "box", "Pattern solids")]
+
     def __init__(self, host, feature, is_new, snapshot=None):
         super().__init__(host, feature, "Pattern", "pattern", is_new, snapshot)
 
     def build(self):
-        self.mode = QtWidgets.QComboBox()
-        self.mode.addItem(icons.icon("pattern", 15), "Rectangular", "rectangular")
-        self.mode.addItem(icons.icon("pattern_circ", 15), "Circular", "circular")
-        self.bind(self.mode)
-        self.form.add("Type", self.mode)
-
-        self.of = QtWidgets.QComboBox()
-        self.of.addItem(icons.icon("feature", 15), "Features", "features")
-        self.of.addItem(icons.icon("box", 15), "Solid bodies", "bodies")
-        self.of.setToolTip(
-            "Pattern the features that made something, or whole solid "
-            "bodies, everything done to them included")
-        self.bind(self.of)
-        self.form.add("Pattern", self.of)
+        self.of = SegmentedControl(self.WHAT, vertical=True)
+        self.side.addWidget(self.of)
+        self.side.addSpacing(10)
+        self.kind = SegmentedControl(self.KINDS, vertical=True)
+        self.side.addWidget(self.kind)
+        self.side.addStretch(1)
+        self.of.changed.connect(lambda _k: (self._sync_of(), self.preview()))
+        self.kind.changed.connect(lambda _k: (self._sync_enabled(),
+                                              self.preview()))
 
         self.parents = self.feature_picker(None, self.feature.parents)
         self.form.add("Features", self.parents)
-
-        self.bodies = QtWidgets.QListWidget()
-        self.bodies.setMaximumHeight(110)
-        names = (self.doc.bodies_before(self.feature.id)
-                 if hasattr(self.doc, "bodies_before") else [])
-        names += [n for n in self.feature.bodies if n not in names]
-        for name in names:
-            item = QtWidgets.QListWidgetItem(icons.icon("box", 15), name)
-            item.setData(QtCore.Qt.UserRole, name)
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Checked if name in self.feature.bodies
-                               else QtCore.Qt.Unchecked)
-            self.bodies.addItem(item)
-        self.bodies.itemChanged.connect(lambda _i: self.preview())
+        self.bodies = self.solids_picker(self.feature.bodies)
         self.form.add("Solids", self.bodies)
 
         self.copies = QtWidgets.QComboBox()
@@ -1194,134 +1462,144 @@ class PatternDialog(FeatureDialog):
         self.bind(self.copies)
         self.form.add("Copies", self.copies)
 
-        self.of.currentIndexChanged.connect(lambda _i: self._sync_of())
-
-        self.form.add_separator()
-
+        self.form.add_section("Direction 1")
+        self.dir1 = AxisField(self, ("X", "Y", "Z"), "axis", "axis")
+        self.dir1.changed.connect(self.preview)
+        self.form.add("Direction", self.dir1)
         self.count1 = self.expression(self.feature.count1, "")
         self.form.add("Count", self.count1)
-
-        self.dir1 = self.axis_combo()
-        self.bind(self.dir1)
-        self.form.add("Direction", self.dir1)
-
         self.spacing1 = self.expression(self.feature.spacing1)
         self.form.add("Spacing", self.spacing1)
 
-        self.form.add_separator()
-
+        self.form.add_section("Direction 2")
+        self.dir2 = AxisField(self, ("X", "Y", "Z"), "axis", "axis")
+        self.dir2.changed.connect(self.preview)
+        self.form.add("Direction", self.dir2)
         self.count2 = self.expression(self.feature.count2, "")
-        self.form.add("Count 2", self.count2)
-
-        self.dir2 = self.axis_combo()
-        self.bind(self.dir2)
-        self.form.add("Direction 2", self.dir2)
-
+        self.form.add("Count", self.count2)
         self.spacing2 = self.expression(self.feature.spacing2)
-        self.form.add("Spacing 2", self.spacing2)
+        self.form.add("Spacing", self.spacing2)
 
-        self.form.add_separator()
-
-        self.axis = self.axis_combo()
-        self.bind(self.axis)
-        self.form.add("Rotation axis", self.axis)
-
+        self.form.add_section("Rotation")
+        self.axis = AxisField(self, ("X", "Y", "Z"), "axis", "axis")
+        self.axis.changed.connect(self.preview)
+        self.form.add("Axis", self.axis)
         self.full = QtWidgets.QCheckBox("Full circle")
         self.bind(self.full)
         self.form.add("", self.full)
-
         self.angle = self.expression(self.feature.angle, "deg")
-        self.form.add("Total angle", self.angle)
-
-        self.mode.currentIndexChanged.connect(self._sync_enabled)
-        self.full.toggled.connect(self._sync_enabled)
+        self.form.add("Angle", self.angle)
+        self.full.toggled.connect(lambda _on: self._sync_enabled())
 
     def _sync_enabled(self):
-        rect = self.mode.currentData() == "rectangular"
-        for w in (self.dir1, self.spacing1, self.count2, self.dir2,
-                  self.spacing2):
-            w.setEnabled(rect)
-        self.axis.setEnabled(not rect)
-        self.full.setEnabled(not rect)
-        self.angle.setEnabled(not rect and not self.full.isChecked())
+        rect = self.kind.value() == "rectangular"
+        for w in (self.dir1, self.count1, self.spacing1, self.dir2,
+                  self.count2, self.spacing2):
+            self.form.set_visible(w, rect)
+        for w in (self.axis, self.full, self.angle):
+            self.form.set_visible(w, not rect)
+        self.form.set_section_visible("Direction 1", rect)
+        self.form.set_section_visible("Direction 2", rect)
+        self.form.set_section_visible("Rotation", not rect)
+        self.angle.setEnabled(not self.full.isChecked())
+        # the count of a circular pattern is its only count
+        if not rect:
+            self.form.set_visible(self.count1, True)
 
     def _sync_of(self):
-        bodies = self.of.currentData() == "bodies"
+        bodies = self.of.value() == "bodies"
         self.form.set_visible(self.parents, not bodies)
         self.form.set_visible(self.bodies, bodies)
         self.form.set_visible(self.copies, bodies)
 
     def load(self):
-        pos = self.mode.findData(self.feature.mode)
-        self.mode.setCurrentIndex(max(0, pos))
-        self.of.setCurrentIndex(max(0, self.of.findData(self.feature.of)))
+        self.kind.set_value(self.feature.mode)
+        self.of.set_value(self.feature.of)
         self.copies.setCurrentIndex(
             max(0, self.copies.findData(self.feature.copies)))
-        self._sync_of()
         self.count1.set_text(self.feature.count1)
         self.spacing1.set_text(self.feature.spacing1)
         self.count2.set_text(self.feature.count2)
         self.spacing2.set_text(self.feature.spacing2)
         self.angle.set_text(self.feature.angle)
         self.full.setChecked(self.feature.full_circle)
-        for combo, value in ((self.dir1, self.feature.dir1),
-                             (self.dir2, self.feature.dir2),
-                             (self.axis, self.feature.axis)):
-            p = combo.findData(value)
-            combo.setCurrentIndex(max(0, p))
+        self.dir1.set_value(self.feature.dir1, self.feature.dir1_ref,
+                            self.feature.flip1)
+        self.dir2.set_value(self.feature.dir2, self.feature.dir2_ref,
+                            self.feature.flip2)
+        self.axis.set_value(self.feature.axis, self.feature.axis_ref,
+                            self.feature.flip1)
+        self._sync_of()
         self._sync_enabled()
 
     def store(self):
-        self.feature.mode = self.mode.currentData()
-        self.feature.of = self.of.currentData() or "features"
+        self.feature.mode = self.kind.value()
+        self.feature.of = self.of.value() or "features"
         self.feature.copies = self.copies.currentData() or JOIN
-        self.feature.bodies = [
-            str(self.bodies.item(i).data(QtCore.Qt.UserRole))
-            for i in range(self.bodies.count())
-            if self.bodies.item(i).checkState() == QtCore.Qt.Checked]
-        self.feature.parents = self.picked_features(self.parents)
+        self.feature.bodies = self.picked_solids()
+        self.feature.parents = self.picked_features()
         self.feature.count1 = self.count1.text()
         self.feature.spacing1 = self.spacing1.text()
-        self.feature.dir1 = self.dir1.currentData()
         self.feature.count2 = self.count2.text()
         self.feature.spacing2 = self.spacing2.text()
-        self.feature.dir2 = self.dir2.currentData()
-        self.feature.axis = self.axis.currentData()
         self.feature.angle = self.angle.text()
         self.feature.full_circle = self.full.isChecked()
+        rect = self.feature.mode == "rectangular"
+        self.feature.dir1, self.feature.dir1_ref = self.dir1.name, self.dir1.ref
+        self.feature.dir2, self.feature.dir2_ref = self.dir2.name, self.dir2.ref
+        self.feature.axis, self.feature.axis_ref = self.axis.name, self.axis.ref
+        self.feature.flip1 = (self.dir1.flipped if rect
+                              else self.axis.flipped)
+        self.feature.flip2 = self.dir2.flipped
 
 
 class MirrorDialog(FeatureDialog):
+    """Inventor's Mirror: features or solids down the side, both picked,
+    and the plane picked or one of the origin's three."""
+
+    WHAT = [("features", "extrude", "Mirror features"),
+            ("body", "box", "Mirror solids")]
+
     def __init__(self, host, feature, is_new, snapshot=None):
         super().__init__(host, feature, "Mirror", "mirror", is_new, snapshot)
 
     def build(self):
-        self.scope = QtWidgets.QComboBox()
-        self.scope.addItem("Whole body", "body")
-        self.scope.addItem("Selected features", "features")
-        self.bind(self.scope)
-        self.form.add("Mirror", self.scope)
+        self.scope = SegmentedControl(self.WHAT, vertical=True)
+        self.side.addWidget(self.scope)
+        self.side.addStretch(1)
+        self.scope.changed.connect(lambda _k: (self._sync_enabled(),
+                                               self.preview()))
 
         self.parents = self.feature_picker(None, self.feature.parents)
         self.form.add("Features", self.parents)
+        self.solids = self.solids_picker(self.feature.solids)
+        self.solids.setToolTip(
+            "The solids to mirror, picked by a face or in the tree. None "
+            "picked: the whole part.")
+        self.form.add("Solids", self.solids)
 
-        self.plane = self.plane_combo(self.feature.plane)
-        self.form.add("About", self.plane)
-
-        self.scope.currentIndexChanged.connect(self._sync_enabled)
+        self.plane = AxisField(self, ("XY", "XZ", "YZ"), "plane", "plane",
+                               flip=False)
+        self.plane.changed.connect(self.preview)
+        self.form.add("Mirror Plane", self.plane)
 
     def _sync_enabled(self):
-        self.parents.setEnabled(self.scope.currentData() == "features")
+        features = self.scope.value() == "features"
+        self.form.set_visible(self.parents, features)
+        self.form.set_visible(self.solids, not features)
 
     def load(self):
-        pos = self.scope.findData(self.feature.scope)
-        self.scope.setCurrentIndex(max(0, pos))
+        self.scope.set_value(self.feature.scope)
+        self.plane.set_value(self.feature.plane, self.feature.plane_ref)
         self._sync_enabled()
 
     def store(self):
-        self.feature.scope = self.scope.currentData()
-        self.feature.parents = self.picked_features(self.parents)
-        self.feature.plane = self.plane.currentData()
+        self.feature.scope = self.scope.value() or "body"
+        self.feature.parents = self.picked_features()
+        self.feature.solids = (self.picked_solids()
+                               if self.feature.scope == "body" else [])
+        self.feature.plane = self.plane.name
+        self.feature.plane_ref = self.plane.ref
 
 
 class SplitDialog(FeatureDialog):

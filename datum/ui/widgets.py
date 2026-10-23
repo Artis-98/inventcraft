@@ -138,10 +138,12 @@ class SegmentedControl(QtWidgets.QWidget):
 
     changed = QtCore.Signal(str)
 
-    def __init__(self, options, parent=None) -> None:
-        """``options`` is a list of (key, icon name, tooltip)."""
+    def __init__(self, options, parent=None, vertical: bool = False) -> None:
+        """``options`` is a list of (key, icon name, tooltip); ``vertical``
+        stacks them, for the strip down the side of a dialog."""
         super().__init__(parent)
-        layout = QtWidgets.QHBoxLayout(self)
+        layout = (QtWidgets.QVBoxLayout(self) if vertical
+                  else QtWidgets.QHBoxLayout(self))
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
 
@@ -246,6 +248,7 @@ class FormRows(QtWidgets.QWidget):
         self.grid.setColumnStretch(1, 1)
         self._row = 0
         self._labels: "dict[int, QtWidgets.QLabel]" = {}
+        self._sections: "dict[str, QtWidgets.QLabel]" = {}
 
     def add(self, label: str, widget: QtWidgets.QWidget) -> QtWidgets.QWidget:
         if label:
@@ -282,7 +285,13 @@ class FormRows(QtWidgets.QWidget):
             % (C.text_dim, 6 if self._row else 0))
         self.grid.addWidget(head, self._row, 0, 1, 2)
         self._row += 1
+        self._sections[title] = head
         return head
+
+    def set_section_visible(self, title: str, on: bool) -> None:
+        head = self._sections.get(title)
+        if head is not None:
+            head.setVisible(on)
 
     def add_separator(self) -> None:
         line = QtWidgets.QFrame()

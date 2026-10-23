@@ -1172,6 +1172,38 @@ def boolean_many(base: TopoDS_Shape, tools: Sequence[TopoDS_Shape],
     return heal(result)
 
 
+def point_on_face(face: TopoDS_Shape) -> Optional[Tuple[float, float, float]]:
+    """A point that lies on a face's surface: the middle of its parameters.
+
+    Not its centre of area, which for a ring or a curved face lies off it.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepTools import BRepTools
+
+    try:
+        f = TopoDS.Face_s(face)
+        u0, u1, v0, v1 = BRepTools.UVBounds_s(f)
+        p = BRepAdaptor_Surface(f).Value((u0 + u1) / 2.0, (v0 + v1) / 2.0)
+        return (p.X(), p.Y(), p.Z())
+    except Exception:
+        return None
+
+
+def distance_to_point(shape: TopoDS_Shape, p: Sequence[float]) -> float:
+    """How far a point is from a shape's nearest surface, edge or corner."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+    try:
+        probe = BRepExtrema_DistShapeShape(
+            BRepBuilderAPI_MakeVertex(pnt(p)).Vertex(), shape)
+        if probe.IsDone():
+            return probe.Value()
+    except Exception:
+        pass
+    return float("inf")
+
+
 def _cutting_face(shape: TopoDS_Shape, origin: Sequence[float],
                   normal: Sequence[float]) -> TopoDS_Face:
     """A square of the plane big enough to cross the whole shape."""

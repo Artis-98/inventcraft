@@ -387,6 +387,63 @@ class Document:
                           if kernel.is_valid(s)],
                 "tool": after.tools.get(feature_id)}
 
+    def _state_before(self, feature_id: Optional[int]):
+        """What the last rebuild kept just before a feature: its bodies,
+        tools and the rest, or None when nothing was kept."""
+        index = (self.index_of(feature_id) if feature_id is not None
+                 else len(self.features))
+        if index < 0:
+            index = len(self.features)
+        for earlier in reversed(self.features[:index]):
+            held = self._built.get(earlier.id)
+            if held:
+                return held[0][1]
+        return None
+
+    def solid_of(self, shape, before_id: Optional[int] = None
+                 ) -> Optional[str]:
+        """Which solid a picked face, edge or point belongs to, by name."""
+        state = self._state_before(before_id)
+        bodies = (state.bodies if state is not None
+                  else [(b.name, b.shape) for b in self.bodies])
+        for kind in (kernel.faces, kernel.edges):
+            for name, body in bodies:
+                if not kernel.is_valid(body):
+                    continue
+                try:
+                    if any(candidate.IsSame(shape)
+                           for candidate in kind(body)):
+                        return name
+                except Exception:
+                    continue
+        return None
+
+    def feature_of_face(self, face, before_id: Optional[int] = None
+                        ) -> Optional[int]:
+        """The feature that made a picked face, the latest one that could
+        have: the face lies on the solid that feature added or cut away.
+
+        How a click on the model picks a feature, as it does in Inventor.
+        Fillets and chamfers leave no such solid, so they are picked in the
+        tree instead.
+        """
+        state = self._state_before(before_id)
+        if state is None:
+            return None
+        point = kernel.point_on_face(face)
+        if point is None:
+            return None
+        found = None
+        for feature_id, entry in state.tools.items():
+            tool = entry[0] if isinstance(entry, tuple) else entry
+            if not kernel.is_valid(tool):
+                continue
+            if kernel.distance_to_point(tool, point) < 1e-4:
+                if found is None or (self.index_of(feature_id)
+                                     > self.index_of(found)):
+                    found = feature_id
+        return found
+
     def bodies_before(self, feature_id: int) -> List[str]:
         """The solids there are just before a feature, by name, in order.
 

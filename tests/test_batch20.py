@@ -423,6 +423,193 @@ check("and builds the same from the file",
       [b.name for b in again.bodies] == ["Solid1", "Solid2"],
       [b.name for b in again.bodies])
 
+# ==========================================================================
+print("#195 solids are picked, by a face or in the tree")
+
+from datum.core.features import (                                  # noqa: E402
+    CUT, JOIN, NEW_BODY, MirrorFeature, PatternFeature, PrimitiveFeature,
+)
+from datum.ui.widgets import SelectionField                        # noqa: E402
+
+
+def block(doc, x, y, z, dx, dy, dz, op=JOIN, name=""):
+    feature = PrimitiveFeature()
+    feature.kind = "box"
+    feature.a, feature.b, feature.c = str(dx), str(dy), str(dz)
+    feature.origin = (str(x), str(y), str(z))
+    feature.operation = op
+    feature.body_name = name
+    doc.add_feature(feature)
+    return feature
+
+
+def picked_in_view(dialog, shapes):
+    real = vp.selected_shapes
+    vp.selected_shapes = lambda: list(shapes)
+    try:
+        dialog.on_selection()
+    finally:
+        vp.selected_shapes = real
+    pump()
+
+
+def body(name):
+    return next(b for b in win.document.bodies if b.name == name).shape
+
+
+win.new_document(prompt=False)
+block(win.document, 0, 0, 0, 40, 40, 20, name="Left")
+block(win.document, 100, 0, 0, 40, 40, 20, op=NEW_BODY, name="Right")
+win.rebuild()
+pump()
+right_face = max(kernel.faces(body("Right")),
+                 key=lambda f: kernel.shape_centre(f)[0])
+win.new_primitive("box")
+pump()
+dialog = win._active_dialog
+dialog.operation.set_value(CUT)
+dialog._sync_solids()
+check("the Solids row is a pick field, not a list",
+      isinstance(dialog.solids, SelectionField))
+dialog.solids.set_picking(True)
+check("which picks faces in the view", dialog.wants_selection() == "face",
+      dialog.wants_selection())
+picked_in_view(dialog, [right_face])
+check("a face picks the solid it is on", dialog.picked_solids() == ["Right"],
+      dialog.picked_solids())
+win._tree_item_clicked("body", "Left")
+check("and a row under Solid Bodies picks that one",
+      dialog.picked_solids() == ["Right", "Left"], dialog.picked_solids())
+win._tree_item_clicked("body", "Left")
+check("a second click lets it go", dialog.picked_solids() == ["Right"],
+      dialog.picked_solids())
+check("the field counts them", dialog.solids.count.text() == "1 solid",
+      dialog.solids.count.text())
+dialog.store()
+check("and the feature works on what was picked",
+      dialog.feature.solids == ["Right"], dialog.feature.solids)
+dialog.cancel()
+pump()
+
+# ==========================================================================
+print("#191 Pattern and Mirror, the Inventor way")
+
+win.new_document(prompt=False)
+block(win.document, 0, 0, 0, 40, 40, 10, name="Plate")
+peg = block(win.document, 5, 5, 10, 6, 6, 6)
+win.rebuild()
+pump()
+win.new_feature(PatternFeature, mode="rectangular")
+pump()
+dialog = win._active_dialog
+check("Pattern has its strip down the side: features, rectangular",
+      type(dialog).__name__ == "PatternDialog"
+      and dialog.of.value() == "features"
+      and dialog.kind.value() == "rectangular")
+top = max(kernel.faces(win.pick_shape()),
+          key=lambda f: kernel.shape_centre(f)[2])
+dialog.parents.set_picking(True)
+picked_in_view(dialog, [top])
+check("a face the peg made picks the peg",
+      dialog.picked_features() == [peg.id], dialog.picked_features())
+dialog.count1.set_text("3")
+dialog.spacing1.set_text("10")
+dialog.dir1.buttons["Y"].click()
+dialog.preview()
+pump()
+check("Y is one click", dialog.dir1.name == "Y" and not len(dialog.dir1.ref)
+      and dialog.dir1.buttons["Y"].isChecked())
+check("three pegs along it", near(kernel.volume(win.document.shape),
+                                  16000 + 3 * 216, 1e-3),
+      kernel.volume(win.document.shape))
+
+
+def along_y(edge):
+    from datum.core.features import axis_from_shape
+    axis = axis_from_shape(edge)
+    return (axis is not None and axis.name == "edge"
+            and abs(abs(axis.direction[1]) - 1.0) < 1e-9)
+
+
+edge = next(e for e in kernel.edges(win.pick_shape()) if along_y(e))
+dialog.dir1.pick.set_picking(True)
+picked_in_view(dialog, [edge])
+check("or an edge of the part is the direction",
+      len(dialog.dir1.ref) == 1
+      and not any(b.isChecked() for b in dialog.dir1.buttons.values()),
+      dialog.dir1.pick.count.text())
+dialog.preview()
+pump()
+low = kernel.bounding_box(win.document.shape)[1]
+dialog.dir1.flip_button.setChecked(True)
+dialog.preview()
+pump()
+flipped = kernel.bounding_box(win.document.shape)[1]
+check("and Flip runs it the other way",
+      sorted([round(low), round(flipped)]) == [-15, 0], (low, flipped))
+dialog.kind.set_value("circular")
+dialog._sync_enabled()
+check("Circular swaps the directions for an axis",
+      dialog.axis.isVisibleTo(dialog) and not dialog.dir1.isVisibleTo(dialog)
+      and dialog.count1.isVisibleTo(dialog))
+dialog.kind.set_value("rectangular")
+dialog._sync_enabled()
+dialog.of.set_value("bodies")
+dialog._sync_of()
+check("and Solids swaps the features for solids",
+      dialog.bodies.isVisibleTo(dialog)
+      and not dialog.parents.isVisibleTo(dialog))
+dialog.of.set_value("features")
+dialog._sync_of()
+dialog.commit()
+pump()
+pattern = win.document.features[-1]
+check("OK keeps the picked edge and the flip",
+      isinstance(pattern, PatternFeature) and len(pattern.dir1_ref) == 1
+      and pattern.flip1)
+again = Document()
+again.load_dict(win.document.to_dict())
+again.rebuild()
+check("and the file builds the same",
+      near(kernel.volume(again.shape), kernel.volume(win.document.shape),
+           1e-3), kernel.volume(again.shape))
+
+before = kernel.volume(win.document.shape)
+win.new_feature(MirrorFeature)
+pump()
+dialog = win._active_dialog
+check("Mirror opens with its strip and a plane field",
+      type(dialog).__name__ == "MirrorDialog"
+      and set(dialog.plane.buttons) == {"XY", "XZ", "YZ"})
+dialog.scope.set_value("body")
+dialog._sync_enabled()
+side = max(kernel.faces(win.pick_shape()),
+           key=lambda f: kernel.shape_centre(f)[0])
+dialog.plane.pick.set_picking(True)
+picked_in_view(dialog, [side])
+check("a flat face of the part is the mirror plane",
+      len(dialog.plane.ref) == 1
+      and dialog.plane.pick.count.text() == "a picked face",
+      dialog.plane.pick.count.text())
+dialog.preview()
+pump()
+box = kernel.bounding_box(win.document.shape)
+check("the part mirrors about it", near(box[3], 80.0, 1e-3)
+      and near(kernel.volume(win.document.shape), 2 * before, 1e-2),
+      (box[3], kernel.volume(win.document.shape)))
+dialog.scope.set_value("features")
+dialog._sync_enabled()
+check("Features swaps the solids for a feature pick",
+      dialog.parents.isVisibleTo(dialog)
+      and not dialog.solids.isVisibleTo(dialog))
+dialog.scope.set_value("body")
+dialog._sync_enabled()
+dialog.commit()
+pump()
+mirror = win.document.features[-1]
+check("OK keeps the picked plane",
+      isinstance(mirror, MirrorFeature) and len(mirror.plane_ref) == 1)
+
 print()
 if FAILS:
     print("%d FAILURES: %s" % (len(FAILS), ", ".join(FAILS)))

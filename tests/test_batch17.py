@@ -275,10 +275,8 @@ win.new_feature(PatternFeature, mode="circular")
 pump()
 dialog = win._active_dialog
 cut = [f for f in doc.features if isinstance(f, ExtrudeFeature)][-1]
-for i in range(dialog.parents.count()):
-    item = dialog.parents.item(i)
-    if int(item.data(QtCore.Qt.UserRole)) == cut.id:
-        item.setCheckState(QtCore.Qt.Checked)
+dialog.parents.toggle(cut.id)
+dialog.preview()
 pump()
 check("a pattern shows every copy", len(win._preview_drawn) == 1
       and len(kernel.explore(

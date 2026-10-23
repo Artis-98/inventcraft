@@ -191,7 +191,7 @@ win.new_primitive("box")
 pump()
 dialog = win._active_dialog
 check("a part with two solids is asked which", dialog.solids is not None
-      and dialog.solids.count() == 2)
+      and dialog.solids.names == ["Left", "Right"])
 dialog.operation.set_value(NEW_BODY)
 dialog._sync_solids()
 check("but not for a new body, which works on none",
@@ -199,10 +199,10 @@ check("but not for a new body, which works on none",
 dialog.operation.set_value(CUT)
 dialog._sync_solids()
 check("and again for a cut", dialog.solids.isVisibleTo(dialog))
-for i in range(dialog.solids.count()):
-    dialog.solids.item(i).setCheckState(QtCore.Qt.Checked)
+dialog.solids.toggle("Left")
+dialog.solids.toggle("Right")
 dialog.store()
-check("what is ticked is what it works on",
+check("what is picked is what it works on",
       dialog.feature.solids == ["Left", "Right"], dialog.feature.solids)
 dialog.cancel()
 pump()
@@ -210,12 +210,13 @@ pump()
 win.new_feature(PatternFeature, mode="rectangular")
 pump()
 dialog = win._active_dialog
-dialog.of.setCurrentIndex(dialog.of.findData("bodies"))
+dialog.of.set_value("bodies")
+dialog._sync_of()
 pump()
-check("a pattern of solids lists the solids, not the features",
+check("a pattern of solids picks solids, not features",
       dialog.bodies.isVisibleTo(dialog)
       and not dialog.parents.isVisibleTo(dialog)
-      and dialog.bodies.count() == 2)
+      and dialog.bodies.names == ["Left", "Right"])
 dialog.cancel()
 pump()
 

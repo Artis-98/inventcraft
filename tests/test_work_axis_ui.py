@@ -131,11 +131,16 @@ from datum.core.features import PatternFeature  # noqa: E402
 win.new_feature(PatternFeature, mode="circular")
 pump()
 dialog = win._active_dialog
-for label, combo in (("rotation axis", dialog.axis),
+from datum.core.features import WorkAxisFeature  # noqa: E402
+made = next(f for f in win.document.features
+            if isinstance(f, WorkAxisFeature))
+for label, field in (("rotation axis", dialog.axis),
                      ("direction", dialog.dir1)):
-    choices = [combo.itemData(i) for i in range(combo.count())]
-    check("the work axis is offered as the %s" % label,
-          "Work Axis1" in choices and "Z" in choices, choices)
+    field.pick.set_picking(True)
+    taken = dialog.on_tree_pick("feature", str(made.id))
+    check("the work axis is picked in the tree as the %s" % label,
+          taken and field.name == "Work Axis1" and "Z" in field.buttons,
+          field.name)
 dialog.cancel()
 pump()
 

@@ -5069,7 +5069,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_title()
 
     def _tree_item_clicked(self, kind: str, key: str) -> None:
-        """A click in the tree: projects it, if Project Geometry is on."""
+        """A click in the tree: projects it, if Project Geometry is on, or
+        goes to the open feature dialog's pick field."""
+        dialog = self._active_dialog
+        if dialog is not None and hasattr(dialog, "on_tree_pick"):
+            if dialog.on_tree_pick(kind, key):
+                return
         if not self.editor.active or self.editor.tool != "project":
             return
         from ..core.features import WorkAxisFeature, WorkPlaneFeature
