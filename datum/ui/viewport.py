@@ -92,6 +92,8 @@ SELECTION_MODES = {
     "project": (SEL_EDGE, SEL_FACE),
     # Measure takes a point, an edge or a face, whichever is nearest
     "measure": (SEL_VERTEX, SEL_EDGE, SEL_FACE),
+    # where an extrude stops: a face, or a corner of the part
+    "face_vertex": (SEL_VERTEX, SEL_FACE),
 }
 
 VIEW_DIRECTIONS = {

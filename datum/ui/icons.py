@@ -350,6 +350,14 @@ def _i_dir_symmetric(p):
     _arrow(p, 12, 12, 12, 21.5, _ACCENT, 3.2, 1.7)
 
 
+def _i_dir_asymmetric(p):
+    """Extrude direction Asymmetric: a long way one side, a short the
+    other."""
+    _dir_profile(p, 14)
+    _arrow(p, 12, 14, 12, 2.5, _ACCENT, 3.2, 1.7)
+    _arrow(p, 12, 14, 12, 21.0, _WARM, 3.0, 1.6)
+
+
 def _i_revolve(p):
     _pen(p, _ACCENT, 1.4, dashed=True)
     p.drawLine(QtCore.QPointF(12, 2.5), QtCore.QPointF(12, 21.5))
@@ -1014,6 +1022,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "feature": _i_box,
     "dir_default": _i_dir_default, "dir_flipped": _i_dir_flipped,
     "dir_symmetric": _i_dir_symmetric,
+    "dir_asymmetric": _i_dir_asymmetric,
 }
 
 

@@ -496,6 +496,19 @@ def _chains(sketch: Sketch) -> Tuple[List[List[int]], List[List[int]]]:
             if tail == head:
                 break
 
+        while tail != head:
+            prev = None
+            for cand in adjacency.get(head, []):
+                if cand in unused:
+                    prev = cand
+                    break
+            if prev is None:
+                break
+            unused.discard(prev)
+            chain.insert(0, prev)
+            ca, cb = ends(prev)
+            head = cb if ca == head else ca
+
         if tail == head and len(chain) >= 2:
             loops.append(chain)
         elif chain:
@@ -528,6 +541,24 @@ def sketch_path_wire(sketch: Sketch) -> Any:
         if ok and mk.IsDone():
             return mk.Wire()
     raise KernelError("sketch '%s' has no usable path curve" % sketch.name)
+
+
+def open_chain_wire(sketch: Sketch) -> Any:
+    """The longest open chain of a sketch as a wire, Match Shape's profile;
+    None when every curve in it closes on itself."""
+    _closed, open_chains = _chains(sketch)
+    for chain in sorted(open_chains, key=len, reverse=True):
+        mk = BRepBuilderAPI_MakeWire()
+        ok = True
+        for eid in chain:
+            edge = _sketch_edge(sketch, eid)
+            if edge is None:
+                ok = False
+                break
+            mk.Add(edge)
+        if ok and mk.IsDone():
+            return mk.Wire()
+    return None
 
 
 def sketch_wires(sketch: Sketch) -> List[Any]:
@@ -1281,6 +1312,195 @@ def split_faces(shape: TopoDS_Shape, faces: Sequence[TopoDS_Shape],
     if not splitter.IsDone() or not is_valid(splitter.Shape()):
         raise KernelError("the faces could not be split")
     return splitter.Shape(), len(cuts)
+
+
+def distance_between(a: TopoDS_Shape, b: TopoDS_Shape) -> float:
+    """How far apart two shapes are at their nearest; 0 where they touch."""
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+    try:
+        probe = BRepExtrema_DistShapeShape(a, b)
+        if probe.IsDone():
+            return probe.Value()
+    except Exception:
+        pass
+    return float("inf")
+
+
+def depth_range(shape: TopoDS_Shape, origin: Sequence[float],
+                direction: Sequence[float]) -> Tuple[float, float]:
+    """How far along a direction from a point a shape's corners reach, the
+    nearest and the farthest."""
+    from OCP.BRep import BRep_Tool
+
+    depths = []
+    for vertex in vertices(shape):
+        p = BRep_Tool.Pnt_s(TopoDS.Vertex_s(vertex))
+        depths.append((p.X() - origin[0]) * direction[0]
+                      + (p.Y() - origin[1]) * direction[1]
+                      + (p.Z() - origin[2]) * direction[2])
+    if not depths:
+        return 0.0, 0.0
+    return min(depths), max(depths)
+
+
+def split_pieces(shape: TopoDS_Shape, tools: Sequence[TopoDS_Shape]
+                 ) -> List[TopoDS_Shape]:
+    """The solids a shape falls into when faces cut it.  A face that does
+    not reach right across leaves it in one piece."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
+
+    splitter = BRepAlgoAPI_Splitter()
+    arguments = TopTools_ListOfShape()
+    arguments.Append(shape)
+    cutters = TopTools_ListOfShape()
+    for tool in tools:
+        cutters.Append(tool)
+    splitter.SetArguments(arguments)
+    splitter.SetTools(cutters)
+    splitter.SetNonDestructive(True)
+    splitter.SetFuzzyValue(1e-6)
+    splitter.Build()
+    if not splitter.IsDone():
+        raise KernelError("the split failed")
+    return explore(splitter.Shape(), TopAbs_SOLID)
+
+
+def plane_face(around: TopoDS_Shape, origin: Sequence[float],
+               normal: Sequence[float]) -> TopoDS_Face:
+    """A square of a plane big enough to cross the whole of a shape."""
+    return _cutting_face(around, origin, normal)
+
+
+def extended_face(face: TopoDS_Shape, size: float) -> TopoDS_Face:
+    """A face's surface run out well past its edges: Inventor's Extend Face.
+
+    A flat face becomes a square of its plane, ``size`` each way of its
+    middle; a cylinder or a cone goes all the way round and ``size`` along
+    its axis; a surface with edges of its own, a sphere or a spline, is all
+    of itself there is.
+    """
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_SurfaceType
+
+    face = TopoDS.Face_s(face)
+    surface = BRepAdaptor_Surface(face)
+    if surface.GetType() == GeomAbs_SurfaceType.GeomAbs_Plane:
+        axis = surface.Plane().Axis().Direction()
+        plane = gp_Pln(pnt(shape_centre(face)), axis)
+        return BRepBuilderAPI_MakeFace(plane, -size, size, -size,
+                                       size).Face()
+    geom = BRep_Tool.Surface_s(face)
+    u0, u1, v0, v1 = geom.Bounds()
+
+    def clamp(x):
+        return max(-size, min(size, x))
+
+    made = BRepBuilderAPI_MakeFace(geom, clamp(u0), clamp(u1), clamp(v0),
+                                   clamp(v1), 1e-6)
+    if not made.IsDone():
+        raise KernelError("the face could not be run out")
+    return made.Face()
+
+
+def _walk(wire: TopoDS_Shape) -> List[TopoDS_Shape]:
+    """A wire's edges in the order it runs through them."""
+    from OCP.BRepTools import BRepTools_WireExplorer
+
+    out = []
+    walker = BRepTools_WireExplorer(TopoDS.Wire_s(wire))
+    while walker.More():
+        out.append(walker.Current())
+        walker.Next()
+    return out
+
+
+def _point_and_tangent(edge: TopoDS_Shape, where: str):
+    """A point of an edge, "start", "end" or "middle" as the wire runs it,
+    and the way the wire runs there."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.TopAbs import TopAbs_REVERSED
+
+    curve = BRepAdaptor_Curve(TopoDS.Edge_s(edge))
+    first, last = curve.FirstParameter(), curve.LastParameter()
+    backwards = edge.Orientation() == TopAbs_REVERSED
+    if where == "middle":
+        u = (first + last) / 2.0
+    elif where == "start":
+        u = last if backwards else first
+    else:
+        u = first if backwards else last
+    p, v = gp_Pnt(), gp_Vec()
+    curve.D1(u, p, v)
+    t = [v.X(), v.Y(), v.Z()]
+    if backwards:
+        t = [-c for c in t]
+    size = math.sqrt(sum(c * c for c in t)) or 1.0
+    return (p.X(), p.Y(), p.Z()), tuple(c / size for c in t)
+
+
+def match_region(wire: TopoDS_Shape, origin: Sequence[float],
+                 normal: Sequence[float], around: TopoDS_Shape,
+                 flip: bool) -> Tuple[TopoDS_Face, TopoDS_Face]:
+    """Match Shape's profile: the sketch plane on one side of an open
+    profile whose ends run straight on until they are clear of the part.
+
+    Returns that region and the square of the plane it was cut from.  The
+    side is the left of the profile as it runs, or the right with ``flip``.
+    """
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
+
+    square = _cutting_face(compound([around, wire]), origin, normal)
+    x0, y0, z0, x1, y1, z1 = bounding_box(square)
+    size = math.dist((x0, y0, z0), (x1, y1, z1))
+    ordered = _walk(wire)
+    if not ordered:
+        raise KernelError("the open profile has no curves")
+    cutters = TopTools_ListOfShape()
+    for edge in ordered:
+        cutters.Append(edge)
+    for edge, where, outward in ((ordered[0], "start", -1.0),
+                                 (ordered[-1], "end", 1.0)):
+        point, tangent = _point_and_tangent(edge, where)
+        far = [point[i] + outward * tangent[i] * size for i in range(3)]
+        cutters.Append(BRepBuilderAPI_MakeEdge(pnt(point), pnt(far)).Edge())
+    splitter = BRepAlgoAPI_Splitter()
+    arguments = TopTools_ListOfShape()
+    arguments.Append(square)
+    splitter.SetArguments(arguments)
+    splitter.SetTools(cutters)
+    splitter.SetFuzzyValue(1e-6)
+    splitter.Build()
+    if not splitter.IsDone():
+        raise KernelError("the open profile could not divide the plane")
+    pieces = explore(splitter.Shape(), TopAbs_FACE)
+    if len(pieces) < 2:
+        raise KernelError("the open profile does not divide the part in two")
+    # a step off the middle of the first curve, square to it, says which
+    point, tangent = _point_and_tangent(ordered[0], "middle")
+    left = [normal[1] * tangent[2] - normal[2] * tangent[1],
+            normal[2] * tangent[0] - normal[0] * tangent[2],
+            normal[0] * tangent[1] - normal[1] * tangent[0]]
+    step = max(1e-3, size * 1e-5) * (-1.0 if flip else 1.0)
+    probe = [point[i] + left[i] * step for i in range(3)]
+    region = min(pieces, key=lambda f: distance_to_point(f, probe))
+    return TopoDS.Face_s(region), square
+
+
+def walls(face: TopoDS_Shape, normal: Sequence[float],
+          reach: float) -> TopoDS_Shape:
+    """A face's outline run out both ways along a normal: the sides of a
+    box with no top or bottom, for telling what reaches its edge."""
+    from OCP.BRepTools import BRepTools
+
+    outline = BRepTools.OuterWire_s(TopoDS.Face_s(face))
+    start = translate(outline, [-normal[i] * reach for i in range(3)])
+    made = BRepPrimAPI_MakePrism(
+        start, vec([normal[i] * 2.0 * reach for i in range(3)]))
+    if not made.IsDone():
+        raise KernelError("the outline could not be run out")
+    return made.Shape()
 
 
 def edges_along(shape: TopoDS_Shape, guides: Sequence[TopoDS_Shape],

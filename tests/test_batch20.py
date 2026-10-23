@@ -610,6 +610,140 @@ mirror = win.document.features[-1]
 check("OK keeps the picked plane",
       isinstance(mirror, MirrorFeature) and len(mirror.plane_ref) == 1)
 
+# ==========================================================================
+print("#210 the rest of Inventor's extents, in the dialog")
+
+
+def sketch_more(*clicks, tool="rect"):
+    win.start_sketch_on_plane("XY")
+    settle(800)
+    ed.snap_grid = False
+    ed.set_tool(tool)
+    for x, y in clicks:
+        ed._on_click(float(x), float(y), NONE)
+    ed.set_tool("select")
+    win.finish_sketch()
+    pump()
+
+
+dialog = sketched_rectangle(20.0, 10.0)
+check("Direction has Asymmetric", "asymmetric" in dialog.direction._buttons)
+check("Distance B stays out of the way until then",
+      not dialog.distance2.isVisibleTo(dialog))
+dialog.direction.set_value("asymmetric")
+dialog._sync_enabled()
+check("which brings Distance B and Taper B",
+      dialog.distance2.isVisibleTo(dialog) and dialog.taper2.isVisibleTo(dialog))
+dialog.distance.set_text("8")
+dialog.distance2.set_text("3")
+dialog.preview()
+pump()
+b = kernel.bounding_box(win.document.shape)
+check("and builds 8 one way, 3 the other",
+      near(b[2], -3, 1e-6) and near(b[5], 8, 1e-6), b)
+check("with no arrow, which drags one distance", not dialog._handle_drawn)
+dialog.extent.setCurrentIndex(dialog.extent.findData("to_next"))
+check("To Next goes one way or the other, not both",
+      not dialog.direction._buttons["symmetric"].isEnabled()
+      and dialog.direction.value() == "default")
+dialog.extent.setCurrentIndex(dialog.extent.findData("distance"))
+dialog.distance.set_text("10")
+dialog.commit()
+pump()
+
+sketch_more((30, 0), (40, 10))
+win.new_feature(ExtrudeFeature)
+pump()
+dialog = win._active_dialog
+win.select_all_profiles()
+pump()
+dialog.extent.setCurrentIndex(dialog.extent.findData("to_plane"))
+pump()
+check("To shows where it runs to, with Extend Face",
+      dialog.to_end.isVisibleTo(dialog)
+      and dialog.extend_face.isVisibleTo(dialog)
+      and not dialog.distance.isVisibleTo(dialog))
+top = max(kernel.faces(win.pick_shape()),
+          key=lambda f: kernel.shape_centre(f)[2])
+dialog.to_end.pick.set_picking(True)
+check("its pick takes faces and corners",
+      dialog.wants_selection() == "face_vertex", dialog.wants_selection())
+picked_in_view(dialog, [top])
+check("a face of the part is picked, and the list stands aside",
+      len(dialog.feature.to_ref) == 1
+      and dialog.to_end.pick.count.text() == "a picked face"
+      and not dialog.to_plane.isEnabled(), dialog.to_end.pick.count.text())
+check("it does not cover the profile, and says so",
+      "Extend Face" in (dialog.feature.error or ""), dialog.feature.error)
+dialog.extend_face.setChecked(True)
+pump()
+b = kernel.bounding_box(win.document.shape)
+check("Extend Face runs it out to the face's height",
+      not dialog.feature.error and near(b[5], 10, 1e-6),
+      (dialog.feature.error, b))
+
+dialog.extent.setCurrentIndex(dialog.extent.findData("distance"))
+dialog.distance.set_text("4")
+check("From is there for a distance", dialog.from_end.isVisibleTo(dialog)
+      and not dialog.from_end.is_set())
+dialog.from_end.pick.set_picking(True)
+picked_in_view(dialog, [top])
+b = kernel.bounding_box(win.document.shape)
+check("From a face: it starts there", not dialog.feature.error
+      and near(b[5], 14, 1e-6)
+      and near(kernel.volume(win.document.shape), 2000 + 400, 1e-3),
+      (dialog.feature.error, b, kernel.volume(win.document.shape)))
+dialog.from_end.pick.cleared.emit()
+dialog.from_end.pick.set_picking(True)
+win._tree_item_clicked("plane", "XZ")
+pump()
+check("a plane picked in the tree is taken",
+      dialog.from_end.name == "XZ" and not len(dialog.from_end.ref))
+check("and one alongside the extrude is refused",
+      "alongside" in (dialog.feature.error or ""), dialog.feature.error)
+dialog.from_end.combo.setCurrentIndex(0)
+pump()
+check("Sketch plane puts it back", not dialog.feature.error
+      and not dialog.from_end.is_set(), dialog.feature.error)
+check("no open profile, no Match Shape",
+      not dialog.match_row.isVisibleTo(dialog))
+dialog.commit()
+pump()
+
+before = kernel.volume(win.document.shape)
+sketch_more((10, -5), (10, 15), tool="line")
+win.new_feature(ExtrudeFeature)
+pump()
+dialog = win._active_dialog
+check("an open profile offers Match Shape",
+      dialog.match_row.isVisibleTo(dialog))
+dialog.match.setChecked(True)
+dialog.operation.set_value(CUT)
+dialog.distance.set_text("10")
+dialog.preview()
+pump()
+check("a cut matched to it takes the part on its side", not dialog.feature.error
+      and near(kernel.volume(win.document.shape), before - 1000, 1e-3),
+      (dialog.feature.error, before - kernel.volume(win.document.shape)))
+dialog.match_side.setChecked(True)
+pump()
+check("and the other side the other",
+      not dialog.feature.error
+      # the other half of the block, and the 10 x 10 x 4 beside it
+      and near(kernel.volume(win.document.shape), before - 1000 - 400,
+               1e-3),
+      (dialog.feature.error, before - kernel.volume(win.document.shape)))
+dialog.commit()
+pump()
+matched = win.document.features[-1]
+again = Document()
+again.load_dict(win.document.to_dict())
+again.rebuild()
+check("OK keeps it, and the file builds the same",
+      matched.match_shape and matched.match_flip
+      and near(kernel.volume(again.shape), kernel.volume(win.document.shape),
+               1e-3))
+
 print()
 if FAILS:
     print("%d FAILURES: %s" % (len(FAILS), ", ".join(FAILS)))

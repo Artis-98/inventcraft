@@ -342,7 +342,9 @@ class RefSet:
         is taken from the picked sub-shape itself and only the index is
         recovered from the pool.
         """
-        pool = kernel.edges(shape) if kind == "edge" else kernel.faces(shape)
+        pool = (kernel.edges(shape) if kind == "edge"
+                else kernel.vertices(shape) if kind == "vertex"
+                else kernel.faces(shape))
 
         for target in picked:
             index = next((i for i, cand in enumerate(pool)

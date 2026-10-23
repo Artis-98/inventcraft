@@ -636,7 +636,9 @@ class ExtrudeDialog(FeatureDialog):
         ``factor`` turns a distance along the line into the extrude's
         distance: 1, or 2 for a symmetric one, whose end is half way out.
         """
-        if self.extent.currentData() != "distance":
+        if (self.extent.currentData() != "distance"
+                or self.direction.value() == "asymmetric"
+                or self.from_end.is_set() or self.match.isChecked()):
             return None
         centres, normal = [], None
         for sketch_id, u, v in self.feature.profiles:
@@ -795,12 +797,37 @@ class ExtrudeDialog(FeatureDialog):
         ("flipped", "dir_flipped", "Flipped - the other way, into the part"),
         ("symmetric", "dir_symmetric", "Symmetric - half the distance each "
                                        "side of the sketch"),
+        ("asymmetric", "dir_asymmetric", "Asymmetric - a distance each way, "
+                                         "each its own"),
+    ]
+
+    EXTENTS = [
+        ("Distance", "distance",
+         "A distance from the sketch, or from the face picked in From"),
+        ("To Next", "to_next",
+         "Up to the next face it meets: a join until it reaches the part, "
+         "a cut through the material it starts in"),
+        ("To", "to_plane",
+         "Up to a face, a plane or a corner of the part. A tilted plane "
+         "cuts the end on its slope."),
+        ("Between", "from_to",
+         "Between two faces or planes: From, and the one it runs to"),
+        ("Through All", "through_all",
+         "Right through everything, both ways"),
     ]
 
     def build(self):
         # Inventor's order: what to extrude, how, what it does, the rest
         self.form.add_section("Input Geometry")
         self.form.add("Profiles", self.profile_field())
+        # From: where it starts, when not on the sketch itself
+        self.from_end = EndField(self, self.feature.from_plane,
+                                 blank="Sketch plane", curved=False)
+        self.from_end.changed.connect(self.preview)
+        self.from_end.setToolTip(
+            "Where it starts: the sketch, or a flat face or a plane. "
+            "Between runs from this to the one it runs to.")
+        self.form.add("From", self.from_end)
 
         self.form.add_section("Behavior")
         self.direction = SegmentedControl(self.DIRECTIONS)
@@ -810,17 +837,21 @@ class ExtrudeDialog(FeatureDialog):
         # the extent is picked beside the distance it qualifies, the way
         # Inventor's Distance A carries its own drop down
         self.extent = QtWidgets.QComboBox()
-        self.extent.addItem("Distance", "distance")
-        self.extent.addItem("Through All", "through_all")
-        self.extent.addItem("To", "to_plane")
+        for text, key, tip in self.EXTENTS:
+            self.extent.addItem(text, key)
+            self.extent.setItemData(self.extent.count() - 1, tip,
+                                    QtCore.Qt.ToolTipRole)
         self.extent.setToolTip(
-            "How far it goes: a distance, right through everything, or up "
-            "to a plane")
+            "How far it goes: a distance, to the next face, up to a face, "
+            "a plane or a point, between two, or right through everything")
         self.bind(self.extent)
 
         self.distance = self.expression(self.feature.distance)
 
-        self.to_plane = self.plane_combo(self.feature.to_plane)
+        self.to_end = EndField(self, self.feature.to_plane, points=True)
+        self.to_end.changed.connect(self.preview)
+        # the list of planes, as it always was
+        self.to_plane = self.to_end.combo
         self.to_plane.setToolTip(
             "The datum or work plane the extrude runs up to. A tilted one "
             "cuts the end on its slope.")
@@ -831,45 +862,125 @@ class ExtrudeDialog(FeatureDialog):
         row.setSpacing(6)
         row.addWidget(self.extent)
         row.addWidget(self.distance, 1)
-        row.addWidget(self.to_plane, 1)
+        row.addWidget(self.to_end, 1)
         self.form.add("Extents", extents)
+
+        self.distance2 = self.expression(self.feature.distance2)
+        self.distance2.setToolTip("How far it goes the other way")
+        self.form.add("Distance B", self.distance2)
+
+        self.extend_face = QtWidgets.QCheckBox("Extend Face")
+        self.extend_face.setToolTip(
+            "A picked face that stops short of the profile runs on past its "
+            "edges, the whole of its surface")
+        self.bind(self.extend_face)
+        self.form.add("", self.extend_face)
 
         self.form.add_section("Output")
         self.boolean_row()
+        self._open_sketch = self._find_open_sketch()
+        self._sketch_id = self.feature.sketch_id
+        self.match = QtWidgets.QCheckBox("Match Shape")
+        self.match.setToolTip(
+            "The sketch's open profile, its ends run on to the part: a cut "
+            "takes everything on its side, a join fills what it closes in")
+        self.match_side = QtWidgets.QToolButton()
+        self.match_side.setIcon(icons.icon("dir_flipped", 18))
+        self.match_side.setCheckable(True)
+        self.match_side.setFixedSize(30, 26)
+        self.match_side.setToolTip("The other side of the profile")
+        match = QtWidgets.QWidget()
+        line = QtWidgets.QHBoxLayout(match)
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(6)
+        line.addWidget(self.match)
+        line.addWidget(self.match_side)
+        line.addStretch(1)
+        self.match_row = match
+        self.form.add("", match)
+        self.match.toggled.connect(lambda _on: (self._sync_enabled(),
+                                                self.preview()))
+        self.match_side.toggled.connect(lambda _on: self.preview())
 
         self.form.add_section("Advanced")
         self.taper = self.expression(self.feature.taper, "deg")
         self.form.add("Taper", self.taper)
+        self.taper2 = self.expression(self.feature.taper2, "deg")
+        self.taper2.setToolTip("The other way's own taper")
+        self.form.add("Taper B", self.taper2)
 
         self.extent.currentIndexChanged.connect(
             lambda _=0: self._sync_enabled())
         self.direction.changed.connect(lambda _k: self._sync_enabled())
 
+    def _find_open_sketch(self) -> int:
+        """The sketch Match Shape would use: the picked profiles' own, if
+        it has an open profile, else the newest before this one that has;
+        0 for none."""
+        index = self.doc.index_of(self.feature.id)
+        sketches = [f for f in self.doc.sketch_features()
+                    if self.doc.index_of(f.id) < index]
+        own = set(self.feature.profiles.sketch_ids())
+        if self.feature.match_shape and self.feature.sketch_id:
+            own.add(self.feature.sketch_id)
+        ordered = ([f for f in sketches if f.id in own]
+                   + sorted((f for f in sketches if f.id not in own),
+                            key=lambda f: -self.doc.index_of(f.id)))
+        for owner in ordered:
+            sketch = getattr(owner, "sketch", None)
+            try:
+                if sketch is not None and kernel.open_chain_wire(sketch):
+                    return owner.id
+            except Exception:
+                continue
+        return 0
+
     def _sync_enabled(self):
         mode = self.extent.currentData()
-        to_plane = mode == "to_plane"
-        self.distance.setVisible(not to_plane)
+        direction = self.direction.value()
+        ending = mode in ("to_plane", "from_to")
+        self.distance.setVisible(not ending)
         self.distance.setEnabled(mode == "distance")
-        self.to_plane.setVisible(to_plane)
-        # Through All already runs both ways and a plane decides the way
-        # for itself, so for those two there is no direction to choose
-        steerable = mode == "distance"
+        self.to_end.setVisible(ending)
+        self.form.set_visible(self.extend_face, ending)
+        # Distance and To Next go one way or the other; Distance can go
+        # both, the same or each its own.  Through All already runs both
+        # ways, and a face or a plane decides the way for itself.
+        steerable = mode in ("distance", "to_next")
         self.direction.setEnabled(steerable)
+        for key in ("symmetric", "asymmetric"):
+            self.direction._buttons[key].setEnabled(mode == "distance")
+        if mode == "to_next" and direction in ("symmetric", "asymmetric"):
+            self.direction.set_value("default")
+            direction = "default"
         self.direction.setToolTip(
             "" if steerable else
             "Through All runs both ways, so there is no direction to pick"
             if mode == "through_all" else
-            "The plane decides which way it runs")
+            "The face or plane decides which way it runs")
+        asymmetric = mode == "distance" and direction == "asymmetric"
+        self.form.set_visible(self.distance2, asymmetric)
+        self.form.set_visible(self.taper2, asymmetric)
+        # From is where a plain distance starts, or the first of the two
+        # it runs between
+        self.form.set_visible(self.from_end, mode == "from_to" or (
+            mode == "distance" and direction in ("default", "flipped")))
+        self.form.set_label(self.from_end, "From" if mode != "from_to"
+                            else "Between")
         # a taper grows from the sketch, so it only makes sense one way
         self.taper.setEnabled(
-            steerable and self.direction.value() != "symmetric")
+            mode == "distance" and direction != "symmetric")
+        self.form.set_visible(self.match_row, bool(self._open_sketch))
+        self.match_side.setEnabled(self.match.isChecked())
+        if getattr(self, "profiles", None) is not None:
+            self.profiles.setEnabled(not self.match.isChecked())
 
     def load(self):
         self.load_boolean()
         extent = self.feature.extent
-        if extent == "symmetric":
-            # files keep Symmetric as an extent; here it is a direction
-            self.direction.set_value("symmetric")
+        if extent in ("symmetric", "asymmetric"):
+            # files keep these as extents; here they are directions
+            self.direction.set_value(extent)
             extent = "distance"
         else:
             self.direction.set_value(
@@ -877,24 +988,44 @@ class ExtrudeDialog(FeatureDialog):
         pos = self.extent.findData(extent)
         self.extent.setCurrentIndex(max(0, pos))
         self.distance.set_text(self.feature.distance)
+        self.distance2.set_text(self.feature.distance2)
         self.taper.set_text(self.feature.taper)
+        self.taper2.set_text(self.feature.taper2)
+        self.to_end.set_value(self.feature.to_plane, self.feature.to_ref)
+        self.from_end.set_value(self.feature.from_plane,
+                                self.feature.from_ref)
+        self.extend_face.setChecked(self.feature.extend_face)
+        self.match.setChecked(self.feature.match_shape
+                              and bool(self._open_sketch))
+        self.match_side.setChecked(self.feature.match_flip)
         self._sync_enabled()
 
     def store(self):
         self.store_boolean()
         mode = self.extent.currentData()
         direction = self.direction.value()
-        # the file format is unchanged: Symmetric is still stored as an
-        # extent and Flipped as reversed, so older copies read these files
-        if mode == "distance" and direction == "symmetric":
-            self.feature.extent = "symmetric"
+        # Symmetric and Asymmetric are stored as extents and Flipped as
+        # reversed, as files always had them
+        if mode == "distance" and direction in ("symmetric", "asymmetric"):
+            self.feature.extent = direction
             self.feature.reversed = False
         else:
             self.feature.extent = mode
             self.feature.reversed = direction == "flipped"
         self.feature.distance = self.distance.text()
-        self.feature.to_plane = self.to_plane.currentData() or ""
+        self.feature.distance2 = self.distance2.text()
+        self.feature.to_plane = self.to_end.name
+        self.feature.to_ref = self.to_end.ref
+        self.feature.from_plane = self.from_end.name
+        self.feature.from_ref = self.from_end.ref
+        self.feature.extend_face = self.extend_face.isChecked()
         self.feature.taper = self.taper.text()
+        self.feature.taper2 = self.taper2.text()
+        matching = self.match.isChecked() and bool(self._open_sketch)
+        self.feature.match_shape = matching
+        self.feature.match_flip = self.match_side.isChecked()
+        self.feature.sketch_id = (self._open_sketch if matching
+                                  else self._sketch_id)
 
 
 class RevolveDialog(FeatureDialog):
@@ -1421,6 +1552,129 @@ class AxisField(QtWidgets.QWidget):
             return False
         self.set_name(str(key))
         self.pick.set_picking(False)
+        return True
+
+
+class EndField(QtWidgets.QWidget):
+    """Where an extrusion starts or stops: a plane off the list, or picked
+    in the tree, or a face, or a corner of the part, picked in the view.
+
+    A pick wins over the list, which stands aside until it is cleared, the
+    way the feature reads it.  ``blank`` is what the list says for nothing
+    chosen, the sketch's own plane for From; without it a plane is always
+    chosen.
+    """
+
+    changed = QtCore.Signal()
+
+    def __init__(self, dialog: "FeatureDialog", current: str,
+                 blank: Optional[str] = None, points: bool = False,
+                 curved: bool = True) -> None:
+        super().__init__()
+        self.dialog = dialog
+        self.points = points
+        self.curved = curved
+        self.ref = RefSet()
+        row = QtWidgets.QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        # the list previews by itself when it changes, as every combo does
+        self.combo = dialog.plane_combo(current)
+        if blank is not None:
+            self.combo.blockSignals(True)
+            self.combo.insertItem(0, icons.icon("sketch", 15), blank, "")
+            if not current:
+                self.combo.setCurrentIndex(0)
+            self.combo.blockSignals(False)
+        row.addWidget(self.combo, 1)
+        mode = "face_vertex" if points else "face"
+        self.pick = dialog.picker("Select", "face", mode, self._from_view,
+                                  self._from_tree)
+        self.pick.button.setMinimumWidth(72)
+        self.pick.cleared.connect(self._clear)
+        self.pick.setToolTip(
+            "Pick %s in the view, or a plane in the tree" % (
+                "a face or a corner of the part" if points else
+                "a face of the part" if curved else
+                "a flat face of the part"))
+        row.addWidget(self.pick)
+        self._show()
+
+    @property
+    def name(self) -> str:
+        return "" if len(self.ref) else (self.combo.currentData() or "")
+
+    def is_set(self) -> bool:
+        return bool(len(self.ref) or self.combo.currentData())
+
+    def set_value(self, name: str, ref: Optional[RefSet]) -> None:
+        self.ref = ref if ref is not None else RefSet()
+        pos = self.combo.findData(name or "")
+        if pos >= 0:
+            self.combo.blockSignals(True)
+            self.combo.setCurrentIndex(pos)
+            self.combo.blockSignals(False)
+        self._show()
+
+    def _show(self) -> None:
+        picked = bool(len(self.ref))
+        self.combo.setEnabled(not picked)
+        if picked:
+            kind = self.ref.refs[0].kind
+            self.pick.count.setText("a picked %s" % (
+                "point" if kind == "vertex" else kind))
+            self.pick.count.setStyleSheet("color: %s;" % C.ok)
+        else:
+            self.pick.count.setText("")
+
+    def _clear(self) -> None:
+        self.ref = RefSet()
+        self._show()
+        self.changed.emit()
+
+    def _from_view(self, shapes) -> None:
+        from ..core.features import plane_from_face
+        from OCP.TopAbs import TopAbs_FACE, TopAbs_VERTEX
+        base = self.dialog.host.pick_shape()
+        if base is None:
+            return
+        for shape in shapes:
+            if shape.ShapeType() == TopAbs_VERTEX and self.points:
+                kind = "vertex"
+            elif shape.ShapeType() == TopAbs_FACE and (
+                    self.curved or plane_from_face(shape) is not None):
+                kind = "face"
+            else:
+                continue
+            ref = RefSet()
+            ref.capture_from(base, kind, [shape])
+            if len(ref):
+                self.ref = ref
+                self._show()
+                self.pick.set_picking(False)
+                self.changed.emit()
+                return
+
+    def _from_tree(self, kind: str, key: str) -> bool:
+        from ..core.features import WorkPlaneFeature
+        if kind == "feature":
+            try:
+                made = self.dialog.doc.feature(int(key))
+            except (TypeError, ValueError):
+                made = None
+            if not isinstance(made, WorkPlaneFeature):
+                return False
+            key = made.name
+        elif kind != "plane":
+            return False
+        pos = self.combo.findData(str(key))
+        if pos < 0:
+            return False
+        self.ref = RefSet()
+        self.combo.setCurrentIndex(pos)
+        self._show()
+        self.pick.set_picking(False)
+        self.changed.emit()
         return True
 
 

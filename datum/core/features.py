@@ -822,63 +822,363 @@ class ExtrudeFeature(Feature):
     body_name: str = ""
     reversed: bool = False
     taper: str = "0"
-    # extent "to_plane": the datum or work plane the extrude stops at
+    # extent "to_plane": what it runs up to, a face or a corner of the part
+    # picked in the view, which wins, or else a datum or work plane by name
     to_plane: str = ""
+    to_ref: RefSet = field(default_factory=RefSet)
+    # Extend Face: a picked face that stops short of the profile counts
+    # as the whole of its surface
+    extend_face: bool = False
+    # From: where it starts, a flat face or a plane rather than the
+    # sketch; for "from_to", the first of the two it runs between
+    from_plane: str = ""
+    from_ref: RefSet = field(default_factory=RefSet)
+    # extent "asymmetric": the other direction's own distance and taper
+    distance2: str = "5"
+    taper2: str = "0"
+    # Match Shape: the sketch's open profile, run out to the part
+    match_shape: bool = False
+    match_flip: bool = False
 
     def depends_on(self) -> List[int]:
         ids = self.profiles.sketch_ids()
         return ids or ([self.sketch_id] if self.sketch_id else [])
 
     def build(self, ctx: BuildContext) -> None:
-        profile, plane = resolve_profile(ctx, self.profiles, self.name,
-                                        self.sketch_id)
+        square = None
+        if self.match_shape:
+            profile, plane, square = self._open_profile(ctx)
+        else:
+            profile, plane = resolve_profile(ctx, self.profiles, self.name,
+                                            self.sketch_id)
         normal = plane.normal
         taper = ctx.evaluate(self.taper, "%s taper" % self.name)
+        sign = -1.0 if self.reversed else 1.0
+        try:
+            tool = self._tool(ctx, profile, plane, normal, taper, sign)
+            if square is not None:
+                tool = self._matched(ctx, tool, square, normal)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
 
+        ctx.apply(tool, self.operation, self.id, name=self.body_name,
+                  targets=self.solids)
+
+    def _tool(self, ctx: BuildContext, profile: TopoDS_Shape,
+              plane: SketchPlane, normal: Sequence[float], taper: float,
+              sign: float) -> TopoDS_Shape:
+        """The solid the extent makes of the profile."""
         if self.extent == "to_plane":
-            tool = self._to_plane(ctx, profile, normal)
-        elif self.extent == "through_all":
+            return self._to(ctx, profile, normal, taper)
+        if self.extent == "to_next":
+            return self._to_next(ctx, profile, plane, normal, sign)
+        if self.extent == "from_to":
+            return self._from_to(ctx, profile, plane, normal)
+        if self.extent == "through_all":
             # sweep from well behind the body to well in front of it, so the
             # cut clears the solid no matter which side the sketch sits on
             reach = _through_all_reach(ctx.shape, plane)
             profile = kernel.translate(
                 profile, [-normal[i] * reach for i in range(3)])
-            tool = kernel.extrude(profile, normal, 2 * reach, 0.0)
-        else:
-            d = ctx.evaluate(self.distance, "%s distance" % self.name)
-            if d <= 0:
-                raise FeatureError("%s: distance must be positive" % self.name)
-            sign = -1.0 if self.reversed else 1.0
-            if self.extent == "symmetric":
-                profile = kernel.translate(
-                    profile, [-normal[i] * d / 2.0 for i in range(3)])
-                tool = kernel.extrude(profile, normal, d, taper)
-            else:
-                tool = kernel.extrude(profile, normal, d * sign, taper)
+            return kernel.extrude(profile, normal, 2 * reach, 0.0)
+        d = ctx.evaluate(self.distance, "%s distance" % self.name)
+        if d <= 0:
+            raise FeatureError("%s: distance must be positive" % self.name)
+        if self.extent == "symmetric":
+            profile = kernel.translate(
+                profile, [-normal[i] * d / 2.0 for i in range(3)])
+            return kernel.extrude(profile, normal, d, taper)
+        if self.extent == "asymmetric":
+            # Inventor's Asymmetric: each way its own distance and taper
+            d2 = ctx.evaluate(self.distance2, "%s distance B" % self.name)
+            if d2 <= 0:
+                raise FeatureError("%s: the second distance must be positive"
+                                   % self.name)
+            taper2 = ctx.evaluate(self.taper2, "%s taper B" % self.name)
+            ahead = kernel.extrude(profile, normal, d * sign, taper)
+            behind = kernel.extrude(profile, normal, -d2 * sign, taper2)
+            return kernel.boolean(ahead, behind, "join")
+        if self.from_ref or self.from_plane:
+            return self._from_distance(ctx, profile, normal, d * sign, taper)
+        return kernel.extrude(profile, normal, d * sign, taper)
 
-        ctx.apply(tool, self.operation, self.id, name=self.body_name,
-                  targets=self.solids)
+    # -- what an end of it is ----------------------------------------------
+
+    def _target(self, ctx: BuildContext, ref: RefSet, plane_name: str,
+                what: str):
+        """(kind, plane or point, face): ("plane", plane, the flat face or
+        None for a plane by name), ("face", None, a curved face) or
+        ("point", (x, y, z), None); (None, None, None) for nothing set."""
+        from OCP.BRep import BRep_Tool
+        from OCP.TopAbs import TopAbs_VERTEX
+
+        if len(ref):
+            found = (ref.resolve_all(ctx.shape)[0]
+                     if ctx.shape is not None else [])
+            if not found:
+                raise FeatureError("%s: the face or point it %s is gone"
+                                   % (self.name, what))
+            shape = found[0]
+            if shape.ShapeType() == TopAbs_VERTEX:
+                p = BRep_Tool.Pnt_s(TopoDS.Vertex_s(shape))
+                return "point", (p.X(), p.Y(), p.Z()), None
+            plane = plane_from_face(shape)
+            if plane is not None:
+                return "plane", plane, shape
+            return "face", None, shape
+        if plane_name:
+            plane = ctx.planes.get(plane_name)
+            if plane is None:
+                raise FeatureError("%s: plane %s no longer exists"
+                                   % (self.name, plane_name))
+            return "plane", plane, None
+        return None, None, None
+
+    def _to(self, ctx: BuildContext, profile: TopoDS_Shape,
+            normal: Sequence[float], taper: float) -> TopoDS_Shape:
+        """Up to a face, a plane or a point: Inventor's To."""
+        kind, target, face = self._target(ctx, self.to_ref, self.to_plane,
+                                          "runs to")
+        if kind is None:
+            raise FeatureError("%s: pick the face, plane or point to "
+                               "extrude to" % self.name)
+        n = _unit(normal)
+        if kind == "point":
+            # a point is a distance, square to the sketch
+            centre = kernel.shape_centre(profile)
+            depth = sum((target[i] - centre[i]) * n[i] for i in range(3))
+            if abs(depth) < 1e-6:
+                raise FeatureError("%s: that point lies on the sketch's "
+                                   "plane" % self.name)
+            return kernel.extrude(profile, n, depth, taper)
+        if kind == "plane" and (face is None or self.extend_face):
+            return self._to_plane(ctx, profile, n, target,
+                                  self.to_plane if face is None
+                                  else "the face")
+        return self._to_face(profile, n, face, taper)
+
+    def _to_face(self, profile: TopoDS_Shape, n: Sequence[float],
+                 face: TopoDS_Shape, taper: float) -> TopoDS_Shape:
+        """Up to a face, curved or held to its own edges: the profile runs
+        out past it and the piece on the near side is kept.  A face that
+        does not cover the whole profile does not stop it, and it says so,
+        unless Extend Face runs the face out."""
+        centre = kernel.shape_centre(profile)
+        there = kernel.shape_centre(face)
+        ahead = sum((there[i] - centre[i]) * n[i] for i in range(3))
+        sign = -1.0 if ahead < 0 or (abs(ahead) < 1e-9 and self.reversed) \
+            else 1.0
+        box = kernel.bounding_box(kernel.compound([profile, face]))
+        run = 2.0 * math.dist(box[:3], box[3:]) + 10.0
+        cutter = kernel.extended_face(face, run) if self.extend_face else face
+        far = kernel.extrude(profile, n, sign * run, taper)
+        pieces = kernel.split_pieces(far, [cutter])
+        way = [sign * c for c in n]
+        near = [p for p in pieces
+                if kernel.distance_between(p, profile) < 1e-6
+                and kernel.depth_range(p, centre, way)[1] < run - 1e-6]
+        if not near:
+            raise FeatureError(
+                "%s: the face does not cover the whole profile%s"
+                % (self.name, "" if self.extend_face else
+                   "; tick Extend Face to run it out"))
+        return near[0] if len(near) == 1 else kernel.fuse_all(near)
+
+    def _to_next(self, ctx: BuildContext, profile: TopoDS_Shape,
+                 plane: SketchPlane, normal: Sequence[float],
+                 sign: float) -> TopoDS_Shape:
+        """Up to the next face it meets: Inventor's To Next.  A join runs
+        until it meets the part; a cut goes through the material it starts
+        in, or the first it comes to, and stops where that ends."""
+        if ctx.shape is None:
+            raise FeatureError("%s: To Next needs a solid ahead for it to "
+                               "stop at" % self.name)
+        n = _unit(normal)
+        way = [sign * c for c in n]
+        reach = _through_all_reach(ctx.shape, plane)
+        centre = kernel.shape_centre(profile)
+        removing = self.operation in (CUT, INTERSECT)
+        kept: List[TopoDS_Shape] = []
+        for face in kernel.faces(profile) or [profile]:
+            far = kernel.extrude(face, n, sign * reach, 0.0)
+            if removing:
+                pieces = kernel.explore(
+                    kernel.boolean(far, ctx.shape, "intersect"),
+                    kernel.TopAbs_SOLID)
+                starts = [kernel.depth_range(p, centre, way)[0]
+                          for p in pieces]
+                if starts:
+                    first = min(starts)
+                    kept += [p for p, s in zip(pieces, starts)
+                             if s < first + 1e-6]
+            else:
+                pieces = kernel.explore(kernel.boolean(far, ctx.shape, "cut"),
+                                        kernel.TopAbs_SOLID)
+                for piece in pieces:
+                    lo, hi = kernel.depth_range(piece, centre, way)
+                    if lo < 1e-6 and hi < reach - 1e-6:
+                        kept.append(piece)
+        if not kept:
+            raise FeatureError("%s: there is nothing that way for it to stop "
+                               "at; try the other direction" % self.name)
+        return kept[0] if len(kept) == 1 else kernel.fuse_all(kept)
+
+    def _from_to(self, ctx: BuildContext, profile: TopoDS_Shape,
+                 plane: SketchPlane,
+                 normal: Sequence[float]) -> TopoDS_Shape:
+        """Between two faces or planes, Inventor's From To: the profile is
+        run right through both and the piece between them kept.  With no
+        From it starts on the sketch's own plane."""
+        ends = []
+        for ref, name, what in ((self.from_ref, self.from_plane,
+                                 "starts from"),
+                                (self.to_ref, self.to_plane, "runs to")):
+            kind, target, face = self._target(ctx, ref, name, what)
+            if kind is None and what == "starts from":
+                kind, target = "plane", plane
+            if kind is None:
+                raise FeatureError("%s: pick the face or plane it %s"
+                                   % (self.name, what))
+            if kind == "point":
+                raise FeatureError("%s: it runs between faces or planes, "
+                                   "not points" % self.name)
+            ends.append((target, face))
+        n = _unit(normal)
+        centre = kernel.shape_centre(profile)
+        box = kernel.bounding_box(kernel.compound(
+            [profile] + [f for _t, f in ends if f is not None]))
+        reach = 2.0 * math.dist(box[:3], box[3:]) + 10.0
+        for target, face in ends:
+            if face is None:
+                reach += 2.0 * abs(sum((target.origin[i] - centre[i]) * n[i]
+                                       for i in range(3)))
+        run = kernel.extrude(
+            kernel.translate(profile, [-n[i] * reach for i in range(3)]),
+            n, 2.0 * reach, 0.0)
+        cutters = []
+        for target, face in ends:
+            if face is None:
+                cutters.append(kernel.plane_face(run, target.origin,
+                                                 target.normal))
+            elif self.extend_face:
+                cutters.append(kernel.extended_face(face, 2.0 * reach))
+            else:
+                cutters.append(face)
+        pieces = kernel.split_pieces(run, cutters)
+        between = []
+        for piece in pieces:
+            lo, hi = kernel.depth_range(piece, centre, n)
+            if lo <= -reach + 1e-6 or hi >= reach - 1e-6:
+                continue
+            if all(kernel.distance_between(piece, c) < 1e-6
+                   for c in cutters):
+                between.append(piece)
+        if not between:
+            raise FeatureError(
+                "%s: the profile does not run between those two%s"
+                % (self.name, "" if self.extend_face else
+                   "; tick Extend Face if one stops short"))
+        return between[0] if len(between) == 1 else kernel.fuse_all(between)
+
+    def _from_distance(self, ctx: BuildContext, profile: TopoDS_Shape,
+                       normal: Sequence[float], depth: float,
+                       taper: float) -> TopoDS_Shape:
+        """A distance from a flat face or a plane rather than the sketch,
+        Inventor's From.  Square to the extrusion the profile simply moves
+        there; on a tilt both ends of it take the slope."""
+        kind, target, _face = self._target(ctx, self.from_ref,
+                                           self.from_plane, "starts from")
+        if kind != "plane":
+            raise FeatureError("%s: it starts from a flat face or a plane"
+                               % self.name)
+        n = _unit(normal)
+        m = _unit(target.normal)
+        facing = sum(n[i] * m[i] for i in range(3))
+        if abs(facing) < 1e-6:
+            raise FeatureError("%s: the face it starts from runs alongside "
+                               "it" % self.name)
+        centre = kernel.shape_centre(profile)
+        # along the normal from the profile to where it starts
+        t = sum((target.origin[i] - centre[i]) * m[i]
+                for i in range(3)) / facing
+        if abs(abs(facing) - 1.0) < 1e-9:
+            moved = kernel.translate(profile, [n[i] * t for i in range(3)])
+            return kernel.extrude(moved, n, depth, taper)
+        if abs(taper) > 1e-9:
+            raise FeatureError("%s: a taper needs the face it starts from "
+                               "square to it" % self.name)
+        box = kernel.bounding_box(profile)
+        size = (math.dist(box[:3], box[3:]) + abs(t) + abs(depth)) * 2.0 \
+            + 10.0
+        run = kernel.extrude(
+            kernel.translate(profile, [n[i] * (t - size) for i in range(3)]),
+            n, 2.0 * size, 0.0)
+        start = [centre[i] + n[i] * t for i in range(3)]
+        end = [start[i] + n[i] * depth for i in range(3)]
+        middle = [start[i] + n[i] * depth / 2.0 for i in range(3)]
+        tool = kernel.boolean(run, kernel.half_box(start, m, middle, size * 4),
+                              "intersect")
+        return kernel.boolean(tool, kernel.half_box(end, m, middle, size * 4),
+                              "intersect")
+
+    # -- Match Shape --------------------------------------------------------
+
+    def _open_profile(self, ctx: BuildContext):
+        """(region, plane, square) for Match Shape: the sketch plane on the
+        chosen side of the open profile."""
+        sketch = ctx.sketches.get(self.sketch_id) if self.sketch_id else None
+        if sketch is None:
+            raise FeatureError("%s: Match Shape needs the sketch with the "
+                               "open profile" % self.name)
+        wire = kernel.open_chain_wire(sketch)
+        if wire is None:
+            raise FeatureError("%s: the sketch has no open profile to match"
+                               % self.name)
+        if ctx.shape is None:
+            raise FeatureError("%s: Match Shape needs a solid for the profile "
+                               "to meet" % self.name)
+        try:
+            region, square = kernel.match_region(
+                wire, sketch.plane.origin, sketch.plane.normal, ctx.shape,
+                self.match_flip)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        return region, sketch.plane, square
+
+    def _matched(self, ctx: BuildContext, tool: TopoDS_Shape,
+                 square: TopoDS_Shape,
+                 normal: Sequence[float]) -> TopoDS_Shape:
+        """What a cut takes is everything on the profile's side; what a
+        join adds is only what the profile and the part close in between
+        them, nothing open to the outside."""
+        if self.operation in (CUT, INTERSECT):
+            return tool
+        box = kernel.bounding_box(kernel.compound([ctx.shape, tool]))
+        sides = kernel.walls(square, _unit(normal),
+                             2.0 * math.dist(box[:3], box[3:]) + 10.0)
+        pieces = kernel.explore(kernel.boolean(tool, ctx.shape, "cut"),
+                                kernel.TopAbs_SOLID)
+        kept = [p for p in pieces if kernel.distance_between(p, sides) > 1e-6]
+        if not kept:
+            raise FeatureError("%s: the profile and the part close nothing in "
+                               "on that side; try the other side" % self.name)
+        return kept[0] if len(kept) == 1 else kernel.fuse_all(kept)
 
     def _to_plane(self, ctx: BuildContext, profile: TopoDS_Shape,
-                  normal: Sequence[float]) -> TopoDS_Shape:
+                  normal: Sequence[float], target: SketchPlane,
+                  label: str) -> TopoDS_Shape:
         """Run the profile along its normal until it meets a plane.
 
         A plane square to the extrude is simply a distance.  A tilted one
         cuts the end off at its own angle, the way Inventor's To does: the
         prism is run out past it and trimmed back to it.
         """
-        target = ctx.planes.get(self.to_plane)
-        if target is None:
-            raise FeatureError("%s: pick the plane to extrude to" % self.name
-                               if not self.to_plane else
-                               "%s: plane %s no longer exists"
-                               % (self.name, self.to_plane))
         n = _unit(normal)
         nt = _unit(target.normal)
         facing = sum(n[i] * nt[i] for i in range(3))
         if abs(facing) < 1e-6:
             raise FeatureError("%s: %s runs alongside the extrude, so it "
-                               "never meets it" % (self.name, self.to_plane))
+                               "never meets it" % (self.name, label))
 
         def reach(point) -> float:
             """How far along the normal from a point to the target plane."""
@@ -891,12 +1191,12 @@ class ExtrudeFeature(Feature):
         reaches = [reach(c) for c in corners]
         if min(reaches) < -1e-6 and max(reaches) > 1e-6:
             raise FeatureError("%s: %s passes through the profile itself"
-                               % (self.name, self.to_plane))
+                               % (self.name, label))
         sign = 1.0 if sum(reaches) > 0 else -1.0
         far = max(abs(r) for r in reaches)
         if far < 1e-6:
             raise FeatureError("%s: the profile already lies on %s"
-                               % (self.name, self.to_plane))
+                               % (self.name, label))
         if abs(abs(facing) - 1.0) < 1e-9:
             return kernel.extrude(profile, n, sign * far, 0.0)
 
@@ -911,12 +1211,23 @@ class ExtrudeFeature(Feature):
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
 
     def summary(self) -> str:
+        def end(ref, name):
+            return ("a picked %s" % ref.refs[0].kind if len(ref)
+                    else name or "?")
+
         if self.extent == "to_plane":
-            what = "to %s" % (self.to_plane or "?")
+            what = "to %s" % end(self.to_ref, self.to_plane)
+        elif self.extent == "to_next":
+            what = "to next"
+        elif self.extent == "from_to":
+            what = "from %s to %s" % (end(self.from_ref, self.from_plane),
+                                      end(self.to_ref, self.to_plane))
         elif self.extent == "through_all":
             what = "through all"
         elif self.extent == "symmetric":
             what = "%s symmetric" % self.distance
+        elif self.extent == "asymmetric":
+            what = "%s and %s" % (self.distance, self.distance2)
         else:
             what = self.distance
         profiles = ("%d profile(s)" % len(self.profiles) if self.profiles
@@ -933,6 +1244,14 @@ class ExtrudeFeature(Feature):
             "reversed": self.reversed,
             "taper": self.taper,
             "to_plane": self.to_plane,
+            "to_ref": self.to_ref.to_list(),
+            "extend_face": self.extend_face,
+            "from_plane": self.from_plane,
+            "from_ref": self.from_ref.to_list(),
+            "distance2": self.distance2,
+            "taper2": self.taper2,
+            "match_shape": self.match_shape,
+            "match_flip": self.match_flip,
         }
 
     def load_fields(self, data: Dict[str, Any]) -> None:
@@ -945,6 +1264,14 @@ class ExtrudeFeature(Feature):
         self.body_name = str(data.get("body_name", ""))
         self.reversed = bool(data.get("reversed", False))
         self.taper = str(data.get("taper", "0"))
+        self.to_ref = RefSet.from_list(data.get("to_ref", []))
+        self.extend_face = bool(data.get("extend_face", False))
+        self.from_plane = str(data.get("from_plane", ""))
+        self.from_ref = RefSet.from_list(data.get("from_ref", []))
+        self.distance2 = str(data.get("distance2", "5"))
+        self.taper2 = str(data.get("taper2", "0"))
+        self.match_shape = bool(data.get("match_shape", False))
+        self.match_flip = bool(data.get("match_flip", False))
 
 
 def _through_all_reach(shape: Optional[TopoDS_Shape], plane: SketchPlane) -> float:

@@ -633,12 +633,12 @@ for row in range(grid.rowCount()):
 check("Inventor's four sections, in its order",
       sections == ["Input Geometry", "Behavior", "Output", "Advanced"],
       sections)
-check("Direction is a row of three buttons",
+check("Direction is a row of four buttons, Asymmetric last",
       [k for k, _i, _t in dialog.DIRECTIONS]
-      == ["default", "flipped", "symmetric"])
+      == ["default", "flipped", "symmetric", "asymmetric"])
 check("the extents no longer hide Symmetric",
       [dialog.extent.itemData(i) for i in range(dialog.extent.count())]
-      == ["distance", "through_all", "to_plane"])
+      == ["distance", "to_next", "to_plane", "from_to", "through_all"])
 check("and there is no Flip box any more", not hasattr(dialog, "flip"))
 
 dialog.direction.set_value("flipped")
