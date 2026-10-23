@@ -16,9 +16,56 @@
 <link rel="icon" href="img/favicon.ico" sizes="any">
 <link rel="icon" href="img/inventcraft-64.png" type="image/png">
 <link rel="apple-touch-icon" href="img/inventcraft-256.png">
-<link rel="stylesheet" href="style.css?v=5b2f351b31">
+<link rel="stylesheet" href="style.css?v=c12a6d4777">
 </head>
 <body>
+
+<!-- ------------------------------------------------------- the new name -->
+<div class="notice" id="notice" hidden>
+  <div class="notice-card" role="dialog" aria-modal="true"
+       aria-labelledby="notice-title">
+    <button class="notice-close" type="button" aria-label="Close">&times;</button>
+    <div class="notice-names" aria-hidden="true">
+      <span class="old">DATUM</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12h15m0 0-5-5m5 5-5 5"/>
+      </svg>
+      <span class="new"><img src="img/inventcraft-64.png" width="40"
+                             height="40" alt="">InventCraft</span>
+    </div>
+    <h2 id="notice-title">DATUM is now InventCraft</h2>
+    <p class="notice-lede">The same free, open source CAD, with a new name
+      and a bigger home.</p>
+    <p>If you used DATUM, you already know InventCraft. Only the name has
+      changed. It sketches, models, assembles, draws and cuts exactly as
+      before, and your parts, assemblies and drawings open just as they
+      did.</p>
+    <h3>Why the change</h3>
+    <p>A CAD program grows with the people around it: the person who
+      reports a bug, sends a fix, asks for a feature or shows it to a
+      friend. A project built by one person can only reach so far on its
+      own. To give InventCraft a real chance to succeed, it is joining the
+      family of Craft apps around ArtCraft, the open source creative studio
+      at getartcraft.com.</p>
+    <p>Being part of a bigger family puts InventCraft in front of a much
+      larger community of people who make things. More people using it
+      means more feedback, more eyes on the code and more contributions,
+      and that is what keeps an open source project alive and moving
+      forward.</p>
+    <ul class="notice-points">
+      <li>Free and open source under the MIT licence, as it always was</li>
+      <li>The source stays on GitHub, open to anyone who wants to help</li>
+      <li>Installed copies update to the new name on their own</li>
+    </ul>
+    <div class="notice-actions">
+      <a class="btn primary" id="notice-artcraft" href="https://getartcraft.com"
+         target="_blank" rel="noopener">Check out getartcraft.com</a>
+      <button class="btn ghost" type="button" data-close>Continue to
+        InventCraft</button>
+    </div>
+  </div>
+</div>
 
 <header class="top">
   <div class="wrap nav">
@@ -744,6 +791,46 @@
       if (box) { box.hidden = false; }
     })
     .catch(function () { /* nothing shown is better than something wrong */ });
+})();
+</script>
+<script>
+/* The new name, said first: once a visit, before anything else. */
+(function () {
+  var box = document.getElementById("notice");
+  if (!box) return;
+  try {
+    if (sessionStorage.getItem("inventcraft-notice")) return;
+  } catch (e) {}
+  var before = document.activeElement;
+  function key(event) {
+    if (event.key === "Escape") close();
+  }
+  function close() {
+    box.hidden = true;
+    document.documentElement.classList.remove("notice-open");
+    document.removeEventListener("keydown", key);
+    try { sessionStorage.setItem("inventcraft-notice", "1"); } catch (e) {}
+    if (before && before.focus) before.focus();
+  }
+  box.hidden = false;
+  // on a phone a page wider than the screen would push the box off its
+  // edge: it takes the width that is actually on screen
+  if (window.visualViewport && visualViewport.width < innerWidth) {
+    box.style.right = box.style.bottom = "auto";
+    box.style.width = visualViewport.width + "px";
+    box.style.height = visualViewport.height + "px";
+  }
+  document.documentElement.classList.add("notice-open");
+  document.addEventListener("keydown", key);
+  box.addEventListener("click", function (event) {
+    if (event.target === box
+        || event.target.closest("[data-close], .notice-close")) close();
+  });
+  // the link opens in a tab of its own, and this page is ready behind it
+  document.getElementById("notice-artcraft")
+          .addEventListener("click", close);
+  // the button has the focus, but the box opens at its top
+  box.querySelector(".btn.primary").focus({ preventScroll: true });
 })();
 </script>
 </body>
