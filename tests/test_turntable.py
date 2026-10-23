@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 WORK = tempfile.mkdtemp(prefix="datum_orbit_")
 os.environ["DATUM_CONFIG_DIR"] = WORK
-os.environ["DATUM_SETTINGS_ORG"] = "IITEG-tests"
+os.environ.setdefault("DATUM_SETTINGS_ORG", "IITEG-tests")
 
 import harness  # noqa: E402,F401
 

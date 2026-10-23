@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # every modal answers itself, so a run never stops to ask
 import harness  # noqa: E402,F401
 
-os.environ["DATUM_SETTINGS_ORG"] = "IITEG-tests"
+os.environ.setdefault("DATUM_SETTINGS_ORG", "IITEG-tests")
 
 from PySide6 import QtWidgets                                      # noqa: E402
 

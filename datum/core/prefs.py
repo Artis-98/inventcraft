@@ -111,6 +111,9 @@ class Preferences:
     mouse_orbit: str = MOUSE_RIGHT
     mouse_pan: str = MOUSE_MIDDLE
     zoom_reversed: bool = False
+    # how many of the files a save replaces are kept in OldVersions beside
+    # it, as Inventor's setting is: 0 none, a negative number every one
+    old_versions: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
@@ -122,7 +125,8 @@ class Preferences:
                 "spacemouse": dict(self.spacemouse),
                 "mouse_orbit": self.mouse_orbit,
                 "mouse_pan": self.mouse_pan,
-                "zoom_reversed": self.zoom_reversed}
+                "zoom_reversed": self.zoom_reversed,
+                "old_versions": self.old_versions}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
@@ -152,7 +156,8 @@ class Preferences:
                        if data.get("mouse_pan") in PAN_BUTTONS
                        and data.get("mouse_pan") != data.get("mouse_orbit")
                        else MOUSE_MIDDLE),
-            zoom_reversed=bool(data.get("zoom_reversed", False)))
+            zoom_reversed=bool(data.get("zoom_reversed", False)),
+            old_versions=_count(data.get("old_versions"), 1))
 
     def colours_for(self, theme: str) -> Dict[str, str]:
         """The colours changed in one scheme."""
@@ -190,6 +195,13 @@ class Preferences:
 def _units(value: Any) -> str:
     from .units import LENGTHS
     return str(value) if value in LENGTHS else "mm"
+
+
+def _count(value: Any, default: int) -> int:
+    try:
+        return max(-1, min(999, int(value)))
+    except (TypeError, ValueError):
+        return default
 
 
 def _is_colour(value: Any) -> bool:

@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..core import fileformat, kernel
+from ..core import units as unitlib
 from ..core.document import Document
 from ..core.features import (
     CUT, INTERSECT, JOIN, NEW_BODY, OPERATION_HINTS, OPERATION_LABELS,
@@ -459,9 +460,191 @@ class FeatureDialog(QtWidgets.QDialog):
 # ==========================================================================
 
 
+def _length_value(mm: float) -> str:
+    """A dragged length as the field stores it: millimetres, to the
+    hundredth, without trailing zeros."""
+    return ("%.2f" % mm).rstrip("0").rstrip(".")
+
+
 class ExtrudeDialog(FeatureDialog):
     def __init__(self, host, feature, is_new, snapshot=None):
+        self._handle_drawn = []
+        self._handle_axis = None        # (centre, direction, factor)
+        self._handle_dragging = False
+        self._handle_pending = False
         super().__init__(host, feature, "Extrude", "extrude", is_new, snapshot)
+        viewport = getattr(host, "viewport", None)
+        if viewport is not None:
+            viewport.drag_handle = self._handle_hit
+            viewport.handle_drag_started.connect(self._handle_started)
+            viewport.axis_drag_moved.connect(self._handle_moved)
+            viewport.axis_drag_finished.connect(self._handle_finished)
+
+    # -- the arrow in the view ------------------------------------------------
+    #
+    # Inventor puts an arrow on the end of the extrusion that drags the
+    # distance up and down, rather than it always having to be typed.  It
+    # stands on the middle of the profile, moved out along the direction by
+    # the distance, and a press on it pulls it along that line; the
+    # distance follows, written back into the field, and the preview
+    # follows that.
+
+    HANDLE_PICK = 12            # how near the arrow a press grabs it, pixels
+
+    def _handle_geometry(self):
+        """(centre, direction, factor) for the arrow, or None for none.
+
+        ``factor`` turns a distance along the line into the extrude's
+        distance: 1, or 2 for a symmetric one, whose end is half way out.
+        """
+        if self.extent.currentData() != "distance":
+            return None
+        centres, normal = [], None
+        for sketch_id, u, v in self.feature.profiles:
+            owner = self.doc.feature(sketch_id)
+            sketch = getattr(owner, "sketch", None)
+            if sketch is None:
+                continue
+            centres.append(sketch.plane.to_3d(u, v))
+            if normal is None:
+                normal = sketch.plane.normal
+        if not centres or normal is None:
+            return None
+        centre = tuple(sum(c[i] for c in centres) / len(centres)
+                       for i in range(3))
+        direction = self.direction.value()
+        sign = -1.0 if direction == "flipped" else 1.0
+        factor = 2.0 if direction == "symmetric" else 1.0
+        return centre, tuple(sign * n for n in normal), factor
+
+    def _handle_tip(self):
+        axis = self._handle_geometry()
+        if axis is None:
+            return None, None
+        centre, direction, factor = axis
+        reach = self.distance.value() / factor
+        return axis, tuple(centre[i] + direction[i] * reach for i in range(3))
+
+    def _draw_handle(self) -> None:
+        viewport = getattr(self.host, "viewport", None)
+        if viewport is None:
+            return
+        viewport.remove_drawn(self._handle_drawn)
+        self._handle_drawn = []
+        if self._closed:
+            return
+        axis, tip = self._handle_tip()
+        self._handle_axis = axis
+        if axis is None:
+            viewport.redraw()
+            return
+        with viewport.collecting() as drawn:
+            viewport.draw_arrow(tip, axis[1], C.accent, preview=False)
+            label = unitlib.length_text(self.distance.value(),
+                                        self.distance.doc_unit)
+            length = max(2.0, viewport.view_span() * 0.11)
+            beside = tuple(tip[i] + axis[1][i] * length * 1.15
+                           for i in range(3))
+            viewport.draw_text(label, beside, C.accent, 15.0)
+        self._handle_drawn = drawn
+        viewport.redraw()
+
+    def _handle_hit(self, x: int, y: int):
+        """Whether a press at (x, y) is on the arrow; its axis if so."""
+        if self._closed or self._handle_axis is None:
+            return None
+        viewport = self.host.viewport
+        axis, tip = self._handle_tip()
+        if axis is None:
+            return None
+        length = max(2.0, viewport.view_span() * 0.11)
+        end = tuple(tip[i] + axis[1][i] * length for i in range(3))
+        ax, ay = viewport.project(tip)
+        bx, by = viewport.project(end)
+        dx, dy = bx - ax, by - ay
+        span = dx * dx + dy * dy
+        t = 0.0 if span == 0 else max(0.0, min(1.0, (
+            (x - ax) * dx + (y - ay) * dy) / span))
+        px, py = ax + t * dx, ay + t * dy
+        if (x - px) ** 2 + (y - py) ** 2 > self.HANDLE_PICK ** 2:
+            return None
+        return axis[0], axis[1]
+
+    def _handle_started(self, along: float) -> None:
+        if self._closed or self._handle_axis is None:
+            return
+        # Measured along the line as it was when grabbed, all the way: the
+        # arrow keeps the spot it was grabbed by under the cursor, rather
+        # than its tip jumping there.
+        factor = self._handle_axis[2]
+        self._grab_offset = along - self.distance.value() / factor
+        self._grab_direction = self.direction.value()
+        self._handle_dragging = True
+
+    def _handle_moved(self, along: float) -> None:
+        if not self._handle_dragging or self._closed:
+            return
+        _centre, _direction, factor = self._handle_axis
+        value = (along - self._grab_offset) * factor
+        start = self._grab_direction
+        if start != "symmetric":
+            # pulled back through the sketch it goes the other way, as
+            # Inventor's arrow does, and back again if pulled out again
+            other = "default" if start == "flipped" else "flipped"
+            wanted = start if value >= 0 else other
+            if self.direction.value() != wanted:
+                self.direction.blockSignals(True)
+                self.direction.set_value(wanted)
+                self.direction.blockSignals(False)
+                self._sync_enabled()
+        value = max(0.01, abs(value))
+        # the field shows it at once; the rebuild is batched below
+        self.distance.blockSignals(True)
+        self.distance.set_text(_length_value(value))
+        self.distance.blockSignals(False)
+        # one rebuild for however many moves arrive before it can run
+        if not self._handle_pending:
+            self._handle_pending = True
+            QtCore.QTimer.singleShot(0, self._handle_catch_up)
+
+    def _handle_catch_up(self) -> None:
+        self._handle_pending = False
+        if not self._closed:
+            self.preview()
+
+    def _handle_finished(self, along: float) -> None:
+        if not self._handle_dragging:
+            return
+        self._handle_moved(along)
+        self._handle_dragging = False
+
+    def _drop_handle(self) -> None:
+        viewport = getattr(self.host, "viewport", None)
+        if viewport is None:
+            return
+        viewport.remove_drawn(self._handle_drawn)
+        self._handle_drawn = []
+        if viewport.drag_handle == self._handle_hit:
+            viewport.drag_handle = None
+        for signal, slot in ((viewport.handle_drag_started,
+                              self._handle_started),
+                             (viewport.axis_drag_moved, self._handle_moved),
+                             (viewport.axis_drag_finished,
+                              self._handle_finished)):
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        viewport.redraw()
+
+    def preview(self) -> None:
+        super().preview()
+        self._draw_handle()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        if self._closed:
+            self._drop_handle()
+        super().closeEvent(event)
 
     # Direction is its own row of buttons, as in Inventor, rather than
     # Symmetric hiding among the extents and a Flip box at the bottom.

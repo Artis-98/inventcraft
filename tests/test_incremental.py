@@ -6,7 +6,11 @@ never be told apart from building everything, so every sample part is put
 through every kind of edit, and after each one the incremental result is
 compared with a from-scratch rebuild of the same definition: the same
 volume, the same faces, the same bodies, the same errors.
+
+Split over processes by tests/run.py: every part is independent of the
+others, and done in one process this was half the whole suite's wait.
 """
+# shards: 3
 import glob
 import json
 import os
@@ -74,6 +78,11 @@ def counted(doc):
 
 parts = sorted(glob.glob(os.path.join(ROOT, "examples", "**", "*.pdat"),
                          recursive=True))
+# DATUM_SHARD=i/n takes every n-th part, the biggest files dealt out first
+# so the shares come out about even; shard 0 also does the second half
+SHARD, SHARDS = (int(v) for v in
+                 os.environ.get("DATUM_SHARD", "0/1").split("/"))
+parts = sorted(parts, key=os.path.getsize, reverse=True)[SHARD::SHARDS]
 for path in parts:
     rules.trust_path(path)
 edits = 0
@@ -150,6 +159,9 @@ print("  (%d edits compared)" % edits)
 
 
 print()
+if SHARD != 0:
+    print("FAILED: " + ", ".join(FAILS) if FAILS else "all passed")
+    sys.exit(1 if FAILS else 0)
 print("only what changed is built")
 
 doc = Document()

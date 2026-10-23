@@ -249,6 +249,9 @@ def write(path: str, doc_type: str, geometry: Dict[str, Any],
             if thumbnail:
                 archive.writestr(THUMBNAIL_NAME, thumbnail,
                                  compress_type=BLOB_COMPRESSION)
+        # the file this replaces, kept in OldVersions beside it first
+        from . import oldversions
+        oldversions.stash(path, oldversions.keep_setting())
         os.replace(temporary, path)
     except Exception:
         if os.path.exists(temporary):

@@ -140,6 +140,17 @@ class PreferencesDialog(QtWidgets.QDialog):
             "What new parts and assemblies are drawn in. A document's own "
             "units are changed from the unit in the status bar.")
         form.addRow("Units for new documents", self.units_combo)
+
+        self.versions_spin = QtWidgets.QSpinBox()
+        self.versions_spin.setRange(-1, 999)
+        self.versions_spin.setSpecialValueText("All")
+        self.versions_spin.setValue(self.prefs.old_versions)
+        self.versions_spin.setToolTip(
+            "Every save first copies the file it replaces into an "
+            "OldVersions folder beside it, numbered, so an older copy can "
+            "be opened if something goes wrong. This many are kept; 0 "
+            "keeps none.")
+        form.addRow("Old versions kept on save", self.versions_spin)
         return page
 
     def _display_page(self) -> QtWidgets.QWidget:
@@ -292,6 +303,7 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.prefs.mouse_pan = (self.mouse_pan_combo.currentData()
                                 or core_prefs.MOUSE_MIDDLE)
         self.prefs.zoom_reversed = self.zoom_reversed_box.isChecked()
+        self.prefs.old_versions = self.versions_spin.value()
         # only what differs from the shipped palette is written, so a
         # retuned default reaches everybody who never touched it
         self.prefs.set_colours_for(current_theme(), {

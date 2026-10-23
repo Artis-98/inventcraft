@@ -13,7 +13,7 @@ import harness  # noqa: E402,F401
 
 
 # keep the test run out of the real recent-files list
-os.environ["DATUM_SETTINGS_ORG"] = "IITEG-tests"
+os.environ.setdefault("DATUM_SETTINGS_ORG", "IITEG-tests")
 
 from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
 

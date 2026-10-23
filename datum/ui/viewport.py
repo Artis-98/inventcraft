@@ -357,6 +357,10 @@ class Viewport(QtWidgets.QWidget):
         # controller has no idea what is under the cursor, so one asks the
         # other.
         self.component_freely_movable = None
+        # Something drawn in the view that a press can grab and pull along
+        # an axis, such as an extrude's arrow: called with the cursor, it
+        # gives back (origin, direction) when the cursor is on it.
+        self.drag_handle = None
         self._free_drag = False
         self._component_basis: Tuple[Tuple[float, float, float], ...] = ()
 
@@ -1762,6 +1766,9 @@ class Viewport(QtWidgets.QWidget):
 
     frame_timed = QtCore.Signal(float)        # ms, averaged, when asked for
     section_drag_pressed = QtCore.Signal()
+    # a press on whatever drag_handle says it is: an axis drag has begun,
+    # and this is how far along the axis the press was
+    handle_drag_started = QtCore.Signal(float)
 
     def redraw(self) -> None:
         if not self._ready or self.view is None:
@@ -2652,6 +2659,23 @@ class Viewport(QtWidgets.QWidget):
     def end_axis_drag(self) -> None:
         self._axis_active = False
 
+    def _handle_at(self, x: int, y: int):
+        if self.drag_handle is None:
+            return None
+        try:
+            return self.drag_handle(x, y)
+        except Exception:                               # noqa: BLE001
+            return None
+
+    def _grab_handle(self, x: int, y: int) -> bool:
+        """A press on the drag handle: start pulling it along its axis."""
+        axis = self._handle_at(x, y)
+        if axis is None:
+            return False
+        self.begin_axis_drag(axis[0], axis[1])
+        self.handle_drag_started.emit(self.axis_distance(x, y) or 0.0)
+        return True
+
     @property
     def axis_dragging(self) -> bool:
         return self._axis_active
@@ -3145,6 +3169,9 @@ class Viewport(QtWidgets.QWidget):
               and self.section_drag and not self.plane_mode):
             # the section being placed: a drag slides it along its normal
             self.section_drag_pressed.emit()
+        elif (event.button() == QtCore.Qt.LeftButton and not self.plane_mode
+              and self._grab_handle(pos.x(), pos.y())):
+            pass                # an axis drag of the handle has begun
         elif event.button() == QtCore.Qt.LeftButton:
             left_nav = self.navigation_for(event.button(), mods)
             # whatever the last press was, this one starts afresh: a release
