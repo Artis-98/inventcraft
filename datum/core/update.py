@@ -261,9 +261,10 @@ class Release:
     installer: str = ""         # a full reinstall, for big jumps
     minimum: str = "0.0.0"      # older than this cannot be patched forward
     base: str = ""
-    # The Linux build, which comes as one archive off GitHub rather than
-    # file by file off the server.  Its hash is in the signed feed, so the
-    # archive is as trusted as everything else wherever it is hosted.
+    # A build that comes as one archive off the GitHub release rather
+    # than file by file off the server: Linux always, Windows from 0.3.1.
+    # Its hash is in the signed feed, so the archive is as trusted as
+    # everything else wherever it is hosted.
     package: str = ""
     package_sha256: str = ""
     package_size: int = 0
@@ -282,25 +283,35 @@ class Release:
                   platform: str = "") -> "Release":
         """What the feed offers this system.
 
-        Windows takes the release the feed is about.  Linux takes the
-        feed's ``linux`` entry, which is added once the archive has been
-        built, so until then a Linux copy is simply not offered anything.
+        Linux takes the feed's ``linux`` entry, which is added once the
+        archive has been built, so until then a Linux copy is simply not
+        offered anything.  Windows takes the ``windows`` entry when there
+        is one, the whole build as one archive on the GitHub release, and
+        otherwise the release the feed is about, file by file off the
+        server, which is all a copy older than 0.3.1 knows how to read;
+        ``platform`` "files" reads it that way on purpose.
         """
-        if (platform or sys.platform).startswith("linux"):
-            linux = data.get("linux")
-            linux = linux if isinstance(linux, dict) else {}
+        system = platform or sys.platform
+        entry = None
+        if system.startswith("linux"):
+            entry = data.get("linux")
+            entry = entry if isinstance(entry, dict) else {}
+        elif system != "files" and isinstance(data.get("windows"), dict) \
+                and data["windows"].get("url"):
+            entry = data["windows"]
+        if entry is not None:
             try:
-                size = int(linux.get("size", 0) or 0)
+                size = int(entry.get("size", 0) or 0)
             except (TypeError, ValueError):
                 size = 0
-            return cls(version=str(linux.get("version", "")),
-                       released=str(linux.get("released",
+            return cls(version=str(entry.get("version", "")),
+                       released=str(entry.get("released",
                                               data.get("released", ""))),
-                       notes=str(linux.get("notes", data.get("notes", ""))),
-                       minimum=str(linux.get("minimum", "0.0.0")),
+                       notes=str(entry.get("notes", data.get("notes", ""))),
+                       minimum=str(entry.get("minimum", "0.0.0")),
                        base=base,
-                       package=str(linux.get("url", "")),
-                       package_sha256=str(linux.get("sha256", "")),
+                       package=str(entry.get("url", "")),
+                       package_sha256=str(entry.get("sha256", "")),
                        package_size=size)
         return cls(version=str(data.get("version", "")),
                    released=str(data.get("released", "")),
@@ -519,7 +530,7 @@ def fetch_to(url: str, path: str,
 def download_package(release: Release, target: str,
                      progress: Optional[Callable[[int, int], bool]] = None,
                      fetcher: Optional[Callable[..., str]] = None) -> Plan:
-    """Fetch the Linux archive, check it, and stage what changed in it.
+    """Fetch the build's archive, check it, and stage what changed in it.
 
     What it leaves behind is exactly what a Windows download leaves: the
     changed files under the staging folder and the plan beside them, so
@@ -573,7 +584,8 @@ def _unpack(archive: str, into: str) -> str:
     writes files, and "the hash would have caught it" is not a reason to
     let an archive put one anywhere it likes.
     """
-    with tarfile.open(archive, "r:gz") as tar:
+    # gzip for Linux, xz for Windows: whichever the archive is
+    with tarfile.open(archive, "r:*") as tar:
         tar.extractall(into, filter="data")
     os.remove(archive)
     tops = [name for name in os.listdir(into)

@@ -85,7 +85,7 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="live-version">Latest: 0.3.0</span></div>
+        <span id="live-version">Latest: 0.3.1</span></div>
       <h1 style="font-size:clamp(34px,5vw,52px)">Changelog</h1>
       <p class="lede">
         Every release, what changed in it, and why. InventCraft updates itself,
@@ -93,7 +93,7 @@
         just here so you can see what arrived.
       </p>
       <a class="btn ghost" id="get-latest"
-         href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-setup.exe">
         Download the current version</a>
     </div>
   </div>
@@ -119,9 +119,55 @@
 
     <div class="release current">
       <div class="head">
+        <span class="ver">0.3.1</span>
+        <span class="when">24 October 2026</span>
+        <span class="badge">current</span>
+      </div>
+      <p style="color:var(--dim);margin:0 0 12px">
+        Inventor's way for the things used every day: Measure, Split,
+        Pattern and Mirror, all of Extrude, and a view cube whose Front you
+        choose.
+      </p>
+      <ul>
+        <li><strong>Measure, the Inventor way.</strong> Pick a point, an
+          edge or a face, then a second: the distance between them, and its
+          X, Y and Z. M opens it.</li>
+        <li><strong>Your own keyboard shortcuts</strong>, under
+          Preferences, Shortcuts.</li>
+        <li><strong>Old versions kept.</strong> Every save keeps the file
+          it replaces in an OldVersions folder beside it, as Inventor does.
+          How many is set in Preferences.</li>
+        <li><strong>An arrow on the extrusion</strong> drags its distance
+          in the view.</li>
+        <li><strong>All of Extrude.</strong> To Next; To a face, a plane or
+          a corner of the part, with Extend Face; From a face; Between two
+          faces; Asymmetric, each way its own distance and taper; and Match
+          Shape, which runs an open profile out to the part.</li>
+        <li><strong>Split:</strong> faces divided along a plane or a flat
+          face, or a solid cut in two.</li>
+        <li><strong>Pattern and Mirror, the Inventor way.</strong> Features
+          and solids are picked in the view or the tree, and so are the
+          directions and the mirror plane, with X, Y and Z a click away and
+          a flip.</li>
+        <li><strong>Solids are picked</strong> by a face or in the tree, in
+          every feature that asks which.</li>
+        <li><strong>The view cube:</strong> a Home button beside it, and its
+          menu under the little arrow. Set Current View as Home, or as Front
+          or Top at any angle: the cube turns to match, and a drawing places
+          its views square to the part. Asked for on GitHub.</li>
+        <li><strong>macOS:</strong> a preview build for Apple silicon is on
+          the GitHub release, from the work of @calumk and @DanWake.</li>
+        <li><strong>Downloads come from GitHub</strong>, where the source
+          is.</li>
+        <li><strong>Linux:</strong>
+          <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-linux-x86_64.tar.gz">InventCraft 0.3.1 for Linux</a>.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head">
         <span class="ver">0.3.0</span>
         <span class="when">22 October 2026</span>
-        <span class="badge">current</span>
       </div>
       <p style="color:var(--dim);margin:0 0 12px">
         DATUM is now InventCraft: a new name, a light look, a full Linux
@@ -669,12 +715,12 @@
         ask it now from File then Check for Updates.
       </p>
       <a class="btn primary" id="get-latest-2"
-         href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        InventCraft <span id="latest-ver">0.3.0</span> for Windows
+        InventCraft <span id="latest-ver">0.3.1</span> for Windows
       </a>
     </div>
   </div>
@@ -722,13 +768,13 @@
       if (live) { live.textContent = "Latest: " + feed.version; }
       var ver = document.getElementById("latest-ver");
       if (ver) { ver.textContent = feed.version; }
-      if (feed.installer) {
-        var url = "https://api.iiteg.com/datum/" + feed.installer;
-        ["get-latest", "get-latest-2"].forEach(function (id) {
-          var el = document.getElementById(id);
-          if (el) { el.href = url; }
-        });
-      }
+      /* off the GitHub release, not this server */
+      var url = "https://github.com/Artis-98/inventcraft/releases/download/v"
+        + feed.version + "/InventCraft-" + feed.version + "-setup.exe";
+      ["get-latest", "get-latest-2"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) { el.href = url; }
+      });
     })
     .catch(function () {});
 })();

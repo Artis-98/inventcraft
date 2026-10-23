@@ -65,6 +65,16 @@ LEGACY_KEY = os.path.join(RELEASE, "signing-key.pem")
 # where the Linux archive is published, by .github/workflows/linux.yml
 GITHUB_REPO = "Artis-98/inventcraft"
 LINUX_ARCHIVE = "InventCraft-%s-linux-x86_64.tar.gz"
+# The Windows build as one archive, for copies from 0.3.1 on to update
+# from the GitHub release rather than file by file off the server.  xz,
+# so it is about the size of the installer rather than three times it.
+WINDOWS_ARCHIVE = "InventCraft-%s-windows-x64.tar.xz"
+SETUP_NAME = "InventCraft-%s-setup.exe"
+
+
+def github_url(version: str, name: str) -> str:
+    return "https://github.com/%s/releases/download/v%s/%s" % (
+        GITHUB_REPO, version, name)
 INNO = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs",
                     "Inno Setup 6", "ISCC.exe")
 
@@ -293,6 +303,7 @@ def publish(version: str, notes: str, minimum: str, key) -> str:
 
     total = sum(e["size"] for e in manifest["files"].values())
     setup = installer(version)
+    archive = windows_archive(version, folder)
 
     feed = {
         "version": version,
@@ -303,13 +314,37 @@ def publish(version: str, notes: str, minimum: str, key) -> str:
         "size": total,
     }
     if setup:
-        feed["installer"] = "%s/%s" % (version, setup)
+        # downloaded from the GitHub release, not from the server
+        feed["installer"] = github_url(version, setup)
+    if archive:
+        feed["windows"] = {
+            "version": version,
+            "url": github_url(version, os.path.basename(archive)),
+            "sha256": update.file_hash(archive),
+            "size": os.path.getsize(archive),
+            "released": feed["released"],
+            "notes": notes,
+        }
 
     feed_path = os.path.join(RELEASE, update.FEED_FILE)
     with open(feed_path, "w", encoding="utf-8") as handle:
         json.dump(feed, handle, indent=1)
     sign_file(feed_path, key)
     return folder
+
+
+def windows_archive(version: str, folder: str) -> str:
+    """The build as one .tar.xz, InventCraft/ at its top, for the GitHub
+    release.  It sits in the version folder, where deploy.py does not
+    send it: only what the manifest lists goes to the server."""
+    import tarfile
+
+    path = os.path.join(folder, WINDOWS_ARCHIVE % version)
+    say("packing %s (a few minutes)" % os.path.basename(path))
+    with tarfile.open(path, "w:xz", preset=6) as tar:
+        tar.add(DIST, arcname="InventCraft")
+    say("  %s" % update.human(os.path.getsize(path)))
+    return path
 
 
 def add_linux(version: str, key, notes: str = "") -> None:
@@ -436,14 +471,15 @@ def main() -> int:
     print("""
 Done.  %s
 
-Upload to https://api.iiteg.com/datum/, keeping the layout:
+Put the installer and the Windows archive on the GitHub release v%s:
 
-    release/%s/       ->  /datum/%s/        (all of it)
-    release/latest.json      ->  /datum/latest.json
-    release/latest.json.sig  ->  /datum/latest.json.sig
+    release/%s/InventCraft-%s-setup.exe
+    release/%s/InventCraft-%s-windows-x64.tar.xz
 
-Send the version folder FIRST and the feed last.  A copy that reads the
-feed before the files are there will try to update and fail.
+then the rest to https://api.iiteg.com/datum/ with deploy.py release,
+which sends the files the manifest lists FIRST and the feed last.  A copy
+that reads the feed before the files are there will try to update and
+fail.
 
 Upload nothing else out of release/.  Not signing-key.pem, which is the
 one thing that decides whether an update is really yours, and not the
@@ -455,7 +491,8 @@ File then Check for Updates.
 Only the newest version folder is ever fetched from, whatever version
 somebody is updating from, so older ones can be deleted from the server
 and from release/ once a release has settled.  Keep one behind if you
-want somewhere to roll back to.""" % (folder, version, version))
+want somewhere to roll back to.""" % (folder, version, version, version,
+                                     version, version))
     return 0
 
 

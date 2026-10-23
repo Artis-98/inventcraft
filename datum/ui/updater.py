@@ -333,7 +333,7 @@ class UpdateController(QtCore.QObject):
         if release.needs_reinstall:
             self.banner.problem(
                 "InventCraft %s is available, but it is too big a jump to patch.  "
-                "Download the installer from iiteg.com." % release.version)
+                "Download the installer from datum.iiteg.com." % release.version)
             return
         self.banner.offer(release.version, release.notes)
 

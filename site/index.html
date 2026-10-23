@@ -117,7 +117,7 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="badge-version">Version 0.3.0 · free · open source</span>
+        <span id="badge-version">Version 0.3.1 · free · open source</span>
       </div>
       <h1>Parametric CAD<br><span class="quiet">that fits on a laptop.</span></h1>
       <p class="lede">
@@ -128,7 +128,7 @@
       </p>
       <div class="cta-row">
         <a class="btn primary" id="download-btn"
-           href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
+           href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-setup.exe">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round"
                stroke-linejoin="round" aria-hidden="true">
@@ -141,7 +141,7 @@
       <p class="cta-note">
         <strong id="size-note">106 MB</strong> · Windows 10 and 11, 64-bit ·
         installs without an administrator prompt · updates itself ·
-        <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.0/InventCraft-0.3.0-linux-x86_64.tar.gz">Linux</a>
+        <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-linux-x86_64.tar.gz">Linux</a>
       </p>
     </div>
 
@@ -446,7 +446,7 @@
         </div>
         <div class="note" style="border-left-color:var(--silver-deep)">
           <strong>It is young software.</strong>
-          InventCraft is at version 0.3.0 and is used daily for real work at
+          InventCraft is at version 0.3.1 and is used daily for real work at
           IITEG, but it has not been through thousands of hands yet.
           Keep backups of anything that matters, and please tell me when
           something breaks.
@@ -478,21 +478,21 @@
         Free, no account, no licence key. It updates itself from then on.
       </p>
       <a class="btn primary" id="download-btn-2"
-         href="https://api.iiteg.com/datum/0.3.0/InventCraft-0.3.0-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        InventCraft <span id="btn-version">0.3.0</span> for Windows
+        InventCraft <span id="btn-version">0.3.1</span> for Windows
       </a>
       <div class="meta-row">
         <span>Windows 10 / 11, 64-bit</span>
         <span id="meta-size">106 MB installer</span>
-        <span id="meta-date">Released 2 October 2026</span>
+        <span id="meta-date">Released 24 October 2026</span>
         <span><a href="changelog.html">What's new</a></span>
       </div>
       <div class="meta-row">
-        <span><a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.0/InventCraft-0.3.0-linux-x86_64.tar.gz">Linux</a>, for Ubuntu 20.04,
+        <span><a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-linux-x86_64.tar.gz">Linux</a>, for Ubuntu 20.04,
           Debian 11, Fedora 32 and anything newer, and it updates itself too
           (<a href="https://github.com/Artis-98/inventcraft/blob/main/docs/LINUX.md">how to install it</a>)</span>
       </div>
@@ -593,9 +593,10 @@
     .then(function (feed) {
       if (!feed || !feed.version) { return; }
       var v = feed.version;
-      var url = feed.installer
-        ? "https://api.iiteg.com/datum/" + feed.installer
-        : null;
+      /* the installer is downloaded from the GitHub release, not from
+       * this server, which keeps only what installed copies update from */
+      var url = "https://github.com/Artis-98/inventcraft/releases/download/v"
+        + v + "/InventCraft-" + v + "-setup.exe";
 
       var set = function (id, text) {
         var el = document.getElementById(id);
@@ -605,12 +606,10 @@
           "Version " + v + " · free · open source");
       set("btn-version", v);
 
-      if (url) {
-        ["download-btn", "download-btn-2"].forEach(function (id) {
-          var el = document.getElementById(id);
-          if (el) { el.href = url; }
-        });
-      }
+      ["download-btn", "download-btn-2"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) { el.href = url; }
+      });
       /* the Linux archive, once the feed carries it */
       if (feed.linux && feed.linux.url) {
         var links = document.querySelectorAll("a.linux-link");
@@ -620,19 +619,8 @@
       }
       var released = when(feed.released);
       if (released) { set("meta-date", "Released " + released); }
-
-      /* The feed's size is the unpacked build; the installer is what
-       * anybody actually downloads, so ask the server for its length
-       * rather than quoting the wrong number. */
-      if (url) {
-        fetch(url, { method: "HEAD" }).then(function (r) {
-          var len = parseInt(r.headers.get("Content-Length") || "0", 10);
-          if (len > 0) {
-            set("meta-size", mb(len) + " installer");
-            set("size-note", mb(len));
-          }
-        }).catch(function () {});
-      }
+      /* GitHub does not tell another site how big a file is, so the
+       * installer's size is the one written into this page */
     })
     .catch(function () { /* the page already says something true */ });
 })();

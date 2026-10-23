@@ -322,11 +322,9 @@ def release_pairs(version: str) -> List[Tuple[str, str]]:
         if not os.path.exists(local):
             fail("%s is in the manifest but not on disk" % relative)
         pairs.append((local, "%s/%s" % (version, relative)))
-    # the installer is not in the manifest, but the website links to it
-    for extra in sorted(os.listdir(folder)):
-        if extra.endswith("-setup.exe"):
-            pairs.append((os.path.join(folder, extra),
-                          "%s/%s" % (version, extra)))
+    # Nothing else: the installer and the Windows archive are downloaded
+    # from the GitHub release, so the server holds only what a copy older
+    # than 0.3.1 updates from, and the feed.
     return pairs
 
 
@@ -602,7 +600,8 @@ def do_check(expect: str = "") -> int:
     problems = []
     print("the feed")
     try:
-        release = update.check()
+        # as a copy older than 0.3.1 reads it: file by file off the server
+        release = update.check(platform="files")
     except Exception as exc:
         print("  UNREADABLE: %s" % exc)
         return 1
@@ -662,17 +661,30 @@ def do_check(expect: str = "") -> int:
             print("    %s" % name)
         problems.append("%d file(s) are not on the server" % len(bad))
 
-    if release.installer:
-        status = "missing"
+    def there(url: str) -> str:
+        """The size of what is at a URL, or "" for nothing there."""
         try:
             request = urllib.request.Request(
-                release.base + release.installer, method="HEAD",
+                url, method="HEAD",
                 headers={"User-Agent": "DATUM-deploy-check"})
             with urllib.request.urlopen(request, timeout=30) as response:
-                status = "%s bytes" % response.headers.get("Content-Length")
+                return "%s bytes" % response.headers.get("Content-Length")
         except Exception:
+            return ""
+
+    if release.installer:
+        # on the GitHub release since 0.3.1, on the server before
+        status = there(urllib.parse.urljoin(release.base, release.installer))
+        if not status:
             problems.append("the installer the website links to is missing")
-        print("  installer: %s" % status)
+        print("  installer: %s" % (status or "missing"))
+    # what a copy from 0.3.1 on updates from: one archive on GitHub
+    packed = update.check(platform="win32")
+    if packed.package:
+        status = there(packed.package)
+        if not status:
+            problems.append("the Windows archive on GitHub is missing")
+        print("  windows archive: %s" % (status or "missing"))
 
     print()
     if problems:
