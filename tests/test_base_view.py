@@ -361,7 +361,7 @@ check("the view starts on that part's own Front",
       same(session.direction, (-1.0, 0.0, 0.0))
       and same(session.up, (0.0, 0.0, 1.0)), session.direction)
 check("and the cube beside it says FRONT on that face",
-      same(session.cube.faces()["front"][0], (1.0, 0.0, 0.0)))
+      same(session.cube._camera()[0], (0.0, 1.0, 0.0)))
 settle()
 box = session._box(session.views()[0])
 scale = session._scale()

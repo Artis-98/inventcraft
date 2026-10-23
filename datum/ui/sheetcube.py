@@ -131,9 +131,10 @@ def _face_corners(normal: Vec) -> List[Vec]:
 class OrientationCube:
     """The cube, where it was last drawn, and what a click on it means.
 
-    Its faces are named the way the model has them: a part whose Front
-    was moved (Set Current View as Front) has its cube say so here too,
-    and a click on FRONT is that part's front view.
+    It is turned the way the model's own Front and Top are (Set Current
+    View as Front), as the 3D view's cube is: drawn as the stock cube
+    seen from the view's direction turned back into the model's frame,
+    and a click on it pointing the view in that frame.
     """
 
     SIZE = 34.0          # half the cube's width, in pixels, near enough
@@ -157,22 +158,22 @@ class OrientationCube:
         self.up = square_up(self.direction, up)
 
     def set_setup(self, setup) -> None:
-        """The model's Front and Top, which name the faces."""
+        """The model's Front and Top, which turn the cube."""
         from ..core.viewsetup import ViewSetup
         self.setup = setup if setup is not None else ViewSetup()
 
-    def faces(self) -> Dict[str, Tuple[Vec, str]]:
-        """Each face by name: which way it faces, and what it says."""
-        if self.setup.is_default():
-            return FACES
-        return {name: (self.setup.face_normal(name), label)
-                for name, (_normal, label) in FACES.items()}
+    def _world(self, view: Tuple[Vec, Vec]) -> Tuple[Vec, Vec]:
+        """A view of the stock cube, in the model's frame."""
+        look, up = view
+        return (_unit(self.setup.turn(look)), _unit(self.setup.turn(up)))
 
     # -- drawing ----------------------------------------------------------
 
     def _camera(self) -> Tuple[Vec, Vec, Vec]:
-        # straight on, the way the view itself looks: no tilt to puzzle out
-        d, u = self.direction, self.up
+        # straight on, the way the view itself looks: no tilt to puzzle
+        # out; in the model's own frame, so the cube turns with it
+        d = _unit(self.setup.local(self.direction))
+        u = square_up(d, self.setup.local(self.up))
         return d, u, right_of(d, u)
 
     def _to_screen(self, point: Sequence[float], look, cam_up, cam_right,
@@ -188,7 +189,7 @@ class OrientationCube:
                                             cam_right, scale)
 
         visible = [(name, normal, label) for name, (normal, label)
-                   in self.faces().items() if _dot(normal, look) < -1e-6]
+                   in FACES.items() if _dot(normal, look) < -1e-6]
         # far faces first, so the near ones are painted over them
         visible.sort(key=lambda f: _dot(f[1], look), reverse=True)
 
@@ -205,7 +206,7 @@ class OrientationCube:
         painter.drawRoundedRect(QtCore.QRectF(
             self.centre.x() - room, self.centre.y() - room,
             room * 2.0, room * 2.0), 8.0, 8.0)
-        facing = _unit(_neg(self.direction))
+        facing = _unit(_neg(look))
         font = QtGui.QFont(painter.font())
         font.setPixelSize(22)
         font.setBold(True)
@@ -252,8 +253,8 @@ class OrientationCube:
 
     def _label(self, painter: QtGui.QPainter, font: QtGui.QFont,
                normal: Vec, name: str, label: str, project) -> None:
-        # upright the way that face's own view has it
-        upward = self.setup.orientation(name)[1]
+        upward = (0.0, 1.0, 0.0) if name in ("top", "bottom") \
+            else (0.0, 0.0, 1.0)
         across = right_of(_neg(normal), upward)
         corner = lambda a, b: project(  # noqa: E731
             [normal[i] + a * across[i] * 0.86 + b * upward[i] * 0.86
@@ -352,16 +353,11 @@ class OrientationCube:
     def view_for(self, element: str) -> Optional[Tuple[Vec, Vec]]:
         """Where a click on this element points the view."""
         if element in FACES:
-            if self.setup.is_default():
-                return face_view(element)
-            look, up = self.setup.orientation(element)
-            return (_unit(look), square_up(look, up))
+            return self._world(face_view(element))
         if element.startswith("corner:") or element.startswith("edge:"):
-            d = _unit(_neg(_parse(element)))
-            return (d, square_up(d, self.setup.top))
+            return self._world(looking_at(_parse(element)))
         if element == "home":
-            look, up = self.setup.orientation("iso")
-            return (_unit(look), square_up(look, up))
+            return self._world((_unit(ISO[0]), square_up(ISO[0], ISO[1])))
         if element.startswith("turn:"):
             return turned(self.direction, self.up, element[5:])
         return None

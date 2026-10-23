@@ -769,10 +769,16 @@ win._active_dialog.commit()
 pump()
 vp.set_view("front")
 pump()
-home = (vp.width() - vp.HOME_AT[0], vp.HOME_AT[1])
+def spot(name):
+    at = vp.CUBE_BUTTONS[name][0]
+    return (vp.width() - at[0], at[1])
+
+
+home = spot("home")
 check("the house is drawn, top left of the cube",
-      vp._home_ais is not None and vp.over_home(*home))
+      "home" in vp._cube_buttons and vp.over_home(*home))
 check("and nowhere else", not vp.over_home(home[0] - 40, home[1] + 40))
+check("the cube has no axes of its own", not vp._cube.ToDrawAxes())
 mouse(QtCore.QEvent.MouseButtonPress, home, LEFT, LEFT)
 mouse(QtCore.QEvent.MouseButtonRelease, home, LEFT, QtCore.Qt.NoButton)
 vp.finish_animation()
@@ -781,6 +787,28 @@ look, up = looking()
 check("a click on it goes home: the isometric", along(look, (-1, 1, -1))
       and up[2] > 0.5, (look, up))
 check("without selecting anything", not vp.selected_shapes())
+
+asked = []
+vp.cube_menu_requested.disconnect(win._cube_menu)
+vp.cube_menu_requested.connect(asked.append)
+arrow = spot("menu")
+mouse(QtCore.QEvent.MouseButtonPress, arrow, LEFT, LEFT)
+mouse(QtCore.QEvent.MouseButtonRelease, arrow, LEFT, QtCore.Qt.NoButton)
+check("the little arrow beside the cube asks for its menu", len(asked) == 1)
+mouse(QtCore.QEvent.MouseButtonPress, home, QtCore.Qt.RightButton,
+      QtCore.Qt.RightButton)
+mouse(QtCore.QEvent.MouseButtonRelease, home, QtCore.Qt.RightButton,
+      QtCore.Qt.NoButton)
+check("and so does a right click on the house", len(asked) == 2)
+vp.cube_menu_requested.disconnect(asked.append)
+vp.cube_menu_requested.connect(win._cube_menu)
+menu = win.build_cube_menu(QtWidgets.QMenu(win))
+offered = [a.text() for a in menu.actions()]
+check("which offers Home, Front and Top, as Inventor's does",
+      offered[0] == "Go Home" and "Set Current View as Home" in offered
+      and "Set Current View as Front" in offered
+      and "Set Current View as Top" in offered and "Reset Front" in offered,
+      offered)
 
 vp.set_view("top")
 pump()
@@ -826,19 +854,19 @@ check("a part opens at the home it was given", along(look, (0, 0, -1)),
       look)
 
 # ==========================================================================
-print("#263 the view cube's Front can be any face")
+print("#263 any view can be Front, and the cube turns to it")
 
 win.reset_home()            # the copy came with the home it was given
 vp.set_view("right")
 pump()
 win.set_front("front")
 pump()
-check("Set Current View as Front: the face looked at says FRONT",
-      vp.cube_label((1, 0, 0)) == "FRONT"
-      and vp.cube_label((0, 1, 0)) == "RIGHT"
-      and vp.cube_label((0, -1, 0)) == "LEFT"
-      and vp.cube_label((0, 0, 1)) == "TOP",
-      [vp.cube_label(n) for n in ((1, 0, 0), (0, 1, 0), (0, -1, 0))])
+check("Set Current View as Front turns the whole cube: FRONT faces "
+      "where Right did",
+      along(vp.cube_facing((0, -1, 0)), (1, 0, 0))
+      and along(vp.cube_facing((1, 0, 0)), (0, 1, 0))
+      and along(vp.cube_facing((0, 0, 1)), (0, 0, 1)),
+      [vp.cube_facing(n) for n in ((0, -1, 0), (1, 0, 0), (0, 0, 1))])
 vp.set_view("front")
 pump()
 look, up = looking()
@@ -852,11 +880,95 @@ win.go_home(animate=False)
 look, _up = looking()
 check("Home's isometric turns with it", along(look, (-1, -1, -1)), look)
 check("it is the document's, saved with it",
-      win.document.view.to_dict()["front"] == [1.0, 0.0, 0.0])
+      along(win.document.view.to_dict()["front"], (1, 0, 0)))
+
+
+class Face:
+    """What OCCT hands over for a click on a face, edge or corner."""
+
+    def __init__(self, orientation):
+        self.orientation = orientation
+
+    def MainOrientation(self):
+        return self.orientation
+
+
+from OCP.V3d import V3d_TypeOfOrientation as Side            # noqa: E402
+
+vp.set_view("top")
+vp._turned_cube_click(Face(Side.V3d_Yneg))
+look, up = looking()
+check("a click on the turned cube's FRONT is the new Front",
+      along(look, (-1, 0, 0)) and along(up, (0, 0, 1)), (look, up))
+vp._turned_cube_click(Face(Side.V3d_XposYnegZpos))
+look, up = looking()
+check("and a corner looks from that corner of it, its Top up",
+      along(look, (-1, -1, -1)) and up[2] > 0.5, (look, up))
+
+print("at any angle at all")
+vp.aim((0.6, 0.5, -0.62), (0.3, 0.2, 0.93))
+pump()
+odd, odd_up = looking()
+win.set_front("front")
+vp.set_view("iso")
+pump()
+vp.set_view("front")
+pump()
+look, up = looking()
+check("a view at an odd angle made Front is Front, exactly",
+      along(look, odd) and along(up, odd_up), (look, odd))
+check("and the cube's FRONT faces the way it looked from",
+      along(vp.cube_facing((0, -1, 0)), [-c for c in odd]))
+
+print("Normal To an odd face, then Front, draws it square")
+import math                                                    # noqa: E402
+from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf               # noqa: E402
+from datum.core import hlr                                     # noqa: E402
+from datum.core.features import plane_from_face                # noqa: E402
+
+slab = kernel.rotate(kernel.box(60, 20, 40), (0, 0, 0), (1, 2, 3), 37.0)
+spin = gp_Trsf()
+spin.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(1, 2, 3)), math.radians(37))
+
+
+def spun(v):
+    d = gp_Dir(*v).Transformed(spin)
+    return (d.X(), d.Y(), d.Z())
+
+
+def facing(f, want):
+    plane = plane_from_face(f)
+    # a face's plane can face either way out of it: by line, not sign
+    if plane is None:
+        return -2.0
+    return abs(sum(a * b for a, b in zip(plane.normal, want)))
+
+
+face = max(kernel.faces(slab), key=lambda f: facing(f, spun((0, -1, 0))))
+vp.aim((0.2, 0.9, -0.3), (0.1, 0.3, 0.95))
+real = vp.selected_faces
+vp.selected_faces = lambda: [face]
+win.normal_to_selected_face()
+vp.selected_faces = real
+vp.finish_animation()
+pump()
+look, up = looking()
+edges = [spun(a) for a in ((1, 0, 0), (0, 0, 1))]
+check("Normal To looks square at it, with an edge of it level or upright",
+      abs(sum(a * b for a, b in zip(look, spun((0, 1, 0))))) > 1 - 1e-6
+      and max(abs(sum(a * b for a, b in zip(up, e))) for e in edges)
+      > 1 - 1e-6, (look, up))
+win.set_front("front")
+drawn = hlr.project(slab, *win.document.view.orientation("front"))
+check("and Front made from there draws it square, 60 by 40",
+      sorted((round(drawn.width, 3), round(drawn.height, 3))) == [40, 60],
+      (drawn.width, drawn.height))
+
 win.reset_front()
 pump()
-check("Reset Front: the stock faces again",
-      vp.cube_label((0, -1, 0)) == "FRONT" and win.document.view.is_default())
+check("Reset Front: the stock cube again",
+      along(vp.cube_facing((0, -1, 0)), (0, -1, 0))
+      and win.document.view.is_default())
 vp.set_view("top")
 pump()
 win.set_front("top")

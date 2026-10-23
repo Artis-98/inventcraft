@@ -1,17 +1,21 @@
 """Which way a document calls Front and Top, and where its Home view is.
 
 Inventor keeps both in the document.  Set Current View as Front (or Top)
-relabels the view cube for that part, and Front, Top, Right and the rest
-of the named views follow it, in the model and in the views a drawing
-places of it.  Set Current View as Home is where a click on the house
-beside the cube goes: the camera exactly as it was (Fixed Distance), or
-looking the same way and fitted to whatever the part has since become
-(Fit to View).  A document without either has the stock ones: Front looks
-along +Y with Z up, and Home is the isometric, fitted.
+takes the view exactly as it is on screen, at whatever angle, and the view
+cube turns to match: a part modelled at some odd angle is looked at square
+on a face of its own, that view is made Front, and from then on Front,
+Top, Right and the rest, in the model and in the views a drawing places
+of it, are square to the part rather than to the world.  Set Current View
+as Home is where a click on the house beside the cube goes: the camera
+exactly as it was (Fixed Distance), or looking the same way and fitted to
+whatever the part has since become (Fit to View).  A document without
+either has the stock ones: Front looks along +Y with Z up, and Home is
+the isometric, fitted.
 """
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence, Tuple
@@ -30,10 +34,6 @@ FACES: Dict[str, Vec] = {
     "top": (0.0, 0.0, 1.0), "bottom": (0.0, 0.0, -1.0),
 }
 
-_AXES: Tuple[Vec, ...] = ((1.0, 0.0, 0.0), (-1.0, 0.0, 0.0),
-                          (0.0, 1.0, 0.0), (0.0, -1.0, 0.0),
-                          (0.0, 0.0, 1.0), (0.0, 0.0, -1.0))
-
 
 def _dot(a: Sequence[float], b: Sequence[float]) -> float:
     return sum(float(a[i]) * float(b[i]) for i in range(3))
@@ -45,17 +45,34 @@ def _cross(a: Sequence[float], b: Sequence[float]) -> Vec:
             a[0] * b[1] - a[1] * b[0])
 
 
-def snap(v: Sequence[float], square_to: Optional[Sequence[float]] = None
-         ) -> Vec:
-    """The axis direction nearest ``v``; with ``square_to``, the nearest
-    of those square to it."""
-    axes = [a for a in _AXES
-            if square_to is None or abs(_dot(a, square_to)) < 1e-9]
-    return max(axes, key=lambda a: _dot(a, v))
+def _unit(v: Sequence[float]) -> Optional[Vec]:
+    size = math.sqrt(_dot(v, v))
+    if size < 1e-9:
+        return None
+    return _clean([float(c) / size for c in v])
 
 
 def _clean(v: Sequence[float]) -> Vec:
     return tuple(0.0 if abs(c) < 1e-12 else float(c) for c in v)  # type: ignore
+
+
+def _square_to(v: Sequence[float], normal: Sequence[float]) -> Optional[Vec]:
+    """``v`` with any part along ``normal`` taken out, made unit."""
+    along = _dot(v, normal)
+    return _unit([v[i] - along * normal[i] for i in range(3)])
+
+
+def _frame(front: Sequence[float], top: Sequence[float]
+           ) -> Optional[Tuple[Vec, Vec]]:
+    """Front and Top made unit and square to each other; None when they
+    cannot be (no length, or the two along one line)."""
+    f = _unit(front)
+    if f is None:
+        return None
+    t = _square_to(top, f)
+    if t is None:
+        return None
+    return f, t
 
 
 @dataclass
@@ -69,18 +86,25 @@ class ViewSetup:
     # -- Front and Top --------------------------------------------------------
 
     def is_default(self) -> bool:
-        return (tuple(self.front) == DEFAULT_FRONT
-                and tuple(self.top) == DEFAULT_TOP)
+        return (_dot(self.front, DEFAULT_FRONT) > 1.0 - 1e-9
+                and _dot(self.top, DEFAULT_TOP) > 1.0 - 1e-9)
 
     def right(self) -> Vec:
         return _cross(self.top, self.front)
 
     def turn(self, v: Sequence[float]) -> Vec:
-        """A direction of the stock setup, in this one."""
+        """A direction of the stock setup, in this one: the rotation the
+        view cube is turned by."""
         r, f, t = self.right(), self.front, self.top
         # the stock right is +X, its front -Y and its top +Z
         return _clean([v[0] * r[i] - v[1] * f[i] + v[2] * t[i]
                        for i in range(3)])
+
+    def local(self, v: Sequence[float]) -> Vec:
+        """A direction in the world, as the stock setup would have it: the
+        turn undone."""
+        return _clean((_dot(v, self.right()), -_dot(v, self.front),
+                       _dot(v, self.top)))
 
     def face_normal(self, name: str) -> Vec:
         """The outward direction of the face this document calls ``name``."""
@@ -100,16 +124,18 @@ class ViewSetup:
         return self.turn(look), self.turn(up)
 
     def set_front(self, look: Sequence[float], up: Sequence[float]) -> None:
-        """Set Current View as Front: the face looked at is Front, and
-        whichever way is up on the screen is Top."""
-        front = snap([-c for c in look])
-        self.front, self.top = front, snap(up, square_to=front)
+        """Set Current View as Front: the view exactly as it is, at any
+        angle, is Front, and up the screen is Top."""
+        frame = _frame([-c for c in look], up)
+        if frame is not None:
+            self.front, self.top = frame
 
     def set_top(self, look: Sequence[float], up: Sequence[float]) -> None:
-        """Set Current View as Top: the face looked at is Top, and the one
-        at the bottom of the screen, nearest the viewer, is Front."""
-        top = snap([-c for c in look])
-        self.top, self.front = top, snap([-c for c in up], square_to=top)
+        """Set Current View as Top: the view exactly as it is looks down on
+        Top, and down the screen, towards the viewer, is Front."""
+        frame = _frame([-c for c in look], [-c for c in up])
+        if frame is not None:
+            self.top, self.front = frame
 
     def reset_front(self) -> None:
         self.front, self.top = DEFAULT_FRONT, DEFAULT_TOP
@@ -130,12 +156,14 @@ class ViewSetup:
         if not isinstance(data, dict):
             return setup
         try:
-            front = snap([float(c) for c in data.get("front", DEFAULT_FRONT)])
-            top = snap([float(c) for c in data.get("top", DEFAULT_TOP)],
-                       square_to=front)
-            setup.front, setup.top = front, top
+            frame = _frame([float(c) for c in data.get("front",
+                                                      DEFAULT_FRONT)][:3],
+                           [float(c) for c in data.get("top",
+                                                      DEFAULT_TOP)][:3])
         except (TypeError, ValueError, IndexError):
-            pass
+            frame = None
+        if frame is not None and len(frame[0]) == 3:
+            setup.front, setup.top = frame
         home = data.get("home")
         if isinstance(home, dict) and home.get("camera"):
             setup.home = {"fit": bool(home.get("fit")),

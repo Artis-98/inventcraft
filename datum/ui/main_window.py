@@ -1432,7 +1432,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.context_menu_requested.connect(self._viewport_menu)
         self.viewport.view_setup_of = self._view_setup
         self.viewport.home_clicked.connect(lambda: self.go_home())
-        self.viewport.home_menu_requested.connect(self._home_menu)
         self.viewport.cube_menu_requested.connect(self._cube_menu)
         self.viewport.component_activated.connect(self._component_activated)
         self.viewport.delete_pressed.connect(self._viewport_delete)
@@ -1659,7 +1658,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.cam_ui.browser.set_document(self.cam)
 
-        self.viewport.label_cube()
+        self.viewport.orient_cube()
         restored = self.viewport.restore_camera(entry.camera) if keep_camera \
             else False
         self.rebuild(keep_camera=restored)
@@ -4513,7 +4512,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.assembly = document if is_assembly else None
         self._set_workspace(doc_type)
         self._sync_in_place()
-        self.viewport.label_cube()
+        self.viewport.orient_cube()
 
         if is_assembly:
             self.assembly_ui.browser.set_active(None)
@@ -4958,8 +4957,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status_message.setText("Home is the isometric again.")
 
     def set_front(self, which: str = "front") -> None:
-        """Set Current View as Front (or Top): the face being looked at
-        takes the name, and the cube and the named views follow."""
+        """Set Current View as Front (or Top): the view exactly as it is,
+        at whatever angle, is Front, and the cube turns to match; the named
+        views and a drawing's views follow it."""
         setup = self._view_setup()
         state = self.viewport.camera_state()
         if setup is None or state is None:
@@ -4971,11 +4971,11 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             setup.set_front(look, up)
         self._view_document().modified = True
-        self.viewport.label_cube()
+        self.viewport.orient_cube()
         self._update_title()
         self.status_message.setStyleSheet("")
         self.status_message.setText(
-            "This face is %s now: the cube, Front, Top and the rest follow."
+            "This view is %s now: the cube, Front, Top and the rest follow."
             % ("Top" if which == "top" else "Front"))
 
     def reset_front(self) -> None:
@@ -4984,46 +4984,41 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         setup.reset_front()
         self._view_document().modified = True
-        self.viewport.label_cube()
+        self.viewport.orient_cube()
         self._update_title()
 
-    def _home_menu(self, global_pos: QtCore.QPoint) -> None:
+    def build_cube_menu(self, menu: QtWidgets.QMenu) -> QtWidgets.QMenu:
+        """The view cube's menu, as Inventor has it under the little arrow
+        beside the cube: Home, and which view is Home, Front and Top."""
         setup = self._view_setup()
-        menu = QtWidgets.QMenu(self)
         menu.addAction(icons.icon("iso", 16), "Go Home").triggered.connect(
             lambda: self.go_home())
-        if setup is not None:
-            menu.addSeparator()
-            fixed = menu.addAction("Set Current View as Home: Fixed Distance")
-            fixed.setToolTip("Home is the view exactly as it is now")
-            fixed.triggered.connect(lambda: self.set_home(False))
-            fit = menu.addAction("Set Current View as Home: Fit to View")
-            fit.setToolTip("Home looks this way, fitted to the whole part")
-            fit.triggered.connect(lambda: self.set_home(True))
-            reset = menu.addAction("Reset Home")
-            reset.setEnabled(bool(setup.home))
-            reset.triggered.connect(self.reset_home)
-        menu.exec(global_pos)
+        if setup is None:
+            return menu
+        home = menu.addMenu("Set Current View as Home")
+        fit = home.addAction("Fit to View")
+        fit.setToolTip("Home looks this way, fitted to the whole part")
+        fit.triggered.connect(lambda: self.set_home(True))
+        fixed = home.addAction("Fixed Distance")
+        fixed.setToolTip("Home is the view exactly as it is now")
+        fixed.triggered.connect(lambda: self.set_home(False))
+        reset = menu.addAction("Reset Home")
+        reset.setEnabled(bool(setup.home))
+        reset.triggered.connect(self.reset_home)
+        menu.addSeparator()
+        menu.addAction(icons.icon("front", 16),
+                       "Set Current View as Front").triggered.connect(
+            lambda: self.set_front("front"))
+        menu.addAction(icons.icon("top", 16),
+                       "Set Current View as Top").triggered.connect(
+            lambda: self.set_front("top"))
+        reset = menu.addAction("Reset Front")
+        reset.setEnabled(not setup.is_default())
+        reset.triggered.connect(self.reset_front)
+        return menu
 
     def _cube_menu(self, global_pos: QtCore.QPoint) -> None:
-        setup = self._view_setup()
-        menu = QtWidgets.QMenu(self)
-        menu.addAction(icons.icon("iso", 16), "Go Home").triggered.connect(
-            lambda: self.go_home())
-        if setup is not None:
-            menu.addAction("Set Current View as Home: Fit to View"
-                           ).triggered.connect(lambda: self.set_home(True))
-            menu.addSeparator()
-            menu.addAction(icons.icon("front", 16),
-                           "Set Current View as Front").triggered.connect(
-                lambda: self.set_front("front"))
-            menu.addAction(icons.icon("top", 16),
-                           "Set Current View as Top").triggered.connect(
-                lambda: self.set_front("top"))
-            reset = menu.addAction("Reset Front")
-            reset.setEnabled(not setup.is_default())
-            reset.triggered.connect(self.reset_front)
-        menu.exec(global_pos)
+        self.build_cube_menu(QtWidgets.QMenu(self)).exec(global_pos)
 
     def _add_plane_menu(self, menu: QtWidgets.QMenu, name: str) -> None:
         """Menu entries for a plane clicked in the viewport."""
@@ -5063,9 +5058,41 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_message.setStyleSheet("color: %s;" % C.warn)
             self.status_message.setText("That face is not flat.")
             return
-        self.viewport.look_normal_to(plane, animate=True)
+        self.viewport.look_normal_to(plane, animate=True,
+                                     up=self._level_up(faces[0], plane))
         self.status_message.setStyleSheet("")
         self.status_message.setText("Looking normal to the selected face.")
+
+    def _level_up(self, face, plane):
+        """Which way is up when looking square at a face: along one of its
+        straight edges, or square to one, whichever turns the view least.
+        So an edge lies level or upright on the screen, and Set Current
+        View as Front made from there gives square drawings."""
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        from OCP.GeomAbs import GeomAbs_CurveType
+        state = self.viewport.camera_state()
+        now = state[2] if state else plane.ydir
+        n = plane.normal
+        best, score = None, -2.0
+        for edge in kernel.edges(face):
+            try:
+                curve = BRepAdaptor_Curve(edge)
+                if curve.GetType() != GeomAbs_CurveType.GeomAbs_Line:
+                    continue
+                d = curve.Line().Direction()
+            except Exception:
+                continue
+            along = (d.X(), d.Y(), d.Z())
+            across = (n[1] * along[2] - n[2] * along[1],
+                      n[2] * along[0] - n[0] * along[2],
+                      n[0] * along[1] - n[1] * along[0])
+            for v in (along, across):
+                for sign in (1.0, -1.0):
+                    c = tuple(sign * x for x in v)
+                    dot = sum(c[i] * now[i] for i in range(3))
+                    if dot > score:
+                        best, score = c, dot
+        return best
 
     def export_face_dxf(self) -> None:
         """Write one flat face out as a 2D DXF profile."""

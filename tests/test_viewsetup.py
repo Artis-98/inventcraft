@@ -57,10 +57,18 @@ check("the Front view looks at it", same(look, (-1, 0, 0))
 look, up = setup.orientation("top")
 check("Top still looks down, with Front at the bottom of the screen",
       same(look, (0, 0, -1)) and same(up, (-1, 0, 0)), (look, up))
-nearly = ViewSetup()
-nearly.set_front((-0.9, 0.3, -0.2), (0.1, 0.2, 0.97))
-check("a view nearly square to a face snaps to it",
-      same(nearly.front, (1, 0, 0)) and same(nearly.top, (0, 0, 1)))
+odd = ViewSetup()
+odd.set_front((-0.9, 0.3, -0.2), (0.1, 0.2, 0.97))
+size = sum(c * c for c in (-0.9, 0.3, -0.2)) ** 0.5
+check("a view at any angle is taken exactly, not snapped",
+      same(odd.front, (0.9 / size, -0.3 / size, 0.2 / size))
+      and abs(sum(a * b for a, b in zip(odd.front, odd.top))) < 1e-12
+      and odd.top[2] > 0.9, (odd.front, odd.top))
+look, up = odd.orientation("front")
+check("and its Front view looks exactly that way",
+      same(look, (-0.9 / size, 0.3 / size, -0.2 / size)), look)
+check("turning out and back again is no turn at all",
+      same(odd.local(odd.turn((0.3, -0.4, 0.8))), (0.3, -0.4, 0.8)))
 
 print("Set Current View as Top")
 setup2 = ViewSetup()
@@ -71,6 +79,37 @@ check("the face looked at is Top, the bottom of the screen Front",
       (setup2.top, setup2.front))
 setup2.reset_front()
 check("and Reset puts the stock ones back", setup2.is_default())
+
+print("a part modelled at an odd angle, drawn square once Front is set")
+from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf                # noqa: E402
+from datum.core import kernel                                     # noqa: E402
+
+slab = kernel.rotate(kernel.box(60, 20, 40), (0, 0, 0), (1, 2, 3), 37.0)
+spin = gp_Trsf()
+spin.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(1, 2, 3)),
+                 __import__("math").radians(37.0))
+
+
+def spun(v):
+    d = gp_Dir(*v).Transformed(spin)
+    return (d.X(), d.Y(), d.Z())
+
+
+stock_view = hlr.project(slab, *hlr.ORIENTATIONS["front"])
+check("seen from the world's front it is a mess of slanted edges",
+      abs(stock_view.width - 60) > 5 or abs(stock_view.height - 40) > 5,
+      (stock_view.width, stock_view.height))
+square = ViewSetup()
+# Look At its 60 x 40 face, square on, its long edge level, then Set
+# Current View as Front
+square.set_front([-c for c in spun((0, -1, 0))], spun((0, 0, 1)))
+front_view = hlr.project(slab, *square.orientation("front"))
+check("from its own Front it is drawn 60 by 40, square",
+      abs(front_view.width - 60) < 1e-3 and abs(front_view.height - 40) < 1e-3,
+      (front_view.width, front_view.height))
+top_view = hlr.project(slab, *square.orientation("top"))
+check("and its Top 60 by 20", abs(top_view.width - 60) < 1e-3
+      and abs(top_view.height - 20) < 1e-3, (top_view.width, top_view.height))
 
 print("kept in the file")
 doc = Document()
@@ -119,9 +158,11 @@ from datum.ui.sheetcube import OrientationCube                    # noqa: E402
 
 cube = OrientationCube()
 cube.set_setup(read)
-faces = cube.faces()
-check("the sheet's little cube names its faces the model's way",
-      same(faces["front"][0], (1, 0, 0)) and faces["front"][1] == "FRONT")
+cube.set_view(*read.orientation("front"))
+look, up, _right = cube._camera()
+check("the sheet's little cube turns with the model: its front view "
+      "shows the cube's FRONT", same(look, (0, 1, 0)) and same(up, (0, 0, 1)),
+      (look, up))
 look, up = cube.view_for("front")
 check("and a click on FRONT is the model's front view",
       same(look, (-1, 0, 0)) and same(up, (0, 0, 1)), (look, up))
