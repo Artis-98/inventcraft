@@ -23,7 +23,7 @@ from OCP.AIS import (
     AIS_DisplayMode, AIS_InteractiveContext, AIS_InteractiveObject, AIS_Line,
     AIS_ColoredShape, AIS_Plane, AIS_Point, AIS_SelectionScheme, AIS_Shape,
     AIS_TextLabel,
-    AIS_ViewCube,
+    AIS_ViewCube, AIS_ViewCubeOwner,
 )
 from OCP.Aspect import (
     Aspect_GradientFillMethod, Aspect_GridDrawMode, Aspect_GridType,
@@ -39,7 +39,8 @@ from OCP.Geom import Geom_CartesianPoint, Geom_Line, Geom_Plane
 from OCP.Graphic3d import (
     Graphic3d_Camera, Graphic3d_ClipPlane, Graphic3d_MaterialAspect,
     Graphic3d_NameOfMaterial, Graphic3d_RenderingParams,
-    Graphic3d_TypeOfShadingModel, Graphic3d_ZLayerId_Default,
+    Graphic3d_TypeOfShadingModel, Graphic3d_Vec2i,
+    Graphic3d_ZLayerId_Default,
     Graphic3d_ZLayerId_Top, Graphic3d_ZLayerId_Topmost,
     Graphic3d_ZLayerId_TopOSD,
 )
@@ -325,6 +326,10 @@ class Viewport(QtWidgets.QWidget):
         self._left_nav: Optional[str] = None
         self._left_navigated = False
         self._nav_kind = "pan"
+        # a press the orientation gizmo consumed (see cube_click): the
+        # release belongs to it as well, and must not select, box, drag
+        # or - while sketching - drop a point on the plane
+        self._cube_pressed = False
 
         # pulling a work plane off a face
         self.plane_tool = False
@@ -384,7 +389,51 @@ class Viewport(QtWidgets.QWidget):
             self.view.Invalidate()
         except Exception:
             pass
+        self._sync_cube_offset()
         self.redraw()
+
+    def _cube_persistence(self, dpr: float):
+        """Where the orientation gizmo sits: 85 points from the top right.
+
+        The size of the gizmo is counted the way OCCT counts mouse
+        positions (see _occt_ratio), but its corner offset is counted in
+        raw device pixels even where the size is not: on a Retina display
+        an offset of (85, 85) draws 42.5 points from the corner while
+        picking still expects it at 85, so clicks land down-left of what
+        is drawn.  Scaling the offset by the backing-store ratio puts the
+        drawing where the picking is.  Elsewhere the two ratios agree, so
+        this changes nothing there.
+        """
+        from OCP.Graphic3d import (
+            Graphic3d_TransformPers, Graphic3d_TransModeFlags,
+            Graphic3d_Vec2i,
+        )
+        return Graphic3d_TransformPers(
+            Graphic3d_TransModeFlags.Graphic3d_TMF_TriedronPers,
+            Aspect_TypeOfTriedronPosition.Aspect_TOTP_RIGHT_UPPER,
+            Graphic3d_Vec2i(int(85 * dpr), int(85 * dpr)))
+
+    def _sync_cube_offset(self) -> None:
+        """Re-seat the gizmo after a display-scale change.
+
+        The offset is baked at creation for the display the window opened
+        on; dragged to one with another backing-store ratio, the drawing
+        drifts off the picking again until the offset is remade.
+        """
+        if self._cube is None or self.context is None:
+            return
+        try:
+            dpr = self.devicePixelRatioF() or 1.0
+        except Exception:
+            return
+        if dpr == getattr(self, "_cube_dpr", None):
+            return
+        try:
+            self._cube_dpr = dpr
+            self._cube.SetTransformPersistence(self._cube_persistence(dpr))
+            self.context.Redisplay(self._cube, False)
+        except Exception:
+            pass
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         if self._ready and self.view is not None:
@@ -508,8 +557,9 @@ class Viewport(QtWidgets.QWidget):
         try:
             cube = AIS_ViewCube()
             # in real pixels, so the same size on a scaled display as the
-            # rest of the window around it
-            ratio = self.devicePixelRatioF() or 1.0
+            # rest of the window around it (on macOS OCCT already counts
+            # in points, so _occt_ratio is 1 there - see _occt_ratio)
+            ratio = self._occt_ratio()
             # bigger, with a dark box behind near-white lettering - the stock
             # mid-grey cube makes FRONT / BACK / RIGHT almost unreadable
             cube.SetSize(64.0 * ratio)
@@ -530,14 +580,9 @@ class Viewport(QtWidgets.QWidget):
             # box and behind it as they turn, instead of always under it
             cube.SetZLayer(Graphic3d_ZLayerId_Topmost)
             try:
-                from OCP.Graphic3d import (
-                    Graphic3d_TransformPers, Graphic3d_TransModeFlags,
-                    Graphic3d_Vec2i,
-                )
-                cube.SetTransformPersistence(Graphic3d_TransformPers(
-                    Graphic3d_TransModeFlags.Graphic3d_TMF_TriedronPers,
-                    Aspect_TypeOfTriedronPosition.Aspect_TOTP_RIGHT_UPPER,
-                    Graphic3d_Vec2i(int(85 * ratio), int(85 * ratio))))
+                dpr = self.devicePixelRatioF() or 1.0
+                self._cube_dpr = dpr
+                cube.SetTransformPersistence(self._cube_persistence(dpr))
             except Exception:
                 pass
             self.context.Display(cube, False)
@@ -2415,6 +2460,26 @@ class Viewport(QtWidgets.QWidget):
 
     # --------------------------------------------------------- sketch plane
 
+    def _cube_probe(self, x: float, y: float) -> Tuple[float, float]:
+        """Where to point the picker for a click on the drawn gizmo.
+
+        The gizmo's corner offset is counted in raw device pixels where
+        its picking is counted in points (see _cube_persistence), so on a
+        Retina display what is drawn sits up-right of where it is picked:
+        85 points away at a backing ratio of 2.  Shifting the probe
+        down-left by that gap lands the pick on the face being looked at.
+        Elsewhere the two units agree and the click is used as it is.
+        """
+        if sys.platform == "darwin":
+            try:
+                dpr = self.devicePixelRatioF() or 1.0
+            except Exception:
+                dpr = 1.0
+            gap = 85.0 * (dpr - 1.0)
+            if gap > 0.5:
+                return (x - gap, y + gap)
+        return (x, y)
+
     def over_cube(self, x: int, y: int) -> bool:
         """Is the ViewCube under this point?
 
@@ -2425,7 +2490,18 @@ class Viewport(QtWidgets.QWidget):
         if not self._ready or self._cube is None:
             return False
         try:
-            self._detect(x, y)
+            # the offset is baked for the backing ratio at creation; a
+            # display move (or a ratio that settles after first show) leaves
+            # it stale with no resize to refresh it, so re-seat lazily here
+            # where a wrong V would be picked against
+            self._sync_cube_offset()
+            # the gizmo lives within ~165 points of the top-right corner;
+            # anything further off never reaches it, and skipping the pick
+            # keeps ordinary clicks to a single one
+            if x < self.width() - 220 or y > 220:
+                return False
+            px, py = self._cube_probe(x, y)
+            self._detect(px, py)
             if not self.context.HasDetected():
                 return False
             return isinstance(self.context.DetectedInteractive(), AIS_ViewCube)
@@ -2436,6 +2512,26 @@ class Viewport(QtWidgets.QWidget):
         """Give the ViewCube a click, and say whether it took it."""
         if not self.over_cube(x, y):
             return False
+        try:
+            owner = self.context.DetectedOwner()
+            if isinstance(owner, AIS_ViewCubeOwner):
+                # the owner knows which face it is and snaps the camera to
+                # it; SelectDetected on its own only highlights the gizmo.
+                # 0 is the left button - OCCT's Aspect_VKeyMouse is not
+                # exposed by the bindings, and the cube ignores it anyway.
+                # The point is the probed one, in the units the picker
+                # counts (see _cube_probe).
+                px, py = self._px(*self._cube_probe(x, y))
+                if owner.HandleMouseClick(
+                        Graphic3d_Vec2i(px, py), 0, 0, False):
+                    self.context.ClearSelected(False)
+                    self.view.Redraw()
+                    return True
+        except Exception:
+            pass
+        # Never leave the gizmo selected: a click on a corner or an axis
+        # still must not stick a highlight on it (or, while sketching,
+        # drop a point on the plane behind it).
         try:
             self.context.SelectDetected()
             self.context.ClearSelected(False)
@@ -2462,6 +2558,7 @@ class Viewport(QtWidgets.QWidget):
                          show_grid: bool = False) -> None:
         self.sketch_plane = plane
         self.plane_mode = True
+        self._cube_pressed = False
         # the grid is off by default - snapping does not need it drawn
         self.set_grid(show_grid, plane, grid_step)
         self.set_selection_mode("none")
@@ -2471,6 +2568,7 @@ class Viewport(QtWidgets.QWidget):
         self.edge_picking = False
         self.sketch_plane = None
         self.plane_drag_allowed = True
+        self._cube_pressed = False
         self.set_grid(False)
         self.clear_overlay()
         self.clear_preview()
@@ -2625,15 +2723,49 @@ class Viewport(QtWidgets.QWidget):
 
     # -- geometry from screen coordinates -----------------------------------
 
+    def _occt_ratio(self) -> float:
+        """Qt logical pixels to the units OCCT counts mouse positions in.
+
+        Everywhere else Qt gives logical pixels and OCCT draws into real
+        (device) ones, so mouse positions are scaled by devicePixelRatioF.
+        On macOS the Cocoa window instead works in points: with no display
+        scaling Window().Size() reports the widget's logical size
+        (1799x1061 at DPR 2.0) and View.Convert(world) returns logical
+        coordinates, so scaling by 2 sends every click twice as far from
+        the top-left corner.  Under QT_SCALE_FACTOR=1.5 the same window
+        reports 1.5x the widget size, so neither 1.0 nor the device ratio
+        (3.0) is right there either.  The window itself is asked whenever
+        it exists; the platform rules below are only the fallback.
+        """
+        try:
+            view = getattr(self, "view", None)
+            if view is not None and self.width() > 0:
+                win = view.Window()
+                if win is not None:
+                    size = win.Size()
+                    sx = float(size[0])
+                    ratio = sx / float(self.width())
+                    if 0.5 <= ratio <= 4.0:
+                        return ratio
+        except Exception:
+            pass
+        if sys.platform == "darwin":
+            return 1.0
+        try:
+            return self.devicePixelRatioF() or 1.0
+        except Exception:
+            return 1.0
+
     def _px(self, x: float, y: float) -> Tuple[int, int]:
         """A widget position as OCCT counts pixels.
 
         Qt gives positions in logical pixels, scaled by the display setting,
         while OCCT draws into the window's real ones.  At 100 percent the two
         agree and nothing shows; at 150 percent every click landed a third
-        of the way back towards the top left corner.
+        of the way back towards the top left corner.  On macOS OCCT already
+        counts in logical points (see _occt_ratio), so no scaling applies.
         """
-        ratio = self.devicePixelRatioF() or 1.0
+        ratio = self._occt_ratio()
         return int(round(x * ratio)), int(round(y * ratio))
 
     def _detect(self, x: float, y: float, redraw: bool = False) -> None:
@@ -2699,7 +2831,7 @@ class Viewport(QtWidgets.QWidget):
             x, y = self.view.Convert(float(p[0]), float(p[1]), float(p[2]))
         except Exception:
             return (0, 0)
-        ratio = self.devicePixelRatioF() or 1.0
+        ratio = self._occt_ratio()
         return int(round(x / ratio)), int(round(y / ratio))
 
     def view_span(self) -> float:
@@ -2719,7 +2851,7 @@ class Viewport(QtWidgets.QWidget):
             a = self.view.Convert(0, 0)
             b = self.view.Convert(100, 0)
             # per screen pixel as the mouse counts them, not as OCCT does
-            ratio = self.devicePixelRatioF() or 1.0
+            ratio = self._occt_ratio()
             return abs(b[0] - a[0]) / 100.0 * ratio or 1.0
         except Exception:
             return 1.0
@@ -3012,6 +3144,7 @@ class Viewport(QtWidgets.QWidget):
             left_nav = self.navigation_for(event.button(), mods)
             if self.plane_mode:
                 if self.cube_click(pos.x(), pos.y()):
+                    self._cube_pressed = True
                     return
                 if self.edge_picking:
                     # Project Geometry is running: this click is choosing a
@@ -3171,7 +3304,13 @@ class Viewport(QtWidgets.QWidget):
             at = self._hover_at
             if (self._ready and at is not None and not self._navigating
                     and self._component_drag is None):
-                self._detect(at.x(), at.y(), redraw=True)
+                if self.over_cube(at.x(), at.y()):
+                    # the gizmo, which is picked through its probe (see
+                    # _cube_probe): over_cube already ran the pick, so this
+                    # only puts the highlight on screen
+                    self.view.RedrawImmediate()
+                else:
+                    self._detect(at.x(), at.y(), redraw=True)
 
         QtCore.QTimer.singleShot(0, look)
 
@@ -3208,6 +3347,17 @@ class Viewport(QtWidgets.QWidget):
             return
         if event.button() == QtCore.Qt.LeftButton:
             self._left_nav = None
+
+        if (event.button() == QtCore.Qt.LeftButton
+                and not self.plane_mode and not moved
+                and self.cube_click(pos.x(), pos.y())):
+            # a clean click on the orientation gizmo: the view has snapped
+            # to the picked face, there is nothing to select, and the press
+            # never started a box or a drag.  This comes before the box
+            # branch below, or a click on the gizmo would select with it.
+            self._sel_box_from = None
+            self._button = QtCore.Qt.NoButton
+            return
 
         if event.button() in (QtCore.Qt.MiddleButton, QtCore.Qt.RightButton):
             self._navigating = False
@@ -3269,7 +3419,14 @@ class Viewport(QtWidgets.QWidget):
 
         if event.button() == QtCore.Qt.LeftButton:
             if self.plane_mode:
-                if self._dragging_plane:
+                if self._cube_pressed:
+                    # the press went to the orientation gizmo, which has
+                    # already snapped the view: no drag to finish and, above
+                    # all, no sketch point to drop for the release
+                    self._cube_pressed = False
+                    self._drag_armed = False
+                    self._dragging_plane = False
+                elif self._dragging_plane:
                     self.plane_drag_finished.emit()
                 elif not moved or not self.plane_drag_allowed:
                     # a drawing tool has no drag to have been doing instead,
@@ -3280,6 +3437,10 @@ class Viewport(QtWidgets.QWidget):
                                                       event.modifiers())
                 self._dragging_plane = False
                 self._drag_armed = False
+            elif not moved and self.cube_click(pos.x(), pos.y()):
+                # the orientation gizmo took it: the view has snapped and
+                # there is nothing to select
+                pass
             elif not moved:
                 scheme = (AIS_SelectionScheme.AIS_SelectionScheme_XOR
                           if event.modifiers() & QtCore.Qt.ControlModifier
