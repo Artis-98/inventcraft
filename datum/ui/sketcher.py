@@ -787,9 +787,13 @@ class SketchEditor(QtCore.QObject):
             self._snap_info = hit[0]
             return hit[2]
 
-        # axis alignment against the chain start
-        if self._pending:
-            ax, ay = self._pending[-1]
+        # axis alignment against the chain start.  Only a point lines up:
+        # the Dimension tool keeps what was picked, ("point", id) and the
+        # like, and reading that as a point raised on every mouse move
+        last = self._pending[-1] if self._pending else None
+        if isinstance(last, (tuple, list)) and len(last) == 2 \
+                and all(isinstance(c, (int, float)) for c in last):
+            ax, ay = last
             if abs(v - ay) < tol * 0.8:
                 self._snap_info = "horizontal"
                 v = ay

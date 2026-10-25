@@ -211,10 +211,43 @@ def signing_enabled() -> bool:
 # ------------------------------------------------------------------ fetching
 
 
-def _opener():
+# Where Linux distributions keep their trusted certificates.  The Linux
+# build is made on Ubuntu and its OpenSSL looks where Ubuntu keeps them,
+# so on Fedora and others it trusted nothing and every update check
+# failed with CERTIFICATE_VERIFY_FAILED (GitHub #7).
+CA_FILES = (
+    "/etc/ssl/certs/ca-certificates.crt",                  # Debian, Arch
+    "/etc/pki/tls/certs/ca-bundle.crt",                    # Fedora, RHEL
+    "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",   # Fedora, RHEL
+    "/etc/ssl/ca-bundle.pem",                              # openSUSE
+    "/etc/ssl/cert.pem",                                   # Alpine, Void
+)
+
+
+def _context() -> ssl.SSLContext:
     context = ssl.create_default_context()
+    if sys.platform == "win32":
+        return context      # the Windows certificate store, always there
+    candidates = []
+    try:
+        import certifi      # shipped with the Linux build
+        candidates.append(certifi.where())
+    except ImportError:
+        pass
+    candidates.extend(CA_FILES)
+    for path in candidates:
+        if path and os.path.isfile(path):
+            try:
+                context.load_verify_locations(cafile=path)
+                break
+            except (OSError, ssl.SSLError):
+                continue
+    return context
+
+
+def _opener():
     return urllib.request.build_opener(
-        urllib.request.HTTPSHandler(context=context))
+        urllib.request.HTTPSHandler(context=_context()))
 
 
 def fetch(url: str, timeout: float = TIMEOUT) -> bytes:

@@ -12,13 +12,36 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from . import APP_NAME, LEGACY_NAME, __version__
 
 
+_reported = set()
+_reporting = []
+
+
 def _excepthook(kind, value, tb) -> None:
-    """Report an unexpected error instead of vanishing."""
+    """Report an unexpected error instead of vanishing.
+
+    Each error is shown once.  One raised on every mouse move (GitHub #13)
+    used to bring the box back as fast as it was closed, so the only way
+    out was to kill the program.
+    """
     text = "".join(traceback.format_exception(kind, value, tb))
     sys.stderr.write(text)
     app = QtWidgets.QApplication.instance()
     if app is None:
         return
+    frames = traceback.extract_tb(tb)
+    where = (frames[-1].filename, frames[-1].lineno) if frames else None
+    key = (kind.__name__, where)
+    if key in _reported or _reporting:
+        return
+    _reported.add(key)
+    _reporting.append(key)
+    try:
+        _show_error(kind, value, text)
+    finally:
+        _reporting.pop()
+
+
+def _show_error(kind, value, text) -> None:
     box = QtWidgets.QMessageBox()
     box.setIcon(QtWidgets.QMessageBox.Critical)
     box.setWindowTitle("%s - unexpected error" % APP_NAME)
@@ -231,6 +254,17 @@ def main(argv=None) -> int:
         return selftest(report)
     if "--version" in argv:
         print(__version__)
+        return 0
+    if "--checkupdate" in argv:
+        # ask the update feed, as the program does, and say what it said:
+        # the Linux build runs this on other distributions (GitHub #7)
+        from .core import update
+        try:
+            release = update.check()
+        except Exception as exc:
+            print("FAIL %s: %s" % (type(exc).__name__, exc))
+            return 1
+        print("PASS the feed offers %s" % release.version)
         return 0
     if "--finish-update" in argv:
         # Linux: this same program, started by the one that is closing,

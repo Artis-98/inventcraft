@@ -86,7 +86,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install cadquery-ocp==7.9.3.1.1 PySide6==6.11.2 numpy \
-            cryptography pyinstaller
+            cryptography pyinstaller certifi
           pip install hidapi || echo "no hidapi: SpaceMouse support left out"
 
       - name: Version
@@ -137,6 +137,23 @@ jobs:
               /dist/InventCraft/InventCraft --glcheck /tmp/glcheck.txt || true
             cat /tmp/glcheck.txt
             grep -q PASS /tmp/glcheck.txt'
+
+      # The build's OpenSSL looks for certificates where Ubuntu keeps them,
+      # so on Fedora every update check failed (GitHub #7).  The check is
+      # made for real, against the live feed, on both.
+      - name: Updates can be checked, on Arch and Fedora
+        run: |
+          docker run --rm -v "$PWD/dist:/dist" archlinux:latest bash -c '
+            pacman -Syu --noconfirm --needed mesa libglvnd libxkbcommon-x11 \
+              fontconfig dbus > /dev/null
+            /dist/InventCraft/InventCraft --checkupdate | tee /tmp/u.txt
+            grep -q PASS /tmp/u.txt'
+          docker run --rm -v "$PWD/dist:/dist" fedora:latest bash -c '
+            dnf install -y -q mesa-libGL mesa-libEGL libglvnd-opengl \
+              libxkbcommon libxkbcommon-x11 fontconfig dbus-libs glib2 \
+              libX11 libxcb > /dev/null
+            /dist/InventCraft/InventCraft --checkupdate | tee /tmp/u.txt
+            grep -q PASS /tmp/u.txt'
 
       - name: The published build, on Arch (for information)
         if: ${{ github.event_name == 'workflow_dispatch' }}

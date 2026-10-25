@@ -856,6 +856,7 @@ class MainWindow(QtWidgets.QMainWindow):
         item("edit", "Preferences...", "", self.edit_preferences)
         item("rollback", "Check for Updates...", "",
              lambda: self.updater.check(quiet=False))
+        item("file", "About %s..." % APP_NAME, "", self.show_about)
         item("dimension", "Save as Template...", "",
              lambda: self.drawing_ui.save_as_template())
         menu.addSeparator()
@@ -3825,6 +3826,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.doc_properties.units_requested.connect(self.change_units)
             layout.addWidget(self.doc_properties)
             layout.addWidget(self.properties)
+            # a window manager may give a dialog no close box of its own
+            # (GitHub #9), so it carries one; Esc closes it too
+            buttons = QtWidgets.QDialogButtonBox(
+                QtWidgets.QDialogButtonBox.Close, window)
+            buttons.rejected.connect(window.close)
+            buttons.setContentsMargins(8, 8, 8, 8)
+            layout.addWidget(buttons)
             # it was explicitly hidden so it would not draw over the
             # window with no layout to hold it, and an explicit hide
             # survives being re-parented
@@ -3834,6 +3842,37 @@ class MainWindow(QtWidgets.QMainWindow):
         self.properties.update_from(self.active_document)
         self.properties_window.show()
         self.properties_window.raise_()
+
+    def show_about(self) -> None:
+        """About InventCraft: the version, where people look for it."""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("About %s" % APP_NAME)
+        layout = QtWidgets.QVBoxLayout(dialog)
+        layout.setContentsMargins(24, 20, 24, 16)
+        title = QtWidgets.QLabel(
+            "<b style='font-size:16pt'>%s</b><br>Version %s"
+            % (APP_NAME, __version__), dialog)
+        layout.addWidget(title)
+        about = QtWidgets.QLabel(
+            "Parametric 3D CAD, free and open source under the MIT "
+            "licence.<br><br>"
+            "<a href='https://datum.iiteg.com'>datum.iiteg.com</a><br>"
+            "<a href='https://github.com/Artis-98/inventcraft'>"
+            "github.com/Artis-98/inventcraft</a>", dialog)
+        about.setOpenExternalLinks(True)
+        about.setWordWrap(True)
+        layout.addWidget(about)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Close, dialog)
+        copy = buttons.addButton(
+            "Copy Version", QtWidgets.QDialogButtonBox.ActionRole)
+        details = "%s %s, %s" % (APP_NAME, __version__, sys.platform)
+        copy.clicked.connect(
+            lambda: QtWidgets.QApplication.clipboard().setText(details))
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        self.about_dialog = dialog
+        dialog.exec()
 
     def open_file_location(self, path: str) -> None:
         """Show a document's file in Explorer, selected."""

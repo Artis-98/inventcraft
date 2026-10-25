@@ -85,7 +85,7 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="live-version">Latest: 0.3.1</span></div>
+        <span id="live-version">Latest: 0.3.2</span></div>
       <h1 style="font-size:clamp(34px,5vw,52px)">Changelog</h1>
       <p class="lede">
         Every release, what changed in it, and why. InventCraft updates itself,
@@ -93,7 +93,7 @@
         just here so you can see what arrived.
       </p>
       <a class="btn ghost" id="get-latest"
-         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.2/InventCraft-0.3.2-setup.exe">
         Download the current version</a>
     </div>
   </div>
@@ -119,9 +119,34 @@
 
     <div class="release current">
       <div class="head">
+        <span class="ver">0.3.2</span>
+        <span class="when">25 October 2026</span>
+        <span class="badge">current</span>
+      </div>
+      <p style="color:var(--dim);margin:0 0 12px">
+        Four fixes for bugs reported on GitHub.
+      </p>
+      <ul>
+        <li><strong>Sketch Dimension</strong> no longer fails after the
+          first pick, and an error is reported once instead of again on
+          every mouse move. Reported in #13.</li>
+        <li><strong>Linux:</strong> updates work on Fedora and other
+          distributions that keep their certificates somewhere other than
+          Ubuntu does. A copy with this bug cannot update itself to the fix:
+          download 0.3.2 once by hand. Reported in #7.</li>
+        <li><strong>dProperties</strong> has a Close button, and Esc closes
+          it. Reported in #9.</li>
+        <li><strong>About InventCraft</strong> in the File menu says which
+          version this is, with a button to copy it. Asked for in #8.</li>
+        <li><strong>Linux:</strong>
+          <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.2/InventCraft-0.3.2-linux-x86_64.tar.gz">InventCraft 0.3.2 for Linux</a>.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head">
         <span class="ver">0.3.1</span>
         <span class="when">24 October 2026</span>
-        <span class="badge">current</span>
       </div>
       <p style="color:var(--dim);margin:0 0 12px">
         Inventor's way for the things used every day: Measure, Split,
@@ -715,12 +740,12 @@
         ask it now from File then Check for Updates.
       </p>
       <a class="btn primary" id="get-latest-2"
-         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.1/InventCraft-0.3.1-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.2/InventCraft-0.3.2-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        InventCraft <span id="latest-ver">0.3.1</span> for Windows
+        InventCraft <span id="latest-ver">0.3.2</span> for Windows
       </a>
     </div>
   </div>
