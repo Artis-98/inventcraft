@@ -980,7 +980,24 @@ class SketchEditor(QtCore.QObject):
         if self.sketch.conflicting:
             return "Sketch: %s - %d conflicting constraint(s)" % (
                 msg, len(self.sketch.conflicting))
+        if msg == "fully constrained":
+            return "\u2713 Fully constrained"
+        dof = getattr(self.sketch, "dof", 0)
+        if msg.endswith("DOF") and dof:
+            return ("%d degree of freedom left" if dof == 1
+                    else "%d degrees of freedom left") % dof
         return "Sketch: %s" % msg
+
+    def status_state(self) -> str:
+        """"full", "free" or "conflict": which colour the readout takes."""
+        if self.sketch is None:
+            return ""
+        if self.sketch.conflicting or \
+                self.sketch.solve_message.startswith("over"):
+            return "conflict"
+        if self.sketch.solve_message == "fully constrained":
+            return "full"
+        return "free"
 
     # -- undo inside the sketch --------------------------------------------
 

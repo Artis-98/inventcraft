@@ -1125,9 +1125,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._build_sketch_toggles(bar)
 
+        # the degrees of freedom left in the sketch, as a badge coloured
+        # as the geometry is: too easy to miss as plain text (GitHub #11)
         self.status_sketch = QtWidgets.QLabel("")
-        self.status_sketch.setStyleSheet("color: %s; padding-right: 12px;"
-                                         % C.accent)
+        self.status_sketch.setObjectName("sketchFreedom")
+        self.status_sketch.setToolTip(
+            "How much of the sketch is still free to move.\n"
+            "Geometry still free is drawn in this colour; add dimensions\n"
+            "or constraints until it reads Fully constrained.")
         bar.addPermanentWidget(self.status_sketch)
 
         self.status_update = QtWidgets.QLabel("")
@@ -1443,7 +1448,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.axis_drag_finished.connect(self._plane_drag_finished)
 
         self.editor.changed.connect(self._on_sketch_changed)
-        self.editor.status_changed.connect(self.status_sketch.setText)
+        self.editor.status_changed.connect(self._show_sketch_status)
         self.editor.hint_changed.connect(self.ribbon.set_hint)
         self.editor.tool_finished.connect(self._sync_tool_buttons)
 
@@ -3842,6 +3847,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.properties.update_from(self.active_document)
         self.properties_window.show()
         self.properties_window.raise_()
+
+    def _show_sketch_status(self, text: str) -> None:
+        """The sketch's degrees of freedom, in the colours its lines take."""
+        state = self.editor.status_state() if text else ""
+        self.status_sketch.setText(text)
+        self.status_sketch.setProperty("state", state)
+        colour = {"full": C.sketch_line, "free": C.sketch_free,
+                  "conflict": C.error}.get(state)
+        if colour is None:
+            self.status_sketch.setStyleSheet("")
+            return
+        self.status_sketch.setStyleSheet(
+            "QLabel#sketchFreedom { color: %s; border: 1px solid %s;"
+            " border-radius: 9px; padding: 1px 10px; margin-right: 8px;"
+            " font-weight: bold; }" % (colour, colour))
 
     def show_about(self) -> None:
         """About InventCraft: the version, where people look for it."""

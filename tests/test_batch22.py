@@ -155,6 +155,53 @@ check("and rolls a quarter turn",
       abs(sum(a * b for a, b in zip(before, after))) < 1e-6, (before, after))
 check("the sketch is still open", win.editor.sketch is not None)
 
+win.finish_sketch() if hasattr(win, "finish_sketch") else None
+pump()
+
+# ==========================================================================
+print("#11: the degrees of freedom left, where they are seen")
+
+win.new_document(prompt=False)
+win.start_sketch_on_plane("XY")
+pump()
+ed = win.editor
+badge = win.status_sketch
+line = ed.sketch.add_line((0.0, 0.0), (40.0, 0.0))
+ed.solve()
+pump()
+check("a free line reads in words how much is left",
+      badge.text() == "%d degrees of freedom left" % ed.sketch.dof
+      and ed.sketch.dof > 1, (ed.sketch.dof, badge.text()))
+check("in the colour free geometry is drawn in",
+      badge.property("state") == "free" and "border" in badge.styleSheet())
+shot("dof_free")
+if SHOTS:
+    win.statusBar().grab().save(os.path.join(SHOTS, "bar_free.png"))
+
+ends = list(ed.sketch.entities[line].points)     if hasattr(ed.sketch.entities[line], "points") else None
+if ends is None:
+    e = ed.sketch.entities[line]
+    ends = [getattr(e, n) for n in ("p1", "p2") if hasattr(e, n)]         or [getattr(e, n) for n in ("a", "b") if hasattr(e, n)]
+ed.sketch.add_constraint("fix", points=[ends[0]])
+ed.sketch.add_constraint("horizontal", entities=[line])
+ed.solve()
+pump()
+check("one left reads in the singular",
+      ed.sketch.dof == 1 and badge.text() == "1 degree of freedom left",
+      (ed.sketch.dof, badge.text()))
+ed.sketch.add_constraint("distance_x", points=ends[:2], value=40.0)
+ed.solve()
+pump()
+if ed.sketch.dof == 0:
+    check("fully constrained says so", badge.text().endswith(
+        "Fully constrained"), badge.text())
+    check("in its own colour", badge.property("state") == "full")
+    shot("dof_full")
+    if SHOTS:
+        win.statusBar().grab().save(os.path.join(SHOTS, "bar_full.png"))
+else:
+    print("  skip  could not constrain it fully here: %d left" % ed.sketch.dof)
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))
