@@ -342,6 +342,9 @@ class Viewport(QtWidgets.QWidget):
         self._cube_buttons: Dict[str, Any] = {}
         self._button_hot: Optional[str] = None
         self._button_pressed: Optional[str] = None
+        # whether the view is square to a face of the cube, which is when
+        # the turning arrows round it are shown
+        self._square = False
         self.view_setup_of: Optional[Callable[[], Any]] = None
 
         # pulling a work plane off a face
@@ -1437,24 +1440,73 @@ class Viewport(QtWidgets.QWidget):
             d = d.Transformed(self._cube.LocalTransformation())
         return (d.X(), d.Y(), d.Z())
 
-    # -- the house and the arrow ------------------------------------------------
+    # -- the house and the arrows -----------------------------------------------
     #
     # Inventor's Home, top left of the view cube, and the little arrow,
-    # bottom right of it, that holds the cube's menu.  Drawn by OCCT in
-    # screen space as the cube is, since nothing Qt paints shows over this
-    # window, and found by where they were put rather than by picking.
+    # bottom right of it, that holds the cube's menu.  Looking square at a
+    # face, four triangles round the cube turn to the next face and two
+    # curved arrows top right roll the view a quarter turn (GitHub #14).
+    # Drawn by OCCT in screen space as the cube is, since nothing Qt paints
+    # shows over this window, and found by where they were put rather than
+    # by picking.
 
-    # (middle, in points from the top right; outline, in points about it)
+    CUBE_CENTRE = (85, 85)     # in points from the top right, as the cube
+    ROLL_RADIUS = 72.0
+
+    @staticmethod
+    def _roll_arrow(start: float, end: float):
+        """A curved arrow round the cube from ``start`` to ``end`` degrees,
+        its head at ``end``: where its middle goes, and its strokes."""
+        cx, cy = Viewport.CUBE_CENTRE
+        r = Viewport.ROLL_RADIUS
+        mid = math.radians((start + end) / 2.0)
+        at = (int(round(cx - r * math.cos(mid))),
+              int(round(cy - r * math.sin(mid))))
+        ox, oy = r * math.cos(mid), r * math.sin(mid)
+        arc = []
+        for i in range(9):
+            a = math.radians(start + (end - start) * i / 8.0)
+            arc.append((r * math.cos(a) - ox, r * math.sin(a) - oy))
+        a = math.radians(end)
+        turn = 1.0 if end > start else -1.0
+        tx, ty = -math.sin(a) * turn, math.cos(a) * turn
+        nx, ny = math.cos(a), math.sin(a)
+        ex, ey = arc[-1]
+        head = ((ex + tx * 6.0, ey + ty * 6.0),
+                (ex + nx * 4.5, ey + ny * 4.5),
+                (ex - nx * 4.5, ey - ny * 4.5))
+        return at, ((tuple(arc), False), (head, True))
+
+    # name: (middle, in points from the top right; strokes, each a list of
+    # points about the middle and whether it closes)
     CUBE_BUTTONS = {
-        "home": ((150, 26), ((0.0, 9.0), (9.0, 0.5), (6.0, 0.5),
-                             (6.0, -7.5), (-6.0, -7.5), (-6.0, 0.5),
-                             (-9.0, 0.5))),
-        "menu": ((24, 146), ((-6.0, 3.5), (6.0, 3.5), (0.0, -3.5))),
+        "home": ((150, 26), ((((0.0, 9.0), (9.0, 0.5), (6.0, 0.5),
+                               (6.0, -7.5), (-6.0, -7.5), (-6.0, 0.5),
+                               (-9.0, 0.5)), True),)),
+        "menu": ((24, 146), ((((-6.0, 3.5), (6.0, 3.5), (0.0, -3.5)),
+                              True),)),
+        "face_up": ((85, 33), ((((-7.0, 3.5), (7.0, 3.5), (0.0, -3.5)),
+                                True),)),
+        "face_down": ((85, 137), ((((-7.0, -3.5), (7.0, -3.5), (0.0, 3.5)),
+                                   True),)),
+        "face_left": ((137, 85), ((((-3.5, 7.0), (-3.5, -7.0), (3.5, 0.0)),
+                                   True),)),
+        "face_right": ((33, 85), ((((3.5, 7.0), (3.5, -7.0), (-3.5, 0.0)),
+                                   True),)),
     }
+    # only while the view is square to a face of the cube, as in Inventor
+    SQUARE_ONLY = ("face_up", "face_down", "face_left", "face_right",
+                   "roll_ccw", "roll_cw")
     BUTTON_REACH = 12          # how near one a click counts
     BUTTON_TIPS = {
         "home": "Home view (F6)\nRight-click for the view cube's menu",
         "menu": "View cube: set the current view as Home, Front or Top",
+        "face_up": "Turn to the face above",
+        "face_down": "Turn to the face below",
+        "face_left": "Turn to the face on the left",
+        "face_right": "Turn to the face on the right",
+        "roll_ccw": "Turn the view a quarter turn anticlockwise",
+        "roll_cw": "Turn the view a quarter turn clockwise",
     }
 
     def _make_cube_buttons(self) -> None:
@@ -1472,14 +1524,22 @@ class Viewport(QtWidgets.QWidget):
             dpr = self.devicePixelRatioF() or 1.0
         except Exception:
             dpr = 1.0
+        from OCP.BRep import BRep_Builder
+        from OCP.TopoDS import TopoDS_Compound
         size = self._occt_ratio()
-        for name, (at, points) in self.CUBE_BUTTONS.items():
+        for name, (at, strokes) in self.CUBE_BUTTONS.items():
             try:
-                outline = BRepBuilderAPI_MakePolygon()
-                for x, y in points:
-                    outline.Add(gp_Pnt(x * size, y * size, 0.0))
-                outline.Close()
-                drawn = AIS_Shape(outline.Wire())
+                builder = BRep_Builder()
+                shape = TopoDS_Compound()
+                builder.MakeCompound(shape)
+                for points, closed in strokes:
+                    outline = BRepBuilderAPI_MakePolygon()
+                    for x, y in points:
+                        outline.Add(gp_Pnt(x * size, y * size, 0.0))
+                    if closed:
+                        outline.Close()
+                    builder.Add(shape, outline.Wire())
+                drawn = AIS_Shape(shape)
                 drawn.SetColor(_col(C.accent if self._button_hot == name
                                     else C.cube_text))
                 drawn.SetWidth(2.0 * size)
@@ -1491,13 +1551,87 @@ class Viewport(QtWidgets.QWidget):
                 drawn.SetInfiniteState(True)
                 self.context.Display(drawn, False)
                 self.context.Deactivate(drawn)
+                if name in self.SQUARE_ONLY and not self._square:
+                    self.context.Erase(drawn, False)
                 self._cube_buttons[name] = drawn
             except Exception:
                 continue
 
+    def _shown_buttons(self) -> List[str]:
+        return [name for name in self._cube_buttons
+                if self._square or name not in self.SQUARE_ONLY]
+
+    def is_square(self) -> bool:
+        """Is the view looking straight at a face of the cube, the right
+        way up or turned a quarter?"""
+        if not self._ready:
+            return False
+        right, up, forward = self.screen_basis()
+        axes = self._cube_axes()
+
+        def on_axis(v) -> bool:
+            return max(abs(sum(a * b for a, b in zip(v, axis)))
+                       for axis in axes) > 0.9995
+
+        return on_axis(forward) and on_axis(up)
+
+    def _cube_axes(self):
+        setup = self.view_setup()
+        return (tuple(setup.right()), tuple(setup.front), tuple(setup.top))
+
+    def _snap_to_cube(self, v) -> Tuple[float, float, float]:
+        """The axis of the cube nearest ``v``, with its sign."""
+        best, sign, most = None, 1.0, -1.0
+        for axis in self._cube_axes():
+            dot = sum(a * b for a, b in zip(v, axis))
+            if abs(dot) > most:
+                best, sign, most = axis, (1.0 if dot >= 0 else -1.0), abs(dot)
+        return tuple(sign * c for c in best)
+
+    def _sync_square(self) -> None:
+        """Show the turning arrows when square to a face, hide them when
+        not.  Cheap enough to ask on every frame, and only changes what is
+        drawn when the answer changes."""
+        square = self.is_square()
+        if square == self._square:
+            return
+        self._square = square
+        for name in self.SQUARE_ONLY:
+            drawn = self._cube_buttons.get(name)
+            if drawn is None:
+                continue
+            try:
+                if square:
+                    self.context.Display(drawn, False)
+                    self.context.Deactivate(drawn)
+                else:
+                    self.context.Erase(drawn, False)
+            except Exception:
+                pass
+
+    def cube_step(self, name: str, animate: bool = True) -> bool:
+        """What a turning arrow does: to the face above, below, left or
+        right, or a quarter turn either way, ending square to the cube."""
+        right, up, forward = self.screen_basis()
+        neg = lambda v: tuple(-c for c in v)       # noqa: E731
+        steps = {
+            "face_up": (neg(up), forward),
+            "face_down": (up, neg(forward)),
+            "face_left": (right, up),
+            "face_right": (neg(right), up),
+            "roll_ccw": (forward, right),
+            "roll_cw": (forward, neg(right)),
+        }
+        if name not in steps:
+            return False
+        look, new_up = steps[name]
+        self.aim(self._snap_to_cube(look), self._snap_to_cube(new_up),
+                 fit=False, animate=animate)
+        return True
+
     def button_at(self, x: int, y: int) -> Optional[str]:
-        """The house or the arrow under this point, by name, or None."""
-        for name in self._cube_buttons:
+        """The house or an arrow under this point, by name, or None."""
+        for name in self._shown_buttons():
             at = self.CUBE_BUTTONS[name][0]
             cx, cy = self.width() - at[0], at[1]
             if (abs(x - cx) <= self.BUTTON_REACH
@@ -1514,7 +1648,8 @@ class Viewport(QtWidgets.QWidget):
         if hot == self._button_hot:
             return
         self._button_hot = hot
-        for name, drawn in self._cube_buttons.items():
+        for name in self._shown_buttons():
+            drawn = self._cube_buttons[name]
             drawn.SetColor(_col(C.accent if name == hot else C.cube_text))
             self.context.Redisplay(drawn, False)
         self.redraw()
@@ -1944,6 +2079,11 @@ class Viewport(QtWidgets.QWidget):
             # inside one_frame: drawn once, when it is done
             self._frame_dirty = True
             return
+        if self._cube_buttons:
+            try:
+                self._sync_square()
+            except Exception:
+                pass
         if not getattr(self, "show_frame_time", False):
             self.view.Redraw()
             return
@@ -3586,8 +3726,10 @@ class Viewport(QtWidgets.QWidget):
             if self.button_at(pos.x(), pos.y()) == pressed:
                 if pressed == "home":
                     self.home_clicked.emit()
-                else:
+                elif pressed == "menu":
                     self.cube_menu_requested.emit(self.mapToGlobal(pos))
+                else:
+                    self.cube_step(pressed)
             return
 
         if event.button() == QtCore.Qt.LeftButton and self._left_navigated:
@@ -3821,3 +3963,8 @@ class Viewport(QtWidgets.QWidget):
         except Exception:
             pass
         self._window = None
+
+# the two curved arrows top right of the cube: anticlockwise above,
+# its head pointing left, clockwise below, its head pointing down
+Viewport.CUBE_BUTTONS["roll_ccw"] = Viewport._roll_arrow(51.0, 73.0)
+Viewport.CUBE_BUTTONS["roll_cw"] = Viewport._roll_arrow(35.0, 13.0)
