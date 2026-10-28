@@ -395,6 +395,43 @@ class MainWindow(QtWidgets.QMainWindow):
             self.open_measure)
 
         # -------------------------------------------------- 3D Model: features
+        # ------------------------------------------------------- Sheet Metal
+        # Inventor's tab for a sheet metal part, in its order, and
+        # first, as Inventor shows it: hidden for any other part
+        sheet = r.add_tab(TAB_SHEET)
+        panel = sheet.add_panel("Sketch")
+        panel.add_big("sketch", "Start\n2D Sketch",
+                      "Create a sketch on a plane or a flat face (S)"
+                      ).clicked.connect(self.start_sketch)
+        panel = sheet.add_panel("Create")
+        panel.add_big("sm_face", "Face",
+                      "A closed profile given the sheet's thickness"
+                      ).clicked.connect(
+            lambda: self.new_feature(SheetFaceFeature))
+        panel.add_big("sm_flange", "Flange",
+                      "Bend a wall up from edges of the sheet"
+                      ).clicked.connect(lambda: self.new_feature(FlangeFeature))
+        panel = sheet.add_panel("Modify")
+        panel.add_small("extrude", "Cut", "Cut a profile through the sheet"
+                        ).clicked.connect(
+            lambda: self.new_feature(ExtrudeFeature, operation="cut"))
+        panel.add_small("hole", "Hole").clicked.connect(
+            lambda: self.new_feature(HoleFeature))
+        panel.add_small("fillet", "Corner Round").clicked.connect(
+            lambda: self.new_feature(FilletFeature))
+        panel = sheet.add_panel("Setup")
+        panel.add_big("sm_defaults", "Sheet Metal\nDefaults",
+                      "Thickness, bend radius and K-factor"
+                      ).clicked.connect(self.edit_sheet_metal_defaults)
+        panel = sheet.add_panel("Flat Pattern")
+        panel.add_big("sm_flat", "Flat\nPattern",
+                      "The sheet laid flat, its size, and a DXF to cut from"
+                      ).clicked.connect(self.show_flat_pattern)
+        panel = sheet.add_panel("Convert")
+        panel.add_small("sm_convert", "Convert to Standard Part",
+                        "Back to an ordinary part; the features stay"
+                        ).clicked.connect(self.convert_to_standard)
+
         model = r.add_tab(TAB_MODEL)
 
         panel = model.add_panel("Sketch")
@@ -464,42 +501,6 @@ class MainWindow(QtWidgets.QMainWindow):
                         "Make this part sheet metal: it keeps its file and "
                         "its features, and gains the Sheet Metal tab"
                         ).clicked.connect(self.convert_to_sheet_metal)
-
-        # ------------------------------------------------------- Sheet Metal
-        # Inventor's tab for a sheet metal part, in its order
-        sheet = r.add_tab(TAB_SHEET)
-        panel = sheet.add_panel("Sketch")
-        panel.add_big("sketch", "Start\n2D Sketch",
-                      "Create a sketch on a plane or a flat face (S)"
-                      ).clicked.connect(self.start_sketch)
-        panel = sheet.add_panel("Create")
-        panel.add_big("sm_face", "Face",
-                      "A closed profile given the sheet's thickness"
-                      ).clicked.connect(
-            lambda: self.new_feature(SheetFaceFeature))
-        panel.add_big("sm_flange", "Flange",
-                      "Bend a wall up from edges of the sheet"
-                      ).clicked.connect(lambda: self.new_feature(FlangeFeature))
-        panel = sheet.add_panel("Modify")
-        panel.add_small("extrude", "Cut", "Cut a profile through the sheet"
-                        ).clicked.connect(
-            lambda: self.new_feature(ExtrudeFeature, operation="cut"))
-        panel.add_small("hole", "Hole").clicked.connect(
-            lambda: self.new_feature(HoleFeature))
-        panel.add_small("fillet", "Corner Round").clicked.connect(
-            lambda: self.new_feature(FilletFeature))
-        panel = sheet.add_panel("Setup")
-        panel.add_big("sm_defaults", "Sheet Metal\nDefaults",
-                      "Thickness, bend radius and K-factor"
-                      ).clicked.connect(self.edit_sheet_metal_defaults)
-        panel = sheet.add_panel("Flat Pattern")
-        panel.add_big("sm_flat", "Flat\nPattern",
-                      "The sheet laid flat, its size, and a DXF to cut from"
-                      ).clicked.connect(self.show_flat_pattern)
-        panel = sheet.add_panel("Convert")
-        panel.add_small("sm_convert", "Convert to Standard Part",
-                        "Back to an ordinary part; the features stay"
-                        ).clicked.connect(self.convert_to_standard)
 
         # ------------------------------------------------------------ Sketch
         sketch = r.add_tab(TAB_SKETCH, contextual=True)

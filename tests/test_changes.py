@@ -63,8 +63,10 @@ print("ribbon layout")
 tabs = [win.ribbon.stack.widget(i).title
         for i in range(win.ribbon.stack.count())]
 check("tab order matches Inventor",
-      tabs == ["3D Model", "Sketch", "Assemble", "CAM", "Drawing",
-               "Inspect", "Manage", "View"], tabs)
+      tabs == ["Sheet Metal", "3D Model", "Sketch", "Assemble", "CAM",
+               "Drawing", "Inspect", "Manage", "View"], tabs)
+check("an ordinary part hides the Sheet Metal tab",
+      not win.ribbon._buttons["Sheet Metal"].isVisible())
 check("a part hides the assembly and CAM tabs",
       not win.ribbon._buttons["Assemble"].isVisible()
       and not win.ribbon._buttons["CAM"].isVisible())
@@ -76,7 +78,7 @@ panels = [p.title for p in model_tab.panels]
 # is hidden unless one is going on.
 check("3D Model holds the feature panels, then Return",
       panels == ["Sketch", "Create", "Modify", "Work Features", "Pattern",
-                 "Return"], panels)
+                 "Convert", "Return"], panels)
 check("no File panel on 3D Model", "File" not in panels)
 check("no Edit panel on 3D Model", "Edit" not in panels)
 
