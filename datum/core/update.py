@@ -38,6 +38,13 @@ from .. import __version__
 # Where releases are published.  Overridable so a release can be tried
 # against a staging feed before it goes to everybody.
 DEFAULT_FEED = "https://api.iiteg.com/datum/"
+# Since 0.3.3 the signed feed is also on the GitHub release, where the
+# downloads already are; this address always leads to the newest one.
+# Asked first, with the server as the fallback, which also serves copies
+# older than 0.3.3, which only know the server.
+GITHUB_FEED = ("https://github.com/Artis-98/inventcraft/releases/latest/"
+               "download/")
+FEEDS = (GITHUB_FEED, DEFAULT_FEED)
 FEED_FILE = "latest.json"
 
 # The public half of the release signing key.  Its private half never
@@ -360,9 +367,29 @@ def check(feed: str = DEFAULT_FEED,
           platform: str = "") -> Release:
     """Ask the feed what the newest release is.
 
+    The usual feed is asked on GitHub first and on the server when GitHub
+    cannot be reached or has no feed; any other feed, a test one, is asked
+    alone.  Either way the feed is signed, so where it came from does not
+    decide whether it is believed.
+
     ``fetcher`` exists so this can be tested without a network: it is
     handed the base and the file name and gives back the bytes.
     """
+    if not feed or feed == DEFAULT_FEED:
+        failures = []
+        for candidate in FEEDS:
+            try:
+                return _check_one(candidate, fetcher, platform)
+            except UpdateError as exc:
+                failures.append(exc)
+        raise failures[-1] if len(failures) == 1 else UpdateError(
+            "; ".join(str(f) for f in failures))
+    return _check_one(feed, fetcher, platform)
+
+
+def _check_one(feed: str,
+               fetcher: Optional[Callable[[str, str], bytes]],
+               platform: str) -> Release:
     base = feed if feed.endswith("/") else feed + "/"
     get = fetcher or (lambda b, n: fetch_signed(b, n))
     try:

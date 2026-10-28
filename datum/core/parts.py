@@ -242,6 +242,27 @@ class PartLibrary:
         self._cache[key] = (stamp, shape)
         return shape
 
+    def names(self, path: str) -> Dict[str, Any]:
+        """A part's named entities, read from its file: {name: [refs]},
+        what an assembly constraint by name looks up.  Kept until the file
+        changes."""
+        key = self._key(path) + "\x00names"
+        try:
+            stamp = os.path.getmtime(path)
+        except OSError:
+            return {}
+        hit = self._cache.get(key)
+        if hit is not None and hit[0] == stamp:
+            return hit[1]
+        try:
+            opened = fileformat.read(path, expected_type=PART)
+            found = dict((opened.geometry or {}).get("named_entities")
+                         or {})
+        except Exception:
+            found = {}
+        self._cache[key] = (stamp, found)
+        return found
+
     def _state_shape(self, path: str, state: str) -> Optional[TopoDS_Shape]:
         """A part as one of its model states, built and kept like any other.
 

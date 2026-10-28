@@ -387,6 +387,28 @@ win.finish_sketch()
 pump()
 
 # ==========================================================================
+print("Assign Name on a face (board #82)")
+
+win.new_document(prompt=False)
+win.new_primitive("box")
+pump()
+win._active_dialog.commit()
+pump()
+top = max(kernel.faces(win.document.shape),
+          key=lambda f: kernel.shape_centre(f)[2])
+check("a face takes a name", win.assign_name(top, name="Top"))
+check("the part knows it", win.document.name_of(top) == "Top")
+check("a bad name is refused, saying why",
+      not win.assign_name(top, "Top", name="9 lives")
+      and "name" in win.status_message.text().lower(),
+      win.status_message.text())
+check("and the good one stays", win.document.name_of(top) == "Top")
+win.undo()
+pump()
+check("Ctrl+Z takes it off", not win.document.named_entities,
+      win.document.named_entities)
+
+# ==========================================================================
 print("renaming a solid breaks nothing that uses it (board #80)")
 
 from datum.core.features import NEW_BODY, PrimitiveFeature        # noqa: E402

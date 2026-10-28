@@ -199,15 +199,22 @@ class Attachment:
     kind: str = "face"                       # face or edge
     ref: Optional[ShapeRef] = None
     frame: Frame = field(default_factory=Frame)
+    # a named entity of the component's part (Assign Name there): when
+    # set, the constraint follows the name, which the part keeps on the
+    # right face however it is remodelled
+    named: str = ""
 
     @property
     def valid(self) -> bool:
         return self.occurrence > 0 and self.frame is not None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"occurrence": self.occurrence, "kind": self.kind,
-                "ref": self.ref.to_dict() if self.ref else None,
-                "frame": self.frame.to_dict()}
+        out = {"occurrence": self.occurrence, "kind": self.kind,
+               "ref": self.ref.to_dict() if self.ref else None,
+               "frame": self.frame.to_dict()}
+        if self.named:
+            out["named"] = self.named
+        return out
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Attachment":
@@ -215,7 +222,8 @@ class Attachment:
         return cls(occurrence=int(data.get("occurrence", 0)),
                    kind=str(data.get("kind", "face")),
                    ref=ShapeRef.from_dict(raw) if raw else None,
-                   frame=Frame.from_dict(data.get("frame", {})))
+                   frame=Frame.from_dict(data.get("frame", {})),
+                   named=str(data.get("named", "")))
 
 
 @dataclass
@@ -701,6 +709,13 @@ class AssemblyDocument:
                     constraint.error = "%s has no body" % occurrence.label
                     broken = True
                     break
+                if attachment.named and not self.follow_name(
+                        attachment, occurrence):
+                    constraint.error = ("%s has nothing called %s"
+                                        % (occurrence.label,
+                                           attachment.named))
+                    broken = True
+                    break
                 frames.append(self._frame_for(attachment, occurrence.shape))
 
             if broken:
@@ -724,6 +739,41 @@ class AssemblyDocument:
                 frame_a=frames[0], frame_b=frames[1],
                 offset=constraint.value(scope), flip=constraint.flip))
         return out
+
+    def follow_name(self, attachment: Attachment,
+                    occurrence: "Occurrence") -> bool:
+        """Point a named attachment at whatever its part calls that name
+        now: Inventor's named geometry, seen through the component."""
+        path = self.component_path(occurrence)
+        if path is None:
+            return False
+        held = self.library.names(path).get(attachment.named)
+        if not held:
+            return False
+        try:
+            ref = ShapeRef.from_dict(held[0])
+        except Exception:
+            return False
+        if attachment.ref is None or \
+                attachment.ref.to_dict() != ref.to_dict() \
+                or not attachment.frame or not attachment.frame.kind:
+            attachment.ref = ref
+            attachment.kind = ref.kind if ref.kind in ("face", "edge") \
+                else attachment.kind
+            # where it is now, in the part's own coordinates: the frame
+            # the solver works from, which a named face that has moved
+            # must not keep from before
+            if occurrence.shape is not None:
+                try:
+                    found = ref.resolve(occurrence.shape)
+                except Exception:
+                    found = None
+                frame = frame_from_shape(found) if found is not None \
+                    else None
+                if frame is None:
+                    return False
+                attachment.frame = frame
+        return True
 
     def world_shape(self, attachment: Attachment) -> Optional[TopoDS_Shape]:
         """The picked face or edge itself, where its component sits."""
@@ -847,8 +897,26 @@ class AssemblyDocument:
         ref = (ShapeRef.capture(pool[index], kind, index)
                if index is not None
                else ShapeRef.capture(local_subshape, kind, 0))
-        return Attachment(occurrence=occurrence.id, kind=kind, ref=ref,
-                          frame=frame)
+        attachment = Attachment(occurrence=occurrence.id, kind=kind,
+                                ref=ref, frame=frame)
+        # a face the part has named is held by its name, so the constraint
+        # follows it through whatever the part goes through later
+        if index is not None:
+            attachment.named = self._name_in_part(occurrence, pool[index])
+        return attachment
+
+    def _name_in_part(self, occurrence: "Occurrence", local) -> str:
+        path = self.component_path(occurrence)
+        if path is None or occurrence.shape is None:
+            return ""
+        for name, held in self.library.names(path).items():
+            try:
+                found = ShapeRef.from_dict(held[0]).resolve(occurrence.shape)
+            except Exception:
+                continue
+            if found is not None and found.IsSame(local):
+                return name
+        return ""
 
     @property
     def density(self) -> float:

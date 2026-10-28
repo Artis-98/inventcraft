@@ -696,6 +696,58 @@ SAFE_BUILTINS = {
 SAFE_BUILTINS = {k: v for k, v in SAFE_BUILTINS.items() if v is not None}
 
 
+class NamedEntity:
+    """What a rule sees of a named face, edge or corner."""
+
+    def __init__(self, name: str, shape) -> None:
+        from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
+        from . import kernel
+        self.name = name
+        self.shape = shape
+        self.kind = {TopAbs_FACE: "face", TopAbs_EDGE: "edge"}.get(
+            shape.ShapeType(), "vertex")
+        self.centre = tuple(kernel.shape_centre(shape))
+        self.area = kernel.face_area(shape) if self.kind == "face" else 0.0
+        self.normal = None
+        if self.kind == "face":
+            from .features import plane_from_face
+            plane = plane_from_face(shape)
+            self.normal = tuple(plane.normal) if plane is not None else None
+
+    def __repr__(self) -> str:
+        return "<%s %s at %s>" % (self.kind, self.name,
+                                  tuple(round(c, 3) for c in self.centre))
+
+
+def _constrain(document, changes: List[str], kind: str, first: str,
+               first_name: str, second: str, second_name: str,
+               offset: Any) -> None:
+    from . import constraints3d
+    from .assembly import AssemblyConstraint, Attachment
+    if not hasattr(document, "constraints"):
+        raise KeyError("constrain() is for an assembly")
+    kinds = {"mate": constraints3d.MATE, "flush": constraints3d.FLUSH,
+             "angle": constraints3d.ANGLE, "insert": constraints3d.INSERT,
+             "tangent": constraints3d.TANGENT,
+             "parallel": constraints3d.PARALLEL}
+    if kind not in kinds:
+        raise KeyError("a constraint is one of %s" % ", ".join(kinds))
+    by_label = {o.label: o for o in document.occurrences}
+    ends = []
+    for label, name in ((first, first_name), (second, second_name)):
+        occurrence = by_label.get(label)
+        if occurrence is None:
+            raise KeyError("there is no component called %r" % label)
+        attachment = Attachment(occurrence=occurrence.id, named=name)
+        if not document.follow_name(attachment, occurrence):
+            raise KeyError("%s has nothing called %r" % (label, name))
+        ends.append(attachment)
+    constraint = AssemblyConstraint(kind=kinds[kind], a=ends[0], b=ends[1],
+                                    offset=str(offset))
+    document.add_constraint(constraint)
+    changes.append("constraint")
+
+
 def environment(document) -> Dict[str, Any]:
     """The names a rule is given, and nothing else by default."""
     changes: List[str] = []
@@ -737,7 +789,30 @@ def environment(document) -> Dict[str, Any]:
                 changes.append("appearance")
         return getattr(document, "appearance", "")
 
+    def named(name: str) -> "NamedEntity":
+        """A face, edge or corner given a name (Assign Name):
+        named("Top").area, .centre, .normal."""
+        if not hasattr(document, "named_entities"):
+            raise KeyError("only a part has named faces")
+        shape = document.named(name)
+        if shape is None:
+            if name in document.named_entities:
+                raise KeyError("%r is no longer on the part" % name)
+            raise KeyError("nothing is called %r; the names are %s"
+                           % (name, ", ".join(sorted(
+                               document.named_entities)) or "none"))
+        return NamedEntity(name, shape)
+
+    def constrain(kind: str, first: str, first_name: str, second: str,
+                  second_name: str, offset: Any = 0) -> None:
+        """An assembly constraint between named faces of two components:
+        constrain("mate", "Bracket:1", "Back", "Plate:1", "Top")."""
+        _constrain(document, changes, kind, first, first_name, second,
+                   second_name, offset)
+
     return {
+        "named": named,
+        "constrain": constrain,
         "params": params,
         "dims": _Dims(sketches.all(), changes),
         "sketches": sketches,

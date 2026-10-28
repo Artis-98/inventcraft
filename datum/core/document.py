@@ -270,6 +270,11 @@ class Document:
         # that name, which never changes, so renaming one breaks nothing
         # that uses it (asked for on Reddit: in Inventor it does).
         self.solid_labels: Dict[str, str] = {}
+        # Inventor's named entities: a face, edge or corner given a name,
+        # held by its reference so it is found again after every rebuild.
+        # Rules read them by name, and assembly constraints follow a name
+        # into the part rather than a face that may since have moved.
+        self.named_entities: Dict[str, Any] = {}
         # once a body exists the origin planes have done their job, so they
         # are put away automatically - but only ever once, so a user who
         # turns them back on keeps them
@@ -455,6 +460,60 @@ class Document:
                                      > self.index_of(found)):
                     found = feature_id
         return found
+
+    # -- named entities -------------------------------------------------
+
+    NAME_KINDS = {"face": "face", "edge": "edge", "vertex": "vertex"}
+
+    def assign_name(self, name: str, shape) -> None:
+        """Assign Name: call a face, edge or corner of the part ``name``.
+        A name already in use moves to the new one, as in Inventor."""
+        from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+        from .naming import RefSet
+        import re
+        name = name.strip()
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_ .-]*$", name):
+            raise ValueError("a name starts with a letter and holds "
+                             "letters, digits, spaces, dots and dashes")
+        kind = {TopAbs_FACE: "face", TopAbs_EDGE: "edge",
+                TopAbs_VERTEX: "vertex"}.get(shape.ShapeType())
+        if kind is None:
+            raise ValueError("only a face, an edge or a corner takes a name")
+        if self.shape is None:
+            raise ValueError("there is no body yet")
+        refs = RefSet()
+        refs.capture_from(self.shape, kind, [shape])
+        if not len(refs):
+            raise ValueError("that is not part of the body")
+        for other, held in list(self.named_entities.items()):
+            if other != name and held.resolve_all(self.shape)[0] and \
+                    held.resolve_all(self.shape)[0][0].IsSame(shape):
+                del self.named_entities[other]       # one name each
+        self.named_entities[name] = refs
+        self.modified = True
+
+    def remove_name(self, name: str) -> None:
+        if self.named_entities.pop(name, None) is not None:
+            self.modified = True
+
+    def named(self, name: str):
+        """The face, edge or corner called ``name``, as the body is now;
+        None when it is gone."""
+        refs = self.named_entities.get(name)
+        if refs is None or self.shape is None:
+            return None
+        found = refs.resolve_all(self.shape)[0]
+        return found[0] if found else None
+
+    def name_of(self, shape) -> str:
+        """The name given to this face, edge or corner, or ""."""
+        if shape is None:
+            return ""
+        for name in self.named_entities:
+            found = self.named(name)
+            if found is not None and found.IsSame(shape):
+                return name
+        return ""
 
     def solid_label(self, name: str) -> str:
         """What a solid is called on screen."""
@@ -1150,6 +1209,8 @@ class Document:
             "hidden_planes": sorted(self.hidden_planes),
             "hidden_bodies": sorted(self.hidden_bodies),
             "solid_labels": dict(self.solid_labels),
+            "named_entities": {name: refs.to_list() for name, refs
+                               in self.named_entities.items()},
             "origin_autohidden": self.origin_autohidden,
             "parameters": self.params.to_list(),
             "features": [f.to_dict() for f in self.features],
@@ -1185,6 +1246,10 @@ class Document:
         self.hidden_bodies = set(data.get("hidden_bodies", []))
         self.solid_labels = {str(k): str(v) for k, v in
                              (data.get("solid_labels") or {}).items()}
+        from .naming import RefSet
+        self.named_entities = {
+            str(k): RefSet.from_list(v)
+            for k, v in (data.get("named_entities") or {}).items()}
         self.origin_autohidden = bool(data.get("origin_autohidden", False))
         self.view = ViewSetup.from_dict(data.get("view"))
         from .sheetmetal import SheetMetalDefaults

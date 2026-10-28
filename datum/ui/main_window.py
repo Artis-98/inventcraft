@@ -1905,6 +1905,44 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # -- sheet metal ------------------------------------------------------
 
+    def assign_name(self, shape, current: str = "",
+                    name: Optional[str] = None) -> bool:
+        """Assign Name to a face, edge or corner of the part."""
+        if name is None:
+            name, ok = QtWidgets.QInputDialog.getText(
+                self, "Assign Name", "Name:", QtWidgets.QLineEdit.Normal,
+                current)
+            if not ok:
+                return False
+        before = dict(self.document.named_entities)
+        try:
+            if current and current != name.strip():
+                self.document.remove_name(current)
+            self.document.assign_name(name, shape)
+        except ValueError as exc:
+            self.document.named_entities = before
+            self.status_message.setStyleSheet("color: %s;" % C.error)
+            self.status_message.setText("Cannot name it: %s." % exc)
+            return False
+        # recorded as it was, so Ctrl+Z takes the name off again
+        after = dict(self.document.named_entities)
+        self.document.named_entities = before
+        self.document.push_undo()
+        self.document.named_entities = after
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Named %s: a rule reads it as named(\"%s\")."
+            % (name.strip(), name.strip()))
+        return True
+
+    def remove_name(self, name: str) -> None:
+        self.document.push_undo()
+        self.document.remove_name(name)
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText("Name %s deleted." % name)
+
     def rename_solid(self, name: str, label: str) -> bool:
         """Rename a solid on screen; whatever uses it carries on."""
         before = dict(self.document.solid_labels)
@@ -5087,6 +5125,23 @@ class MainWindow(QtWidgets.QMainWindow):
                                         "Export Face as DXF...")
                 export.setEnabled(flat)
                 export.triggered.connect(self.export_face_dxf)
+                menu.addSeparator()
+
+                # Inventor's named geometry: rules, and assembly
+                # constraints through the component, hold the face by name
+                face = faces[0]
+                current = self.document.name_of(face)
+                assign = menu.addAction(
+                    "Rename '%s'..." % current if current
+                    else "Assign Name...")
+                assign.setToolTip("Name this face, for rules and for "
+                                  "constraints in an assembly")
+                assign.triggered.connect(
+                    lambda _=False, f=face, c=current: self.assign_name(f, c))
+                if current:
+                    drop = menu.addAction("Delete Name '%s'" % current)
+                    drop.triggered.connect(
+                        lambda _=False, c=current: self.remove_name(c))
                 menu.addSeparator()
 
             menu.addAction(icons.icon("sketch", 16), "Start Sketch"
