@@ -591,8 +591,98 @@ def served_ok(expected: int, content_length) -> bool:
         return False
 
 
+def do_feed() -> int:
+    """Send the signed feed, and nothing else, to the server.
+
+    Since 0.3.3 that is all the server holds: the downloads, and the feed
+    a copy from 0.3.3 on reads first, are on the GitHub release.  Copies
+    on 0.3.1 and 0.3.2 know only the server's feed, which sends them to
+    the GitHub archive; a copy on 0.3.0 reads its top-level minimum and is
+    asked to reinstall.
+    """
+    names = (update.FEED_FILE, update.FEED_FILE + ".sig")
+    for name in names:
+        if not os.path.exists(os.path.join(RELEASE, name)):
+            fail("no release/%s: cut the release with tools/release.py "
+                 "first" % name)
+    where = settings("api")
+    link = Link(where)
+    try:
+        say("connected to %s as %s, TLS on" % (where["host"], where["user"]))
+        for name in names:
+            link.put(os.path.join(RELEASE, name), name)
+            say("sent %s" % name)
+    finally:
+        link.close()
+    print()
+    return do_check()
+
+
 def do_check(expect: str = "") -> int:
-    """Read the published channel the way an installed copy reads it."""
+    """Read both feeds the way an installed copy does, and see that what
+    they point at is there."""
+    import urllib.request
+
+    def there(url: str) -> str:
+        """The size of what is at a URL, or "" for nothing there."""
+        try:
+            request = urllib.request.Request(
+                url, method="HEAD",
+                headers={"User-Agent": "DATUM-deploy-check"})
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return "%s bytes" % response.headers.get("Content-Length")
+        except Exception:
+            return ""
+
+    problems = []
+    versions = {}
+    for label, feed in (("server", update.DEFAULT_FEED),
+                        ("GitHub", update.GITHUB_FEED)):
+        print("the feed on %s" % label)
+        try:
+            release = update._check_one(feed, None, "files")
+        except Exception as exc:
+            print("  UNREADABLE: %s" % exc)
+            problems.append("the %s feed cannot be read" % label)
+            continue
+        versions[label] = release.version
+        print("  version %s, released %s, signature verified, minimum %s"
+              % (release.version, release.released, release.minimum))
+        if expect and release.version != expect:
+            problems.append("the %s feed says %s, not %s"
+                            % (label, release.version, expect))
+        if release.installer:
+            status = there(release.installer)
+            print("  installer: %s" % (status or "MISSING"))
+            if not status:
+                problems.append("the installer the %s feed names is "
+                                "missing" % label)
+        for system in ("win32", "linux"):
+            packed = update._check_one(feed, None, system)
+            if not packed.package:
+                print("  %s: not in this feed yet" % system)
+                continue
+            status = there(packed.package)
+            print("  %s archive %s: %s" % (system, packed.version,
+                                          status or "MISSING"))
+            if not status:
+                problems.append("the %s archive is missing" % system)
+        print()
+    if len(set(versions.values())) > 1:
+        problems.append("the feeds disagree: %s" % versions)
+    if problems:
+        for problem in problems:
+            print("  PROBLEM: %s" % problem)
+        print("\nNot published properly yet.")
+        return 1
+    print("Published: both feeds are signed, agree, and everything they "
+          "point at is there.")
+    return 0
+
+
+def do_check_files(expect: str = "") -> int:
+    """Before 0.3.3: the release file by file off the server, read the way
+    a copy older than 0.3.1 reads it."""
     import concurrent.futures as cf
     import urllib.parse
     import urllib.request
@@ -709,6 +799,11 @@ def main() -> int:
 
     two = sub.add_parser("check", help="verify what is published")
     two.add_argument("version", nargs="?", default="")
+    two.add_argument("--files", action="store_true",
+                     help="check a release published file by file, as "
+                          "before 0.3.3")
+
+    sub.add_parser("feed", help="send only the signed feed to the server")
 
     three = sub.add_parser("prune", help="delete old version folders")
     three.add_argument("--keep", type=int, default=1)
@@ -748,6 +843,10 @@ def main() -> int:
         code = do_ls(args.target, args.remote)
     elif args.what == "rm":
         code = do_rm(args.target, args.remote, args.yes)
+    elif args.what == "feed":
+        code = do_feed()
+    elif args.files:
+        code = do_check_files(args.version)
     else:
         code = do_check(args.version)
     print("\n(%.0f s)" % (time.time() - started))
