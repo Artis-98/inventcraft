@@ -286,6 +286,65 @@ check("into the top, not past it",
       abs(kernel.bounding_box(win.document.shape)[5] - top) < 0.05)
 shot("emboss_part")
 
+# ==========================================================================
+print("#14: the navigation bar under the cube")
+
+vp.set_nav_mode(None)
+vp.set_view("iso")
+vp.fit_all()
+vp.redraw()
+pump()
+check("its five buttons are always there",
+      all(vp.button_at(vp.width() - vp.CUBE_BUTTONS[n][0][0],
+                       vp.CUBE_BUTTONS[n][0][1]) == n
+          for n in vp.NAV_BUTTONS))
+press("nav_pan")
+check("Pan is a tool for the left button", vp.nav_mode == "pan")
+eye_before = vp.view.Camera().Center()
+cx, cy = vp.width() // 2, vp.height() // 2
+
+
+def drag(dx, dy):
+    for kind, at in ((QtCore.QEvent.MouseButtonPress, (cx, cy)),
+                     (QtCore.QEvent.MouseMove, (cx + dx, cy + dy)),
+                     (QtCore.QEvent.MouseButtonRelease, (cx + dx, cy + dy))):
+        pos = QtCore.QPointF(*at)
+        held = QtCore.Qt.NoButton if kind == QtCore.QEvent.MouseButtonRelease \
+            else QtCore.Qt.LeftButton
+        event = QtGui.QMouseEvent(kind, pos, vp.mapToGlobal(pos),
+                                  QtCore.Qt.LeftButton if kind !=
+                                  QtCore.QEvent.MouseMove else
+                                  QtCore.Qt.NoButton, held,
+                                  QtCore.Qt.NoModifier)
+        QtWidgets.QApplication.sendEvent(vp, event)
+        pump(1)
+
+
+drag(120, 0)
+after = vp.view.Camera().Center()
+check("a left drag pans", abs(after.X() - eye_before.X())
+      + abs(after.Y() - eye_before.Y()) + abs(after.Z() - eye_before.Z())
+      > 1e-3)
+press("nav_pan")
+check("its button again ends it", vp.nav_mode is None)
+press("nav_zoom")
+scale = vp.view.Camera().Scale()
+drag(0, -80)
+check("Zoom: dragging up zooms in", vp.view.Camera().Scale() < scale,
+      (scale, vp.view.Camera().Scale()))
+key = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Escape,
+                      QtCore.Qt.NoModifier)
+QtWidgets.QApplication.sendEvent(vp, key)
+check("Esc ends it", vp.nav_mode is None)
+press("nav_orbit")
+forward = vp.screen_basis()[2]
+drag(90, 30)
+check("Orbit turns the view", vp.screen_basis()[2] != forward)
+press("nav_orbit")
+press("nav_fit")
+check("Zoom All is a click, not a tool", vp.nav_mode is None)
+shot("navbar")
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))

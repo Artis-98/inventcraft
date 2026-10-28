@@ -345,6 +345,9 @@ class Viewport(QtWidgets.QWidget):
         # whether the view is square to a face of the cube, which is when
         # the turning arrows round it are shown
         self._square = False
+        # the navigation bar's tool that the left button is running, as in
+        # Inventor: "pan", "zoom", "orbit" or "look_at", until Esc
+        self.nav_mode: Optional[str] = None
         self.view_setup_of: Optional[Callable[[], Any]] = None
 
         # pulling a work plane off a face
@@ -1494,6 +1497,11 @@ class Viewport(QtWidgets.QWidget):
         "face_right": ((33, 85), ((((3.5, 7.0), (3.5, -7.0), (-3.5, 0.0)),
                                    True),)),
     }
+    # the navigation bar under the cube (GitHub #14): Pan, Zoom, Orbit, Look
+    # At and Zoom All, each a tool for the left button until Esc, as the
+    # bar under Inventor's cube is
+    NAV_BUTTONS = ("nav_pan", "nav_zoom", "nav_orbit", "nav_look",
+                   "nav_fit")
     # only while the view is square to a face of the cube, as in Inventor
     SQUARE_ONLY = ("face_up", "face_down", "face_left", "face_right",
                    "roll_ccw", "roll_cw")
@@ -1507,6 +1515,12 @@ class Viewport(QtWidgets.QWidget):
         "face_right": "Turn to the face on the right",
         "roll_ccw": "Turn the view a quarter turn anticlockwise",
         "roll_cw": "Turn the view a quarter turn clockwise",
+        "nav_pan": "Pan: drag with the left button (Esc ends it)",
+        "nav_zoom": "Zoom: drag up to zoom in, down to zoom out "
+                    "(Esc ends it)",
+        "nav_orbit": "Orbit: drag with the left button (Esc ends it)",
+        "nav_look": "Look At: click a face to look straight at it",
+        "nav_fit": "Zoom All: everything in view",
     }
 
     def _make_cube_buttons(self) -> None:
@@ -1540,8 +1554,7 @@ class Viewport(QtWidgets.QWidget):
                         outline.Close()
                     builder.Add(shape, outline.Wire())
                 drawn = AIS_Shape(shape)
-                drawn.SetColor(_col(C.accent if self._button_hot == name
-                                    else C.cube_text))
+                drawn.SetColor(_col(self._button_colour(name)))
                 drawn.SetWidth(2.0 * size)
                 drawn.SetTransformPersistence(Graphic3d_TransformPers(
                     Graphic3d_TransModeFlags.Graphic3d_TMF_2d,
@@ -1556,6 +1569,70 @@ class Viewport(QtWidgets.QWidget):
                 self._cube_buttons[name] = drawn
             except Exception:
                 continue
+
+    def _button_colour(self, name: str) -> str:
+        if name == self._button_hot:
+            return C.accent
+        if self.nav_mode and name == "nav_" + {
+                "look_at": "look"}.get(self.nav_mode, self.nav_mode):
+            return C.accent
+        return C.cube_text
+
+    def set_nav_mode(self, mode: Optional[str]) -> None:
+        """Start or end one of the navigation bar's tools."""
+        if mode == self.nav_mode:
+            mode = None                 # its button again ends it
+        self.nav_mode = mode
+        cursor = {"pan": QtCore.Qt.OpenHandCursor,
+                  "zoom": QtCore.Qt.SizeVerCursor,
+                  "orbit": QtCore.Qt.ClosedHandCursor,
+                  "look_at": QtCore.Qt.PointingHandCursor}.get(mode)
+        if cursor is None:
+            self.unsetCursor()
+        else:
+            self.setCursor(cursor)
+        for name in self.NAV_BUTTONS:
+            drawn = self._cube_buttons.get(name)
+            if drawn is not None:
+                drawn.SetColor(_col(self._button_colour(name)))
+                self.context.Redisplay(drawn, False)
+        self.redraw()
+
+    def nav_button(self, name: str) -> None:
+        """A click on the navigation bar."""
+        if name == "nav_fit":
+            self.set_nav_mode(None)
+            self.fit_all(animate=True)
+            return
+        self.set_nav_mode({"nav_pan": "pan", "nav_zoom": "zoom",
+                           "nav_orbit": "orbit",
+                           "nav_look": "look_at"}.get(name))
+
+    def look_at_point(self, x: int, y: int) -> bool:
+        """Look At: straight at the face under (x, y), keeping the zoom."""
+        from OCP.TopAbs import TopAbs_FACE
+        from ..core.features import plane_from_face
+        self._detect(x, y)
+        if not self.context.HasDetected():
+            return False
+        try:
+            shape = self.context.DetectedShape()
+        except Exception:
+            return False
+        if shape is None or shape.IsNull() \
+                or shape.ShapeType() != TopAbs_FACE:
+            return False
+        plane = plane_from_face(shape)
+        if plane is None:
+            # a curved face: square to it where it was clicked
+            point = self.pick_point(x, y) if hasattr(self, "pick_point") \
+                else None
+            from ..core import sheetmetal
+            at = point or kernel.shape_centre(shape)
+            normal = sheetmetal.face_normal(shape, at)
+            plane = SketchPlane(tuple(at), tuple(normal))
+        self.look_normal_to(plane)
+        return True
 
     def _shown_buttons(self) -> List[str]:
         return [name for name in self._cube_buttons
@@ -1650,7 +1727,7 @@ class Viewport(QtWidgets.QWidget):
         self._button_hot = hot
         for name in self._shown_buttons():
             drawn = self._cube_buttons[name]
-            drawn.SetColor(_col(C.accent if name == hot else C.cube_text))
+            drawn.SetColor(_col(self._button_colour(name)))
             self.context.Redisplay(drawn, False)
         self.redraw()
         if hot:
@@ -3508,6 +3585,18 @@ class Viewport(QtWidgets.QWidget):
             self._button_pressed = self.button_at(pos.x(), pos.y())
             if self._button_pressed is not None:
                 return
+            if self.nav_mode == "look_at":
+                if self.look_at_point(pos.x(), pos.y()):
+                    self.set_nav_mode(None)
+                self._button = QtCore.Qt.NoButton
+                return
+            if self.nav_mode in ("pan", "zoom", "orbit"):
+                # the bar's tool: the left button drags the view, whatever
+                # is under it
+                self._left_nav = self.nav_mode
+                self._left_navigated = True
+                self._begin_navigation(self.nav_mode, pos)
+                return
         if event.button() in (QtCore.Qt.MiddleButton, QtCore.Qt.RightButton):
             kind = self.navigation_for(event.button(), mods)
             if kind is not None:
@@ -3616,6 +3705,10 @@ class Viewport(QtWidgets.QWidget):
                         self.turntable(dx, dy)
                     else:
                         self.view.Rotation(*self._px(pos.x(), pos.y()))
+                elif self._nav_kind == "zoom":
+                    # up zooms in, down zooms out, about the view's middle
+                    if dy:
+                        self.view.SetZoom(math.exp(-dy * 0.01), True)
                 else:
                     # from the two positions, so the rounding never adds
                     # up and the model stays under the cursor
@@ -3728,6 +3821,8 @@ class Viewport(QtWidgets.QWidget):
                     self.home_clicked.emit()
                 elif pressed == "menu":
                     self.cube_menu_requested.emit(self.mapToGlobal(pos))
+                elif pressed in self.NAV_BUTTONS:
+                    self.nav_button(pressed)
                 else:
                     self.cube_step(pressed)
             return
@@ -3918,7 +4013,9 @@ class Viewport(QtWidgets.QWidget):
             if key in (QtCore.Qt.Key_Tab, QtCore.Qt.Key_Backtab,
                        QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
                 return
-        if key == QtCore.Qt.Key_Escape:
+        if key == QtCore.Qt.Key_Escape and self.nav_mode is not None:
+            self.set_nav_mode(None)     # Esc ends the bar's tool first
+        elif key == QtCore.Qt.Key_Escape:
             self.escape_pressed.emit()
         elif key in (QtCore.Qt.Key_Delete, QtCore.Qt.Key_Backspace):
             self.delete_pressed.emit()
@@ -3968,3 +4065,35 @@ class Viewport(QtWidgets.QWidget):
 # its head pointing left, clockwise below, its head pointing down
 Viewport.CUBE_BUTTONS["roll_ccw"] = Viewport._roll_arrow(51.0, 73.0)
 Viewport.CUBE_BUTTONS["roll_cw"] = Viewport._roll_arrow(35.0, 13.0)
+
+# the navigation bar under the cube's menu arrow, top to bottom
+def _circle(cx: float, cy: float, r: float, start: float = 0.0,
+            end: float = 360.0, steps: int = 20):
+    return tuple((cx + r * math.cos(math.radians(start + (end - start)
+                                                  * i / steps)),
+                  cy + r * math.sin(math.radians(start + (end - start)
+                                                 * i / steps)))
+                 for i in range(steps + 1))
+
+
+_NAV_X, _NAV_TOP, _NAV_STEP = 24, 186, 30
+Viewport.CUBE_BUTTONS["nav_pan"] = ((_NAV_X, _NAV_TOP), (
+    (((-8.0, 0.0), (8.0, 0.0)), False), (((0.0, -8.0), (0.0, 8.0)), False),
+    (((-8.0, 0.0), (-5.0, 2.5), (-5.0, -2.5)), True),
+    (((8.0, 0.0), (5.0, 2.5), (5.0, -2.5)), True),
+    (((0.0, 8.0), (2.5, 5.0), (-2.5, 5.0)), True),
+    (((0.0, -8.0), (2.5, -5.0), (-2.5, -5.0)), True)))
+Viewport.CUBE_BUTTONS["nav_zoom"] = ((_NAV_X, _NAV_TOP + _NAV_STEP), (
+    (_circle(-1.5, 1.5, 5.5), True),
+    (((2.4, -2.4), (7.5, -7.5)), False)))
+Viewport.CUBE_BUTTONS["nav_orbit"] = ((_NAV_X, _NAV_TOP + 2 * _NAV_STEP), (
+    (_circle(0.0, 0.0, 7.0, 40.0, 320.0), False),
+    (((5.4, -4.5), (8.5, -1.5), (3.0, -1.0)), True),
+    (_circle(0.0, 0.0, 1.5, 0.0, 360.0, 8), True)))
+Viewport.CUBE_BUTTONS["nav_look"] = ((_NAV_X, _NAV_TOP + 3 * _NAV_STEP), (
+    (((-7.0, -7.0), (3.0, -7.0), (3.0, 3.0), (-7.0, 3.0)), True),
+    (((8.0, 8.0), (1.0, 1.0)), False),
+    (((1.0, 1.0), (1.5, 5.0), (5.0, 1.5)), True)))
+Viewport.CUBE_BUTTONS["nav_fit"] = ((_NAV_X, _NAV_TOP + 4 * _NAV_STEP), (
+    (((-7.0, -7.0), (7.0, -7.0), (7.0, 7.0), (-7.0, 7.0)), True),
+    (((-3.0, -3.0), (3.0, -3.0), (3.0, 3.0), (-3.0, 3.0)), True)))
