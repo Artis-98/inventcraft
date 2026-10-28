@@ -24,7 +24,7 @@ from ..core.features import (
     PatternFeature, PrimitiveFeature, RevolveFeature, ShellFeature,
     SketchFeature, SweepFeature, WorkPlaneFeature, CodeFeature,
     AXIS_PREFIX, WorkAxisFeature,
-    SplitFeature, EmbossFeature,
+    SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
 )
 from ..core.naming import RefSet
 from . import icons
@@ -2332,6 +2332,261 @@ class EmbossDialog(FeatureDialog):
         self.feature.wrap = self.wrap.isChecked()
 
 
+class SheetFaceDialog(FeatureDialog):
+    """Sheet metal's Face: the profile, given the sheet's thickness."""
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Face", "sm_face", is_new, snapshot)
+
+    def build(self):
+        self.form.add("Profile", self.profile_field())
+        self.thickness = self.expression(self.feature.thickness)
+        self.thickness.setToolTip("Thickness, from Sheet Metal Defaults, "
+                                  "unless something else is typed")
+        self.form.add("Thickness", self.thickness)
+        self.flip = QtWidgets.QCheckBox("Flip direction")
+        self.flip.setToolTip("Into the sketch's other side")
+        self.bind(self.flip)
+        self.form.add("", self.flip)
+
+    def load(self):
+        self.thickness.set_text(self.feature.thickness)
+        self.flip.setChecked(self.feature.reversed)
+
+    def store(self):
+        self.feature.thickness = self.thickness.text()
+        self.feature.reversed = self.flip.isChecked()
+
+
+class FlangeDialog(FeatureDialog):
+    """Inventor's Flange: the edges, how high, at what angle, round what
+    radius, which way, and where the bend sits.  An arrow on the first
+    edge's wall drags the height, as Extrude's drags its distance."""
+
+    POSITIONS = [
+        ("inside", "sm_inside",
+         "Inside of base face extents - the wall's outside lines up with "
+         "the edge"),
+        ("adjacent", "sm_adjacent",
+         "Bend from the adjacent face - the bend starts at the edge"),
+    ]
+    HANDLE_PICK = 12
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        self._handle_drawn = []
+        self._handle_axis = None
+        self._handle_dragging = False
+        self._handle_pending = False
+        super().__init__(host, feature, "Flange", "sm_flange", is_new,
+                         snapshot)
+        viewport = getattr(host, "viewport", None)
+        if viewport is not None:
+            viewport.drag_handle = self._handle_hit
+            viewport.handle_drag_started.connect(self._handle_started)
+            viewport.axis_drag_moved.connect(self._handle_moved)
+            viewport.axis_drag_finished.connect(self._handle_finished)
+
+    def build(self):
+        self.edges = self.picker("Select edges", "edge", "edge",
+                                 self._edges_from_view)
+        self.edges.cleared.connect(self._clear_edges)
+        self.edges.setToolTip("The edges of the sheet to bend a wall up "
+                              "from; pick one again to drop it")
+        self.form.add("Edges", self.edges)
+        self.height = self.expression(self.feature.height)
+        self.form.add("Distance", self.height)
+        self.angle = self.expression(self.feature.angle, "deg")
+        self.form.add("Flange Angle", self.angle)
+        self.radius = self.expression(self.feature.bend_radius)
+        self.form.add("Bend Radius", self.radius)
+        self.flip = QtWidgets.QCheckBox("Flip direction")
+        self.flip.setToolTip("Bend the wall the other way, from the "
+                             "sheet's other face")
+        self.bind(self.flip)
+        self.form.add("", self.flip)
+        self.position = SegmentedControl(self.POSITIONS)
+        self.bind(self.position)
+        self.form.add("Bend Position", self.position)
+        QtCore.QTimer.singleShot(0, lambda: self.edges.set_picking(True))
+
+    def _show_edges(self) -> None:
+        self.edges.set_count(len(self.feature.edges), "edge")
+
+    def _edges_from_view(self, shapes) -> None:
+        from OCP.TopAbs import TopAbs_EDGE
+        base = self.host.pick_shape()
+        if base is None:
+            return
+        picked = [s for s in shapes if s.ShapeType() == TopAbs_EDGE]
+        if not picked:
+            return
+        fresh = RefSet()
+        fresh.capture_from(base, "edge", picked)
+        for ref in fresh:
+            match = next((e for e in self.feature.edges if e.same_as(ref)),
+                         None)
+            if match is not None:
+                self.feature.edges.refs.remove(match)
+            else:
+                self.feature.edges.add(ref)
+        self._show_edges()
+
+    def _clear_edges(self) -> None:
+        self.feature.edges = RefSet()
+        self._show_edges()
+        self.preview()
+
+    def load(self):
+        self.height.set_text(self.feature.height)
+        self.angle.set_text(self.feature.angle)
+        self.radius.set_text(self.feature.bend_radius)
+        self.flip.setChecked(self.feature.flipped)
+        self.position.set_value(self.feature.position)
+        self._show_edges()
+
+    def store(self):
+        self.feature.height = self.height.text()
+        self.feature.angle = self.angle.text()
+        self.feature.bend_radius = self.radius.text()
+        self.feature.flipped = self.flip.isChecked()
+        self.feature.position = self.position.value()
+
+    # -- the arrow that drags the height ----------------------------------
+
+    def _handle_geometry(self):
+        """(base, direction) of the first edge's wall, or None."""
+        from ..core import sheetmetal
+        from ..core.params import evaluate
+        if not len(self.feature.edges):
+            return None
+        base_shape = self.host.pick_shape()
+        if base_shape is None:
+            return None
+        try:
+            found = self.feature.edges.resolve_all(base_shape)[0]
+            if not found:
+                return None
+            scope = self.doc.parameter_scope()
+            t = float(evaluate(self.feature.thickness, scope))
+            r = float(evaluate(self.radius.text(), scope))
+            a = float(evaluate(self.angle.text(), scope))
+            return sheetmetal.flange_wall_tip(
+                base_shape, found[0], t, r, a, self.flip.isChecked(),
+                self.position.value())
+        except Exception:
+            return None
+
+    def _handle_tip(self):
+        axis = self._handle_geometry()
+        if axis is None:
+            return None, None
+        base, direction = axis
+        reach = self.height.value()
+        return axis, tuple(base[i] + direction[i] * reach for i in range(3))
+
+    def _draw_handle(self) -> None:
+        viewport = getattr(self.host, "viewport", None)
+        if viewport is None:
+            return
+        viewport.remove_drawn(self._handle_drawn)
+        self._handle_drawn = []
+        if self._closed:
+            return
+        axis, tip = self._handle_tip()
+        self._handle_axis = axis
+        if axis is None:
+            viewport.redraw()
+            return
+        with viewport.collecting() as drawn:
+            viewport.draw_arrow(tip, axis[1], C.annotation, preview=False,
+                                width=4.0)
+            label = unitlib.length_text(self.height.value(),
+                                        self.height.doc_unit)
+            length = max(2.0, viewport.view_span() * 0.11)
+            beside = tuple(tip[i] + axis[1][i] * length * 1.15
+                           for i in range(3))
+            viewport.draw_text(label, beside, C.annotation, 16.0)
+        viewport.on_top(drawn)
+        self._handle_drawn = drawn
+        viewport.redraw()
+
+    def _handle_hit(self, x: int, y: int):
+        if self._closed or self._handle_axis is None:
+            return None
+        viewport = self.host.viewport
+        axis, tip = self._handle_tip()
+        if axis is None:
+            return None
+        length = max(2.0, viewport.view_span() * 0.11)
+        end = tuple(tip[i] + axis[1][i] * length for i in range(3))
+        ax, ay = viewport.project(tip)
+        bx, by = viewport.project(end)
+        dx, dy = bx - ax, by - ay
+        span = dx * dx + dy * dy
+        t = 0.0 if span == 0 else max(0.0, min(1.0, (
+            (x - ax) * dx + (y - ay) * dy) / span))
+        px, py = ax + t * dx, ay + t * dy
+        if (x - px) ** 2 + (y - py) ** 2 > self.HANDLE_PICK ** 2:
+            return None
+        return axis[0], axis[1]
+
+    def _handle_started(self, along: float) -> None:
+        if self._closed or self._handle_axis is None:
+            return
+        self._grab_offset = along - self.height.value()
+        self._handle_dragging = True
+
+    def _handle_moved(self, along: float) -> None:
+        if not self._handle_dragging or self._closed:
+            return
+        value = max(0.01, along - self._grab_offset)
+        self.height.blockSignals(True)
+        self.height.set_text(_length_value(value))
+        self.height.blockSignals(False)
+        if not self._handle_pending:
+            self._handle_pending = True
+            QtCore.QTimer.singleShot(0, self._handle_catch_up)
+
+    def _handle_catch_up(self) -> None:
+        self._handle_pending = False
+        if not self._closed:
+            self.preview()
+
+    def _handle_finished(self, along: float) -> None:
+        if not self._handle_dragging:
+            return
+        self._handle_moved(along)
+        self._handle_dragging = False
+
+    def _drop_handle(self) -> None:
+        viewport = getattr(self.host, "viewport", None)
+        if viewport is None:
+            return
+        viewport.remove_drawn(self._handle_drawn)
+        self._handle_drawn = []
+        if viewport.drag_handle == self._handle_hit:
+            viewport.drag_handle = None
+        for signal, slot in ((viewport.handle_drag_started,
+                              self._handle_started),
+                             (viewport.axis_drag_moved, self._handle_moved),
+                             (viewport.axis_drag_finished,
+                              self._handle_finished)):
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        viewport.redraw()
+
+    def preview(self) -> None:
+        super().preview()
+        self._draw_handle()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        if self._closed:
+            self._drop_handle()
+        super().closeEvent(event)
+
+
 DIALOGS = {
     ExtrudeFeature: ExtrudeDialog,
     RevolveFeature: RevolveDialog,
@@ -2349,6 +2604,8 @@ DIALOGS = {
     MoveFeature: MoveDialog,
     SplitFeature: SplitDialog,
     EmbossFeature: EmbossDialog,
+    SheetFaceFeature: SheetFaceDialog,
+    FlangeFeature: FlangeDialog,
 }
 
 

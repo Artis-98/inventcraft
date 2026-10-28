@@ -292,6 +292,9 @@ class Document:
         # which face is Front, and where Home is: Inventor keeps both in
         # the document, so a part opens the way it was set up
         self.view = ViewSetup()
+        # Sheet Metal Defaults, for a part converted to sheet metal; None
+        # for an ordinary part.  See core/sheetmetal.py
+        self.sheet_metal = None
         self._density_override = None
         self.modified = False
         self.rollback_index: Optional[int] = None
@@ -1122,6 +1125,8 @@ class Document:
             "features": [f.to_dict() for f in self.features],
             "model_states": self.model_states.to_dict(self),
             "view": self.view.to_dict(),
+            "sheet_metal": (self.sheet_metal.to_dict()
+                            if self.sheet_metal is not None else None),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1150,6 +1155,9 @@ class Document:
         self.hidden_bodies = set(data.get("hidden_bodies", []))
         self.origin_autohidden = bool(data.get("origin_autohidden", False))
         self.view = ViewSetup.from_dict(data.get("view"))
+        from .sheetmetal import SheetMetalDefaults
+        self.sheet_metal = SheetMetalDefaults.from_dict(
+            data.get("sheet_metal"))
         self.params.load(data.get("parameters", []))
         self.features = []
         for entry in data.get("features", []):

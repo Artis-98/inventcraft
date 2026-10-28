@@ -2712,6 +2712,124 @@ class EmbossFeature(Feature):
         self.wrap = bool(data.get("wrap", False))
 
 
+@dataclass
+class SheetFaceFeature(Feature):
+    """Sheet metal's Face: a closed profile given the sheet's thickness.
+
+    Inventor's first sheet metal feature, an Extrude whose distance is
+    always the thickness, out of the sketch or, flipped, into it.
+    """
+
+    type_name: str = "sheet_face"
+    icon: str = "sm_face"
+    name: str = "Face"
+    sketch_id: int = 0
+    profiles: "ProfileSelection" = field(
+        default_factory=lambda: ProfileSelection())
+    thickness: str = "Thickness"
+    reversed: bool = False
+
+    def depends_on(self) -> List[int]:
+        ids = self.profiles.sketch_ids()
+        return ids or ([self.sketch_id] if self.sketch_id else [])
+
+    def build(self, ctx: BuildContext) -> None:
+        profile, plane = resolve_profile(ctx, self.profiles, self.name,
+                                        self.sketch_id)
+        t = ctx.evaluate(self.thickness, "%s thickness" % self.name)
+        if t <= 0:
+            raise FeatureError("%s: the thickness must be more than 0"
+                               % self.name)
+        normal = [float(c) for c in plane.normal]
+        if self.reversed:
+            normal = [-c for c in normal]
+        try:
+            tool = kernel.extrude(profile, normal, t)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        ctx.apply(tool, JOIN, self.id, targets=self.solids)
+
+    def summary(self) -> str:
+        return "%s: %s thick, %s" % (self.name, self.thickness,
+                                     self.output_summary())
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"sketch_id": self.sketch_id,
+                "profiles": self.profiles.to_list(),
+                "thickness": self.thickness, "reversed": self.reversed}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.sketch_id = int(data.get("sketch_id", 0))
+        self.profiles = ProfileSelection.from_list(data.get("profiles"))
+        self.thickness = str(data.get("thickness", "Thickness"))
+        self.reversed = bool(data.get("reversed", False))
+
+
+@dataclass
+class FlangeFeature(Feature):
+    """Sheet metal's Flange, as Inventor makes one: a bend up from each
+    picked edge and a wall to a height.
+
+    The height is measured along the wall from where the outer faces of
+    the sheet and the wall would meet, Inventor's default; the bend sits
+    inside the base face's extents (the wall's outside lines up with the
+    edge) or, with ``position`` "adjacent", starts at the edge.  Several
+    edges in one Flange stop short of each other at a shared corner.
+    """
+
+    type_name: str = "flange"
+    icon: str = "sm_flange"
+    name: str = "Flange"
+    edges: RefSet = field(default_factory=RefSet)
+    height: str = "10"
+    angle: str = "90"
+    bend_radius: str = "BendRadius"
+    thickness: str = "Thickness"
+    flipped: bool = False
+    position: str = "inside"
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import sheetmetal
+        body = ctx.require_shape(self.name)
+        edges, lost = self.edges.resolve_all(body)
+        if lost and not edges:
+            raise FeatureError("%s: its edges no longer exist" % self.name)
+        if not edges:
+            raise FeatureError("%s: no edges selected" % self.name)
+        t = ctx.evaluate(self.thickness, "%s thickness" % self.name)
+        r = ctx.evaluate(self.bend_radius, "%s bend radius" % self.name)
+        h = ctx.evaluate(self.height, "%s height" % self.name)
+        a = ctx.evaluate(self.angle, "%s angle" % self.name)
+        try:
+            owner = ctx.require_body(self.name, edges[0])
+            owner.shape = sheetmetal.flanges(
+                owner.shape, [TopoDS.Edge_s(e) for e in edges], t, r, a, h,
+                self.flipped, self.position)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+
+    def summary(self) -> str:
+        return "%s: %s high at %s deg on %d edge(s)" % (
+            self.name, self.height, self.angle, len(self.edges))
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"edges": self.edges.to_list(), "height": self.height,
+                "angle": self.angle, "bend_radius": self.bend_radius,
+                "thickness": self.thickness, "flipped": self.flipped,
+                "position": self.position}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.edges = RefSet.from_list(data.get("edges", []))
+        self.height = str(data.get("height", "10"))
+        self.angle = str(data.get("angle", "90"))
+        self.bend_radius = str(data.get("bend_radius", "BendRadius"))
+        self.thickness = str(data.get("thickness", "Thickness"))
+        self.flipped = bool(data.get("flipped", False))
+        self.position = data.get("position", "inside")
+        if self.position not in ("inside", "adjacent"):
+            self.position = "inside"
+
+
 FEATURE_TYPES: Dict[str, type] = {
     cls.type_name: cls for cls in (
         SketchFeature, WorkPlaneFeature, WorkAxisFeature,
@@ -2719,6 +2837,6 @@ FEATURE_TYPES: Dict[str, type] = {
         SweepFeature, LoftFeature, HoleFeature, PrimitiveFeature,
         ImportFeature, FilletFeature, ChamferFeature, ShellFeature,
         MirrorFeature, PatternFeature, MoveFeature, CodeFeature,
-        SplitFeature, EmbossFeature,
+        SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
     )
 }

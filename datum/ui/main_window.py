@@ -26,7 +26,8 @@ from ..core.features import (
     ImportFeature, LoftFeature, MirrorFeature, MoveFeature, PatternFeature,
     PrimitiveFeature, RevolveFeature, ShellFeature, SketchFeature,
     SweepFeature, WorkPlaneFeature, plane_from_face, CodeFeature,
-    WorkAxisFeature, SplitFeature, EmbossFeature,
+    WorkAxisFeature, SplitFeature, EmbossFeature, SheetFaceFeature,
+    FlangeFeature,
 )
 from ..core.naming import RefSet, ShapeRef
 from ..core.sketch import STANDARD_PLANES, Sketch, SketchPlane
@@ -96,6 +97,8 @@ from .viewport import Viewport
 
 TAB_MODEL = "3D Model"
 TAB_SKETCH = "Sketch"
+# shown beside 3D Model once a part is converted to sheet metal
+TAB_SHEET = "Sheet Metal"
 TAB_ASSEMBLE = "Assemble"
 TAB_CAM = "CAM"
 TAB_DRAWING = "Drawing"
@@ -455,6 +458,48 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.new_feature(PatternFeature, mode="circular"))
         panel.add_small("mirror", "Mirror").clicked.connect(
             lambda: self.new_feature(MirrorFeature))
+
+        panel = model.add_panel("Convert")
+        panel.add_small("sm_convert", "Convert to Sheet Metal",
+                        "Make this part sheet metal: it keeps its file and "
+                        "its features, and gains the Sheet Metal tab"
+                        ).clicked.connect(self.convert_to_sheet_metal)
+
+        # ------------------------------------------------------- Sheet Metal
+        # Inventor's tab for a sheet metal part, in its order
+        sheet = r.add_tab(TAB_SHEET)
+        panel = sheet.add_panel("Sketch")
+        panel.add_big("sketch", "Start\n2D Sketch",
+                      "Create a sketch on a plane or a flat face (S)"
+                      ).clicked.connect(self.start_sketch)
+        panel = sheet.add_panel("Create")
+        panel.add_big("sm_face", "Face",
+                      "A closed profile given the sheet's thickness"
+                      ).clicked.connect(
+            lambda: self.new_feature(SheetFaceFeature))
+        panel.add_big("sm_flange", "Flange",
+                      "Bend a wall up from edges of the sheet"
+                      ).clicked.connect(lambda: self.new_feature(FlangeFeature))
+        panel = sheet.add_panel("Modify")
+        panel.add_small("extrude", "Cut", "Cut a profile through the sheet"
+                        ).clicked.connect(
+            lambda: self.new_feature(ExtrudeFeature, operation="cut"))
+        panel.add_small("hole", "Hole").clicked.connect(
+            lambda: self.new_feature(HoleFeature))
+        panel.add_small("fillet", "Corner Round").clicked.connect(
+            lambda: self.new_feature(FilletFeature))
+        panel = sheet.add_panel("Setup")
+        panel.add_big("sm_defaults", "Sheet Metal\nDefaults",
+                      "Thickness, bend radius and K-factor"
+                      ).clicked.connect(self.edit_sheet_metal_defaults)
+        panel = sheet.add_panel("Flat Pattern")
+        panel.add_big("sm_flat", "Flat\nPattern",
+                      "The sheet laid flat, its size, and a DXF to cut from"
+                      ).clicked.connect(self.show_flat_pattern)
+        panel = sheet.add_panel("Convert")
+        panel.add_small("sm_convert", "Convert to Standard Part",
+                        "Back to an ordinary part; the features stay"
+                        ).clicked.connect(self.convert_to_standard)
 
         # ------------------------------------------------------------ Sketch
         sketch = r.add_tab(TAB_SKETCH, contextual=True)
@@ -1573,7 +1618,9 @@ class MainWindow(QtWidgets.QMainWindow):
         for title in ALL_TABS:
             self.ribbon.set_tab_visible(title, title in wanted)
         self.ribbon.set_tab_visible(TAB_SKETCH, False)
-        self.ribbon.show_tab(wanted[0])
+        sheet = doc_type == fileformat.PART and self._is_sheet_metal()
+        self.ribbon.set_tab_visible(TAB_SHEET, sheet)
+        self.ribbon.show_tab(TAB_SHEET if sheet else wanted[0])
 
         browser = {fileformat.ASSEMBLY: self.assembly_panel,
                    fileformat.CAM: self.cam_ui.browser,
@@ -1854,6 +1901,80 @@ class MainWindow(QtWidgets.QMainWindow):
         self.new_document(prompt=False)
         self.status_message.setText(
             "New part in its own tab. Save it, then place it in the assembly.")
+
+    # -- sheet metal ------------------------------------------------------
+
+    def _is_sheet_metal(self) -> bool:
+        document = getattr(self, "document", None)
+        return getattr(document, "sheet_metal", None) is not None
+
+    def _sync_sheet_tab(self, show: bool = False) -> None:
+        on = self.in_part and self._is_sheet_metal()
+        self.ribbon.set_tab_visible(TAB_SHEET, on)
+        if on and show:
+            self.ribbon.show_tab(TAB_SHEET)
+        elif not on:
+            self.ribbon.show_tab(TAB_MODEL)
+
+    def convert_to_sheet_metal(self) -> None:
+        """Inventor's Convert to Sheet Metal: same file, same features,
+        and the Sheet Metal tab."""
+        from ..core import sheetmetal
+        from ..core import units as unitlib
+        if not self.in_part or self._is_sheet_metal():
+            self._sync_sheet_tab(show=True)
+            return
+        if self.editor.active:
+            self.finish_sketch()
+        self.document.push_undo()
+        sheetmetal.convert(self.document)
+        self.rebuild()
+        self._sync_sheet_tab(show=True)
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Converted to sheet metal, %s thick: Sheet Metal Defaults "
+            "change it." % unitlib.length_text(
+                self.document.parameter_scope().get("Thickness", 0.0),
+                self.document.units))
+
+    def convert_to_standard(self) -> None:
+        from ..core import sheetmetal
+        if not self._is_sheet_metal():
+            return
+        self.document.push_undo()
+        sheetmetal.convert_to_standard(self.document)
+        self._sync_sheet_tab()
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText("Converted to a standard part.")
+
+    def edit_sheet_metal_defaults(self) -> None:
+        from .sheetmetal_ui import SheetMetalDefaultsDialog
+        if not self._is_sheet_metal():
+            return
+        self.document.push_undo()
+        dialog = SheetMetalDefaultsDialog(self.document, self)
+        self.sheet_defaults_dialog = dialog
+        if dialog.exec() == QtWidgets.QDialog.Accepted:
+            self.rebuild()
+            self._update_title()
+
+    def show_flat_pattern(self) -> None:
+        from ..core import sheetmetal
+        from ..core.kernel import KernelError
+        from .sheetmetal_ui import FlatPatternDialog
+        if not self._is_sheet_metal():
+            return
+        try:
+            flat = sheetmetal.flat_pattern(self.document)
+        except (KernelError, Exception) as exc:
+            QtWidgets.QMessageBox.warning(self, "Flat Pattern",
+                                          "Cannot lay it flat: %s" % exc)
+            return
+        dialog = FlatPatternDialog(self.document, flat, self)
+        self.flat_pattern_dialog = dialog
+        dialog.exec()
 
     def edit_preferences(self) -> None:
         """Who you are, and how you want it to look."""
@@ -3423,7 +3544,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.editor.end()
         self._sketch_feature_id = None
         self.document.rollback_index = getattr(self, "_saved_rollback", None)
-        self.ribbon.show_tab(TAB_MODEL)
+        self.ribbon.show_tab(TAB_SHEET if self._is_sheet_metal()
+                             else TAB_MODEL)
         self.ribbon.set_tab_visible(TAB_SKETCH, False)
         self.sketch_toggles.setVisible(False)
         self._place_sketch_toggles()
@@ -4273,6 +4395,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if self.document.undo():
             self.rebuild()
+            self._sync_sheet_tab()
             self.status_message.setText("Undo")
 
     def redo(self) -> None:
@@ -4292,6 +4415,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if self.document.redo():
             self.rebuild()
+            self._sync_sheet_tab()
             self.status_message.setText("Redo")
 
     # ============================================================== plumbing

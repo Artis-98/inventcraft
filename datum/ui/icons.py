@@ -354,6 +354,74 @@ def _i_engrave(p):
     p.drawLine(QtCore.QPointF(12, 13), QtCore.QPointF(9.8, 14.6))
 
 
+def _sheet(p, pts, shade):
+    _face(p, pts, _SOLID, shade)
+
+
+def _i_sm_face(p):
+    """A thin plate."""
+    _sheet(p, [(3, 12), (12, 16), (21, 12), (12, 8)], 160)
+    _sheet(p, [(3, 12), (12, 16), (12, 18), (3, 14)], 90)
+    _sheet(p, [(21, 12), (12, 16), (12, 18), (21, 14)], 125)
+
+
+def _i_sm_flange(p):
+    """A plate with a wall bent up from its back edge."""
+    _sheet(p, [(3, 14), (12, 18), (21, 14), (12, 10)], 160)
+    _sheet(p, [(3, 14), (12, 18), (12, 20), (3, 16)], 90)
+    _sheet(p, [(12, 10), (21, 14), (21, 4), (12, 0.5)], 120)
+    _pen(p, _ACCENT, 1.8)
+    p.drawLine(QtCore.QPointF(16.5, 6), QtCore.QPointF(16.5, 1.5))
+
+
+def _i_sm_flat(p):
+    """The sheet laid flat, its bend line dashed."""
+    _pen(p, _LINE, 1.6)
+    p.drawRect(QtCore.QRectF(3.5, 5.5, 17, 13))
+    _pen(p, _ACCENT, 1.4, dashed=True)
+    p.drawLine(QtCore.QPointF(3.5, 11), QtCore.QPointF(20.5, 11))
+
+
+def _i_sm_defaults(p):
+    """A plate and its thickness."""
+    _sheet(p, [(3, 13), (12, 17), (21, 13), (12, 9)], 160)
+    _sheet(p, [(3, 13), (12, 17), (12, 20), (3, 16)], 90)
+    _pen(p, _ACCENT, 1.6)
+    p.drawLine(QtCore.QPointF(22, 13), QtCore.QPointF(22, 16))
+    p.drawLine(QtCore.QPointF(20.5, 13), QtCore.QPointF(23.5, 13))
+    p.drawLine(QtCore.QPointF(20.5, 16), QtCore.QPointF(23.5, 16))
+
+
+def _i_sm_convert(p):
+    """A block becoming a bent sheet."""
+    _sheet(p, [(2, 10), (8, 13), (8, 20), (2, 17)], 110)
+    _sheet(p, [(13, 14), (22, 18), (22, 20), (13, 16)], 150)
+    _sheet(p, [(13, 14), (13, 4), (15, 4), (15, 14.8)], 100)
+    _pen(p, _ACCENT, 1.6)
+    p.drawLine(QtCore.QPointF(9, 8), QtCore.QPointF(12, 8))
+
+
+def _i_sm_inside(p):
+    """Bend Position: inside the base face's extents."""
+    _pen(p, _LINE, 1.8)
+    p.drawLine(QtCore.QPointF(3, 18), QtCore.QPointF(16, 18))
+    p.drawLine(QtCore.QPointF(16, 18), QtCore.QPointF(16, 4))
+    _pen(p, _ACCENT, 1.2, dashed=True)
+    p.drawLine(QtCore.QPointF(16, 21), QtCore.QPointF(16, 2))
+
+
+def _i_sm_adjacent(p):
+    """Bend Position: from the adjacent face."""
+    _pen(p, _LINE, 1.8)
+    p.drawLine(QtCore.QPointF(3, 18), QtCore.QPointF(16, 18))
+    p.drawLine(QtCore.QPointF(20, 14), QtCore.QPointF(20, 3))
+    path = QtGui.QPainterPath(QtCore.QPointF(16, 18))
+    path.quadTo(20, 18, 20, 14)
+    p.drawPath(path)
+    _pen(p, _ACCENT, 1.2, dashed=True)
+    p.drawLine(QtCore.QPointF(16, 21), QtCore.QPointF(16, 2))
+
+
 def _dir_profile(p, cy):
     """The flat profile the direction icons push out of."""
     _face(p, [(4, cy), (12, cy + 3.5), (20, cy), (12, cy - 3.5)], _SOLID, 150)
@@ -1013,6 +1081,9 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "trim": _i_trim, "offset": _i_offset, "dimension": _i_dimension,
     "measure": _i_measure, "params": _i_params, "extrude": _i_extrude,
     "emboss": _i_emboss, "engrave": _i_engrave,
+    "sm_face": _i_sm_face, "sm_flange": _i_sm_flange, "sm_flat": _i_sm_flat,
+    "sm_defaults": _i_sm_defaults, "sm_convert": _i_sm_convert,
+    "sm_inside": _i_sm_inside, "sm_adjacent": _i_sm_adjacent,
     "revolve": _i_revolve, "sweep": _i_sweep, "loft": _i_loft,
     "file": _i_file, "exit": _i_exit,
     "hole": _i_hole, "fillet": _i_fillet,
