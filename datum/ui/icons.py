@@ -354,6 +354,20 @@ def _i_engrave(p):
     p.drawLine(QtCore.QPointF(12, 13), QtCore.QPointF(9.8, 14.6))
 
 
+def _i_dof(p):
+    """Degrees of freedom: a point and the ways it can go."""
+    _pen(p, _ACCENT, 1.6)
+    for ax, ay, bx, by in ((12, 4, 12, 20), (4, 12, 20, 12)):
+        p.drawLine(QtCore.QPointF(ax, ay), QtCore.QPointF(bx, by))
+    for tip, a, b in (((12, 3.5), (9.5, 6.5), (14.5, 6.5)),
+                      ((12, 20.5), (9.5, 17.5), (14.5, 17.5)),
+                      ((3.5, 12), (6.5, 9.5), (6.5, 14.5)),
+                      ((20.5, 12), (17.5, 9.5), (17.5, 14.5))):
+        p.drawPolygon(_poly(tip, a, b))
+    _fill(p, _LINE)
+    p.drawEllipse(QtCore.QPointF(12, 12), 2.2, 2.2)
+
+
 def _sheet(p, pts, shade):
     _face(p, pts, _SOLID, shade)
 
@@ -1081,6 +1095,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "trim": _i_trim, "offset": _i_offset, "dimension": _i_dimension,
     "measure": _i_measure, "params": _i_params, "extrude": _i_extrude,
     "emboss": _i_emboss, "engrave": _i_engrave,
+    "dof": _i_dof,
     "sm_face": _i_sm_face, "sm_flange": _i_sm_flange, "sm_flat": _i_sm_flat,
     "sm_defaults": _i_sm_defaults, "sm_convert": _i_sm_convert,
     "sm_inside": _i_sm_inside, "sm_adjacent": _i_sm_adjacent,

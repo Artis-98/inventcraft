@@ -333,6 +333,8 @@ class Sketch:
         # variables the solver says can still move, filled in by solve()
         self.free_points: set = set()
         self.free_radii: set = set()
+        self.free_motion: Dict[int, List[Tuple[float, float]]] = {}
+        self.free_turn: set = set()
         # Names already in use elsewhere in the part, asked for when a new
         # dimension is named: d-numbers run across the whole part, so the
         # second sketch's first dimension is not a second d1.  Set by
@@ -1235,6 +1237,11 @@ class Sketch:
         n = len(layout)
         self.free_points = set()
         self.free_radii = set()
+        # which ways each loose point can still go, as unit vectors (one
+        # or two), and which lines can still turn: what the degrees of
+        # freedom arrows draw
+        self.free_motion = {}
+        self.free_turn = set()
 
         if n == 0:
             return
@@ -1242,6 +1249,8 @@ class Sketch:
             self.free_points = set(self.points)
             self.free_radii = {e.id for e in self.entities.values()
                                if e.kind in ("circle", "arc")}
+            null_basis = np.eye(n)
+            self._free_directions(layout, null_basis)
             return
 
         try:
@@ -1262,6 +1271,50 @@ class Sketch:
                     self.free_points.add(oid)
                 else:
                     self.free_radii.add(oid)
+        self._free_directions(layout, null_basis)
+
+    def _free_directions(self, layout, null_basis: np.ndarray) -> None:
+        """From the ways the whole sketch can still move, each point's own
+        ways (Inventor's degrees of freedom arrows) and the lines that can
+        still turn."""
+        index = {}
+        for i, (tag, oid, _) in enumerate(layout):
+            index[(tag, oid)] = i
+        k = null_basis.shape[0]
+
+        def motion(pid):
+            cols = [index.get(("px", pid)), index.get(("py", pid))]
+            m = np.zeros((k, 2))
+            for j, c in enumerate(cols):
+                if c is not None:
+                    m[:, j] = null_basis[:, c]
+            return m
+
+        for pid in self.points:
+            m = motion(pid)
+            if not m.any():
+                continue
+            _u, s, vt = np.linalg.svd(m, full_matrices=False)
+            ways = [tuple(float(c) for c in vt[i])
+                    for i in range(len(s)) if s[i] > 1e-7]
+            if ways:
+                self.free_motion[pid] = ways
+        for eid, ent in self.entities.items():
+            if ent.kind != "line" or len(ent.points) < 2:
+                continue
+            a, b = (self.points.get(p) for p in ent.points[:2])
+            if a is None or b is None:
+                continue
+            dx, dy = b.x - a.x, b.y - a.y
+            length2 = dx * dx + dy * dy
+            if length2 < 1e-18:
+                continue
+            ma, mb = motion(a.id), motion(b.id)
+            # how fast its angle changes along each way the sketch can move
+            turn = ((mb[:, 1] - ma[:, 1]) * dx
+                    - (mb[:, 0] - ma[:, 0]) * dy) / length2
+            if np.abs(turn).max(initial=0.0) > 1e-7:
+                self.free_turn.add(eid)
 
     def entity_constrained(self, eid: int) -> bool:
         """True when nothing about this entity can move any more."""

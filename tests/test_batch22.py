@@ -346,6 +346,47 @@ check("Zoom All is a click, not a tool", vp.nav_mode is None)
 shot("navbar")
 
 # ==========================================================================
+print("degrees of freedom as arrows (board #199)")
+
+win.new_document(prompt=False)
+win.start_sketch_on_plane("XY")
+pump(10)
+vp.finish_animation()
+ed = win.editor
+ed.snap_grid = False
+line = ed.sketch.add_line((10.0, 10.0), (50.0, 10.0))
+circle = ed.sketch.add_circle((80.0, 30.0), 12.0) \
+    if hasattr(ed.sketch, "add_circle") else None
+ed.solve()
+check("there is a toggle for it", hasattr(win, "freedom_btn"))
+win.freedom_btn.setChecked(True)
+pump()
+marks = ed.freedom_marks()
+moves = [m for m in marks if m[0] == "move"]
+ends = ed.sketch.entities[line].points
+check("each end of a free line can go two ways",
+      sum(1 for m in moves if m[1] == ends[0]) == 2
+      and sum(1 for m in moves if m[1] == ends[1]) == 2, moves)
+check("and the line can turn", ("turn", line, None) in marks, marks)
+if circle is not None:
+    check("a free circle's size is marked", ("size", circle, None) in marks)
+shot("dof_arrows")
+ed.sketch.add_constraint("horizontal", entities=[line])
+ed.sketch.add_constraint("fix", points=[ends[0]])
+ed.solve()
+marks = ed.freedom_marks()
+check("fixed at one end and horizontal, only the other end moves, along it",
+      [m for m in marks if m[0] == "move" and m[1] in ends]
+      == [("move", ends[1], (1.0, 0.0))]
+      or [m for m in marks if m[0] == "move" and m[1] in ends]
+      == [("move", ends[1], (-1.0, 0.0))],
+      [m for m in marks if m[1] in ends])
+check("and it no longer turns", ("turn", line, None) not in marks)
+win.freedom_btn.setChecked(False)
+win.finish_sketch()
+pump()
+
+# ==========================================================================
 print("renaming a solid breaks nothing that uses it (board #80)")
 
 from datum.core.features import NEW_BODY, PrimitiveFeature        # noqa: E402

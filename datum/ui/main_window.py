@@ -3718,6 +3718,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.all_constraints_btn = toggle(
             "c_fix", "Show All Constraints", False,
             self.editor.set_show_all_constraints)
+        self.freedom_btn = toggle(
+            "dof", "Show Degrees of Freedom: an arrow for every way the "
+            "sketch can still move", False, self.editor.set_show_freedom)
 
         self.dim_display_btn = QtWidgets.QToolButton(holder)
         self.dim_display_btn.setObjectName("QuickButton")

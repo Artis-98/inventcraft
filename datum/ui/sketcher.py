@@ -3495,6 +3495,94 @@ class SketchEditor(QtCore.QObject):
                 return tid
         return None
 
+    # Inventor's Degrees of Freedom display: on each loose point an arrow
+    # for every way it can still go, a curved one on each line that can
+    # still turn, and one across each circle whose size is still free
+
+    show_freedom = False
+
+    def set_show_freedom(self, on: bool) -> None:
+        self.show_freedom = bool(on)
+        self.render()
+
+    def freedom_marks(self) -> List[Tuple[str, Any]]:
+        """What the display draws, worked out from the last solve:
+        ("move", point id, direction), ("turn", line id) and ("size",
+        circle id).  Read by the drawing and by tests alike."""
+        s = self.sketch
+        if s is None:
+            return []
+        marks: List[Tuple[str, Any]] = []
+        for pid, ways in getattr(s, "free_motion", {}).items():
+            if pid in s.points:
+                for way in ways:
+                    marks.append(("move", pid, way))
+        for eid in sorted(getattr(s, "free_turn", ())):
+            marks.append(("turn", eid, None))
+        for eid in sorted(getattr(s, "free_radii", ())):
+            if eid in s.entities:
+                marks.append(("size", eid, None))
+        return marks
+
+    def _render_freedom(self) -> None:
+        s, vp = self.sketch, self.viewport
+        size = 20.0 * vp.pixel_scale()
+        head = size * 0.35
+
+        def polyline(points, closed=False):
+            maker = BRepBuilderAPI_MakePolygon()
+            for u, v in points:
+                maker.Add(kernel.pnt(self._to3d((u, v))))
+            if closed:
+                maker.Close()
+            return maker.Wire()
+
+        def arrow_head(tip, way):
+            ux, uy = way
+            px, py = -uy, ux
+            base = (tip[0] - ux * head, tip[1] - uy * head)
+            return polyline([tip, (base[0] + px * head * 0.6,
+                                   base[1] + py * head * 0.6),
+                             (base[0] - px * head * 0.6,
+                              base[1] - py * head * 0.6)], closed=True)
+
+        shapes = []
+        for kind, oid, way in self.freedom_marks():
+            if kind == "move":
+                p = s.points[oid]
+                a = (p.x - way[0] * size, p.y - way[1] * size)
+                b = (p.x + way[0] * size, p.y + way[1] * size)
+                shapes.append(polyline([a, b]))
+                shapes.append(arrow_head(b, way))
+                shapes.append(arrow_head(a, (-way[0], -way[1])))
+            elif kind == "turn":
+                ent = s.entities[oid]
+                a, b = (s.points[q] for q in ent.points[:2])
+                mx, my = (a.x + b.x) / 2.0, (a.y + b.y) / 2.0
+                along = math.atan2(b.y - a.y, b.x - a.x)
+                arc = [(mx + size * math.cos(along + math.radians(t)),
+                        my + size * math.sin(along + math.radians(t)))
+                       for t in range(40, 141, 10)]
+                shapes.append(polyline(arc))
+                for end, back in ((arc[-1], arc[-2]), (arc[0], arc[1])):
+                    dx, dy = end[0] - back[0], end[1] - back[1]
+                    n = math.hypot(dx, dy) or 1.0
+                    shapes.append(arrow_head(end, (dx / n, dy / n)))
+            elif kind == "size":
+                ent = s.entities[oid]
+                c = s.points.get(ent.points[0]) if ent.points else None
+                if c is None:
+                    continue
+                way = (math.sqrt(0.5), math.sqrt(0.5))
+                r = ent.radius
+                a = (c.x + way[0] * (r - size), c.y + way[1] * (r - size))
+                b = (c.x + way[0] * (r + size), c.y + way[1] * (r + size))
+                shapes.append(polyline([a, b]))
+                shapes.append(arrow_head(b, way))
+                shapes.append(arrow_head(a, (-way[0], -way[1])))
+        if shapes:
+            vp.draw_shape(kernel.compound(shapes), C.sketch_free, 1.6)
+
     def _render_texts(self) -> None:
         from OCP.TopAbs import TopAbs_EDGE
         s, vp = self.sketch, self.viewport
@@ -3843,6 +3931,8 @@ class SketchEditor(QtCore.QObject):
 
         if s.texts:
             self._render_texts()
+        if getattr(self, "show_freedom", False):
+            self._render_freedom()
 
         self._badges = self._badge_layout()
         for cid, position, symbol in self._badges:
