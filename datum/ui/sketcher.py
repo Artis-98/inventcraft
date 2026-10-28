@@ -15,7 +15,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from OCP.Aspect import Aspect_TypeOfMarker
-from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+from OCP.BRepBuilderAPI import (BRepBuilderAPI_MakeEdge,
+                                BRepBuilderAPI_MakePolygon)
 
 from ..core import kernel
 from ..core import units as unitlib
@@ -105,10 +106,12 @@ VARIANT_PREVIEWS = ("rect3", "rect_centre", "rect3_centre", "slot_overall",
                     "slot_centre", "slot_arc3", "slot_arc_centre")
 
 TOOLS = (("select", "line", "circle", "arc", "spline", "point", "fillet2d",
-          "trim", "offset", "dimension", "polygon", "project")
+          "trim", "offset", "dimension", "polygon", "project", "text")
          + RECT_TOOLS + SLOT_TOOLS)
 
 TOOL_HINTS = {
+    "text": "Text: click where the text starts, bottom left. Extrude or "
+            "Emboss picks the whole text in one click.",
     "select": "Select: click geometry, drag points. Ctrl+click to add to the selection.",
     "line": "Line: click the start point, then each following point. Esc ends the chain.",
     "rect": "Rectangle: click two opposite corners.",
@@ -330,6 +333,8 @@ class SketchEditor(QtCore.QObject):
         sketch.ensure_origin_point()
         self.selected_entities = []
         self.selected_points = []
+        self.selected_texts = []
+        self._drag_offset = (0.0, 0.0)
         self._box_start = self._box_end = None
         self._hover_point = None
         self._hover_entity = None
@@ -918,6 +923,7 @@ class SketchEditor(QtCore.QObject):
     def clear_selection(self) -> None:
         self.selected_entities = []
         self.selected_points = []
+        self.selected_texts = []
         self._midpoint_picks = set()
         self._box_start = self._box_end = None
         self._hover_point = None
@@ -1060,6 +1066,7 @@ class SketchEditor(QtCore.QObject):
         target.points = restored.points
         target.entities = restored.entities
         target.constraints = restored.constraints
+        target.texts = restored.texts
         target._next_id = restored._next_id
         self._pending = []
         self._dim_target = None
@@ -1202,7 +1209,10 @@ class SketchEditor(QtCore.QObject):
         if self.sketch is None:
             return None
         return (len(self.sketch.points), len(self.sketch.entities),
-                len(self.sketch.constraints), self.sketch._next_id)
+                len(self.sketch.constraints), self.sketch._next_id,
+                tuple(sorted((t.id, t.text, t.font, t.size, t.angle,
+                              t.bold, t.italic)
+                             for t in self.sketch.texts.values())))
 
     def _press_hits(self, u: float, v: float) -> bool:
         """Whether a press here would grab something to drag."""
@@ -1211,7 +1221,8 @@ class SketchEditor(QtCore.QObject):
         if self.pick_dimension(u, v) is not None:
             return True
         eid, pid = self.pick(u, v)
-        return eid is not None or pid is not None
+        return (eid is not None or pid is not None
+                or self.text_at(u, v) is not None)
 
     def _on_drag_start(self, u: float, v: float) -> None:
         if not self.active or self.tool != "select":
@@ -1222,6 +1233,14 @@ class SketchEditor(QtCore.QObject):
             return
         eid, pid = self.pick(u, v)
         self._drag_point = pid
+        self._drag_offset = (0.0, 0.0)
+        tid = self.text_at(u, v) if pid is None and eid is None else None
+        if tid is not None:
+            # a text drags by its anchor, keeping where it was taken hold of
+            anchor = self.sketch.points[self.sketch.texts[tid].point]
+            self._drag_point = anchor.id
+            self._drag_offset = (u - anchor.x, v - anchor.y)
+            return
         if pid is None and eid is None:
             # nothing under the cursor, so the drag is a selection box
             self._box_start = (u, v)
@@ -1251,7 +1270,8 @@ class SketchEditor(QtCore.QObject):
             scope = self.params.scope() if self.params else {}
             target = self._magnet_target(self._drag_point, (u, v))
             self._magnet = target[0] if target else None
-            anchor = target[1] if target else (u, v)
+            ox, oy = self._drag_offset
+            anchor = target[1] if target else (u - ox, v - oy)
             self.sketch.solve(scope, anchors={self._drag_point: anchor})
             if self._magnet is not None:
                 self.status_changed.emit(
@@ -1424,11 +1444,15 @@ class SketchEditor(QtCore.QObject):
             else "Nothing in the box.")
 
     def _on_double_click(self, u: float, v: float) -> None:
-        """Double-clicking a dimension reopens it for editing."""
+        """Double-clicking a dimension reopens it for editing, and a text
+        its text."""
         if not self.active:
             return
         cid = self.pick_dimension(u, v)
         if cid is None:
+            tid = self.text_at(u, v)
+            if tid is not None:
+                self.edit_text(tid)
             return
         c = self.sketch.constraints[cid]
         current = (unitlib.for_display(
@@ -2055,6 +2079,28 @@ class SketchEditor(QtCore.QObject):
 
     def _tool_select(self, point, modifiers) -> None:
         u, v = point
+        if self.pick_badge(u, v) is None and self.pick_dimension(u, v) is None \
+                and self.pick(u, v) == (None, None):
+            tid = self.text_at(u, v)
+            if tid is not None:
+                ctrl = bool(modifiers & QtCore.Qt.ControlModifier)
+                if ctrl:
+                    if tid in self.selected_texts:
+                        self.selected_texts.remove(tid)
+                    else:
+                        self.selected_texts.append(tid)
+                else:
+                    self.selected_texts = ([] if self.selected_texts == [tid]
+                                           else [tid])
+                    self.selected_entities = []
+                    self.selected_points = []
+                    self.selected_dimensions = []
+                self.render()
+                if self.selected_texts:
+                    self.status_changed.emit(
+                        "Text selected - double-click to edit it, Delete to "
+                        "remove it.")
+                return
         # a glyph sits on top of the geometry it belongs to, so it gets the
         # click first - otherwise it could never be hit
         badge = self.pick_badge(u, v)
@@ -3397,6 +3443,82 @@ class SketchEditor(QtCore.QObject):
     def _complain(self, message: str) -> None:
         QtWidgets.QMessageBox.information(self.viewport, "Constraint", message)
 
+    # -------------------------------------------------------------- text
+
+    # Asked for the text and how it looks.  Tests and scripts set this to
+    # answer without a dialog: it is handed the current values, or None for
+    # a new text, and gives back the values to use, or None to cancel.
+    text_prompt: Optional[Callable[[Optional[Dict[str, Any]]],
+                                   Optional[Dict[str, Any]]]] = None
+
+    def _ask_text(self, current: Optional[Dict[str, Any]]):
+        if self.text_prompt is not None:
+            return self.text_prompt(current)
+        from .dialogs import SketchTextDialog
+        dialog = SketchTextDialog(current, self.units,
+                                  self.viewport.window())
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return None
+        return dialog.values()
+
+    def _tool_text(self, point, modifiers) -> None:
+        values = self._ask_text(None)
+        if not values or not str(values.get("text", "")).strip():
+            return
+        tid = self.sketch.add_text(point[0], point[1], **values)
+        self.selected_texts = [tid]
+        self._touch()
+
+    def edit_text(self, tid: int) -> bool:
+        record = self.sketch.texts.get(tid) if self.sketch else None
+        if record is None:
+            return False
+        current = {k: v for k, v in record.to_dict().items()
+                   if k not in ("id", "point")}
+        values = self._ask_text(current)
+        if not values or not str(values.get("text", "")).strip():
+            return False
+        self.begin_change()
+        for key, value in values.items():
+            setattr(record, key, value)
+        self._touch()
+        return True
+
+    def text_at(self, u: float, v: float) -> Optional[int]:
+        """The text whose box is under this point, if any."""
+        if self.sketch is None:
+            return None
+        from ..core.sketch import point_in_polygon
+        for tid in reversed(list(self.sketch.texts)):
+            box = kernel.text_box(self.sketch, tid)
+            if box and point_in_polygon((u, v), box):
+                return tid
+        return None
+
+    def _render_texts(self) -> None:
+        from OCP.TopAbs import TopAbs_EDGE
+        s, vp = self.sketch, self.viewport
+        for tid, record in s.texts.items():
+            letters = kernel.text_faces(s, tid)
+            picked = tid in self.selected_texts
+            if picked:
+                colour = C.sketch_picked
+            elif s.point_constrained(record.point):
+                colour = C.sketch_line
+            else:
+                colour = C.sketch_free
+            if letters:
+                edges = kernel.explore(kernel.compound(letters), TopAbs_EDGE)
+                vp.draw_shape(kernel.compound(edges), colour,
+                              2.0 if picked else 1.4)
+            box = kernel.text_box(s, tid)
+            if box and (picked or not letters):
+                outline = BRepBuilderAPI_MakePolygon()
+                for corner in box:
+                    outline.Add(kernel.pnt(self._to3d(corner)))
+                outline.Close()
+                vp.draw_shape(outline.Wire(), colour, 1.0, dashed=True)
+
     def delete_selected(self) -> None:
         if not self.active:
             return
@@ -3407,6 +3529,18 @@ class SketchEditor(QtCore.QObject):
             return
         dims = [c for c in self.selected_dimensions
                 if c in self.sketch.constraints]
+        texts = [t for t in getattr(self, "selected_texts", [])
+                 if t in self.sketch.texts]
+        if texts:
+            self.begin_change()
+            for tid in texts:
+                self.sketch.remove_text(tid)
+            self.selected_texts = []
+            if not self.selected_entities and not self.selected_points \
+                    and not dims:
+                self.clear_selection()
+                self._touch()
+                return
         if not self.selected_entities and not self.selected_points:
             if dims:
                 self.delete_dimensions(dims)
@@ -3706,6 +3840,9 @@ class SketchEditor(QtCore.QObject):
                 self._render_dimension(
                     c, colour=(C.sketch_picked
                                if c.id in self.selected_dimensions else None))
+
+        if s.texts:
+            self._render_texts()
 
         self._badges = self._badge_layout()
         for cid, position, symbol in self._badges:

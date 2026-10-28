@@ -281,6 +281,39 @@ class Constraint:
 # ==========================================================================
 
 
+@dataclass
+class SketchText:
+    """Text in a sketch: its outlines are closed profiles like any other,
+    so it extrudes, cuts and embosses.  It hangs off one sketch point, the
+    bottom left of its first line, so it can be dimensioned and
+    constrained like anything else; the letters themselves are not solved.
+    """
+
+    id: int
+    point: int
+    text: str = "Text"
+    font: str = "Arial"
+    size: float = 5.0           # the font's size, in the part's units
+    angle: float = 0.0          # degrees, anticlockwise from the sketch X
+    bold: bool = False
+    italic: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"id": self.id, "point": self.point, "text": self.text,
+                "font": self.font, "size": self.size, "angle": self.angle,
+                "bold": self.bold, "italic": self.italic}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "SketchText":
+        return cls(id=int(d["id"]), point=int(d["point"]),
+                   text=str(d.get("text", "")),
+                   font=str(d.get("font", "Arial")),
+                   size=float(d.get("size", 5.0)),
+                   angle=float(d.get("angle", 0.0)),
+                   bold=bool(d.get("bold", False)),
+                   italic=bool(d.get("italic", False)))
+
+
 class Sketch:
     """A constrained 2D profile living on a :class:`SketchPlane`."""
 
@@ -292,6 +325,7 @@ class Sketch:
         self.constraints: Dict[int, Constraint] = {}
         # geometry cast from the model, re-cast whenever it changes
         self.projections: List[Projection] = []
+        self.texts: Dict[int, SketchText] = {}
         self._next_id = 1
         self.dof = 0
         self.solve_message = ""
@@ -575,7 +609,27 @@ class Sketch:
         self.entities[eid] = Entity(eid, "spline", ids, construction=construction)
         return eid
 
+    def add_text(self, x: float, y: float, text: str, font: str = "Arial",
+                 size: float = 5.0, angle: float = 0.0, bold: bool = False,
+                 italic: bool = False) -> int:
+        """Text whose first line starts, bottom left, at (x, y)."""
+        pid = self.add_point(x, y)
+        tid = self._new_id()
+        self.texts[tid] = SketchText(tid, pid, text, font, float(size),
+                                     float(angle), bold, italic)
+        return tid
+
+    def text_of_point(self, pid: int) -> Optional[int]:
+        for text in self.texts.values():
+            if text.point == pid:
+                return text.id
+        return None
+
     # -- deletion -----------------------------------------------------------
+
+    def remove_text(self, tid: int) -> None:
+        if self.texts.pop(tid, None) is not None:
+            self._prune_points()
 
     def remove_entity(self, eid: int) -> None:
         ent = self.entities.pop(eid, None)
@@ -612,6 +666,7 @@ class Sketch:
             used.update(ent.points)
         for c in self.constraints.values():
             used.update(c.points)
+        used.update(t.point for t in self.texts.values())
         # the grounded origin survives even when nothing references it
         used.update(p.id for p in self.points.values() if p.origin)
         for pid in [p for p in self.points if p not in used]:
@@ -1317,6 +1372,7 @@ class Sketch:
             "entities": [e.to_dict() for e in self.entities.values()],
             "constraints": [c.to_dict() for c in self.constraints.values()],
             "projections": [p.to_dict() for p in self.projections],
+            "texts": [t.to_dict() for t in self.texts.values()],
         }
 
     @classmethod
@@ -1335,8 +1391,13 @@ class Sketch:
             s.constraints[con.id] = con
         for record in data.get("projections", []):
             s.projections.append(Projection.from_dict(record))
+        for record in data.get("texts", []):
+            text = SketchText.from_dict(record)
+            if text.point in s.points:
+                s.texts[text.id] = text
         s._next_id = int(data.get("next_id", max(
-            [1] + list(s.points) + list(s.entities) + list(s.constraints)) + 1))
+            [1] + list(s.points) + list(s.entities) + list(s.constraints)
+            + list(s.texts)) + 1))
         return s
 
     def add_projection(self, source: Dict[str, Any], entities: List[int],

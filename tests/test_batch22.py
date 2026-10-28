@@ -202,6 +202,90 @@ if ed.sketch.dof == 0:
 else:
     print("  skip  could not constrain it fully here: %d left" % ed.sketch.dof)
 
+# ==========================================================================
+print("#12: Text in a sketch, through the window")
+
+from datum.core import kernel                                      # noqa: E402
+from datum.core.features import EmbossFeature                      # noqa: E402
+NONE = QtCore.Qt.NoModifier
+
+win.new_document(prompt=False)
+win.new_primitive("box")
+pump()
+win._active_dialog.commit()
+pump()
+before = kernel.volume(win.document.shape)
+top = kernel.bounding_box(win.document.shape)[5]
+
+win.start_sketch_on_plane("XY")
+pump()
+ed = win.editor
+ed.snap_grid = False
+answers = []
+ed.text_prompt = lambda current: (answers.append(current)
+                                  or {"text": "AB", "font": "Arial",
+                                      "size": 4.0, "angle": 0.0,
+                                      "bold": False, "italic": False})
+check("the Draw panel has a Text button", "text" in win.tool_buttons)
+win.set_sketch_tool("text")
+ed._on_click(2.0, 2.0, NONE)
+pump()
+check("a click with Text asks for it, new", answers == [None], answers)
+check("and puts it in the sketch", len(ed.sketch.texts) == 1)
+tid = next(iter(ed.sketch.texts))
+anchor = ed.sketch.points[ed.sketch.texts[tid].point]
+check("its first line starts where it was clicked",
+      (anchor.x, anchor.y) == (2.0, 2.0), (anchor.x, anchor.y))
+box = kernel.text_box(ed.sketch, tid)
+inside = ((box[0][0] + box[2][0]) / 2, (box[0][1] + box[2][1]) / 2)
+check("a click inside it finds it", ed.text_at(*inside) == tid)
+shot("text_sketch")
+
+ed.set_tool("select")
+ed.text_prompt = lambda current: dict(current, text="ABC")
+ed._on_double_click(*inside)
+pump()
+check("a double-click edits it", ed.sketch.texts[tid].text == "ABC",
+      ed.sketch.texts[tid].text)
+ed.undo() if hasattr(ed, "undo") else None
+pump()
+check("and Ctrl+Z takes the edit back", ed.sketch.texts[tid].text == "AB",
+      ed.sketch.texts[tid].text)
+
+ed.clear_selection()
+ed._on_click(*inside, NONE)
+check("a click selects it", ed.selected_texts == [tid], ed.selected_texts)
+ed.delete_selected()
+check("Delete removes it", not ed.sketch.texts)
+ed.undo() if hasattr(ed, "undo") else None
+check("and undo brings it back", len(ed.sketch.texts) == 1)
+
+win.finish_sketch()
+pump()
+
+print("#12: Emboss, from the ribbon")
+win.new_feature(EmbossFeature)
+pump()
+dialog = win._active_dialog
+check("Emboss opens its dialog", dialog is not None
+      and type(dialog).__name__ == "EmbossDialog")
+win.select_all_profiles()
+pump()
+check("the text is offered as the profile",
+      len(dialog.feature.profiles) == 1, len(dialog.feature.profiles))
+dialog.depth.set_text("0.5")
+dialog.mode.set_value("engrave")
+dialog.commit()
+pump()
+feature = win.document.features[-1]
+check("an Emboss is in the tree", isinstance(feature, EmbossFeature)
+      and not feature.error, getattr(feature, "error", ""))
+after = kernel.volume(win.document.shape)
+check("it engraved: less material", after < before - 1.0, (before, after))
+check("into the top, not past it",
+      abs(kernel.bounding_box(win.document.shape)[5] - top) < 0.05)
+shot("emboss_part")
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))

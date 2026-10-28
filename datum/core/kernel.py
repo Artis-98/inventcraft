@@ -788,12 +788,144 @@ def _touches_border(face: TopoDS_Face, sketch: Sketch, cu: float, cv: float,
     return False
 
 
+# ---------------------------------------------------------------- text
+
+_TEXT_CACHE: Dict[Tuple, TopoDS_Shape] = {}
+
+
+def _text_raw(text: str, font: str, size: float, bold: bool, italic: bool,
+              top: bool = False) -> Optional[TopoDS_Shape]:
+    """OpenCASCADE's letters for ``text``, the bottom of the block (or its
+    top) on the X axis."""
+    from OCP.Font import Font_FontAspect
+    from OCP.Graphic3d import (Graphic3d_HorizontalTextAlignment,
+                               Graphic3d_VerticalTextAlignment)
+    from OCP.NCollection import NCollection_Utf8String
+    from OCP.StdPrs import StdPrs_BRepFont, StdPrs_BRepTextBuilder
+    from OCP.TCollection import TCollection_AsciiString
+
+    aspect = (Font_FontAspect.Font_FontAspect_BoldItalic if bold and italic
+              else Font_FontAspect.Font_FontAspect_Bold if bold
+              else Font_FontAspect.Font_FontAspect_Italic if italic
+              else Font_FontAspect.Font_FontAspect_Regular)
+    brep_font = StdPrs_BRepFont()
+    if not brep_font.FindAndInit(TCollection_AsciiString(font or "Arial"),
+                                 aspect, float(size)):
+        return None
+    try:
+        shape = StdPrs_BRepTextBuilder().Perform(
+            brep_font, NCollection_Utf8String(text), gp_Ax3(),
+            Graphic3d_HorizontalTextAlignment.Graphic3d_HTA_LEFT,
+            Graphic3d_VerticalTextAlignment.Graphic3d_VTA_TOP if top
+            else Graphic3d_VerticalTextAlignment.Graphic3d_VTA_BOTTOM)
+    except Exception:
+        return None
+    if shape is None or shape.IsNull() or not faces(shape):
+        return None
+    return shape
+
+
+def _text_outline(text: str, font: str, size: float, bold: bool,
+                  italic: bool) -> Optional[TopoDS_Shape]:
+    """The letters of ``text`` as planar faces, holes and all, on the XY
+    plane with the bottom of the first line at the origin; lines broken at
+    newlines go down from it.  Made by OpenCASCADE from the font itself,
+    and kept, since the same text comes up on every rebuild."""
+    key = (text, font, round(float(size), 9), bool(bold), bool(italic))
+    if key in _TEXT_CACHE:
+        return _TEXT_CACHE[key]
+    if not text.strip() or size <= 0:
+        return None
+    lines = text.split("\n")
+    first = lines[0] if lines[0].strip() else "x"
+    shape = _text_raw(text, font, size, bold, italic, top=len(lines) > 1)
+    if shape is not None and len(lines) > 1:
+        # the block hangs from its top, as the first line alone does: the
+        # first line put where it sits on its own carries the rest along
+        on_own = _text_raw(first, font, size, bold, italic)
+        hung = _text_raw(first, font, size, bold, italic, top=True)
+        if on_own is not None and hung is not None:
+            low, high = Bnd_Box(), Bnd_Box()
+            BRepBndLib.Add_s(on_own, low)
+            BRepBndLib.Add_s(hung, high)
+            drop = low.CornerMax().Y() - high.CornerMax().Y()
+            shape = BRepBuilderAPI_Transform(
+                shape, _translation((0.0, drop, 0.0)), True).Shape()
+    if len(_TEXT_CACHE) > 200:
+        _TEXT_CACHE.clear()
+    _TEXT_CACHE[key] = shape
+    return shape
+
+
+def text_faces(sketch: Sketch, tid: int) -> List[TopoDS_Face]:
+    """The faces of one sketch text, in place on the sketch's plane."""
+    record = sketch.texts.get(tid)
+    if record is None or record.point not in sketch.points:
+        return []
+    outline = _text_outline(record.text, record.font, record.size,
+                            record.bold, record.italic)
+    if outline is None:
+        return []
+    anchor = sketch.points[record.point]
+    plane = sketch.plane
+    a = math.radians(record.angle)
+    xd = [math.cos(a) * x + math.sin(a) * y
+          for x, y in zip(plane.xdir, plane.ydir)]
+    place = gp_Trsf()
+    place.SetTransformation(
+        gp_Ax3(pnt(plane.to_3d(anchor.x, anchor.y)), direction(plane.normal),
+               direction(xd)),
+        gp_Ax3())
+    placed = BRepBuilderAPI_Transform(outline, place, True).Shape()
+    return faces(placed)
+
+
+def sketch_text_faces(sketch: Sketch) -> Dict[int, List[TopoDS_Face]]:
+    """Every text of a sketch, as its faces, by text id."""
+    out: Dict[int, List[TopoDS_Face]] = {}
+    for tid in getattr(sketch, "texts", {}):
+        found = text_faces(sketch, tid)
+        if found:
+            out[tid] = found
+    return out
+
+
+def text_box(sketch: Sketch, tid: int
+             ) -> Optional[List[Tuple[float, float]]]:
+    """The four corners of a text's box, in sketch coordinates, anticlockwise
+    from its bottom left: what is drawn round it and picked."""
+    record = sketch.texts.get(tid)
+    if record is None or record.point not in sketch.points:
+        return None
+    outline = _text_outline(record.text, record.font, record.size,
+                            record.bold, record.italic)
+    if outline is None:
+        x0, y0, x1, y1 = 0.0, 0.0, record.size * 2.0, record.size * 0.7
+    else:
+        box = Bnd_Box()
+        BRepBndLib.Add_s(outline, box)
+        x0, y0 = min(0.0, box.CornerMin().X()), box.CornerMin().Y()
+        x1, y1 = box.CornerMax().X(), box.CornerMax().Y()
+    anchor = sketch.points[record.point]
+    a = math.radians(record.angle)
+    c, s = math.cos(a), math.sin(a)
+    return [(anchor.x + x * c - y * s, anchor.y + x * s + y * c)
+            for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+
+
 def sketch_faces(sketch: Sketch) -> List[TopoDS_Face]:
     """Planar faces from a sketch, with nested loops turned into holes.
 
     Nesting is resolved in 2D on the sketch itself (parity of containment),
     which is far more reliable than trying to infer it from the built wires.
+    Text adds its letters.
     """
+    lettering = [f for found in sketch_text_faces(sketch).values()
+                 for f in found]
+    return _loop_faces(sketch) + lettering
+
+
+def _loop_faces(sketch: Sketch) -> List[TopoDS_Face]:
     loops = _loops(sketch)
     if not loops:
         return []
@@ -860,14 +992,21 @@ def sketch_regions(sketch: Sketch) -> List[Dict[str, Any]]:
     """
     faces = sketch_regions_faces(sketch)
     if not faces:
-        faces = sketch_faces(sketch)      # fall back to whole closed loops
+        faces = _loop_faces(sketch)       # fall back to whole closed loops
+    # each text is one region, every letter of it, so one click takes the
+    # whole word
+    for tid, letters in sketch_text_faces(sketch).items():
+        faces = list(faces) + [letters[0] if len(letters) == 1
+                               else compound(letters)]
 
     out: List[Dict[str, Any]] = []
     for index, face in enumerate(faces):
         # the identity point is one guaranteed to lie *on* the region: a
         # crescent's centre of mass falls outside it, which would make two
         # regions indistinguishable
-        inside = _inside_point(face, sketch)
+        inside = _inside_point(
+            face if face.ShapeType() == TopAbs_FACE
+            else TopoDS.Face_s(explore(face, TopAbs_FACE)[0]), sketch)
         out.append({
             "index": index,
             "face": face,
@@ -1975,3 +2114,282 @@ def torus(r1: float, r2: float, origin: Sequence[float] = (0, 0, 0),
         raise KernelError("torus radii must be positive")
     return BRepPrimAPI_MakeTorus(gp_Ax2(pnt(origin), direction(axis)),
                                  r1, r2).Shape()
+
+
+# ==========================================================================
+# emboss and engrave
+# ==========================================================================
+
+
+def thicken_face(face: TopoDS_Shape, thickness: float) -> TopoDS_Shape:
+    """A solid of one face thickened along its own normal: outwards for a
+    positive thickness, inwards for a negative one.  Curved faces too."""
+    from OCP.BRepLib import BRepLib
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeThickSolid
+    maker = BRepOffsetAPI_MakeThickSolid()
+    maker.MakeThickSolidBySimple(face, float(thickness))
+    if not maker.IsDone():
+        raise KernelError("could not thicken the face")
+    shape = maker.Shape()
+    for solid in explore(shape, TopAbs_SOLID):
+        BRepLib.OrientClosedSolid_s(TopoDS.Solid_s(solid))
+    if volume(shape) < 0:
+        shape.Reverse()
+    return shape
+
+
+def first_hit(shape: TopoDS_Shape, origin: Sequence[float],
+              direction_: Sequence[float]
+              ) -> Optional[Tuple[TopoDS_Face, Tuple[float, float, float]]]:
+    """The first face of ``shape`` a ray from ``origin`` meets going along
+    ``direction_``, and where; None when it meets nothing."""
+    from OCP.BRepIntCurveSurface import BRepIntCurveSurface_Inter
+    from OCP.gp import gp_Lin
+    finder = BRepIntCurveSurface_Inter()
+    finder.Init(shape, gp_Lin(pnt(origin), direction(direction_)), 1e-7)
+    best = None
+    while finder.More():
+        w = finder.W()
+        if w >= -1e-7 and (best is None or w < best[0]):
+            p = finder.Pnt()
+            best = (w, finder.Face(), (p.X(), p.Y(), p.Z()))
+        finder.Next()
+    if best is None:
+        return None
+    return best[1], best[2]
+
+
+def ray_hits(shape: TopoDS_Shape, origin: Sequence[float],
+             direction_: Sequence[float]) -> List[float]:
+    """How far along a ray from ``origin`` it crosses ``shape``'s faces,
+    nearest first."""
+    from OCP.BRepIntCurveSurface import BRepIntCurveSurface_Inter
+    from OCP.gp import gp_Lin
+    finder = BRepIntCurveSurface_Inter()
+    finder.Init(shape, gp_Lin(pnt(origin), direction(direction_)), 1e-7)
+    found = []
+    while finder.More():
+        if finder.W() >= -1e-7:
+            found.append(finder.W())
+        finder.Next()
+    return sorted(found)
+
+
+def _affine_uv(plane_pts, uv_pts):
+    """The affine map taking three points in space (on a plane) to three
+    (u, v): as a function of a point in space."""
+    import numpy as np
+    a = np.array(plane_pts[0], dtype=float)
+    e1 = np.array(plane_pts[1], dtype=float) - a
+    e2 = np.array(plane_pts[2], dtype=float) - a
+    gram = np.array([[e1 @ e1, e1 @ e2], [e1 @ e2, e2 @ e2]])
+    inv = np.linalg.inv(gram)
+    u0 = np.array(uv_pts[0], dtype=float)
+    d1 = np.array(uv_pts[1], dtype=float) - u0
+    d2 = np.array(uv_pts[2], dtype=float) - u0
+
+    def mapped(p):
+        r = np.array(p, dtype=float) - a
+        s, t = inv @ np.array([r @ e1, r @ e2])
+        return tuple(u0 + s * d1 + t * d2)
+    return mapped
+
+
+def wrap_to_cylinder(profile: TopoDS_Shape, plane: SketchPlane,
+                     face: TopoDS_Shape) -> List[TopoDS_Face]:
+    """The faces of a flat profile wrapped round a cylindrical face, as a
+    label goes round a bottle: lengths across the axis become lengths
+    round it, lengths along the axis stay.  The profile is taken where it
+    lies square to the cylinder's nearest line."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepLib import BRepLib
+    from OCP.BRepTools import BRepTools_WireExplorer
+    from OCP.ElSLib import ElSLib
+    from OCP.Geom import Geom_CylindricalSurface
+    from OCP.Geom2d import Geom2d_BSplineCurve
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    from OCP.GeomConvert import GeomConvert
+    from OCP.Geom import Geom_TrimmedCurve
+    from OCP.TColgp import TColgp_Array1OfPnt2d
+    from OCP.TColStd import TColStd_Array1OfReal
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepTools import BRepTools
+    from OCP.gp import gp_Pnt2d
+
+    adaptor = BRepAdaptor_Surface(TopoDS.Face_s(face))
+    if adaptor.GetType() != GeomAbs_Cylinder:
+        raise KernelError("Wrap to Face needs a cylindrical face")
+    cylinder = adaptor.Cylinder()
+    radius = cylinder.Radius()
+    axis = cylinder.Axis()
+    ad = axis.Direction()
+    axis_dir = (ad.X(), ad.Y(), ad.Z())
+    loc = axis.Location()
+
+    centre = shape_centre(profile)
+    # where the profile's middle meets the cylinder, square to the axis
+    u0, v0 = ElSLib.Parameters_s(cylinder, pnt(centre))
+    # across the axis on the sketch plane is round it; along it is along
+    across = [axis_dir[1] * plane.normal[2] - axis_dir[2] * plane.normal[1],
+              axis_dir[2] * plane.normal[0] - axis_dir[0] * plane.normal[2],
+              axis_dir[0] * plane.normal[1] - axis_dir[1] * plane.normal[0]]
+    length = math.sqrt(sum(c * c for c in across))
+    if length < 1e-9:
+        raise KernelError("the sketch is square to the cylinder's axis, so "
+                          "there is no way round it to wrap along")
+    across = [c / length for c in across]
+    # round the cylinder the way u grows
+    tangent = cylinder.Position().XDirection().Rotated(axis, u0)
+    du = ad.Crossed(tangent)
+    if du.X() * across[0] + du.Y() * across[1] + du.Z() * across[2] < 0:
+        across = [-c for c in across]
+
+    def uv_of(p):
+        r = [p[i] - centre[i] for i in range(3)]
+        s = sum(r[i] * across[i] for i in range(3))
+        h = sum((p[i] - loc.Coord(i + 1)) * axis_dir[i] for i in range(3))
+        return (u0 + s / radius, h)
+
+    a = centre
+    b = tuple(centre[i] + across[i] for i in range(3))
+    c = tuple(centre[i] + axis_dir[i] for i in range(3))
+    flat = [tuple(p) for p in (a, b, c)]
+    mapped = _affine_uv(flat, [uv_of(p) for p in flat])
+    surface = Geom_CylindricalSurface(cylinder)
+
+    def edge_on_cylinder(edge):
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        reader = BRepAdaptor_Curve(TopoDS.Edge_s(edge))
+        curve = reader.Curve().Curve()
+        spline = GeomConvert.CurveToBSplineCurve_s(
+            Geom_TrimmedCurve(curve, reader.FirstParameter(),
+                              reader.LastParameter()))
+        poles3 = spline.Poles()
+        poles = TColgp_Array1OfPnt2d(1, poles3.Length())
+        for i in range(1, poles3.Length() + 1):
+            p = poles3.Value(i)
+            u, v = mapped((p.X(), p.Y(), p.Z()))
+            poles.SetValue(i, gp_Pnt2d(u, v))
+        weights = TColStd_Array1OfReal(1, poles3.Length())
+        for i in range(1, poles3.Length() + 1):
+            weights.SetValue(i, spline.Weight(i))
+        curve2d = Geom2d_BSplineCurve(poles, weights, spline.Knots(),
+                                      spline.Multiplicities(),
+                                      spline.Degree(), spline.IsPeriodic())
+        made = BRepBuilderAPI_MakeEdge(curve2d, surface,
+                                       curve2d.FirstParameter(),
+                                       curve2d.LastParameter())
+        if not made.IsDone():
+            raise KernelError("could not wrap a curve of the profile")
+        out = made.Edge()
+        BRepLib.BuildCurves3d_s(out)
+        return out
+
+    wrapped: List[TopoDS_Face] = []
+    for flat_face in faces(profile):
+        wires = explore(flat_face, TopAbs_WIRE)
+        outer = BRepTools.OuterWire_s(TopoDS.Face_s(flat_face))
+        built = []
+        for wire in [outer] + [w for w in wires if not w.IsSame(outer)]:
+            maker = BRepBuilderAPI_MakeWire()
+            walker = BRepTools_WireExplorer(TopoDS.Wire_s(wire))
+            while walker.More():
+                maker.Add(edge_on_cylinder(walker.Current()))
+                walker.Next()
+            if not maker.IsDone():
+                raise KernelError("could not wrap a loop of the profile")
+            built.append(maker.Wire())
+        made = BRepBuilderAPI_MakeFace(surface, built[0], True)
+        for hole in built[1:]:
+            made.Add(hole)
+        if not made.IsDone():
+            raise KernelError("could not wrap the profile")
+        fixer = ShapeFix_Face(made.Face())
+        fixer.FixOrientation()
+        fixer.Perform()
+        wrapped.append(TopoDS.Face_s(fixer.Face()))
+    return wrapped
+
+
+def emboss_tool(profile: TopoDS_Shape, plane: SketchPlane,
+                face: TopoDS_Shape, depth: float, engrave: bool,
+                towards: Sequence[float], wrap: bool = False
+                ) -> TopoDS_Shape:
+    """What Emboss adds, or Engrave takes away: the profile carried onto
+    ``face`` and given ``depth``, out of the face or into it.
+
+    Without ``wrap`` the profile is cast onto the face along ``towards``,
+    the way Inventor's Emboss from Face is, so lettering on a curved face
+    keeps its shape seen from the sketch.  With it the profile is wrapped
+    round a cylindrical face, its widths becoming lengths round it.
+    """
+    if depth <= 0:
+        raise KernelError("the depth must be more than nothing")
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepLProp import BRepLProp_SLProps
+    from OCP.TopAbs import TopAbs_REVERSED
+    if wrap:
+        letters = wrap_to_cylinder(profile, plane, face)
+        layers = []
+        for letter in letters:
+            # the face's own normal, out of the cylinder or into it
+            surface = BRepAdaptor_Surface(letter)
+            u = (surface.FirstUParameter() + surface.LastUParameter()) / 2
+            v = (surface.FirstVParameter() + surface.LastVParameter()) / 2
+            props = BRepLProp_SLProps(surface, u, v, 1, 1e-6)
+            n = props.Normal()
+            if letter.Orientation() == TopAbs_REVERSED:
+                n.Reverse()
+            p = props.Value()
+            axis = surface.Cylinder().Axis()
+            radial = gp_Vec(axis.Location(), p)
+            along = gp_Vec(axis.Direction())
+            radial = radial - along.Multiplied(radial.Dot(along))
+            outward = radial.Dot(gp_Vec(n)) > 0
+            amount = depth if outward else -depth
+            layers.append(thicken_face(letter, -amount if engrave
+                                       else amount))
+        return layers[0] if len(layers) == 1 else fuse_all(layers)
+
+    box = bounding_box(compound([profile, face]))
+    reach = 2.0 * math.dist(box[:3], box[3:]) + 1.0
+    t = [float(c) for c in towards]
+    start = [-c * reach for c in t]
+    shifted = BRepBuilderAPI_Transform(
+        profile, _translation(start), True).Shape()
+    prism = extrude(shifted, t, 2.0 * reach)
+
+    # a face's own normal points out of the part it bounds
+    layer = thicken_face(face, -depth if engrave else depth)
+    tool = boolean(prism, layer, "intersect")
+    # The prism runs right through, so on a face that curves round, a
+    # cylinder's, it meets the far side too.  Only the near side is
+    # embossed: a piece is kept where the face is the first thing met
+    # going from the sketch towards it.
+    pieces = explore(tool, TopAbs_SOLID)
+    if len(pieces) > 1:
+        normal = [float(c) for c in plane.normal]
+        flip = 1.0 if sum(a * b for a, b in zip(normal, t)) >= 0 else -1.0
+        kept = []
+        for piece in pieces:
+            middle = shape_centre(piece)
+            back = plane.distance_to(middle) * flip
+            foot = [middle[i] - t[i] * back for i in range(3)]
+            # of every place the ray crosses the face, the piece belongs to
+            # the one it is nearest; it stays if that is the first
+            crossings = ray_hits(face, foot, t)
+            if not crossings:
+                continue
+            nearest = min(crossings, key=lambda w: abs(w - back))
+            if nearest == crossings[0]:
+                kept.append(piece)
+        if not kept:
+            raise KernelError("the profile does not meet the face")
+        tool = kept[0] if len(kept) == 1 else compound(kept)
+    return tool
+
+
+def _translation(offset: Sequence[float]) -> gp_Trsf:
+    move = gp_Trsf()
+    move.SetTranslation(vec(offset))
+    return move

@@ -2613,6 +2613,105 @@ class CodeFeature(Feature):
         self.body_name = str(data.get("body_name", ""))
 
 
+@dataclass
+class EmbossFeature(Feature):
+    """Inventor's Emboss: a profile, text most often, raised out of a face
+    of the part or engraved into it, flat or curved (GitHub #12).
+
+    The profile is cast onto the face along the sketch's normal, so it
+    keeps its shape seen from the sketch; with Wrap to Face it goes round
+    a cylindrical face instead, its widths becoming lengths round it.  The
+    face is the first one the profile meets unless one is picked.
+    """
+
+    type_name: str = "emboss"
+    icon: str = "emboss"
+    name: str = "Emboss"
+    sketch_id: int = 0
+    profiles: "ProfileSelection" = field(
+        default_factory=lambda: ProfileSelection())
+    mode: str = "emboss"             # emboss / engrave
+    depth: str = "1"
+    reversed: bool = False           # towards the part the other way
+    face: RefSet = field(default_factory=RefSet)      # empty: the first met
+    wrap: bool = False
+
+    MODES = ("emboss", "engrave")
+
+    def depends_on(self) -> List[int]:
+        ids = self.profiles.sketch_ids()
+        return ids or ([self.sketch_id] if self.sketch_id else [])
+
+    def build(self, ctx: BuildContext) -> None:
+        profile, plane = resolve_profile(ctx, self.profiles, self.name,
+                                        self.sketch_id)
+        depth = ctx.evaluate(self.depth, "%s depth" % self.name)
+        if depth <= 0:
+            raise FeatureError("%s: the depth must be more than 0"
+                               % self.name)
+        if ctx.shape is None or not kernel.is_valid(ctx.shape):
+            raise FeatureError("%s: there is no part yet to %s"
+                               % (self.name, self.mode))
+        centre = kernel.shape_centre(profile)
+        normal = [float(c) for c in plane.normal]
+        towards = [-c for c in normal] if not self.reversed else normal
+
+        face = None
+        if len(self.face):
+            found = self.face.resolve_all(ctx.shape)[0]
+            if not found:
+                raise FeatureError("%s: the face it was on is gone"
+                                   % self.name)
+            face = found[0]
+            if not kernel.ray_hits(face, centre, towards):
+                if kernel.ray_hits(face, centre, [-c for c in towards]):
+                    towards = [-c for c in towards]
+        else:
+            hit = kernel.first_hit(ctx.shape, centre, towards)
+            if hit is None:
+                # the sketch may lie inside the part, or past it
+                other = [-c for c in towards]
+                hit = kernel.first_hit(ctx.shape, centre, other)
+                if hit is not None:
+                    towards = other
+            if hit is None:
+                raise FeatureError("%s: the profile does not meet the part "
+                                   "- pick the face" % self.name)
+            face = hit[0]
+        try:
+            tool = kernel.emboss_tool(profile, plane, face, depth,
+                                      self.mode == "engrave", towards,
+                                      wrap=self.wrap)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        ctx.apply(tool, CUT if self.mode == "engrave" else JOIN, self.id,
+                  targets=self.solids)
+
+    def summary(self) -> str:
+        what = "engraved" if self.mode == "engrave" else "embossed"
+        return "%s: %s %s%s, %s" % (self.name, what, self.depth,
+                                    ", wrapped" if self.wrap else "",
+                                    self.output_summary())
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"sketch_id": self.sketch_id,
+                "profiles": self.profiles.to_list(),
+                "mode": self.mode, "depth": self.depth,
+                "reversed": self.reversed, "face": self.face.to_list(),
+                "wrap": self.wrap}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.sketch_id = int(data.get("sketch_id", 0))
+        self.profiles = ProfileSelection.from_list(data.get("profiles"))
+        self.mode = data.get("mode", "emboss")
+        if self.mode not in self.MODES:
+            self.mode = "emboss"
+        self.depth = str(data.get("depth", "1"))
+        self.reversed = bool(data.get("reversed", False))
+        self.face = RefSet.from_list(data.get("face", []))
+        self.wrap = bool(data.get("wrap", False))
+
+
 FEATURE_TYPES: Dict[str, type] = {
     cls.type_name: cls for cls in (
         SketchFeature, WorkPlaneFeature, WorkAxisFeature,
@@ -2620,6 +2719,6 @@ FEATURE_TYPES: Dict[str, type] = {
         SweepFeature, LoftFeature, HoleFeature, PrimitiveFeature,
         ImportFeature, FilletFeature, ChamferFeature, ShellFeature,
         MirrorFeature, PatternFeature, MoveFeature, CodeFeature,
-        SplitFeature,
+        SplitFeature, EmbossFeature,
     )
 }

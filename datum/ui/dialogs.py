@@ -24,7 +24,7 @@ from ..core.features import (
     PatternFeature, PrimitiveFeature, RevolveFeature, ShellFeature,
     SketchFeature, SweepFeature, WorkPlaneFeature, CodeFeature,
     AXIS_PREFIX, WorkAxisFeature,
-    SplitFeature,
+    SplitFeature, EmbossFeature,
 )
 from ..core.naming import RefSet
 from . import icons
@@ -2251,6 +2251,87 @@ class MoveDialog(FeatureDialog):
             setattr(self.feature, name, widget.text())
 
 
+class EmbossDialog(FeatureDialog):
+    """Inventor's Emboss: the profile, raised or engraved, how deep, on
+    which face, and whether it wraps round it."""
+
+    MODES = [
+        ("emboss", "emboss",
+         "Emboss from Face - raise the profile out of the face"),
+        ("engrave", "engrave",
+         "Engrave from Face - cut the profile into the face"),
+    ]
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Emboss", "emboss", is_new, snapshot)
+
+    def build(self):
+        self.form.add("Profile", self.profile_field())
+        self.mode = SegmentedControl(self.MODES)
+        self.bind(self.mode)
+        self.form.add("Type", self.mode)
+        self.depth = self.expression(self.feature.depth)
+        self.form.add("Depth", self.depth)
+
+        self.face = self.picker("Select face", "face", "face",
+                                self._face_from_view)
+        self.face.cleared.connect(self._clear_face)
+        self.face.setToolTip("The face to emboss on; left empty, the first "
+                             "one the profile meets")
+        self.form.add("Face", self.face)
+        self.flip = QtWidgets.QCheckBox("Reverse direction")
+        self.flip.setToolTip("Look for the face the other way from the "
+                             "sketch")
+        self.bind(self.flip)
+        self.form.add("", self.flip)
+        self.wrap = QtWidgets.QCheckBox("Wrap to Face")
+        self.wrap.setToolTip("Wrap the profile round a cylindrical face, "
+                             "as a label goes round a bottle, instead of "
+                             "casting it straight onto it")
+        self.bind(self.wrap)
+        self.form.add("", self.wrap)
+
+    def _show_face(self) -> None:
+        if len(self.feature.face):
+            self.face.set_count(1, "face")
+        else:
+            self.face.set_count(0, "face")
+
+    def _face_from_view(self, shapes) -> None:
+        from OCP.TopAbs import TopAbs_FACE
+        base = self.host.pick_shape()
+        if base is None:
+            return
+        picked = [s for s in shapes if s.ShapeType() == TopAbs_FACE]
+        if not picked:
+            return
+        ref = RefSet()
+        ref.capture_from(base, "face", picked[:1])
+        if len(ref):
+            self.feature.face = ref
+            self._show_face()
+            self.face.set_picking(False)
+            self.preview()
+
+    def _clear_face(self) -> None:
+        self.feature.face = RefSet()
+        self._show_face()
+        self.preview()
+
+    def load(self):
+        self.mode.set_value(self.feature.mode)
+        self.depth.set_text(self.feature.depth)
+        self.flip.setChecked(self.feature.reversed)
+        self.wrap.setChecked(self.feature.wrap)
+        self._show_face()
+
+    def store(self):
+        self.feature.mode = self.mode.value()
+        self.feature.depth = self.depth.text()
+        self.feature.reversed = self.flip.isChecked()
+        self.feature.wrap = self.wrap.isChecked()
+
+
 DIALOGS = {
     ExtrudeFeature: ExtrudeDialog,
     RevolveFeature: RevolveDialog,
@@ -2267,6 +2348,7 @@ DIALOGS = {
     WorkAxisFeature: WorkAxisDialog,
     MoveFeature: MoveDialog,
     SplitFeature: SplitDialog,
+    EmbossFeature: EmbossDialog,
 }
 
 
@@ -2338,3 +2420,67 @@ class NewDocumentDialog(QtWidgets.QDialog):
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return None
         return dialog.chosen
+
+
+class SketchTextDialog(QtWidgets.QDialog):
+    """The text of a sketch Text, and how it looks."""
+
+    def __init__(self, current: Optional[Dict[str, Any]] = None,
+                 units: str = "mm", parent=None) -> None:
+        super().__init__(parent)
+        current = dict(current or {})
+        self.setWindowTitle("Edit Text" if current else "Text")
+        layout = QtWidgets.QVBoxLayout(self)
+
+        row = QtWidgets.QHBoxLayout()
+        self.font = QtWidgets.QFontComboBox(self)
+        self.font.setCurrentFont(QtGui.QFont(current.get("font", "Arial")))
+        row.addWidget(self.font, 1)
+        self.size = QtWidgets.QDoubleSpinBox(self)
+        self.size.setRange(0.01, 100000.0)
+        self.size.setDecimals(3)
+        self.size.setSuffix(" " + units)
+        self.size.setValue(float(current.get("size", 5.0)))
+        self.size.setToolTip("The font's size")
+        row.addWidget(self.size)
+        self.bold = QtWidgets.QToolButton(self)
+        self.bold.setText("B")
+        self.bold.setCheckable(True)
+        self.bold.setChecked(bool(current.get("bold", False)))
+        self.bold.setStyleSheet("font-weight: bold;")
+        row.addWidget(self.bold)
+        self.italic = QtWidgets.QToolButton(self)
+        self.italic.setText("I")
+        self.italic.setCheckable(True)
+        self.italic.setChecked(bool(current.get("italic", False)))
+        self.italic.setStyleSheet("font-style: italic;")
+        row.addWidget(self.italic)
+        self.angle = QtWidgets.QDoubleSpinBox(self)
+        self.angle.setRange(-360.0, 360.0)
+        self.angle.setDecimals(2)
+        self.angle.setSuffix(" deg")
+        self.angle.setValue(float(current.get("angle", 0.0)))
+        self.angle.setToolTip("Turned anticlockwise from the sketch's X")
+        row.addWidget(self.angle)
+        layout.addLayout(row)
+
+        self.text = QtWidgets.QPlainTextEdit(self)
+        self.text.setPlainText(current.get("text", ""))
+        self.text.setMinimumSize(360, 110)
+        layout.addWidget(self.text)
+
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+            self)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.text.setFocus()
+
+    def values(self) -> Dict[str, Any]:
+        return {"text": self.text.toPlainText(),
+                "font": self.font.currentFont().family(),
+                "size": float(self.size.value()),
+                "angle": float(self.angle.value()),
+                "bold": self.bold.isChecked(),
+                "italic": self.italic.isChecked()}

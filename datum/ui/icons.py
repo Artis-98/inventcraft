@@ -224,6 +224,14 @@ def _i_arc(p):
     p.drawEllipse(QtCore.QPointF(20, 18), 2.0, 2.0)
 
 
+def _i_text(p):
+    _pen(p, _LINE, 1.9)
+    p.drawLine(QtCore.QPointF(5, 5.5), QtCore.QPointF(19, 5.5))
+    p.drawLine(QtCore.QPointF(12, 5.5), QtCore.QPointF(12, 19.5))
+    _pen(p, _ACCENT, 1.9)
+    p.drawLine(QtCore.QPointF(8.5, 19.5), QtCore.QPointF(15.5, 19.5))
+
+
 def _i_polygon(p):
     _pen(p, _LINE, 1.9)
     pts = [(12 + 8 * math.cos(a), 12 + 8 * math.sin(a))
@@ -324,6 +332,26 @@ def _i_extrude(p):
     _face(p, [(19, 9), (12, 12), (12, 20), (19, 17)], _SOLID, 120)
     _face(p, [(5, 9), (12, 12), (19, 9), (12, 6)], _SOLID, 165)
     _arrow(p, 12, 12, 12, 3.5, _ACCENT, 3.0, 1.6)
+
+
+def _i_emboss(p):
+    """A block with a letter standing up out of its top."""
+    _face(p, [(3, 13), (12, 17), (21, 13), (12, 9)], _SOLID, 150)
+    _face(p, [(3, 13), (12, 17), (12, 21), (3, 17)], _SOLID, 80)
+    _face(p, [(21, 13), (12, 17), (12, 21), (21, 17)], _SOLID, 120)
+    _pen(p, _ACCENT, 2.2)
+    p.drawLine(QtCore.QPointF(8.5, 4.5), QtCore.QPointF(15.5, 4.5))
+    p.drawLine(QtCore.QPointF(12, 4.5), QtCore.QPointF(12, 13))
+
+
+def _i_engrave(p):
+    """A block with a letter cut into its top."""
+    _face(p, [(3, 13), (12, 17), (21, 13), (12, 9)], _SOLID, 150)
+    _face(p, [(3, 13), (12, 17), (12, 21), (3, 17)], _SOLID, 80)
+    _face(p, [(21, 13), (12, 17), (12, 21), (21, 17)], _SOLID, 120)
+    _pen(p, _ACCENT, 1.8)
+    p.drawLine(QtCore.QPointF(9, 11.6), QtCore.QPointF(15, 14.4))
+    p.drawLine(QtCore.QPointF(12, 13), QtCore.QPointF(9.8, 14.6))
 
 
 def _dir_profile(p, cy):
@@ -979,10 +1007,12 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "new": _i_new, "open": _i_open, "save": _i_save, "undo": _i_undo,
     "redo": _i_redo, "sketch": _i_sketch, "sketch_shared": _i_sketch_shared,
     "spacemouse": _i_spacemouse, "line": _i_line, "rect": _i_rect,
-    "circle": _i_circle, "arc": _i_arc, "polygon": _i_polygon, "slot": _i_slot,
+    "circle": _i_circle, "arc": _i_arc, "polygon": _i_polygon,
+    "text": _i_text, "slot": _i_slot,
     "spline": _i_spline, "point": _i_point, "fillet2d": _i_fillet2d,
     "trim": _i_trim, "offset": _i_offset, "dimension": _i_dimension,
     "measure": _i_measure, "params": _i_params, "extrude": _i_extrude,
+    "emboss": _i_emboss, "engrave": _i_engrave,
     "revolve": _i_revolve, "sweep": _i_sweep, "loft": _i_loft,
     "file": _i_file, "exit": _i_exit,
     "hole": _i_hole, "fillet": _i_fillet,

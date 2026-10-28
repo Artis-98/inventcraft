@@ -26,7 +26,7 @@ from ..core.features import (
     ImportFeature, LoftFeature, MirrorFeature, MoveFeature, PatternFeature,
     PrimitiveFeature, RevolveFeature, ShellFeature, SketchFeature,
     SweepFeature, WorkPlaneFeature, plane_from_face, CodeFeature,
-    WorkAxisFeature, SplitFeature,
+    WorkAxisFeature, SplitFeature, EmbossFeature,
 )
 from ..core.naming import RefSet, ShapeRef
 from ..core.sketch import STANDARD_PLANES, Sketch, SketchPlane
@@ -408,6 +408,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(lambda: self.new_feature(SweepFeature))
         panel.add_small("loft", "Loft", "Blend between sketch sections"
                         ).clicked.connect(lambda: self.new_feature(LoftFeature))
+        panel.add_small("emboss", "Emboss",
+                        "Raise text or a profile out of a face, or engrave "
+                        "it in, flat or curved").clicked.connect(
+            lambda: self.new_feature(EmbossFeature))
         panel.add_small("import", "Import", "Bring in a STEP / IGES body"
                         ).clicked.connect(self.import_geometry)
         panel.add_small("box", "Box").clicked.connect(
@@ -482,7 +486,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tool_buttons[key] = btn
 
         for key, icon_name, label in (("spline", "spline", "Spline"),
-                                      ("point", "point", "Point")):
+                                      ("point", "point", "Point"),
+                                      ("text", "text", "Text")):
             btn = panel.add_small(icon_name, label, checkable=True)
             btn.clicked.connect(lambda _=False, k=key: self.set_sketch_tool(k))
             self.tool_buttons[key] = btn
