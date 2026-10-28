@@ -265,6 +265,11 @@ class Document:
         # solid bodies put out of sight from the tree, by name; saved with
         # the part, as Inventor keeps them
         self.hidden_bodies: set = set()
+        # What a solid is called on screen, by the name the part knows it
+        # by.  Features, visibility and everything else hold the solid by
+        # that name, which never changes, so renaming one breaks nothing
+        # that uses it (asked for on Reddit: in Inventor it does).
+        self.solid_labels: Dict[str, str] = {}
         # once a body exists the origin planes have done their job, so they
         # are put away automatically - but only ever once, so a user who
         # turns them back on keeps them
@@ -450,6 +455,30 @@ class Document:
                                      > self.index_of(found)):
                     found = feature_id
         return found
+
+    def solid_label(self, name: str) -> str:
+        """What a solid is called on screen."""
+        return self.solid_labels.get(name, name)
+
+    def rename_solid(self, name: str, label: str) -> None:
+        """Rename a solid on screen.  The part goes on knowing it by the
+        name it was made with, so every feature that works on it, its
+        visibility and anything else that holds it carry on as they were.
+        """
+        label = label.strip()
+        if not label:
+            raise ValueError("a solid needs a name")
+        shown = {self.solid_label(b.name): b.name for b in self.bodies}
+        if label in shown and shown[label] != name:
+            raise ValueError("there is already a solid called %s" % label)
+        others = {b.name for b in self.bodies} - {name}
+        if label in others:
+            raise ValueError("there is already a solid called %s" % label)
+        if label == name:
+            self.solid_labels.pop(name, None)
+        else:
+            self.solid_labels[name] = label
+        self.modified = True
 
     def bodies_before(self, feature_id: int) -> List[str]:
         """The solids there are just before a feature, by name, in order.
@@ -1120,6 +1149,7 @@ class Document:
             "rollback": self.rollback_index,
             "hidden_planes": sorted(self.hidden_planes),
             "hidden_bodies": sorted(self.hidden_bodies),
+            "solid_labels": dict(self.solid_labels),
             "origin_autohidden": self.origin_autohidden,
             "parameters": self.params.to_list(),
             "features": [f.to_dict() for f in self.features],
@@ -1153,6 +1183,8 @@ class Document:
         self.rollback_index = data.get("rollback")
         self.hidden_planes = set(data.get("hidden_planes", []))
         self.hidden_bodies = set(data.get("hidden_bodies", []))
+        self.solid_labels = {str(k): str(v) for k, v in
+                             (data.get("solid_labels") or {}).items()}
         self.origin_autohidden = bool(data.get("origin_autohidden", False))
         self.view = ViewSetup.from_dict(data.get("view"))
         from .sheetmetal import SheetMetalDefaults

@@ -1462,6 +1462,7 @@ class MainWindow(QtWidgets.QMainWindow):
         b.plane_activated.connect(self.start_sketch_on_plane)
         b.delete_requested.connect(self.delete_feature)
         b.rename_requested.connect(self.rename_feature)
+        b.solid_rename_requested.connect(self.rename_solid)
         b.suppress_toggled.connect(self.toggle_suppress)
         b.share_toggled.connect(self.toggle_share)
         b.plane_visibility_toggled.connect(self.toggle_plane_visibility)
@@ -1903,6 +1904,26 @@ class MainWindow(QtWidgets.QMainWindow):
             "New part in its own tab. Save it, then place it in the assembly.")
 
     # -- sheet metal ------------------------------------------------------
+
+    def rename_solid(self, name: str, label: str) -> bool:
+        """Rename a solid on screen; whatever uses it carries on."""
+        before = dict(self.document.solid_labels)
+        try:
+            self.document.rename_solid(name, label)
+        except ValueError as exc:
+            self.status_message.setStyleSheet("color: %s;" % C.error)
+            self.status_message.setText("Cannot rename it: %s." % exc)
+            return False
+        # recorded as it was, so Ctrl+Z takes the name back
+        after = dict(self.document.solid_labels)
+        self.document.solid_labels = before
+        self.document.push_undo()
+        self.document.solid_labels = after
+        self.browser.refresh()
+        self._update_title()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText("Solid renamed %s." % label)
+        return True
 
     def _is_sheet_metal(self) -> bool:
         document = getattr(self, "document", None)

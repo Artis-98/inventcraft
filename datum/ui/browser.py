@@ -50,6 +50,8 @@ class ModelBrowser(QtWidgets.QTreeWidget):
     plane_activated = QtCore.Signal(str)            # new sketch on a plane
     delete_requested = QtCore.Signal(int)
     rename_requested = QtCore.Signal(int, str)
+    # a solid by the name the part knows it by, and what to call it
+    solid_rename_requested = QtCore.Signal(str, str)
     suppress_toggled = QtCore.Signal(int)
     share_toggled = QtCore.Signal(int)
     plane_visibility_toggled = QtCore.Signal(str)
@@ -143,7 +145,9 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             folder.setData(0, ROLE_KIND, "bodies")
             folder.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
             for body in bodies:
-                item = QtWidgets.QTreeWidgetItem(folder, [body.name])
+                label = (doc.solid_label(body.name)
+                         if hasattr(doc, "solid_label") else body.name)
+                item = QtWidgets.QTreeWidgetItem(folder, [label])
                 item.setIcon(0, icons.icon("box", 16))
                 item.setData(0, ROLE_KIND, "body")
                 item.setData(0, ROLE_ID, body.name)
@@ -155,7 +159,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                     # refresh after every rebuild does not integrate every
                     # body again
                     item.setToolTip(0, "%s  -  %.3f cm3" % (
-                        body.name,
+                        label,
                         kernel.volume_and_centre(body.shape)[0] / 1000.0))
                 except Exception:
                     item.setToolTip(0, body.name)
@@ -523,6 +527,9 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             every.setEnabled(bool(self._doc.hidden_bodies))
             every.triggered.connect(
                 lambda: self.body_visibility_requested.emit("all", name))
+            menu.addSeparator()
+            rename = menu.addAction("Rename...")
+            rename.triggered.connect(lambda: self._rename_solid(name))
             return menu
 
         if kind == "plane":
@@ -634,6 +641,14 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             name)
         if ok and text.strip() and text.strip() != name:
             self.model_state_requested.emit("rename", name, text.strip())
+
+    def _rename_solid(self, name: str) -> None:
+        current = self._doc.solid_label(name)
+        text, ok = QtWidgets.QInputDialog.getText(
+            self, "Rename Solid", "Name:", QtWidgets.QLineEdit.Normal,
+            current)
+        if ok and text.strip() and text.strip() != current:
+            self.solid_rename_requested.emit(name, text.strip())
 
     def _rename(self, fid: int, current: str) -> None:
         text, ok = QtWidgets.QInputDialog.getText(

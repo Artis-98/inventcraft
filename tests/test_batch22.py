@@ -345,6 +345,69 @@ press("nav_fit")
 check("Zoom All is a click, not a tool", vp.nav_mode is None)
 shot("navbar")
 
+# ==========================================================================
+print("renaming a solid breaks nothing that uses it (board #80)")
+
+from datum.core.features import NEW_BODY, PrimitiveFeature        # noqa: E402
+from datum.core.document import Document                          # noqa: E402
+
+win.new_document(prompt=False)
+pump()
+doc = win.document
+for x in (0, 50):
+    f = PrimitiveFeature()
+    f.kind = "box"
+    f.a = f.b = f.c = "20"
+    f.origin = (str(x), "0", "0")
+    f.operation = NEW_BODY
+    doc.add_feature(f)
+win.rebuild()
+pump()
+names = [b.name for b in doc.bodies]
+check("two solids", len(names) == 2, names)
+fillet_like = PrimitiveFeature()
+fillet_like.kind = "box"
+fillet_like.a = fillet_like.b = fillet_like.c = "5"
+fillet_like.origin = ("50", "0", "18")
+fillet_like.operation = "join"
+fillet_like.solids = [names[1]]
+doc.add_feature(fillet_like)
+win.rebuild()
+pump()
+volume = kernel.volume(doc.shape)
+win.document.hidden_bodies = {names[0]}
+check("rename works", win.rename_solid(names[1], "Bracket"))
+labels = []
+root = win.browser.topLevelItem(0)
+
+
+def walk(item):
+    for i in range(item.childCount()):
+        labels.append(item.child(i).text(0))
+        walk(item.child(i))
+
+
+walk(root)
+check("the tree shows the new name", "Bracket" in labels, labels)
+win.rebuild()
+pump()
+check("the feature that works on it still does",
+      not fillet_like.error and abs(kernel.volume(doc.shape) - volume) < 1e-6,
+      fillet_like.error)
+check("and what was hidden stays hidden", names[0] in doc.hidden_bodies)
+check("a name already taken is refused",
+      not win.rename_solid(names[0], "Bracket"))
+check("so is the other's own name",
+      not win.rename_solid(names[0], names[1]))
+saved = Document()
+saved.load_dict(doc.to_dict())
+check("saved and loaded, it keeps its name",
+      saved.solid_label(names[1]) == "Bracket")
+win.undo()
+pump()
+check("Ctrl+Z takes the name back",
+      doc.solid_label(names[1]) == names[1], doc.solid_labels)
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))
