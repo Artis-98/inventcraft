@@ -3120,6 +3120,65 @@ class CornerSeamFeature(Feature):
         self.thickness = str(data.get("thickness", "Thickness"))
 
 
+@dataclass
+class FrameMemberFeature(Feature):
+    """A frame member's part: its profile run its length along Z.
+
+    Written by the Frame Generator, which keeps it at the length of the
+    skeleton line it lies on; the profile's sizes are kept here as well as
+    which family and size they came from, so the part builds on its own.
+    """
+
+    type_name: str = "frame_member"
+    icon: str = "frame_member"
+    name: str = "Frame Member"
+    family: str = ""
+    size: str = ""
+    kind: str = "angle"
+    dims: Dict[str, float] = field(default_factory=dict)
+    length: str = "100"
+    mirror: bool = False
+    source: str = ""
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import frames
+        length = ctx.evaluate(self.length, "%s length" % self.name)
+        if length <= 0:
+            raise FeatureError("%s: the length must be more than 0"
+                               % self.name)
+        try:
+            face = frames.profile_face(self.kind, self.dims, self.source)
+            if self.mirror:
+                from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+                from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf
+                flip = gp_Trsf()
+                flip.SetMirror(gp_Ax2(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0)))
+                face = kernel.faces(BRepBuilderAPI_Transform(
+                    face, flip, True).Shape())[0]
+            tool = kernel.extrude(face, (0.0, 0.0, 1.0), length)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        ctx.apply(tool, JOIN, self.id, targets=self.solids)
+
+    def summary(self) -> str:
+        return "%s: %s, %s long" % (self.name, self.size, self.length)
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"family": self.family, "size": self.size, "kind": self.kind,
+                "dims": dict(self.dims), "length": self.length,
+                "mirror": self.mirror, "source": self.source}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.family = str(data.get("family", ""))
+        self.size = str(data.get("size", ""))
+        self.kind = str(data.get("kind", "angle"))
+        self.dims = {str(k): float(v)
+                     for k, v in (data.get("dims") or {}).items()}
+        self.length = str(data.get("length", "100"))
+        self.mirror = bool(data.get("mirror", False))
+        self.source = str(data.get("source", ""))
+
+
 FEATURE_TYPES: Dict[str, type] = {
     cls.type_name: cls for cls in (
         SketchFeature, WorkPlaneFeature, WorkAxisFeature,
@@ -3129,5 +3188,6 @@ FEATURE_TYPES: Dict[str, type] = {
         MirrorFeature, PatternFeature, MoveFeature, CodeFeature,
         SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
         HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
+        FrameMemberFeature,
     )
 }

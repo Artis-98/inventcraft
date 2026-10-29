@@ -117,6 +117,9 @@ class Occurrence:
     # which of the part's model states this one is; "" is whichever the
     # part was saved in
     model_state: str = ""
+    # another occurrence this one is placed with, wherever that goes: a
+    # frame assembly follows the skeleton it was made on
+    follows: int = 0
     # filled in by a rebuild
     error: str = ""
     shape: Optional[TopoDS_Shape] = None
@@ -173,6 +176,7 @@ class Occurrence:
             "suppressed": self.suppressed,
             "visible": self.visible,
             "model_state": self.model_state,
+            "follows": self.follows,
         }
 
     @classmethod
@@ -188,7 +192,8 @@ class Occurrence:
                    grounded=bool(data.get("grounded", False)),
                    suppressed=bool(data.get("suppressed", False)),
                    visible=bool(data.get("visible", True)),
-                   model_state=str(data.get("model_state", "") or ""))
+                   model_state=str(data.get("model_state", "") or ""),
+                   follows=int(data.get("follows", 0) or 0))
 
 
 @dataclass
@@ -387,6 +392,8 @@ class AssemblyDocument:
         # which face is Front, and where Home is: Inventor keeps both in
         # the document, so a part opens the way it was set up
         self.view = ViewSetup()
+        # a frame assembly's skeleton and members; None for any other
+        self.frame = None
         self._density_override = None
 
         self.library = PartLibrary()
@@ -588,6 +595,24 @@ class AssemblyDocument:
             except Exception:
                 pass            # the ordinary build below still builds them
 
+        if getattr(self, "frame", None) is not None:
+            from . import frames
+            for problem in frames.sync(self):
+                report.warnings.append(problem)
+        # a frame placed here follows its skeleton: brought up to it first,
+        # so the file read below is the frame as the skeleton is now
+        for occurrence in self.occurrences:
+            path = self.component_path(occurrence, base) \
+                if not occurrence.suppressed else None
+            if path and fileformat.is_assembly(path):
+                from . import frames
+                if frames.is_frame(path):
+                    for problem in frames.refresh(path):
+                        report.warnings.append("%s: %s" % (occurrence.label,
+                                                           problem))
+            # what the members became is read from their files below; the
+            # library keeps them by date, so a member written just now is
+            # read again
         for occurrence in self.occurrences:
             occurrence.error = ""
             occurrence.shape = None
@@ -648,6 +673,11 @@ class AssemblyDocument:
         for occurrence in self.active():
             if occurrence.id in placements:
                 occurrence.placement = placements[occurrence.id]
+        for occurrence in self.active():
+            target = self.occurrence(occurrence.follows) \
+                if occurrence.follows else None
+            if target is not None:
+                occurrence.placement = target.placement.copy()
 
         for constraint in self.constraints:
             if constraint.id in solved.unsatisfied and not constraint.error:
@@ -1001,6 +1031,8 @@ class AssemblyDocument:
             # read it without understanding placements
             "components": [o.ref.to_dict() for o in self.occurrences],
             "view": self.view.to_dict(),
+            "frame": self.frame.to_dict() if getattr(self, "frame", None)
+            else None,
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1009,6 +1041,8 @@ class AssemblyDocument:
                            for k, v in (data.get("properties") or {}).items()}
         self.bom_columns = [str(c) for c in data.get("bom_columns") or []]
         self.view = ViewSetup.from_dict(data.get("view"))
+        from .frames import FrameDefinition
+        self.frame = FrameDefinition.from_dict(data.get("frame"))
         trusted = self.rules.trusted
         self.rules.load(data.get("rules"))
         self.rules.trusted = trusted
