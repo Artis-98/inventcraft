@@ -11,9 +11,9 @@
 <meta property="og:description" content="Sketch, model, assemble, draw and cut. Free and open source parametric CAD for Windows and Linux.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://datum.iiteg.com/">
-<meta property="og:image" content="https://datum.iiteg.com/img/assembly.png">
+<meta property="og:image" content="https://datum.iiteg.com/img/cart.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#16181b">
+<meta name="theme-color" content="#f6f4ef">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -34,7 +34,7 @@
       "operatingSystem": "Windows 10, Windows 11, Linux",
       "url": "https://datum.iiteg.com/",
       "downloadUrl": "https://datum.iiteg.com/#download",
-      "screenshot": "https://datum.iiteg.com/img/assembly.png",
+      "screenshot": "https://datum.iiteg.com/img/cart.png",
       "license": "https://github.com/Artis-98/inventcraft/blob/main/LICENSE",
       "isAccessibleForFree": true,
       "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
@@ -117,7 +117,7 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="badge-version">Version 0.3.4 · free · open source</span>
+        <span id="badge-version">Version 0.3.5 · free · open source</span>
       </div>
       <h1>Parametric CAD<br><span class="quiet">that fits on a laptop.</span></h1>
       <p class="lede">
@@ -128,7 +128,7 @@
       </p>
       <div class="cta-row">
         <a class="btn primary" id="download-btn"
-           href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.4/InventCraft-0.3.4-setup.exe">
+           href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-setup.exe">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round"
                stroke-linejoin="round" aria-hidden="true">
@@ -141,7 +141,7 @@
       <p class="cta-note">
         <strong id="size-note">108 MB</strong> · Windows 10 and 11, 64-bit ·
         installs without an administrator prompt · updates itself ·
-        <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.4/InventCraft-0.3.4-linux-x86_64.tar.gz">Linux</a>
+        <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-linux-x86_64.tar.gz">Linux</a>
       </p>
     </div>
 
@@ -149,11 +149,13 @@
       <div class="frame">
         <div class="frame-bar">
           <i></i><i></i><i></i>
-          <span>Excavator.adat — InventCraft</span>
+          <span>Welding Cart.icasm — InventCraft</span>
         </div>
-        <img src="img/assembly.png" width="1600" height="989"
-             alt="A tracked excavator of 48 components open in InventCraft, with
-                  the component tree listing every part on the left.">
+        <img src="img/cart.png" width="1600" height="989"
+             alt="A welding cart open in InventCraft: a red square tube frame
+                  made by the Frame Generator, sheet metal trays, a MIG
+                  welder, a gas bottle and four casters, held together by 46
+                  constraints, with the component tree on the left.">
       </div>
     </div>
   </div>
@@ -166,7 +168,7 @@
       <div class="fact"><b>Free</b><span>MIT licensed, source on GitHub</span></div>
       <div class="fact"><b>Offline</b><span>Your files stay on your machine</span></div>
       <div class="fact"><b>One window</b><span>Parts, assemblies, drawings, CAM</span></div>
-      <div class="fact"><b>Self-updating</b><span>A few MB per release, not a reinstall</span></div>
+      <div class="fact"><b>Self-updating</b><span>Signed updates from GitHub, in place</span></div>
     </div>
   </div>
 </section>
@@ -313,9 +315,47 @@
             else.</p>
         </div>
         <div class="frame">
-          <img src="img/part.png" width="1600" height="989" loading="lazy"
-               alt="An excavator bucket modelled in InventCraft, shelled out of a
-                    solid, with its feature tree beside it.">
+          <img src="img/welder.png" width="1600" height="989" loading="lazy"
+               alt="A MIG welder modelled in InventCraft from sketches: its
+                    case, front panel, knobs, handle and vents, with its
+                    feature tree beside it.">
+        </div>
+      </div>
+
+      <div class="shot">
+        <div class="copy">
+          <span class="tag">Frame</span>
+          <h3>Frames from a sketch of lines</h3>
+          <p>Sketch the frame as lines, click them, and the Frame Generator
+            puts DIN tubes and angles on them, each member a part of its
+            own. Mitre, notch, trim and extend the ends; change a size and
+            see it in green before you press OK. Change the sketch and the
+            frame follows it.</p>
+        </div>
+        <div class="frame">
+          <img src="img/frame.png" width="1600" height="989" loading="lazy"
+               alt="The welding cart's frame of 30 mm square tube in
+                    InventCraft, its members listed in the tree, with Change
+                    Frame showing the top four a size up in see-through
+                    green.">
+        </div>
+      </div>
+
+      <div class="shot flip">
+        <div class="copy">
+          <span class="tag">Sheet metal</span>
+          <h3>Fold it, then lay it flat</h3>
+          <p>Faces, flanges, hems, folds and contour flanges, with the
+            corners and bend reliefs worked out for you. The flat pattern
+            matches Inventor's to the thousandth of a millimetre and goes
+            straight out as a DXF for the plasma table.</p>
+        </div>
+        <div class="frame">
+          <img src="img/sheetmetal.png" width="1600" height="989"
+               loading="lazy"
+               alt="The welding cart's bottle tray in sheet metal: a 3 mm
+                    plate with a wall flanged up on every side, the corners
+                    left open, and a drain hole in the middle.">
         </div>
       </div>
 
@@ -421,9 +461,10 @@
             inside corners so slots actually fit. Out comes a DXF.</p>
         </div>
         <div class="frame">
-          <img src="img/cam.png" width="1343" height="963" loading="lazy"
-               alt="Flat parts nested on a sheet in InventCraft with
-                    cutter-compensated toolpaths around each one.">
+          <img src="img/plates.png" width="1600" height="989" loading="lazy"
+               alt="The welding cart's caster plates and gussets nested on a
+                    6 mm sheet in InventCraft, with plasma toolpaths round
+                    each one and every hole listed in the tree.">
         </div>
       </div>
 
@@ -466,7 +507,7 @@
         </div>
         <div class="note" style="border-left-color:var(--silver-deep)">
           <strong>It is young software.</strong>
-          InventCraft is at version 0.3.4 and is used daily for real work at
+          InventCraft is at version 0.3.5 and is used daily for real work at
           IITEG, but it has not been through thousands of hands yet.
           Keep backups of anything that matters, and please tell me when
           something breaks.
@@ -498,12 +539,12 @@
         Free, no account, no licence key. It updates itself from then on.
       </p>
       <a class="btn primary" id="download-btn-2"
-         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.4/InventCraft-0.3.4-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        InventCraft <span id="btn-version">0.3.4</span> for Windows
+        InventCraft <span id="btn-version">0.3.5</span> for Windows
       </a>
       <div class="meta-row">
         <span>Windows 10 / 11, 64-bit</span>
@@ -512,7 +553,7 @@
         <span><a href="changelog.html">What's new</a></span>
       </div>
       <div class="meta-row">
-        <span><a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.4/InventCraft-0.3.4-linux-x86_64.tar.gz">Linux</a>, for Ubuntu 20.04,
+        <span><a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-linux-x86_64.tar.gz">Linux</a>, for Ubuntu 20.04,
           Debian 11, Fedora 32 and anything newer, and it updates itself too
           (<a href="https://github.com/Artis-98/inventcraft/blob/main/docs/LINUX.md">how to install it</a>)</span>
       </div>

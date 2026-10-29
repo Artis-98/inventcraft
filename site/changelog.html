@@ -12,7 +12,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://datum.iiteg.com/changelog.html">
 <meta property="og:image" content="https://datum.iiteg.com/img/assembly.png">
-<meta name="theme-color" content="#16181b">
+<meta name="theme-color" content="#f6f4ef">
 <link rel="icon" href="img/favicon.ico" sizes="any">
 <link rel="icon" href="img/inventcraft-64.png" type="image/png">
 <link rel="apple-touch-icon" href="img/inventcraft-256.png">
@@ -85,7 +85,7 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="live-version">Latest: 0.3.4</span></div>
+        <span id="live-version">Latest: 0.3.5</span></div>
       <h1 style="font-size:clamp(34px,5vw,52px)">Changelog</h1>
       <p class="lede">
         Every release, what changed in it, and why. InventCraft updates itself,
@@ -93,7 +93,7 @@
         just here so you can see what arrived.
       </p>
       <a class="btn ghost" id="get-latest"
-         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.4/InventCraft-0.3.4-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-setup.exe">
         Download the current version</a>
     </div>
   </div>
@@ -119,9 +119,40 @@
 
     <div class="release current">
       <div class="head">
-        <span class="ver">0.3.4</span>
+        <span class="ver">0.3.5</span>
         <span class="when">29 October 2026</span>
         <span class="badge">current</span>
+      </div>
+      <p style="color:var(--dim);margin:0 0 12px">
+        Sheet metal that bends where it should and lays out true, and a
+        welding cart that shows the whole of InventCraft in one machine.
+      </p>
+      <ul>
+        <li><strong>Bend relief.</strong> A flange whose edge runs into a
+          rounded corner, or into the bend of a flange made before, stops
+          the corner gap short of it, as Inventor's bend relief does,
+          instead of standing against it with nothing between. Scraps the
+          cut leaves loose go, and Corner Seam still closes such a corner
+          the way one Flange on both edges would.</li>
+        <li><strong>Flat patterns</strong> of bends with a relief or a
+          notch beside them lay out at their full length, and a plate with
+          a round notch in its edge lays flat instead of being refused.</li>
+        <li><strong>DXF arcs</strong> on holes in a flat pattern, a slot's
+          round ends, went round the wrong way. They follow the part
+          now.</li>
+        <li><strong>The welding cart</strong>, a new sample: a Frame
+          Generator frame, sheet metal trays, plasma-cut plates nested for
+          the table, a welder and a gas bottle, all held by 46 constraints.
+          It is in <code>examples/weld-cart</code>, and on this site.</li>
+        <li><strong>Linux:</strong>
+          <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-linux-x86_64.tar.gz">InventCraft 0.3.5 for Linux</a>.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head">
+        <span class="ver">0.3.4</span>
+        <span class="when">29 October 2026</span>
       </div>
       <p style="color:var(--dim);margin:0 0 12px">
         The Frame Generator, the Inventor way, and the rest of sheet metal.
@@ -821,12 +852,12 @@
         ask it now from File then Check for Updates.
       </p>
       <a class="btn primary" id="get-latest-2"
-         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.4/InventCraft-0.3.4-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        InventCraft <span id="latest-ver">0.3.4</span> for Windows
+        InventCraft <span id="latest-ver">0.3.5</span> for Windows
       </a>
     </div>
   </div>
