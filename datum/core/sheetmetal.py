@@ -352,19 +352,36 @@ def _merge_flat(pieces: Sequence[TopoDS_Shape]) -> TopoDS_Shape:
             at = kernel.point_on_face(face) or kernel.shape_centre(face)
             down = face_normal(face, at)[2] < 0
             outer = BRepTools.OuterWire_s(TopoDS.Face_s(face))
-            maker = BRepBuilderAPI_MakeFace(
-                plane, TopoDS.Wire_s(outer.Reversed() if down else outer),
-                True)
-            for wire in kernel.explore(face, TopAbs_WIRE):
-                if not wire.IsSame(outer):
-                    maker.Add(TopoDS.Wire_s(wire.Reversed() if down
-                                            else wire))
-            if not maker.IsDone():
-                continue
-            fixer = ShapeFix_Face(maker.Face())
-            fixer.FixOrientation()
-            fixer.Perform()
-            remade.append(fixer.Face())
+
+            def remake(turned, fix=True):
+                maker = BRepBuilderAPI_MakeFace(
+                    plane, TopoDS.Wire_s(outer.Reversed() if turned
+                                         else outer), True)
+                for wire in kernel.explore(face, TopAbs_WIRE):
+                    if not wire.IsSame(outer):
+                        maker.Add(TopoDS.Wire_s(wire.Reversed() if turned
+                                                else wire))
+                if not maker.IsDone():
+                    return None
+                if not fix:
+                    return maker.Face()
+                fixer = ShapeFix_Face(maker.Face())
+                fixer.FixOrientation()
+                fixer.Perform()
+                return fixer.Face()
+
+            made = remake(down)
+            # The loops' direction is read from the face's normal, and
+            # ShapeFix is trusted to put right what that gets wrong.  For a
+            # plate with a round notch in its edge it does not: the face
+            # came back inside out, its area negative, and the flat was
+            # refused.  The area says which way round it really is.
+            if made is not None and kernel.face_area(made) < 0:
+                other = remake(not down, fix=False)
+                if other is not None and kernel.face_area(other) > 0:
+                    made = other
+            if made is not None:
+                remade.append(made)
     if not remade:
         raise KernelError("the flat pattern came out empty")
     merged = remade[0] if len(remade) == 1 else kernel.fuse_all(remade)

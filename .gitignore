@@ -30,3 +30,7 @@ desktop.ini
 scratch/
 tmp/
 *.log
+
+# Vendor CAD (McMaster and the like) may be used but not redistributed:
+# a sample finds it on the machine that has it, and models its own without
+examples/*/vendor/

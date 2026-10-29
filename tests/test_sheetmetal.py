@@ -248,6 +248,38 @@ for corner_body, what in ((PLATE, "a square corner"),
               "one body, nothing touching, and lays flat" % (what, radius),
               one_good_solid(second) and laid_flat(second))
 
+# a plate with a round notch in its edge, a bottle collar, came back from
+# the flat inside out, its area negative, and was refused
+collar_doc = Document()
+sm.convert(collar_doc)
+collar_doc.params.set_expression("Thickness", repr(T))
+outline = SketchFeature(name="Collar")
+outline.sketch = Sketch(SketchPlane(), "Collar")
+s = outline.sketch
+s.add_line((0.0, 0.0), (0.0, 200.0))
+s.add_line((0.0, 200.0), (100.0, 200.0))
+s.add_line((100.0, 200.0), (100.0, 173.0))
+s.add_arc((100.0, 100.0), 73.0, math.radians(90), math.radians(270))
+s.add_line((100.0, 27.0), (100.0, 0.0))
+s.add_line((100.0, 0.0), (0.0, 0.0))
+collar_doc.add_feature(outline)
+sheet = SheetFaceFeature()
+sheet.sketch_id = outline.id
+collar_doc.add_feature(sheet)
+collar_doc.rebuild()
+lip = next(e for e in kernel.explore(collar_doc.shape, TopAbs_EDGE)
+           if sm._is_line(TopoDS.Edge_s(e))
+           and all(near(p[0], 0.0) and near(p[2], T)
+                   for p in sm._edge_ends(TopoDS.Edge_s(e))))
+collar = sm.flanges(collar_doc.shape, [TopoDS.Edge_s(lip)], T, R, 90, 50)
+try:
+    flat = sm.unfold(collar, K, thickness=T)
+    laid = near(sum(kernel.face_area(f) for f in flat.faces) * T,
+                kernel.volume(collar), 0.03 * kernel.volume(collar))
+except kernel.KernelError:
+    laid = False
+check("a plate notched round lays flat, the right way up", laid)
+
 # ==========================================================================
 print("a part converted to sheet metal")
 
