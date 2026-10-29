@@ -508,6 +508,32 @@ def _i_sm_perforation_straight(p):
         p.drawLine(QtCore.QPointF(12, y0), QtCore.QPointF(12, y1))
 
 
+def _i_frame_insert(p):
+    """A frame: a rectangle of members on legs."""
+    _pen(p, _LINE, 2.2)
+    p.drawPolyline(_poly((4, 20), (4, 7), (20, 7), (20, 20)))
+    p.drawLine(QtCore.QPointF(4, 12), QtCore.QPointF(20, 12))
+    _pen(p, _ACCENT, 1.4, dashed=True)
+    p.drawLine(QtCore.QPointF(2, 4), QtCore.QPointF(22, 4))
+
+
+def _i_frame_library(p):
+    """A square tube's end and an angle's."""
+    _pen(p, _LINE, 1.8)
+    p.drawRoundedRect(QtCore.QRectF(3, 5, 9, 9), 2, 2)
+    p.drawRoundedRect(QtCore.QRectF(5, 7, 5, 5), 1, 1)
+    _pen(p, _ACCENT, 1.8)
+    p.drawPolygon(_poly((13, 20), (13, 9), (15.5, 9), (15.5, 17.5),
+                        (22, 17.5), (22, 20)))
+
+
+def _i_frame_member(p):
+    """A length of square tube."""
+    _sheet(p, [(3, 14), (15, 6), (21, 9), (9, 17)], 150)
+    _sheet(p, [(3, 14), (9, 17), (9, 21), (3, 18)], 90)
+    _sheet(p, [(9, 17), (21, 9), (21, 13), (9, 21)], 120)
+
+
 def _i_sm_inside(p):
     """Bend Position: inside the base face's extents."""
     _pen(p, _LINE, 1.8)
@@ -1192,6 +1218,8 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "sm_face": _i_sm_face, "sm_flange": _i_sm_flange, "sm_flat": _i_sm_flat,
     "sm_defaults": _i_sm_defaults, "sm_convert": _i_sm_convert,
     "sm_inside": _i_sm_inside, "sm_adjacent": _i_sm_adjacent,
+    "frame_insert": _i_frame_insert, "frame_library": _i_frame_library,
+    "frame_member": _i_frame_member,
     "sm_hem": _i_sm_hem, "sm_hem_teardrop": _i_sm_hem_teardrop,
     "sm_hem_rolled": _i_sm_hem_rolled, "sm_hem_double": _i_sm_hem_double,
     "sm_fold": _i_sm_fold, "sm_contour": _i_sm_contour,

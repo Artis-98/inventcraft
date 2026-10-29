@@ -103,6 +103,7 @@ TAB_SHEET = "Sheet Metal"
 # the flat pattern's own tab, while it is being edited
 TAB_FLAT = "Flat Pattern"
 TAB_ASSEMBLE = "Assemble"
+TAB_DESIGN = "Design"
 TAB_CAM = "CAM"
 TAB_DRAWING = "Drawing"
 TAB_INSPECT = "Inspect"
@@ -111,10 +112,11 @@ TAB_VIEW = "View"
 
 # which ribbon tabs belong to which kind of document
 PART_TABS = (TAB_MODEL, TAB_INSPECT, TAB_MANAGE, TAB_VIEW)
-ASSEMBLY_TABS = (TAB_ASSEMBLE, TAB_INSPECT, TAB_VIEW)
+ASSEMBLY_TABS = (TAB_ASSEMBLE, TAB_DESIGN, TAB_INSPECT, TAB_VIEW)
 CAM_TABS = (TAB_CAM, TAB_INSPECT, TAB_VIEW)
 DRAWING_TABS = (TAB_DRAWING,)
-ALL_TABS = (TAB_MODEL, TAB_ASSEMBLE, TAB_CAM, TAB_DRAWING, TAB_INSPECT,
+ALL_TABS = (TAB_MODEL, TAB_ASSEMBLE, TAB_DESIGN, TAB_CAM, TAB_DRAWING,
+            TAB_INSPECT,
             TAB_MANAGE,
             TAB_VIEW)
 
@@ -692,6 +694,21 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(self.show_rules)
 
         # --------------------------------------------------------------- CAM
+
+        # ------------------------------------------------------------ Design
+        # Inventor's Design tab in an assembly: the Frame Generator
+        design = r.add_tab(TAB_DESIGN)
+        panel = design.add_panel("Frame")
+        panel.add_big("frame_insert", "Insert\nFrame",
+                      "Frame members on the lines of a skeleton's sketch"
+                      ).clicked.connect(self.insert_frame)
+        panel.add_small("update", "Refresh",
+                        "Bring every frame up to its skeleton").clicked.connect(
+            lambda: self.assembly_ui.rebuild())
+        panel = design.add_panel("Profiles")
+        panel.add_big("frame_library", "Profile\nLibrary",
+                      "The profile families and their sizes; your own too"
+                      ).clicked.connect(self.profile_library)
         cam = r.add_tab(TAB_CAM)
 
         panel = cam.add_panel("Sheet")
@@ -1983,6 +2000,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_title()
         self.status_message.setStyleSheet("")
         self.status_message.setText("Name %s deleted." % name)
+
+    # -- the Frame Generator -----------------------------------------------
+
+    def insert_frame(self):
+        """Insert Frame: members on a skeleton's lines, Inventor's way."""
+        from .frames_ui import InsertFrameDialog
+        if self.assembly is None:
+            return None
+        dialog = InsertFrameDialog(self)
+        self.frame_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def profile_library(self):
+        from .frames_ui import ProfileLibraryDialog
+        dialog = ProfileLibraryDialog(self)
+        self.library_dialog = dialog
+        dialog.show()
+        return dialog
 
     def rename_solid(self, name: str, label: str) -> bool:
         """Rename a solid on screen; whatever uses it carries on."""
