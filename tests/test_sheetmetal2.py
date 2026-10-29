@@ -207,6 +207,56 @@ for name, body in bodies.items():
               for e in sm.flat_pattern(again).extents()))
 
 # ==========================================================================
+print("a bent part drawn as an ordinary part, with real arcs")
+
+import math                                                        # noqa: E402
+from datum.core.features import ExtrudeFeature                    # noqa: E402
+
+
+def drawn_l(inner_centre=(4.0, 4.0), inner_radius=2.0):
+    """An L drawn on YZ: outer bend radius 4, the inner one given, run
+    100 along X, the same shape as the bracket above when concentric."""
+    doc = Document()
+    sk = SketchFeature(name="L")
+    sk.sketch = s = Sketch(STANDARD_PLANES["YZ"], "L")
+    cx, cy = inner_centre
+    r = inner_radius
+    s.add_line((60, 0), (4, 0))
+    s.add_arc((4, 4), 4, math.radians(180), math.radians(270))
+    s.add_line((0, 4), (0, 30))
+    s.add_line((0, 30), (2, 30))
+    s.add_line((2, 30), (cx - r, cy))
+    s.add_arc((cx, cy), r, math.radians(180), math.radians(270))
+    s.add_line((cx, cy - r), (60, 2))
+    s.add_line((60, 2), (60, 0))
+    doc.add_feature(sk)
+    ex = ExtrudeFeature()
+    ex.sketch_id = sk.id
+    ex.distance = "100"
+    doc.add_feature(ex)
+    doc.rebuild()
+    top = max((f for f in kernel.faces(doc.shape)
+               if sm._kind(f) == sm.GeomAbs_Plane
+               and abs(sm.face_normal(f, kernel.shape_centre(f))[2]) > 0.99),
+              key=kernel.face_area)
+    sm.convert(doc, base_face=top)
+    return doc
+
+
+doc = drawn_l()
+check("its thickness found, 2", near(doc.parameter_scope()["Thickness"], 2))
+check("laid flat at Inventor's 86.524 x 100",
+      [round(c, 3) for c in sorted(sm.flat_pattern(doc).extents())]
+      == [86.524, 100.0], sm.flat_pattern(doc).extents())
+doc = drawn_l(inner_centre=(3.5, 3.5), inner_radius=1.5)
+try:
+    sm.flat_pattern(doc)
+    check("a bend whose arcs do not share a centre is refused", False)
+except kernel.KernelError as exc:
+    check("a bend whose arcs do not share a centre is refused",
+          "same centre" in str(exc), str(exc))
+
+# ==========================================================================
 print("the features in a part")
 
 

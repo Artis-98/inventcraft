@@ -373,6 +373,26 @@ def _merge_flat(pieces: Sequence[TopoDS_Shape]) -> TopoDS_Shape:
     return unify.Shape()
 
 
+def _has_cylinder(solid, location, axis_dir, radius: float) -> bool:
+    """Whether the solid has a cylindrical face of this radius about this
+    axis."""
+    for face in kernel.faces(solid):
+        if _kind(face) != GeomAbs_Cylinder:
+            continue
+        cylinder = BRepAdaptor_Surface(TopoDS.Face_s(face)).Cylinder()
+        if abs(cylinder.Radius() - radius) > 1e-4:
+            continue
+        axis = cylinder.Axis()
+        d = _v(axis.Direction())
+        if abs(abs(_dot(d, axis_dir)) - 1.0) > 1e-6:
+            continue
+        off = _sub(_v(axis.Location()), location)
+        across = _sub(off, _mul(axis_dir, _dot(off, axis_dir)))
+        if math.sqrt(_dot(across, across)) < 1e-4:
+            return True
+    return False
+
+
 def _unbend(solid, found, face, bend, edge, where: gp_Trsf, t: float,
             k: float):
     """Lay one bend flat: the strip it becomes, the face beyond it and how
@@ -415,6 +435,15 @@ def _unbend(solid, found, face, bend, edge, where: gp_Trsf, t: float,
     radial = _unit(_sub(off, _mul(a_dir, _dot(off, a_dir))))
     inner = _inside(solid, _add(p, _mul(radial, t / 2.0)))
     r_inner = radius if inner else radius - t
+    # The bend's other side must be the same cylinder a thickness further
+    # in or out, about the same axis: a bend whose two sides do not share
+    # a centre is not a bend of this sheet, and Inventor will not lay it
+    # flat either
+    other = radius - t if not inner else radius + t
+    if not _has_cylinder(solid, a_loc, a_dir, other):
+        raise KernelError(
+            "a bend's inside and outside are not about the same centre, "
+            "so it cannot be laid flat")
     length = angle * (r_inner + k * t)
 
     # which way is away from the face, in its plane, across the edge
