@@ -271,6 +271,28 @@ def sketch_parameters(path: str) -> List[str]:
 live_document = None
 
 
+def _live(path: str, kind):
+    """The document behind a file as it is open in the window now, if it
+    is and it is a ``kind``; None when it is only on disk."""
+    if live_document is None:
+        return None
+    try:
+        held = live_document(path)
+    except Exception:
+        return None
+    return held if isinstance(held, kind) else None
+
+
+def open_frame(path: str):
+    """A frame assembly to change: the one open in the window if it is,
+    so the two do not part ways, or else read from its file."""
+    from .assembly import AssemblyDocument
+    held = _live(path, AssemblyDocument)
+    if held is not None and getattr(held, "frame", None) is not None:
+        return held
+    return AssemblyDocument.load(path)
+
+
 def _open_part(path: str):
     if live_document is not None:
         try:
@@ -576,22 +598,29 @@ def write_member_part(path: str, member: Member, fam: ProfileFamily,
               "extend_b": float(ends.get("extend_b", 0.0)),
               "cuts": [list(c) for c in ends.get("cuts", [])],
               "notches": [dict(n) for n in ends.get("notches", [])]}
-    if os.path.exists(path):
+    # A member's part is a part like any other: holes, cuts and whatever
+    # else are put on it after the Frame Member feature, and stay there.
+    # So only that feature is brought up to date, in the part as it is
+    # open now if it is, and nothing else in it is touched.
+    doc, current = _live(path, Document), None
+    if doc is None and os.path.exists(path):
         try:
             doc = Document.load(path)
-            current = next((f for f in doc.features
-                            if isinstance(f, FrameMemberFeature)), None)
-            if current is not None and all(
-                    getattr(current, k) == v for k, v in wanted.items()):
-                return False
         except Exception:
-            pass
-    doc = Document()
-    feature = FrameMemberFeature(name="%s %s" % (fam.standard or fam.name,
-                                                 member.size))
+            doc = None
+    if doc is not None:
+        current = next((f for f in doc.features
+                        if isinstance(f, FrameMemberFeature)), None)
+        if current is not None and all(
+                getattr(current, k) == v for k, v in wanted.items()):
+            return False
+    if current is None:
+        doc = Document()
+        current = FrameMemberFeature()
+        doc.add_feature(current)
+    current.name = "%s %s" % (fam.standard or fam.name, member.size)
     for key, value in wanted.items():
-        setattr(feature, key, value)
-    doc.add_feature(feature)
+        setattr(current, key, value)
     if member.material:
         doc.material = member.material
     doc.properties["Description"] = "%s %s" % (fam.name, member.size)
@@ -741,11 +770,26 @@ def refresh(path: str) -> List[str]:
     changed anything: what an assembly placing it does before it builds,
     so a skeleton edited since moves the members."""
     from .assembly import AssemblyDocument
+    held = _live(path, AssemblyDocument)
+    if held is not None and getattr(held, "frame", None) is not None:
+        # open in the window: that is the frame the assembly is shown, so
+        # it is the one brought up, and built again to show it
+        held.rebuild()
+        if getattr(held, "frame_changed", False):
+            held.save(path)
+        return ["member %d: %s" % (m.id, m.error)
+                for m in held.frame.members if m.error]
     frame_doc = AssemblyDocument.load(path)
     problems = sync(frame_doc)
     if getattr(frame_doc, "frame_changed", False):
         frame_doc.save(path)
     return problems
+
+
+def frame_folder(parent, number: int) -> str:
+    """Where frame ``number`` of an assembly goes: F10.icasm's Frame0003
+    in F10/Frame0003, as Inventor puts it."""
+    return os.path.join(parent.base_dir, parent.title, "Frame%04d" % number)
 
 
 def insert(parent, skeleton_occurrence, sketch_id: int, line_ids,
@@ -773,11 +817,12 @@ def insert(parent, skeleton_occurrence, sketch_id: int, line_ids,
         frame_path = parent.component_path(frame_occurrence)
         frame_doc = AssemblyDocument.load(frame_path)
     else:
+        # Inventor's layout: a folder named for the assembly beside it, and
+        # in that one folder per frame, the frame and its members' parts
         number = 1
-        while os.path.exists(os.path.join(parent.base_dir, "Frames",
-                                          "Frame%04d" % number)):
+        while os.path.exists(frame_folder(parent, number)):
             number += 1
-        folder = os.path.join(parent.base_dir, "Frames", "Frame%04d" % number)
+        folder = frame_folder(parent, number)
         os.makedirs(folder)
         frame_doc = AssemblyDocument()
         frame_doc.path = os.path.join(folder, "Frame%04d.icasm" % number)
@@ -1215,13 +1260,24 @@ def change_members(frame_doc, member_ids: Sequence[int], **fields
         for key, value in fields.items():
             setattr(member, key, value)
         if renamed and member.part:
+            # renamed for what it is now, not made again: whatever was
+            # put on the part after the member goes with it
             old = os.path.join(base, member.part) if base else member.part
+            part = member_part_name(member, family(member.family)) \
+                + ".icpart"
+            new = os.path.join(base, part) if base else part
             if member.occurrence:
                 frame_doc.remove_occurrence(member.occurrence)
             member.occurrence = 0
-            member.part = ""
+            member.part = part
+            held = _live(old, object)
             try:
-                os.remove(old)
+                if os.path.exists(old) and os.path.normcase(old) \
+                        != os.path.normcase(new):
+                    os.replace(old, new)
+                    if held is not None:
+                        # open in a tab: it follows the file
+                        held.path = new
             except OSError:
                 pass
     problems = sync(frame_doc)

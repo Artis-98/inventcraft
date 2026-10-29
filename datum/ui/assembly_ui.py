@@ -630,6 +630,7 @@ class AssemblyController(QtCore.QObject):
         b.place_requested.connect(self.place_component)
         b.frame_action_requested.connect(
             lambda what, oid, ids: self.host.frame_action(what, oid, ids))
+        b.hovered_changed.connect(self.show_hover)
 
         v = self.viewport
         v.component_drag_started.connect(self._drag_started)
@@ -792,6 +793,29 @@ class AssemblyController(QtCore.QObject):
         # the components were just rebuilt underneath them, so the arrows
         # have to be put back where the faces now are
         self._draw_arrows()
+
+    def show_hover(self, kind: str, item_id: int, owner: int = 0) -> None:
+        """Light up in the view what the pointer is over in the tree: a
+        component, or one member of a frame, so a long list of members
+        can be told apart without clicking each."""
+        vp = self.viewport
+        vp.remove_drawn(getattr(self, "_hover_drawn", []))
+        self._hover_drawn = []
+        doc = self.document
+        shape = None
+        if doc is not None and kind == "occurrence":
+            occurrence = doc.occurrence(item_id)
+            if occurrence is not None and occurrence.visible \
+                    and not occurrence.suppressed:
+                shape = occurrence.placed()
+        elif doc is not None and kind == "frame_member":
+            from .frames_ui import member_shapes
+            shape = member_shapes(doc, owner).get(item_id)
+        if shape is not None and not shape.IsNull():
+            with vp.collecting() as drawn:
+                vp.draw_ghost(shape, C.highlight, 0.45)
+            self._hover_drawn = drawn
+        vp.redraw()
 
     # ------------------------------------------- the parts' sketches, placed
 
@@ -1638,6 +1662,30 @@ class AssemblyController(QtCore.QObject):
             return True
         return False
 
+    def frame_members_at_menu(self, picked: Sequence[int]):
+        """(frame, members) a right click in the view is about: the parts
+        picked in a frame open itself, or in an assembly the member of a
+        frame under the pointer, with any picked beside it in the tree."""
+        from . import frames_ui
+        doc = self.document
+        if doc is None:
+            return 0, []
+        if getattr(doc, "frame", None) is not None:
+            ids = [frames_ui.member_of_occurrence(doc, oid) for oid in picked]
+            ids = [i for i in ids if i]
+            return (frames_ui.SELF, ids) if ids else (0, [])
+        pos = getattr(self.viewport, "_menu_pos", None)
+        if pos is None or not picked \
+                or picked[0] not in frames_ui.frame_ids(doc):
+            return 0, []
+        fid, mid = frames_ui.member_at(self.host, pos.x(), pos.y(), picked[0])
+        if not mid:
+            return 0, []
+        owner, chosen = self.browser.selected_frame_members()
+        if owner == fid and mid in chosen:
+            return fid, chosen
+        return fid, [mid]
+
     def context_menu(self, menu: QtWidgets.QMenu) -> None:
         """Right-click in the viewport while an assembly is open."""
         picked = self.viewport.selected_components()
@@ -1649,6 +1697,12 @@ class AssemblyController(QtCore.QObject):
             if under is not None:
                 picked = [under]
         doc = self.document
+        frame_oid, member_ids = self.frame_members_at_menu(picked)
+        if member_ids:
+            # Inventor's: right click a member anywhere it shows, in the
+            # frame or the assembly it is placed in, and Change Frame
+            self.browser._frame_menu(menu, frame_oid, member_ids)
+            menu.addSeparator()
         if picked and doc is not None:
             occurrence = doc.occurrence(picked[0])
             if occurrence is not None:

@@ -53,6 +53,11 @@ def _clip(ax, ay, bx, by, x0, y0, x1, y1) -> bool:
     return True
 
 
+# the frame that is itself the assembly open, Frame0003 opened or stepped
+# into, where a frame placed in an assembly is known by its occurrence
+SELF = -1
+
+
 def frame_occurrences(doc) -> List[Any]:
     """The frames placed in an assembly."""
     out = []
@@ -63,14 +68,111 @@ def frame_occurrences(doc) -> List[Any]:
     return out
 
 
+def frame_ids(doc) -> List[int]:
+    """Every frame to be had here: the assembly itself when it is one,
+    else the frames placed in it."""
+    if getattr(doc, "frame", None) is not None:
+        return [SELF]
+    return [o.id for o in frame_occurrences(doc)]
+
+
 def load_frame(doc, frame_oid: int):
-    """The frame assembly a frame occurrence places, read fresh."""
-    from ..core.assembly import AssemblyDocument
+    """The frame assembly to change: the one open in the window when it
+    is, so the two cannot part ways, else read from its file."""
+    if frame_oid == SELF:
+        return doc
     occurrence = doc.occurrence(frame_oid)
     path = doc.component_path(occurrence) if occurrence else None
     if not path:
         raise ValueError("the frame's file cannot be found")
-    return AssemblyDocument.load(path)
+    return frames.open_frame(path)
+
+
+def frame_placement(doc, frame_oid: int):
+    """Where a frame sits here; None for the frame open itself."""
+    occurrence = doc.occurrence(frame_oid) if frame_oid != SELF else None
+    return occurrence.placement if occurrence is not None else None
+
+
+def frame_location(doc, frame_oid: int):
+    from OCP.TopLoc import TopLoc_Location
+    placement = frame_placement(doc, frame_oid)
+    return placement.location() if placement is not None \
+        else TopLoc_Location()
+
+
+def frame_changed(host, frame_doc) -> None:
+    """The view brought up to a frame just changed: the frame itself
+    built again when it is open, then the assembly round it."""
+    live = getattr(host, "_live_document", None)
+    if frame_doc is not host.assembly and live is not None \
+            and frame_doc.path and live(frame_doc.path) is frame_doc:
+        frame_doc.rebuild()
+    host.assembly_ui.rebuild()
+
+
+def member_shapes(doc, frame_oid: int) -> Dict[int, Any]:
+    """{member id: its part where it sits in the view}, as last built."""
+    try:
+        frame_doc = load_frame(doc, frame_oid)
+    except (ValueError, OSError):
+        return {}
+    fd = getattr(frame_doc, "frame", None)
+    if fd is None:
+        return {}
+    location = frame_location(doc, frame_oid)
+    out = {}
+    for member in fd.members:
+        occurrence = frame_doc.occurrence(member.occurrence) \
+            if member.occurrence else None
+        if occurrence is None or occurrence.suppressed \
+                or not occurrence.visible:
+            continue
+        shape = occurrence.shape
+        if shape is None or shape.IsNull():
+            path = frame_doc.component_path(occurrence)
+            try:
+                shape = doc.library.shape(path) if path else None
+            except Exception:
+                shape = None
+        if shape is None or shape.IsNull():
+            continue
+        out[member.id] = shape.Moved(location.Multiplied(
+            occurrence.placement.location()))
+    return out
+
+
+def member_at(host, x: int, y: int,
+              frame_oid: Optional[int] = None) -> Tuple[int, int]:
+    """(frame, member) under a point in the view, the nearest to the eye;
+    (0, 0) when no frame member is there."""
+    from OCP.IntCurvesFace import IntCurvesFace_ShapeIntersector
+    from OCP.gp import gp_Dir, gp_Lin, gp_Pnt
+    doc = host.assembly
+    ray = host.viewport.ray_at(x, y) if doc is not None else None
+    if ray is None:
+        return 0, 0
+    line = gp_Lin(gp_Pnt(*ray[0]), gp_Dir(*ray[1]))
+    best = None
+    for fid in ([frame_oid] if frame_oid is not None else frame_ids(doc)):
+        for mid, shape in member_shapes(doc, fid).items():
+            hit = IntCurvesFace_ShapeIntersector()
+            hit.Load(shape, 1e-6)
+            hit.Perform(line, -1e12, 1e12)
+            for i in range(1, hit.NbPnt() + 1):
+                w = hit.WParameter(i)
+                if best is None or w < best[0]:
+                    best = (w, fid, mid)
+    return (best[1], best[2]) if best else (0, 0)
+
+
+def member_of_occurrence(doc, occurrence_id: int) -> int:
+    """The member a part placed in the frame open here is, or 0."""
+    fd = getattr(doc, "frame", None)
+    if fd is None:
+        return 0
+    return next((m.id for m in fd.members if m.occurrence == occurrence_id),
+                0)
 
 
 class PickingDialog(QtWidgets.QDialog):
@@ -107,18 +209,20 @@ class PickingDialog(QtWidgets.QDialog):
         """Every member of the frames placed here as the line down its
         middle, to be picked like a sketch line."""
         self._lines, self._reach = {}, {}
-        for occurrence in frame_occurrences(self.doc):
-            if only_frame and occurrence.id != only_frame:
+        for fid in frame_ids(self.doc):
+            if only_frame and fid != only_frame:
                 continue
             try:
-                frame_doc = load_frame(self.doc, occurrence.id)
+                frame_doc = load_frame(self.doc, fid)
                 axes = frames.member_axes(frame_doc)
             except Exception:
                 continue
+            placement = frame_placement(self.doc, fid)
             for mid, (a, b, reach) in axes.items():
-                key = ("m", occurrence.id, mid)
-                self._lines[key] = (occurrence.placement.apply_point(a),
-                                    occurrence.placement.apply_point(b))
+                key = ("m", fid, mid)
+                self._lines[key] = (placement.apply_point(a),
+                                    placement.apply_point(b)) \
+                    if placement is not None else (a, b)
                 self._reach[key] = reach
 
     def _screen(self, key):
@@ -592,10 +696,9 @@ class InsertFrameDialog(PickingDialog):
             return []
         if self.changing:
             frame_doc = load_frame(self.doc, self.frame_oid)
-            occurrence = self.doc.occurrence(self.frame_oid)
             solids = frames.member_world_solids(
                 frame_doc, self.picked_members(), self.changes())
-            location = occurrence.placement.location()
+            location = frame_location(self.doc, self.frame_oid)
             return [s.Moved(location) for s in solids.values()]
         groups: Dict[Tuple[int, int], List[int]] = {}
         for oid, sid, lid in self._picked:
@@ -685,7 +788,7 @@ class InsertFrameDialog(PickingDialog):
             self.message.setStyleSheet("color: %s;" % C.error)
             self.message.setText(str(exc))
             return False
-        self.host.assembly_ui.rebuild()
+        frame_changed(self.host, frame_doc)
         self._initial = self.values()
         self.message.setStyleSheet("" if not problems
                                    else "color: %s;" % C.error)
@@ -910,11 +1013,11 @@ class EndTreatmentDialog(PickingDialog):
     def set_face(self, point, normal) -> None:
         """The plane to trim or extend to, given in the assembly."""
         import numpy as np
-        occurrence = self.doc.occurrence(self.frame_oid) \
+        placement = frame_placement(self.doc, self.frame_oid) \
             if self.frame_oid else None
-        if occurrence is not None:
-            m = occurrence.placement.matrix()
-            pos = np.asarray(occurrence.placement.position, float)
+        if placement is not None:
+            m = placement.matrix()
+            pos = np.asarray(placement.position, float)
             point = tuple(float(c) for c in m.T @ (np.asarray(point, float)
                                                    - pos))
             normal = tuple(float(c) for c in m.T @ np.asarray(normal, float))
@@ -965,7 +1068,7 @@ class EndTreatmentDialog(PickingDialog):
             if ready else None
         solids = frames.member_world_solids(frame_doc, members + others,
                                             extra=extra)
-        location = self.doc.occurrence(self.frame_oid).placement.location()
+        location = frame_location(self.doc, self.frame_oid)
         return [s.Moved(location) for s in solids.values()]
 
     def apply(self) -> bool:
@@ -981,7 +1084,7 @@ class EndTreatmentDialog(PickingDialog):
             self.message.setStyleSheet("color: %s;" % C.error)
             self.message.setText(str(exc))
             return False
-        self.host.assembly_ui.rebuild()
+        frame_changed(self.host, frame_doc)
         self.message.setStyleSheet("" if not problems
                                    else "color: %s;" % C.error)
         self.message.setText("; ".join(problems) if problems else
@@ -1002,7 +1105,7 @@ def remove_end_treatments(host, frame_oid: int, member_ids) -> int:
     """Remove End Treatments on members picked in the tree."""
     frame_doc = load_frame(host.assembly, frame_oid)
     gone = frames.remove_treatments(frame_doc, list(member_ids))
-    host.assembly_ui.rebuild()
+    frame_changed(host, frame_doc)
     return gone
 
 

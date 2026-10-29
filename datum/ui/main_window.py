@@ -2071,12 +2071,37 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog.show()
         return dialog
 
+    def open_frame_member(self, frame_oid: int, member_id: int):
+        """A frame member's part opened in a tab of its own, to work on
+        like any part: holes, cuts, whatever it needs.  The Frame
+        Generator only ever changes its Frame Member feature, so what is
+        added after stays."""
+        from .frames_ui import load_frame
+        try:
+            frame_doc = load_frame(self.assembly, frame_oid)
+        except (ValueError, OSError) as exc:
+            self.status_message.setText(str(exc))
+            return None
+        member = frame_doc.frame.member(member_id) \
+            if frame_doc.frame is not None else None
+        if member is None or not member.part:
+            return None
+        path = os.path.join(frame_doc.base_dir, member.part)
+        if not os.path.exists(path):
+            self.status_message.setText("%s is not there." % member.part)
+            return None
+        self.open_path(path)
+        return path
+
     def frame_action(self, what: str, frame_oid: int = 0, member_ids=None):
         """What the tree's Frame Generator menu asked for."""
         if member_ids is None:
             frame_oid, member_ids = self._tree_frame_members()
         if what == "change":
             return self.change_frame(frame_oid, member_ids)
+        if what == "open":
+            return self.open_frame_member(frame_oid, member_ids[0]) \
+                if member_ids else None
         if what == "remove":
             from .frames_ui import remove_end_treatments
             if not frame_oid or not member_ids:

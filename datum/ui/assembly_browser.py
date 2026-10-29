@@ -25,6 +25,9 @@ ROLE_OWNER = QtCore.Qt.UserRole + 3
 
 ORIGIN_PLANES = (("XY Plane", "XY"), ("XZ Plane", "XZ"), ("YZ Plane", "YZ"))
 
+# the frame that is the assembly open itself, as frames_ui.SELF
+SELF_FRAME = -1
+
 
 class AssemblyBrowser(QtWidgets.QTreeWidget):
     """Tree of placed components and the relationships between them."""
@@ -57,6 +60,10 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     # occurrence, the members' ids); "change", "miter", "corner",
     # "trim_face", "notch", "lengthen", "remove"
     frame_action_requested = QtCore.Signal(str, int, list)
+    # what the pointer is over: ("occurrence", its id, 0) or
+    # ("frame_member", its id, its frame's occurrence); ("", 0, 0) for
+    # nothing, so the view can light up what the row is
+    hovered_changed = QtCore.Signal(str, int, int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -71,6 +78,9 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
 
         self.customContextMenuRequested.connect(self._menu)
         self.itemDoubleClicked.connect(self._double_clicked)
+        self.setMouseTracking(True)
+        self.itemEntered.connect(self._entered)
+        self._hovered: Tuple[str, int, int] = ("", 0, 0)
         # Assembly or Modeling: what a component expands into
         self.mode = "assembly"
         # the component being edited in place, bolded and the only one
@@ -265,6 +275,14 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         """The frame and the members of it picked in the tree: the first
         frame's, if members of several are picked."""
         owner, ids = 0, []
+        fd = getattr(self._doc, "frame", None)
+        if fd is not None:
+            # the frame itself is open: its members are the parts in it
+            by_occurrence = {m.occurrence: m.id for m in fd.members}
+            ids = [by_occurrence[oid] for oid in self.selected_occurrence_ids()
+                   if oid in by_occurrence]
+            if ids:
+                return SELF_FRAME, ids
         for item in self.selectedItems():
             if item.data(0, ROLE_KIND) != "frame_member":
                 continue
@@ -287,8 +305,12 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         title = menu.addAction("%d frame member%s" % (n, "" if n == 1
                                                      else "s"))
         title.setEnabled(False)
-        menu.addAction(icons.icon("frame_member", 16),
+        menu.addAction(icons.icon("frame_change", 16),
                        "Change Frame...").triggered.connect(ask("change"))
+        if n == 1 and frame_oid != SELF_FRAME:
+            # a member is a part like any other: open it, and drill holes
+            menu.addAction(icons.icon("open", 16),
+                           "Open Part").triggered.connect(ask("open"))
         menu.addSeparator()
         for what, label in (("miter", "Miter..."),
                             ("corner", "Corner Joint..."),
@@ -420,6 +442,25 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         if constraints:
             self.constraint_selected.emit(constraints[0])
 
+    def _entered(self, item: QtWidgets.QTreeWidgetItem, _col: int) -> None:
+        kind = item.data(0, ROLE_KIND) if item is not None else None
+        if kind == "occurrence":
+            self._set_hovered(("occurrence", int(item.data(0, ROLE_ID)), 0))
+        elif kind == "frame_member":
+            self._set_hovered(("frame_member", int(item.data(0, ROLE_ID)),
+                               int(item.data(0, ROLE_OWNER))))
+        else:
+            self._set_hovered(("", 0, 0))
+
+    def _set_hovered(self, hovered: Tuple[str, int, int]) -> None:
+        if hovered != self._hovered:
+            self._hovered = hovered
+            self.hovered_changed.emit(*hovered)
+
+    def leaveEvent(self, event) -> None:
+        self._set_hovered(("", 0, 0))
+        super().leaveEvent(event)
+
     def _double_clicked(self, item: QtWidgets.QTreeWidgetItem,
                         _col: int) -> None:
         kind = item.data(0, ROLE_KIND)
@@ -434,6 +475,11 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             return
         if kind == "occurrence":
             self.occurrence_activated.emit(int(item.data(0, ROLE_ID)))
+        elif kind == "frame_member":
+            # its part, opened to work on as a part
+            self.frame_action_requested.emit(
+                "open", int(item.data(0, ROLE_OWNER)),
+                [int(item.data(0, ROLE_ID))])
         elif kind == "constraint":
             self.constraint_activated.emit(int(item.data(0, ROLE_ID)))
         elif kind == "plane":
@@ -464,6 +510,16 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             occurrence = self._doc.occurrence(oid)
             if occurrence is None:
                 return
+
+            if getattr(self._doc, "frame", None) is not None:
+                # in the frame itself its parts are its members
+                if not item.isSelected():
+                    self.clearSelection()
+                    item.setSelected(True)
+                frame_oid, member_ids = self.selected_frame_members()
+                if member_ids:
+                    self._frame_menu(menu, frame_oid, member_ids)
+                    menu.addSeparator()
 
             open_part = menu.addAction(icons.icon("open", 16), "Open Part")
             open_part.setToolTip("Edit the file this component places")

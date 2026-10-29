@@ -19,8 +19,10 @@ from PySide6 import QtCore, QtGui, QtWidgets                       # noqa: E402
 from datum.core import frames, kernel                             # noqa: E402
 from datum.core.assembly import AssemblyDocument                  # noqa: E402
 from datum.core.document import Document                          # noqa: E402
-from datum.core.features import SketchFeature                     # noqa: E402
-from datum.core.sketch import Sketch, SketchPlane                 # noqa: E402
+from datum.core.features import HoleFeature, SketchFeature        # noqa: E402
+from datum.core.sketch import (                                   # noqa: E402
+    STANDARD_PLANES, Sketch, SketchPlane)
+from datum.ui import frames_ui                                    # noqa: E402
 from datum.ui.assembly_browser import ROLE_ID, ROLE_KIND          # noqa: E402
 from datum.ui.main_window import TAB_DESIGN, MainWindow           # noqa: E402
 from datum.ui.theme import stylesheet                              # noqa: E402
@@ -340,6 +342,121 @@ print("Remove End Treatments")
 gone = win.frame_action("remove", frame_oid, corner_pair)
 check("both treatments on those members gone", gone == 2
       and not frames.read_frame(frame_path).treatments, gone)
+
+print("Inventor's folders")
+check("the frame is in Table/Frame0001, beside the assembly",
+      os.path.normcase(os.path.dirname(frame_path)) == os.path.normcase(
+          os.path.join(WORK, "Table", "Frame0001")), frame_path)
+
+print("the pointer over a row in the tree lights it up in the view")
+win.assembly_ui.rebuild()
+pump()
+fd = frames.read_frame(frame_path)
+ids = [m.id for m in fd.members]
+root = tree.topLevelItem(0)
+frame_item = next(root.child(i) for i in range(root.childCount())
+                  if root.child(i).data(0, ROLE_KIND) == "occurrence"
+                  and root.child(i).data(0, ROLE_ID) == frame_oid)
+member_item = next(frame_item.child(i) for i in range(frame_item.childCount())
+                   if frame_item.child(i).data(0, ROLE_KIND) == "frame_member")
+tree._entered(member_item, 0)
+lit = win.assembly_ui._hover_drawn
+check("a member's row lights up that member", len(lit) == 1)
+if lit:
+    x0, y0, _z0, x1, y1, _z1 = kernel.bounding_box(lit[0].Shape())
+    check("and only it, not the whole frame", min(x1 - x0, y1 - y0) < 100,
+          (x1 - x0, y1 - y0))
+tree._entered(frame_item, 0)
+check("a component's row lights up the component",
+      len(win.assembly_ui._hover_drawn) == 1)
+tree._set_hovered(("", 0, 0))
+check("off the tree, nothing is lit", not win.assembly_ui._hover_drawn)
+
+print("right click on a member in the view")
+win.viewport.set_view("top")
+win.viewport.fit_all()
+settle(300)
+axes = frames.member_axes(frames.open_frame(frame_path))
+a, b, _reach = axes[ids[1]]
+x, y = win.viewport.project(frame_occurrence.placement.apply_point(
+    tuple((a[i] + b[i]) / 2 for i in range(3))))
+win.viewport._menu_pos = QtCore.QPoint(int(x), int(y))
+check("the member under the pointer is found",
+      win.assembly_ui.frame_members_at_menu([frame_oid])
+      == (frame_oid, [ids[1]]))
+menu = QtWidgets.QMenu()
+win.assembly_ui.context_menu(menu)
+labels = [act.text() for act in menu.actions() if act.text()]
+check("its menu has Change Frame", labels[:2] == ["1 frame member",
+                                                  "Change Frame..."], labels)
+
+print("in the frame itself")
+win.edit_in_place(frame_oid)
+settle(300)
+check("stepped into the frame", getattr(win.assembly, "frame", None)
+      is not None)
+member_occurrence = win.assembly.frame.member(ids[0]).occurrence
+tree.select_occurrences([member_occurrence])
+owner, picked_ids = tree.selected_frame_members()
+check("its parts are its members", owner == frames_ui.SELF
+      and picked_ids == [ids[0]], (owner, picked_ids))
+check("right clicked in the view, the same",
+      win.assembly_ui.frame_members_at_menu([member_occurrence])
+      == (frames_ui.SELF, [ids[0]]))
+dialog = win.frame_action("change", owner, picked_ids)
+pump()
+check("Change Frame opens on it there",
+      dialog.count.text() == "1 member selected", dialog.count.text())
+check("with its green picture", dialog.draw_preview() == 1)
+dialog.close()
+win.finish_in_place()
+settle(300)
+
+print("Change Frame after the frame was edited in place")
+before = kernel.bounding_box(win.assembly.shape)
+dialog = win.frame_action("change", frame_oid, ids)
+dialog.anchor_buttons["tl"].setChecked(True)
+check("a new placement applies", dialog.apply(), dialog.message.text())
+dialog.close()
+after = kernel.bounding_box(win.assembly.shape)
+check("and the members move to it",
+      max(abs(p - q) for p, q in zip(before, after)) > 5, (before, after))
+
+print("a member is a part to work on")
+member_path = win.frame_action("open", frame_oid, [ids[0]])
+settle(300)
+part = win.session.by_path(member_path).document
+plain = kernel.volume(part.shape)
+centres = SketchFeature()
+centres.sketch = Sketch(STANDARD_PLANES["XZ"], "Hole")
+centres.sketch.add_circle((0, 100), 5)
+part.add_feature(centres)
+hole = HoleFeature()
+hole.sketch_id = centres.id
+hole.diameter = "10"
+hole.depth = "100"
+hole.through = True
+part.add_feature(hole)
+part.rebuild()
+part.save(member_path)
+check("it opens as a part, and takes a hole",
+      kernel.volume(part.shape) < plain - 100)
+win.activate(win.session.by_path(table.path))
+settle(300)
+size = "50 x 50 x 4"
+dialog = win.frame_action("change", frame_oid, [ids[0]])
+dialog.size.setCurrentText(size)
+check("a new size applies", dialog.apply(), dialog.message.text())
+dialog.close()
+member = frames.read_frame(frame_path).member(ids[0])
+renamed = os.path.join(os.path.dirname(frame_path), member.part)
+again = Document.load(renamed)
+check("the part is named for its new size, the hole still in it",
+      size in member.part and any(isinstance(f, HoleFeature)
+                                  for f in again.features), member.part)
+check("the old name is gone", not os.path.exists(member_path))
+check("and the tab open on it follows it", os.path.normcase(part.path)
+      == os.path.normcase(renamed), part.path)
 
 print("the Profile Library")
 library = win.profile_library()

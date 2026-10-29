@@ -131,8 +131,9 @@ folder = os.path.dirname(frame.path)
 parts = [n for n in os.listdir(folder) if n.endswith(".icpart")]
 check("each member a part of its own, beside the frame", len(parts) == 6,
       parts)
-check("the frame lives in a folder of its own, Frames/Frame0001",
-      folder.replace("\\", "/").endswith("Frames/Frame0001"))
+check("the frame lives where Inventor puts it: Table/Frame0001",
+      os.path.normcase(folder) == os.path.normcase(
+          os.path.join(WORK, "Table", "Frame0001")), folder)
 member = Document.load(os.path.join(folder, sorted(parts)[-1]))
 feature = member.features[0]
 check("a member's part is one Frame Member feature",
