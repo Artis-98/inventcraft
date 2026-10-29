@@ -114,6 +114,8 @@ class BuildContext:
         # so a pattern or mirror can do the same on its copies
         self.edge_ops: Dict[int, Tuple[str, float, List[TopoDS_Shape]]] = {}
         self.log: List[str] = []
+        # the sheet metal K-factor, for a Fold's bend allowance
+        self.k_factor = 0.44
         # Whether a code feature may run its script during this rebuild.
         # Set by the document from its trust, never by the file, so a part
         # somebody sent you cannot run anything by being opened.
@@ -2830,6 +2832,294 @@ class FlangeFeature(Feature):
             self.position = "inside"
 
 
+def _edge_set(ctx: BuildContext, refs: RefSet, name: str):
+    body = ctx.require_shape(name)
+    edges, lost = refs.resolve_all(body)
+    if lost and not edges:
+        raise FeatureError("%s: its edges no longer exist" % name)
+    if not edges:
+        raise FeatureError("%s: no edges selected" % name)
+    return [TopoDS.Edge_s(e) for e in edges]
+
+
+@dataclass
+class HemFeature(Feature):
+    """Inventor's Hem: the edge of the sheet folded back over its face.
+
+    Single and Double take a gap and a length, Teardrop and Rolled a
+    radius and an angle (``first`` and ``second``), as Inventor's own
+    dialog does; built to its measured shapes, see sheetmetal.hem_steps.
+    """
+
+    type_name: str = "hem"
+    icon: str = "sm_hem"
+    name: str = "Hem"
+    edges: RefSet = field(default_factory=RefSet)
+    kind: str = "single"
+    first: str = "Thickness * 0.5"
+    second: str = "Thickness * 4"
+    thickness: str = "Thickness"
+    flipped: bool = False
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import sheetmetal
+        edges = _edge_set(ctx, self.edges, self.name)
+        t = ctx.evaluate(self.thickness, "%s thickness" % self.name)
+        a = ctx.evaluate(self.first, "%s %s" % (self.name, self.labels()[0]))
+        b = ctx.evaluate(self.second, "%s %s" % (self.name, self.labels()[1]))
+        try:
+            owner = ctx.require_body(self.name, edges[0])
+            made = [sheetmetal.hem_tools(owner.shape, e, self.kind, t, a, b,
+                                         self.flipped) for e in edges]
+            body = kernel.boolean(owner.shape, kernel.fuse_all(
+                [c for c, _t in made]) if len(made) > 1 else made[0][0],
+                "cut")
+            owner.shape = kernel.boolean(body, kernel.fuse_all(
+                [t2 for _c, t2 in made]) if len(made) > 1 else made[0][1],
+                "join")
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+
+    def labels(self) -> Tuple[str, str]:
+        return (("gap", "length") if self.kind in ("single", "double")
+                else ("radius", "angle"))
+
+    def summary(self) -> str:
+        first, second = self.labels()
+        return "%s: %s, %s %s, %s %s, %d edge(s)" % (
+            self.name, self.kind.title(), first, self.first, second,
+            self.second, len(self.edges))
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"edges": self.edges.to_list(), "kind": self.kind,
+                "first": self.first, "second": self.second,
+                "thickness": self.thickness, "flipped": self.flipped}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.edges = RefSet.from_list(data.get("edges", []))
+        self.kind = data.get("kind", "single")
+        if self.kind not in ("single", "double", "teardrop", "rolled"):
+            self.kind = "single"
+        self.first = str(data.get("first", "Thickness * 0.5"))
+        self.second = str(data.get("second", "Thickness * 4"))
+        self.thickness = str(data.get("thickness", "Thickness"))
+        self.flipped = bool(data.get("flipped", False))
+
+
+@dataclass
+class FoldFeature(Feature):
+    """Inventor's Fold: the sheet bent along a line sketched on its face,
+    the line the bend's centre, so the flat pattern is the sheet as it
+    was."""
+
+    type_name: str = "fold"
+    icon: str = "sm_fold"
+    name: str = "Fold"
+    sketch_id: int = 0
+    line: int = 0                       # the sketch line it folds along
+    angle: str = "90"
+    bend_radius: str = "BendRadius"
+    thickness: str = "Thickness"
+    flip_side: bool = False
+    flip_direction: bool = False
+
+    def depends_on(self) -> List[int]:
+        return [self.sketch_id] if self.sketch_id else []
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import sheetmetal
+        sketch = ctx.sketches.get(self.sketch_id)
+        if sketch is None:
+            raise FeatureError("%s: its sketch is gone" % self.name)
+        entity = sketch.entities.get(self.line)
+        if entity is None or entity.kind != "line":
+            lines = [e for e in sketch.entities.values()
+                     if e.kind == "line" and not e.construction]
+            if len(lines) != 1:
+                raise FeatureError("%s: pick the line to fold along"
+                                   % self.name)
+            entity = lines[0]
+        plane = sketch.plane
+        a = sketch.points[entity.points[0]]
+        b = sketch.points[entity.points[1]]
+        p0, p1 = plane.to_3d(a.x, a.y), plane.to_3d(b.x, b.y)
+        t = ctx.evaluate(self.thickness, "%s thickness" % self.name)
+        r = ctx.evaluate(self.bend_radius, "%s bend radius" % self.name)
+        angle = ctx.evaluate(self.angle, "%s angle" % self.name)
+        body = ctx.require_shape(self.name)
+        middle = tuple((p0[i] + p1[i]) / 2 for i in range(3))
+        try:
+            owner = None
+            for candidate in ctx.live:
+                box = kernel.bounding_box(candidate.shape)
+                if all(box[i] - t <= middle[i] <= box[i + 3] + t
+                       for i in range(3)):
+                    owner = candidate
+                    break
+            owner = owner or ctx.require_body(self.name, None)
+            owner.shape = sheetmetal.fold(
+                owner.shape, plane.origin, plane.normal, p0, p1, t, r, angle,
+                getattr(ctx, "k_factor", 0.44), self.flip_side,
+                self.flip_direction)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+
+    def summary(self) -> str:
+        return "%s: %s deg along a sketch line" % (self.name, self.angle)
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"sketch_id": self.sketch_id, "line": self.line,
+                "angle": self.angle, "bend_radius": self.bend_radius,
+                "thickness": self.thickness, "flip_side": self.flip_side,
+                "flip_direction": self.flip_direction}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.sketch_id = int(data.get("sketch_id", 0))
+        self.line = int(data.get("line", 0))
+        self.angle = str(data.get("angle", "90"))
+        self.bend_radius = str(data.get("bend_radius", "BendRadius"))
+        self.thickness = str(data.get("thickness", "Thickness"))
+        self.flip_side = bool(data.get("flip_side", False))
+        self.flip_direction = bool(data.get("flip_direction", False))
+
+
+def _path_points(sketch: Sketch) -> List[Tuple[float, float, float]]:
+    """The corners of a sketch's longest open chain of lines, in order."""
+    _closed, chains = kernel._chains(sketch)
+    if not chains:
+        raise KernelError("the sketch has no open path")
+    chain = max(chains, key=len)
+    if any(sketch.entities[e].kind != "line" for e in chain):
+        raise KernelError("a contour flange's path is lines only, for now")
+    ends = [tuple(sketch.entities[e].points[:2]) for e in chain]
+    if len(ends) == 1:
+        order = list(ends[0])
+    else:
+        a, b = ends[0]
+        c, d = ends[1]
+        order = [b, a] if a in (c, d) else [a, b]
+        for p, q in ends[1:]:
+            order.append(q if p == order[-1] else p)
+    plane = sketch.plane
+    return [plane.to_3d(sketch.points[p].x, sketch.points[p].y)
+            for p in order]
+
+
+@dataclass
+class ContourFlangeFeature(Feature):
+    """Inventor's Contour Flange: an open path of lines, the inside of
+    the sheet, given the thickness, bent at its corners at the bend radius
+    and run a width along its sketch's normal."""
+
+    type_name: str = "contour_flange"
+    icon: str = "sm_contour"
+    name: str = "Contour Flange"
+    sketch_id: int = 0
+    width: str = "50"
+    direction: str = "positive"         # positive, negative, symmetric
+    bend_radius: str = "BendRadius"
+    thickness: str = "Thickness"
+    flipped: bool = False
+
+    def depends_on(self) -> List[int]:
+        return [self.sketch_id] if self.sketch_id else []
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import sheetmetal
+        sketch = ctx.sketches.get(self.sketch_id)
+        if sketch is None:
+            raise FeatureError("%s: its sketch is gone" % self.name)
+        t = ctx.evaluate(self.thickness, "%s thickness" % self.name)
+        r = ctx.evaluate(self.bend_radius, "%s bend radius" % self.name)
+        w = ctx.evaluate(self.width, "%s width" % self.name)
+        try:
+            points = _path_points(sketch)
+            if len(points) == 2:
+                raise KernelError("a contour flange needs a path with a "
+                                  "corner")
+            # contour_flange runs the width along the normal its path's
+            # first corner turns about; the width belongs to the sketch's
+            # own normal, so a path turning the other way round is given
+            # the other direction
+            from .sheetmetal import _cross, _dot, _sub, _unit
+            d0 = _unit(_sub(points[1], points[0]))
+            d1 = _unit(_sub(points[2], points[1]))
+            direction = self.direction
+            if _dot(_cross(d0, d1), sketch.plane.normal) < 0:
+                direction = {"positive": "negative",
+                             "negative": "positive"}.get(direction,
+                                                         direction)
+            tool = sheetmetal.contour_flange(points, w, t, r, self.flipped,
+                                             direction)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        ctx.apply(tool, JOIN, self.id, targets=self.solids)
+
+    def summary(self) -> str:
+        return "%s: %s wide, %s" % (self.name, self.width,
+                                    self.output_summary())
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"sketch_id": self.sketch_id, "width": self.width,
+                "direction": self.direction,
+                "bend_radius": self.bend_radius,
+                "thickness": self.thickness, "flipped": self.flipped}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.sketch_id = int(data.get("sketch_id", 0))
+        self.width = str(data.get("width", "50"))
+        self.direction = data.get("direction", "positive")
+        if self.direction not in ("positive", "negative", "symmetric"):
+            self.direction = "positive"
+        self.bend_radius = str(data.get("bend_radius", "BendRadius"))
+        self.thickness = str(data.get("thickness", "Thickness"))
+        self.flipped = bool(data.get("flipped", False))
+
+
+@dataclass
+class CornerSeamFeature(Feature):
+    """Inventor's Corner Seam: two flanges made apart, closed at the
+    corner they share as one Flange on both edges would have it."""
+
+    type_name: str = "corner_seam"
+    icon: str = "sm_corner"
+    name: str = "Corner Seam"
+    edges: RefSet = field(default_factory=RefSet)
+    gap: str = "Thickness"
+    bend_radius: str = "BendRadius"
+    thickness: str = "Thickness"
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import sheetmetal
+        edges = _edge_set(ctx, self.edges, self.name)
+        if len(edges) != 2:
+            raise FeatureError("%s: pick the two edges, one on each wall, "
+                               "that face each other across the corner"
+                               % self.name)
+        t = ctx.evaluate(self.thickness, "%s thickness" % self.name)
+        r = ctx.evaluate(self.bend_radius, "%s bend radius" % self.name)
+        g = ctx.evaluate(self.gap, "%s gap" % self.name)
+        try:
+            owner = ctx.require_body(self.name, edges[0])
+            owner.shape = sheetmetal.corner_seam(owner.shape, edges[0],
+                                                 edges[1], t, r, g)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+
+    def summary(self) -> str:
+        return "%s: gap %s" % (self.name, self.gap)
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"edges": self.edges.to_list(), "gap": self.gap,
+                "bend_radius": self.bend_radius, "thickness": self.thickness}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.edges = RefSet.from_list(data.get("edges", []))
+        self.gap = str(data.get("gap", "Thickness"))
+        self.bend_radius = str(data.get("bend_radius", "BendRadius"))
+        self.thickness = str(data.get("thickness", "Thickness"))
+
+
 FEATURE_TYPES: Dict[str, type] = {
     cls.type_name: cls for cls in (
         SketchFeature, WorkPlaneFeature, WorkAxisFeature,
@@ -2838,5 +3128,6 @@ FEATURE_TYPES: Dict[str, type] = {
         ImportFeature, FilletFeature, ChamferFeature, ShellFeature,
         MirrorFeature, PatternFeature, MoveFeature, CodeFeature,
         SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
+        HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
     )
 }

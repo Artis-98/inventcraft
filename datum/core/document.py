@@ -515,6 +515,12 @@ class Document:
                 return name
         return ""
 
+    def _sheet_key(self) -> str:
+        """What of Sheet Metal Defaults a feature's result depends on that
+        is not in the feature: the K-factor."""
+        sheet = getattr(self, "sheet_metal", None)
+        return sheet.k_factor if sheet is not None else ""
+
     def solid_label(self, name: str) -> str:
         """What a solid is called on screen."""
         return self.solid_labels.get(name, name)
@@ -731,7 +737,10 @@ class Document:
         from .rules import document_trusted
         base_dir = (os.path.dirname(os.path.abspath(self.path))
                     if self.path else "")
-        chain = _fingerprint("start", document_trusted(self))
+        # the K-factor goes into every sheet metal bend, and lives
+        # outside the features, so it starts the chain
+        chain = _fingerprint("start", document_trusted(self),
+                             self._sheet_key())
         limit = (len(self.features) if self.rollback_index is None
                  else self.rollback_index)
         missed = False
@@ -812,6 +821,13 @@ class Document:
         ctx.code_allowed = document_trusted(self)
         ctx.base_dir = (os.path.dirname(os.path.abspath(self.path))
                         if self.path else "")
+        if self.sheet_metal is not None:
+            from .params import ExpressionError, evaluate
+            try:
+                ctx.k_factor = float(evaluate(self.sheet_metal.k_factor,
+                                              ctx.scope))
+            except (ExpressionError, ValueError):
+                pass
         report = RebuildReport()
 
         limit = (len(self.features) if self.rollback_index is None
@@ -826,7 +842,7 @@ class Document:
         # than after every command. The first feature that did change, and
         # everything after it, builds as it always has.
         scope = ctx.scope
-        chain = _fingerprint("start", ctx.code_allowed)
+        chain = _fingerprint("start", ctx.code_allowed, self._sheet_key())
         reuse = REUSE_RESULTS
         kept: Dict[int, List[Tuple[str, "_Built"]]] = {}
 
