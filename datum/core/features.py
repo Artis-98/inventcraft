@@ -3139,6 +3139,13 @@ class FrameMemberFeature(Feature):
     length: str = "100"
     mirror: bool = False
     source: str = ""
+    # what the end treatments leave: how far each end runs past the line
+    # (start, end), the planes it is cut off at ([point, normal], the side
+    # the normal points to taken away), and the members notched out of it
+    extend_a: float = 0.0
+    extend_b: float = 0.0
+    cuts: List[List[float]] = field(default_factory=list)
+    notches: List[Dict[str, Any]] = field(default_factory=list)
 
     def build(self, ctx: BuildContext) -> None:
         from . import frames
@@ -3147,15 +3154,9 @@ class FrameMemberFeature(Feature):
             raise FeatureError("%s: the length must be more than 0"
                                % self.name)
         try:
-            face = frames.profile_face(self.kind, self.dims, self.source)
-            if self.mirror:
-                from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
-                from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf
-                flip = gp_Trsf()
-                flip.SetMirror(gp_Ax2(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0)))
-                face = kernel.faces(BRepBuilderAPI_Transform(
-                    face, flip, True).Shape())[0]
-            tool = kernel.extrude(face, (0.0, 0.0, 1.0), length)
+            tool = frames.member_solid(
+                self.kind, self.dims, self.source, self.mirror, length,
+                self.extend_a, self.extend_b, self.cuts, self.notches)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
         ctx.apply(tool, JOIN, self.id, targets=self.solids)
@@ -3166,7 +3167,10 @@ class FrameMemberFeature(Feature):
     def field_dict(self) -> Dict[str, Any]:
         return {"family": self.family, "size": self.size, "kind": self.kind,
                 "dims": dict(self.dims), "length": self.length,
-                "mirror": self.mirror, "source": self.source}
+                "mirror": self.mirror, "source": self.source,
+                "extend_a": self.extend_a, "extend_b": self.extend_b,
+                "cuts": [list(c) for c in self.cuts],
+                "notches": [dict(n) for n in self.notches]}
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.family = str(data.get("family", ""))
@@ -3177,6 +3181,10 @@ class FrameMemberFeature(Feature):
         self.length = str(data.get("length", "100"))
         self.mirror = bool(data.get("mirror", False))
         self.source = str(data.get("source", ""))
+        self.extend_a = float(data.get("extend_a", 0.0))
+        self.extend_b = float(data.get("extend_b", 0.0))
+        self.cuts = [[float(c) for c in cut] for cut in data.get("cuts", [])]
+        self.notches = [dict(n) for n in data.get("notches", [])]
 
 
 FEATURE_TYPES: Dict[str, type] = {

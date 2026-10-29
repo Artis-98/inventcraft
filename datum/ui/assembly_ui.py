@@ -628,6 +628,8 @@ class AssemblyController(QtCore.QObject):
         b.constraint_suppress_toggled.connect(self.toggle_constraint_suppress)
         b.plane_visibility_toggled.connect(self.toggle_plane)
         b.place_requested.connect(self.place_component)
+        b.frame_action_requested.connect(
+            lambda what, oid, ids: self.host.frame_action(what, oid, ids))
 
         v = self.viewport
         v.component_drag_started.connect(self._drag_started)

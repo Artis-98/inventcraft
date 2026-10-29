@@ -21,6 +21,7 @@ from datum.core.assembly import AssemblyDocument                  # noqa: E402
 from datum.core.document import Document                          # noqa: E402
 from datum.core.features import SketchFeature                     # noqa: E402
 from datum.core.sketch import Sketch, SketchPlane                 # noqa: E402
+from datum.ui.assembly_browser import ROLE_ID, ROLE_KIND          # noqa: E402
 from datum.ui.main_window import TAB_DESIGN, MainWindow           # noqa: E402
 from datum.ui.theme import stylesheet                              # noqa: E402
 
@@ -154,6 +155,8 @@ check("left to right takes what is wholly inside: the left end",
 check("right to left takes what it touches: three", len(crossing) == 3,
       crossing)
 dialog.add_lines(list(dialog.candidates()))
+check("the members it will make, in see-through green",
+      dialog.draw_preview() == 4 and len(dialog._ghosts) == 4)
 check("a family and size are chosen",
       dialog.choose("din-en-10219-2-square", "40 x 40 x 3"))
 check("it applies", dialog.apply(), dialog.message.text())
@@ -209,6 +212,135 @@ part.save(skeleton_path)
 win._browse_docs.clear()
 
 # ==========================================================================
+print("the frame in the tree")
+win.assembly_ui.rebuild()
+pump()
+asm = win.assembly
+frame_occurrence = next(o for o in asm.occurrences if o.follows)
+frame_oid = frame_occurrence.id
+frame_path = asm.component_path(frame_occurrence)
+tree = win.assembly_ui.browser
+check("the frame has an icon of its own",
+      tree._icon_of(frame_occurrence) == "frame_assembly"
+      and tree._icon_of(next(o for o in asm.occurrences
+                             if not o.follows)) == "box")
+fd = frames.read_frame(frame_path)
+member_path = os.path.join(os.path.dirname(frame_path), fd.members[0].part)
+check("and its members' parts are known for what they are",
+      frames.is_member_part(member_path)
+      and not frames.is_member_part(skeleton_path))
+root = tree.topLevelItem(0)
+frame_item = next(root.child(i) for i in range(root.childCount())
+                  if root.child(i).data(0, ROLE_KIND) == "occurrence"
+                  and root.child(i).data(0, ROLE_ID) == frame_oid)
+member_items = [frame_item.child(i) for i in range(frame_item.childCount())
+                if frame_item.child(i).data(0, ROLE_KIND) == "frame_member"]
+check("its four members are listed under it", len(member_items) == 4,
+      len(member_items))
+tree.clearSelection()
+for item in member_items[:2]:
+    item.setSelected(True)
+owner, picked_ids = tree.selected_frame_members()
+check("two members picked in the tree", owner == frame_oid
+      and len(picked_ids) == 2, (owner, picked_ids))
+menu = QtWidgets.QMenu()
+tree._frame_menu(menu, owner, picked_ids)
+labels = [a.text() for a in menu.actions() if a.text()]
+check("the right click menu has Change Frame and the end treatments",
+      labels[:2] == ["2 frame members", "Change Frame..."]
+      and "Miter..." in labels and "Corner Joint..." in labels
+      and "Notch..." in labels and "Remove End Treatments" in labels, labels)
+
+print("Change Frame")
+dialog = win.frame_action("change", owner, picked_ids)
+pump()
+check("it opens on the members picked in the tree",
+      dialog.count.text() == "2 members selected", dialog.count.text())
+check("with their size as it is", dialog.size.currentText() == "40 x 40 x 3",
+      dialog.size.currentText())
+check("nothing changed yet", dialog.changes() == {}, dialog.changes())
+win.viewport.set_view("top")
+win.viewport.fit_all()
+settle(300)
+check("a green picture of the picked members", dialog.draw_preview() == 2
+      and len(dialog._ghosts) == 2)
+if SHOTS:
+    dialog.size.setCurrentText("80 x 80 x 5")
+    dialog.draw_preview()
+    win.viewport.set_view("iso")
+    win.viewport.fit_all()
+    settle(400)
+    win.viewport.grab_image(os.path.join(SHOTS, "frame_change_preview.png"))
+    dialog.size.setCurrentText("40 x 40 x 3")
+    win.viewport.set_view("top")
+    win.viewport.fit_all()
+    settle(300)
+# a third member clicked in the view
+third = ("m", frame_oid, fd.members[2].id) \
+    if fd.members[2].id not in picked_ids else ("m", frame_oid,
+                                                fd.members[3].id)
+a, b = dialog.candidates()[third]
+x, y = win.viewport.project(tuple((a[i] + b[i]) / 2 for i in range(3)))
+mouse(QtCore.QEvent.MouseButtonPress, x, y)
+mouse(QtCore.QEvent.MouseButtonRelease, x, y)
+check("a member clicked in the view joins them",
+      dialog.count.text() == "3 members selected", dialog.count.text())
+dialog.size.setCurrentText("60 x 60 x 4")
+check("only what was changed is changed",
+      dialog.changes() == {"size": "60 x 60 x 4"}, dialog.changes())
+check("it applies", dialog.apply(), dialog.message.text())
+fd = frames.read_frame(frame_path)
+sizes = sorted(m.size for m in fd.members)
+check("three members are 60 x 60 x 4 now, one is as it was",
+      sizes == ["40 x 40 x 3"] + ["60 x 60 x 4"] * 3, sizes)
+dialog.close()
+pump()
+
+print("Miter, from the ribbon, members picked after")
+dialog = win.end_treatment("miter")
+pump()
+ids = [m.id for m in fd.members]
+corner_pair = None
+for i in ids:
+    for j in ids:
+        if i < j:
+            ma, mb = fd.member(i), fd.member(j)
+            la = frames.run_of(frames.skeleton_sketches(
+                skeleton_path)[ma.sketch][2], ma.lines)
+            lb = frames.run_of(frames.skeleton_sketches(
+                skeleton_path)[mb.sketch][2], mb.lines)
+            if any(near(p[0], q[0]) and near(p[1], q[1])
+                   for p in la for q in lb) and corner_pair is None:
+                corner_pair = [i, j]
+dialog.pick(corner_pair)
+check("two members that meet are picked",
+      dialog.slots[0] == corner_pair, dialog.slots)
+check("the green picture shows them mitered", dialog.draw_preview() == 2)
+check("it applies", dialog.apply(), dialog.message.text())
+fd = frames.read_frame(frame_path)
+check("the frame keeps the miter", [t.kind for t in fd.treatments]
+      == ["miter"])
+if SHOTS:
+    win.viewport.set_view("iso")
+    win.viewport.fit_all()
+    settle(500)
+    win.viewport.grab_image(os.path.join(SHOTS, "frame_mitered.png"))
+dialog.close()
+
+print("Trim - Extend To Face")
+dialog = win.end_treatment("trim_face", frame_oid, [corner_pair[0]])
+pump()
+dialog.set_face((500.0, 0.0, 0.0), (1.0, 0.0, 0.0))
+check("a face and a member", dialog.face is not None
+      and dialog.slots[0] == [corner_pair[0]])
+check("it applies", dialog.apply(), dialog.message.text())
+dialog.close()
+
+print("Remove End Treatments")
+gone = win.frame_action("remove", frame_oid, corner_pair)
+check("both treatments on those members gone", gone == 2
+      and not frames.read_frame(frame_path).treatments, gone)
+
 print("the Profile Library")
 library = win.profile_library()
 pump()

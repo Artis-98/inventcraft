@@ -8,7 +8,8 @@ appears twice - once under each of the two parts it relates.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+import os
+from typing import Dict, List, Optional, Tuple
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -52,6 +53,10 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
 
     plane_visibility_toggled = QtCore.Signal(str)
     place_requested = QtCore.Signal()
+    # a Frame Generator command on members of a frame: (what, the frame's
+    # occurrence, the members' ids); "change", "miter", "corner",
+    # "trim_face", "notch", "lengthen", "remove"
+    frame_action_requested = QtCore.Signal(str, int, list)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -122,7 +127,8 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         self.clear()
 
         root = QtWidgets.QTreeWidgetItem(self, [doc.title])
-        root.setIcon(0, icons.icon("pattern", 16))
+        root.setIcon(0, icons.icon("frame_assembly" if getattr(
+            doc, "frame", None) is not None else "pattern", 16))
         root.setData(0, ROLE_KIND, "root")
         font = root.font(0)
         font.setBold(True)
@@ -152,7 +158,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
 
         for occurrence in doc.occurrences:
             item = QtWidgets.QTreeWidgetItem(root, [occurrence.label])
-            item.setIcon(0, icons.icon(occurrence.icon, 16))
+            item.setIcon(0, icons.icon(self._icon_of(occurrence), 16))
             item.setData(0, ROLE_ID, occurrence.id)
             item.setData(0, ROLE_KIND, "occurrence")
             item.setToolTip(0, occurrence.summary())
@@ -189,6 +195,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             if self.mode == "modeling":
                 self._add_features(item, occurrence)
                 continue
+            self._add_members(item, occurrence)
 
             for constraint in doc.constraints_on(occurrence.id):
                 child = QtWidgets.QTreeWidgetItem(item, [constraint.name])
@@ -217,6 +224,81 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
 
         self.select_occurrences(selected)
         self.verticalScrollBar().setValue(scroll)
+
+    def _icon_of(self, occurrence) -> str:
+        """A frame and a frame's members have icons of their own, so they
+        read apart from the parts and assemblies round them."""
+        from ..core import frames
+        path = self._doc.component_path(occurrence) if self._doc else None
+        if path and path.lower().endswith(".icasm") and frames.is_frame(path):
+            return "frame_assembly"
+        if path and path.lower().endswith(".icpart") \
+                and frames.is_member_part(path):
+            return "frame_member"
+        return occurrence.icon
+
+    def _add_members(self, item, occurrence) -> None:
+        """A frame's members hung under it, to pick for Change Frame and
+        the end treatments, as Inventor lists them."""
+        from ..core import frames
+        path = self._doc.component_path(occurrence)
+        if not path or not path.lower().endswith(".icasm"):
+            return
+        fd = frames.read_frame(path)
+        if fd is None:
+            return
+        for member in fd.members:
+            label = os.path.splitext(member.part)[0] if member.part \
+                else "Member %d" % member.id
+            child = QtWidgets.QTreeWidgetItem(item, [label])
+            child.setIcon(0, icons.icon("frame_member", 16))
+            child.setData(0, ROLE_ID, member.id)
+            child.setData(0, ROLE_KIND, "frame_member")
+            child.setData(0, ROLE_OWNER, occurrence.id)
+            ends = [t.kind.replace("_", " ") for t in
+                    frames.treatments_on(fd, member.id)]
+            child.setToolTip(0, "%s %s%s" % (
+                member.size, member.family,
+                ("\nEnd treatments: " + ", ".join(ends)) if ends else ""))
+
+    def selected_frame_members(self) -> Tuple[int, List[int]]:
+        """The frame and the members of it picked in the tree: the first
+        frame's, if members of several are picked."""
+        owner, ids = 0, []
+        for item in self.selectedItems():
+            if item.data(0, ROLE_KIND) != "frame_member":
+                continue
+            frame_oid = int(item.data(0, ROLE_OWNER))
+            if owner and frame_oid != owner:
+                continue
+            owner = frame_oid
+            mid = int(item.data(0, ROLE_ID))
+            if mid not in ids:
+                ids.append(mid)
+        return owner, ids
+
+    def _frame_menu(self, menu, frame_oid: int, member_ids: List[int]
+                    ) -> None:
+        """Inventor's Frame Generator commands on the picked members."""
+        def ask(what):
+            return lambda: self.frame_action_requested.emit(
+                what, frame_oid, list(member_ids))
+        n = len(member_ids)
+        title = menu.addAction("%d frame member%s" % (n, "" if n == 1
+                                                     else "s"))
+        title.setEnabled(False)
+        menu.addAction(icons.icon("frame_member", 16),
+                       "Change Frame...").triggered.connect(ask("change"))
+        menu.addSeparator()
+        for what, label in (("miter", "Miter..."),
+                            ("corner", "Corner Joint..."),
+                            ("trim_face", "Trim - Extend To Face..."),
+                            ("notch", "Notch..."),
+                            ("lengthen", "Lengthen - Shorten...")):
+            menu.addAction(label).triggered.connect(ask(what))
+        menu.addSeparator()
+        menu.addAction("Remove End Treatments").triggered.connect(
+            ask("remove"))
 
     def _add_features(self, item, occurrence) -> None:
         """The component's own feature tree, hung under it.
@@ -368,6 +450,15 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         kind = item.data(0, ROLE_KIND)
         menu = QtWidgets.QMenu(self)
 
+        if kind == "frame_member":
+            if not item.isSelected():
+                self.clearSelection()
+                item.setSelected(True)
+            frame_oid, member_ids = self.selected_frame_members()
+            self._frame_menu(menu, frame_oid, member_ids)
+            menu.exec(self.viewport().mapToGlobal(pos))
+            return
+
         if kind == "occurrence":
             oid = int(item.data(0, ROLE_ID))
             occurrence = self._doc.occurrence(oid)
@@ -382,6 +473,16 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             replace = menu.addAction(icons.icon("import", 16), "Replace...")
             replace.triggered.connect(
                 lambda: self.replace_requested.emit(oid))
+
+            from ..core import frames
+            path = self._doc.component_path(occurrence)
+            fd = frames.read_frame(path) if path and                 path.lower().endswith(".icasm") else None
+            if fd is not None and fd.members:
+                # the whole frame: every member of it
+                menu.addSeparator()
+                self._frame_menu(menu.addMenu(icons.icon("frame_assembly", 16),
+                                              "Frame Generator"),
+                                 oid, [m.id for m in fd.members])
 
             from .browser import add_file_actions
 

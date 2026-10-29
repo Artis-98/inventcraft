@@ -392,11 +392,16 @@ class FrameDefinition:
     sketch: int = 0             # the sketch feature's id in that part
     sketch_name: str = ""
     members: List[Member] = field(default_factory=list)
+    treatments: List["Treatment"] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {"skeleton": self.skeleton, "sketch": self.sketch,
                 "sketch_name": self.sketch_name,
-                "members": [m.to_dict() for m in self.members]}
+                "members": [m.to_dict() for m in self.members],
+                "treatments": [t.to_dict() for t in self.treatments]}
+
+    def member(self, member_id: int) -> Optional[Member]:
+        return next((m for m in self.members if m.id == member_id), None)
 
     @classmethod
     def from_dict(cls, d: Optional[Dict[str, Any]]
@@ -406,7 +411,9 @@ class FrameDefinition:
         return cls(skeleton=str(d.get("skeleton", "")),
                    sketch=int(d.get("sketch", 0)),
                    sketch_name=str(d.get("sketch_name", "")),
-                   members=[Member.from_dict(m) for m in d.get("members", [])])
+                   members=[Member.from_dict(m) for m in d.get("members", [])],
+                   treatments=[Treatment.from_dict(t)
+                               for t in d.get("treatments", [])])
 
 
 def skeleton_sketches(path: str) -> Dict[int, Tuple[Any, str, Dict[int, Any]]]:
@@ -552,16 +559,23 @@ def member_part_name(member: Member, fam: ProfileFamily) -> str:
 
 
 def write_member_part(path: str, member: Member, fam: ProfileFamily,
-                      length: float) -> bool:
+                      length: float, ends: Optional[Dict[str, Any]] = None
+                      ) -> bool:
     """The member's part: one Frame Member feature, the profile run the
-    length.  Written only when something in it changed; True when it was."""
+    length, its ends as the end treatments leave them.  Written only when
+    something in it changed; True when it was."""
     from .document import Document
     from .features import FrameMemberFeature
     dims = fam.row(member.size)
+    ends = ends or {}
     wanted = {"family": fam.id, "size": member.size, "kind": fam.kind,
               "dims": dims, "length": "%.6f" % length,
               "mirror": member.mirror,
-              "source": fam.source}
+              "source": fam.source,
+              "extend_a": float(ends.get("extend_a", 0.0)),
+              "extend_b": float(ends.get("extend_b", 0.0)),
+              "cuts": [list(c) for c in ends.get("cuts", [])],
+              "notches": [dict(n) for n in ends.get("notches", [])]}
     if os.path.exists(path):
         try:
             doc = Document.load(path)
@@ -582,8 +596,14 @@ def write_member_part(path: str, member: Member, fam: ProfileFamily,
         doc.material = member.material
     doc.properties["Description"] = "%s %s" % (fam.name, member.size)
     doc.properties["Stock Number"] = member.size
-    doc.properties["Length"] = "%.3f" % length
     doc.rebuild()
+    # the length to cut it to: the longest it is, ends and all
+    shape = getattr(doc, "shape", None)
+    cut_length = length
+    if shape is not None and not shape.IsNull():
+        box = kernel.bounding_box(shape)
+        cut_length = box[5] - box[2]
+    doc.properties["Length"] = "%.3f" % cut_length
     doc.save(path)
     return True
 
@@ -607,23 +627,20 @@ def sync(frame_doc) -> List[str]:
         return [str(exc)]
     by_id = {o.id: o for o in frame_doc.occurrences}
     frame_doc.frame_changed = False
+    geos = member_geometries(fd, sketches, problems)
+    ends = resolve(fd, geos, problems)
     for member in fd.members:
-        member.error = ""
+        if member.id not in geos:
+            continue
         try:
-            fam = family(member.family)
-            found = sketches.get(member.sketch or fd.sketch)
-            if found is None:
-                raise KernelError("its sketch is gone from the skeleton")
-            plane, _name, lines = found
-            start, end = run_of(lines, member.lines)
-            length = math.dist(start, end)
-            if length < 1e-6:
-                raise KernelError("its line has no length")
-            face = profile_face(fam.kind, fam.row(member.size), fam.source)
+            geo = geos[member.id]
+            fam = geo.fam
+            length = geo.length
             if not member.part:
                 member.part = member_part_name(member, fam) + ".icpart"
             path = os.path.join(base, member.part) if base else member.part
-            if write_member_part(path, member, fam, length):
+            if write_member_part(path, member, fam, length,
+                                 ends.get(member.id)):
                 frame_doc.frame_changed = True
             occurrence = by_id.get(member.occurrence)
             if occurrence is None:
@@ -631,7 +648,7 @@ def sync(frame_doc) -> List[str]:
                 member.occurrence = occurrence.id
                 frame_doc.frame_changed = True
             occurrence.grounded = True
-            placed = member_placement(member, face, start, end, plane.normal)
+            placed = geo.placement
             if (occurrence.placement.to_dict() != placed.to_dict()):
                 occurrence.placement = placed
                 frame_doc.frame_changed = True
@@ -641,13 +658,82 @@ def sync(frame_doc) -> List[str]:
     return problems
 
 
-def is_frame(path: str) -> bool:
-    """Whether an assembly file is a frame assembly."""
+def member_geometries(fd: FrameDefinition, sketches, problems: List[str]
+                      ) -> Dict[int, "MemberGeometry"]:
+    """Each member as the skeleton places it now, by its id; what cannot
+    be placed is told in ``problems`` and on the member."""
+    out = {}
+    for member in fd.members:
+        member.error = ""
+        try:
+            fam = family(member.family)
+            found = sketches.get(member.sketch or fd.sketch)
+            if found is None:
+                raise KernelError("its sketch is gone from the skeleton")
+            plane, _name, lines = found
+            start, end = run_of(lines, member.lines)
+            if math.dist(start, end) < 1e-6:
+                raise KernelError("its line has no length")
+            out[member.id] = MemberGeometry(member, fam, start, end,
+                                            plane.normal)
+        except (KernelError, KeyError, ValueError) as exc:
+            member.error = str(exc)
+            problems.append("member %d: %s" % (member.id, exc))
+    return out
+
+
+_FRAME_CACHE: Dict[str, Tuple[float, Optional[FrameDefinition]]] = {}
+
+
+def read_frame(path: str) -> Optional[FrameDefinition]:
+    """A frame assembly's definition, read once per change of the file;
+    None for an assembly that is not a frame."""
     from . import fileformat
     try:
-        return bool((fileformat.read(path).geometry or {}).get("frame"))
+        stamp = os.path.getmtime(path)
+    except OSError:
+        return None
+    key = os.path.normcase(os.path.abspath(path))
+    held = _FRAME_CACHE.get(key)
+    if held is not None and held[0] == stamp:
+        return held[1]
+    try:
+        fd = FrameDefinition.from_dict(
+            (fileformat.read(path).geometry or {}).get("frame"))
     except Exception:
+        fd = None
+    _FRAME_CACHE[key] = (stamp, fd)
+    return fd
+
+
+def is_frame(path: str) -> bool:
+    """Whether an assembly file is a frame assembly."""
+    return read_frame(path) is not None
+
+
+_MEMBER_CACHE: Dict[str, Tuple[float, bool]] = {}
+
+
+def is_member_part(path: str) -> bool:
+    """Whether a part file is a frame member's, made by the Frame
+    Generator."""
+    from . import fileformat
+    try:
+        stamp = os.path.getmtime(path)
+    except OSError:
         return False
+    key = os.path.normcase(os.path.abspath(path))
+    held = _MEMBER_CACHE.get(key)
+    if held is not None and held[0] == stamp:
+        return held[1]
+    try:
+        features = (fileformat.read(path).geometry or {}).get("features", [])
+        found = any(isinstance(f, dict) and f.get("type") == "frame_member"
+                    for f in features)
+    except Exception:
+        found = False
+    _MEMBER_CACHE[key] = (stamp, found)
+    return found
 
 
 def refresh(path: str) -> List[str]:
@@ -720,3 +806,571 @@ def insert(parent, skeleton_occurrence, sketch_id: int, line_ids,
     frame_occurrence.placement = skeleton_occurrence.placement.copy()
     parent.modified = True
     return frame_doc, frame_occurrence, problems
+
+
+# ------------------------------------------------------- end treatments
+#
+# Inventor's Frame panel: Miter, Corner Joint, Trim - Extend To Face, Notch
+# and Lengthen - Shorten.  Each is kept in the frame, by the members it
+# joins, and worked out afresh from the skeleton every time the frame is
+# brought up to it, so a treated corner follows a sketch edit as the bare
+# members do.  What a treatment does to a member lands in that member's
+# part: how far each end runs past its line, the planes it is cut off at,
+# and the shapes notched out of it.  A later treatment on the same end of a
+# member replaces an earlier one there, as Inventor's does; a Lengthen -
+# Shorten adds to whatever the end has.
+
+TREATMENTS = ("miter", "corner", "trim_face", "notch", "lengthen")
+
+
+@dataclass
+class Treatment:
+    id: int = 0
+    kind: str = "miter"
+    members: List[int] = field(default_factory=list)
+    others: List[int] = field(default_factory=list)
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"id": self.id, "kind": self.kind,
+                "members": list(self.members), "others": list(self.others),
+                "params": dict(self.params)}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "Treatment":
+        return cls(id=int(d.get("id", 0)), kind=str(d.get("kind", "miter")),
+                   members=[int(x) for x in d.get("members", [])],
+                   others=[int(x) for x in d.get("others", [])],
+                   params=dict(d.get("params") or {}))
+
+
+def built_face(kind: str, dims: Dict[str, float], source: str = "",
+               mirror: bool = False):
+    """The profile as a member's part has it: mirrored if it is."""
+    face = profile_face(kind, dims, source)
+    if mirror:
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+        from OCP.gp import gp_Ax2, gp_Dir, gp_Trsf
+        flip = gp_Trsf()
+        flip.SetMirror(gp_Ax2(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0)))
+        face = kernel.faces(BRepBuilderAPI_Transform(face, flip,
+                                                     True).Shape())[0]
+    return face
+
+
+def _samples(face, per_edge: int = 12) -> List[Tuple[float, float]]:
+    """Points round a profile's edges, enough to find how far it reaches
+    in any direction."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopoDS import TopoDS
+    out = []
+    for edge in kernel.explore(face, TopAbs_EDGE):
+        curve = BRepAdaptor_Curve(TopoDS.Edge_s(edge))
+        u0, u1 = curve.FirstParameter(), curve.LastParameter()
+        for i in range(per_edge + 1):
+            p = curve.Value(u0 + (u1 - u0) * i / per_edge)
+            out.append((p.X(), p.Y()))
+    return out
+
+
+class MemberGeometry:
+    """A member as the skeleton places it: its line, its axes, where its
+    part sits, and its profile in the part's own coordinates."""
+
+    def __init__(self, member: Member, fam: "ProfileFamily", start, end,
+                 normal) -> None:
+        import numpy as np
+        self.member = member
+        self.fam = fam
+        self.start = tuple(float(c) for c in start)
+        self.end = tuple(float(c) for c in end)
+        self.length = math.dist(self.start, self.end)
+        self.dir = _unit(_sub(self.end, self.start))
+        self.normal = normal
+        dims = fam.row(member.size)
+        self.dims = dims
+        plain = profile_face(fam.kind, dims, fam.source)
+        self.face = built_face(fam.kind, dims, fam.source, member.mirror)
+        self.placement = member_placement(member, plain, self.start,
+                                          self.end, normal)
+        self.m = self.placement.matrix()
+        self.pos = np.array(self.placement.position, dtype=float)
+        ax, ay = anchor_point(plain, member.anchor)
+        self.line_xy = (ax - member.offset_a, ay - member.offset_b)
+        self.points = _samples(self.face)
+        self.reach = max(math.hypot(x - self.line_xy[0], y - self.line_xy[1])
+                         for x, y in self.points) if self.points else 0.0
+
+    def to_local(self, w):
+        import numpy as np
+        return tuple(float(c) for c in self.m.T @ (np.asarray(w, float)
+                                                   - self.pos))
+
+    def dir_local(self, d):
+        import numpy as np
+        return tuple(float(c) for c in self.m.T @ np.asarray(d, float))
+
+    def to_world(self, q):
+        import numpy as np
+        return tuple(float(c) for c in self.pos + self.m @ np.asarray(q,
+                                                                      float))
+
+    def dir_world(self, d):
+        import numpy as np
+        return tuple(float(c) for c in self.m @ np.asarray(d, float))
+
+    def end_point(self, end: str):
+        return self.start if end == "a" else self.end
+
+    def outward(self, end: str):
+        return _mul(self.dir, -1.0) if end == "a" else self.dir
+
+    def nearer_end(self, point) -> str:
+        return "a" if math.dist(self.start, point) <= math.dist(
+            self.end, point) else "b"
+
+    def face_plane(self, toward, far: bool = False):
+        """The plane of this member's side facing ``toward`` (a world
+        direction), or the far side: (a point, the direction out of it),
+        both in the world, running along the member."""
+        u = self.dir_local(toward)
+        ux, uy = u[0], u[1]
+        n = math.hypot(ux, uy)
+        if n < 1e-9:
+            raise KernelError("the members run the same way")
+        ux, uy = ux / n, uy / n
+        reach = [x * ux + y * uy for x, y in self.points]
+        s = min(reach) if far else max(reach)
+        point = self.to_world((s * ux, s * uy, 0.0))
+        out = self.dir_world((ux, uy, 0.0))
+        return point, (out if not far else _mul(out, -1.0))
+
+
+def _closest(a0, da, b0, db):
+    """The nearest points of two lines, and their parameters."""
+    w = _sub(a0, b0)
+    a, b, c = _dot(da, da), _dot(da, db), _dot(db, db)
+    d, e = _dot(da, w), _dot(db, w)
+    den = a * c - b * b
+    if abs(den) < 1e-12:
+        raise KernelError("the members are parallel")
+    s = (b * e - c * d) / den
+    t = (a * e - b * d) / den
+    pa = tuple(a0[i] + s * da[i] for i in range(3))
+    pb = tuple(b0[i] + t * db[i] for i in range(3))
+    return pa, pb, s, t
+
+
+def _reach_to(geo: MemberGeometry, end: str, point, cut) -> float:
+    """How far an end must run past its line for all of its profile to
+    get to the plane through ``point`` with ``cut`` the side cut away."""
+    out = geo.outward(end)
+    c = _dot(out, cut)
+    if c < 0.05:
+        raise KernelError("member %d does not run into that plane"
+                          % geo.member.id)
+    t = _dot(_sub(point, geo.end_point(end)), cut) / c
+    spread = geo.reach * math.sqrt(max(0.0, 1.0 - c * c)) / c
+    return max(0.0, t + spread + 1.0)
+
+
+def _corner_of(a: MemberGeometry, b: MemberGeometry):
+    """Where two members meet: the point, the end of each at it, and each
+    one's direction from it into its own length."""
+    pa, pb, _s, _t = _closest(a.start, a.dir, b.start, b.dir)
+    corner = tuple((pa[i] + pb[i]) / 2.0 for i in range(3))
+    ea, eb = a.nearer_end(corner), b.nearer_end(corner)
+    return corner, ea, eb, _mul(a.outward(ea), -1.0), \
+        _mul(b.outward(eb), -1.0)
+
+
+def _miter(a, b, gap: float, split: bool):
+    corner, ea, eb, da, db = _corner_of(a, b)
+    n = _sub(da, db)
+    if math.sqrt(_dot(n, n)) < 1e-9:
+        raise KernelError("members %d and %d run on in one line"
+                          % (a.member.id, b.member.id))
+    n = _unit(n)
+    ga, gb = (gap / 2.0, gap / 2.0) if split else (gap, 0.0)
+    pa = tuple(corner[i] + n[i] * ga for i in range(3))
+    pb = tuple(corner[i] - n[i] * gb for i in range(3))
+    return [(a, ea, pa, _mul(n, -1.0)), (b, eb, pb, n)]
+
+
+def _corner_joint(a, b, gap: float, extend: bool):
+    """``a`` trimmed to ``b``'s near side, ``b`` run on to ``a``'s far
+    side: a butt joint."""
+    corner, ea, eb, da, db = _corner_of(a, b)
+    point, out = b.face_plane(da)
+    point = tuple(point[i] + out[i] * gap for i in range(3))
+    cuts = [(a, ea, point, _mul(out, -1.0))]
+    if extend:
+        far, far_out = a.face_plane(db, far=True)
+        cuts.append((b, eb, far, far_out))
+    return cuts
+
+
+def _trim_face(geo, point, normal, offset: float):
+    """A member's nearer end run to, or cut back to, a plane."""
+    n = _unit(normal)
+    t = [_dot(_sub(geo.end_point(e), point), n) for e in ("a", "b")]
+    # the end nearer the plane, and the side of it away from the member
+    end = "a" if abs(t[0]) <= abs(t[1]) else "b"
+    keep = t[1] if end == "a" else t[0]
+    cut = n if keep < 0 else _mul(n, -1.0)
+    p = tuple(point[i] - cut[i] * offset for i in range(3))
+    return [(geo, end, p, cut)]
+
+
+def resolve(fd: "FrameDefinition", geos: Dict[int, MemberGeometry],
+            problems: List[str]) -> Dict[int, Dict[str, Any]]:
+    """Every member's ends as the treatments leave them: how far each runs
+    past its line, the planes it is cut off at, in its part's coordinates,
+    and what is notched out of it."""
+    ends: Dict[int, Dict[str, Any]] = {
+        mid: {"cut": {}, "shift": {"a": 0.0, "b": 0.0}, "notch": []}
+        for mid in geos}
+    notches = []
+    for t in fd.treatments:
+        try:
+            p = t.params
+            gap = float(p.get("gap", 0.0))
+            cuts = []
+            if t.kind == "miter":
+                for a_id, b_id in zip(t.members[0::2], t.members[1::2]):
+                    cuts += _miter(geos[a_id], geos[b_id], gap,
+                                   bool(p.get("split", True)))
+            elif t.kind == "corner":
+                for a_id in t.members:
+                    for b_id in t.others:
+                        cuts += _corner_joint(geos[a_id], geos[b_id], gap,
+                                              bool(p.get("extend", True)))
+            elif t.kind == "trim_face":
+                for a_id in t.members:
+                    cuts += _trim_face(geos[a_id], p["point"], p["normal"],
+                                       float(p.get("offset", 0.0)))
+            elif t.kind == "notch":
+                notches.append(t)
+            elif t.kind == "lengthen":
+                amount = float(p.get("amount", 0.0))
+                side = p.get("side", "b")
+                for mid in t.members:
+                    shift = ends[mid]["shift"]
+                    if side == "both":
+                        shift["a"] += amount / 2.0
+                        shift["b"] += amount / 2.0
+                    else:
+                        shift[side] += amount
+            for geo, end, point, cut in cuts:
+                ends[geo.member.id]["cut"][end] = (point, cut)
+        except (KeyError, KernelError, ValueError, TypeError) as exc:
+            problems.append("%s %d: %s" % (t.kind, t.id, exc))
+    out: Dict[int, Dict[str, Any]] = {}
+    for mid, geo in geos.items():
+        e = ends[mid]
+        ext = {"a": e["shift"]["a"], "b": e["shift"]["b"]}
+        planes = []
+        for end, (point, cut) in e["cut"].items():
+            try:
+                ext[end] = _reach_to(geo, end, point, cut) + e["shift"][end]
+            except KernelError as exc:
+                problems.append(str(exc))
+                continue
+            # a lengthened end takes its cut along with it
+            moved = _mul(geo.outward(end), e["shift"][end])
+            point = tuple(point[i] + moved[i] for i in range(3))
+            planes.append([round(c, 6) for c in geo.to_local(point)]
+                          + [round(c, 9) for c in geo.dir_local(cut)])
+        out[mid] = {"extend_a": round(ext["a"], 6),
+                    "extend_b": round(ext["b"], 6),
+                    "cuts": planes, "notches": []}
+    for t in notches:
+        for a_id in t.members:
+            for b_id in t.others:
+                try:
+                    _notch(geos[a_id], geos[b_id], out,
+                           float(t.params.get("gap", 0.0)))
+                except (KeyError, KernelError) as exc:
+                    problems.append("notch %d: %s" % (t.id, exc))
+    return out
+
+
+def _notch(a: MemberGeometry, b: MemberGeometry, out, gap: float) -> None:
+    """``b``'s outline cut out of ``a``; when ``b`` crosses ``a`` at its
+    end, ``a``'s end run on to ``b``'s far side first."""
+    _pa, _pb, s, _t = _closest(a.start, a.dir, b.start, b.dir)
+    near_end = None
+    if s < b.reach + 1.0:
+        near_end = "a"
+    elif s > a.length - b.reach - 1.0:
+        near_end = "b"
+    if near_end is not None:
+        into = _mul(a.outward(near_end), -1.0)
+        far, far_out = b.face_plane(into, far=True)
+        ext = _reach_to(a, near_end, far, far_out)
+        key = "extend_a" if near_end == "a" else "extend_b"
+        out[a.member.id][key] = round(max(out[a.member.id][key], ext), 6)
+        out[a.member.id]["cuts"].append(
+            [round(c, 6) for c in a.to_local(far)]
+            + [round(c, 9) for c in a.dir_local(far_out)])
+    nb = out[b.member.id]
+    # b's part coordinates into a's
+    rot = a.m.T @ b.m
+    move = a.m.T @ (b.pos - a.pos)
+    matrix = [float(rot[i, j]) for i in range(3) for j in range(3)] + \
+        [float(c) for c in move]
+    out[a.member.id]["notches"].append({
+        "kind": b.fam.kind, "dims": dict(b.dims), "source": b.fam.source,
+        "mirror": b.member.mirror, "gap": gap,
+        "z0": -nb["extend_a"], "z1": b.length + nb["extend_b"],
+        "matrix": [round(c, 9) for c in matrix]})
+
+
+def notch_tool(n: Dict[str, Any]):
+    """A notching member's outline, grown by the gap and filled, run its
+    length, in the notched member's coordinates."""
+    from OCP.BRepBuilderAPI import (BRepBuilderAPI_MakeFace,
+                                    BRepBuilderAPI_Transform)
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffset
+    from OCP.BRepTools import BRepTools
+    from OCP.GeomAbs import GeomAbs_Arc
+    from OCP.gp import gp_Trsf
+    face = built_face(n["kind"], n["dims"], n.get("source", ""),
+                      bool(n.get("mirror", False)))
+    outer = BRepTools.OuterWire_s(face)
+    gap = float(n.get("gap", 0.0))
+    if gap > 1e-9:
+        grow = BRepOffsetAPI_MakeOffset(outer, GeomAbs_Arc)
+        grow.Perform(gap)
+        from OCP.TopAbs import TopAbs_WIRE
+        from OCP.TopoDS import TopoDS
+        outer = TopoDS.Wire_s(kernel.explore(grow.Shape(), TopAbs_WIRE)[0])
+    filled = BRepBuilderAPI_MakeFace(outer, True).Face()
+    z0, z1 = float(n["z0"]), float(n["z1"])
+    solid = kernel.extrude(kernel.translate(filled, (0.0, 0.0, z0)),
+                           (0.0, 0.0, 1.0), z1 - z0)
+    m = n["matrix"]
+    trsf = gp_Trsf()
+    trsf.SetValues(m[0], m[1], m[2], m[9], m[3], m[4], m[5], m[10],
+                   m[6], m[7], m[8], m[11])
+    return BRepBuilderAPI_Transform(solid, trsf, True).Shape()
+
+
+def half_space(cut: Sequence[float]):
+    """What a cut plane takes away: everything past it, as a solid."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCP.BRepPrimAPI import BRepPrimAPI_MakeHalfSpace
+    from OCP.gp import gp_Dir, gp_Pln
+    p, n = cut[:3], cut[3:6]
+    face = BRepBuilderAPI_MakeFace(gp_Pln(gp_Pnt(*p), gp_Dir(*n))).Face()
+    ref = gp_Pnt(p[0] + n[0], p[1] + n[1], p[2] + n[2])
+    return BRepPrimAPI_MakeHalfSpace(face, ref).Solid()
+
+
+def member_solid(kind, dims, source, mirror, length, extend_a=0.0,
+                 extend_b=0.0, cuts=(), notches=()):
+    """A member as its part builds it, in the part's coordinates."""
+    face = built_face(kind, dims, source, mirror)
+    total = length + extend_a + extend_b
+    if total <= 1e-6:
+        raise KernelError("it is shortened to nothing")
+    solid = kernel.extrude(kernel.translate(face, (0.0, 0.0, -extend_a)),
+                           (0.0, 0.0, 1.0), total)
+    for cut in cuts:
+        solid = kernel.boolean(solid, half_space(cut), "cut")
+    for n in notches:
+        solid = kernel.boolean(solid, notch_tool(n), "cut")
+    return solid
+
+
+# ----------------------------------------------- changing a frame after
+
+CHANGEABLE = ("family", "size", "anchor", "offset_a", "offset_b", "rotate",
+              "mirror", "material")
+
+
+def change_members(frame_doc, member_ids: Sequence[int], **fields
+                   ) -> List[str]:
+    """Change Frame: new values for some members, the rest left as they
+    are.  A member that changes family or size gets a part named for what
+    it is now, and the old one goes.  Returns what went wrong."""
+    fd = frame_doc.frame
+    if fd is None:
+        raise ValueError("that is not a frame")
+    unknown = set(fields) - set(CHANGEABLE)
+    if unknown:
+        raise ValueError("cannot change %s" % ", ".join(sorted(unknown)))
+    if "family" in fields or "size" in fields:
+        fam = family(fields.get("family") or fd.member(member_ids[0]).family)
+        if "size" in fields:
+            fam.row(fields["size"])
+    base = frame_doc.base_dir
+    for mid in member_ids:
+        member = fd.member(mid)
+        if member is None:
+            continue
+        renamed = any(k in fields and fields[k] != getattr(member, k)
+                      for k in ("family", "size"))
+        for key, value in fields.items():
+            setattr(member, key, value)
+        if renamed and member.part:
+            old = os.path.join(base, member.part) if base else member.part
+            if member.occurrence:
+                frame_doc.remove_occurrence(member.occurrence)
+            member.occurrence = 0
+            member.part = ""
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+    problems = sync(frame_doc)
+    frame_doc.save(frame_doc.path)
+    return problems
+
+
+def add_treatment(frame_doc, kind: str, members: Sequence[int],
+                  others: Sequence[int] = (), **params) -> Tuple[
+                      "Treatment", List[str]]:
+    """An end treatment on some members, kept in the frame and made
+    straight away.  Returns it and what went wrong."""
+    fd = frame_doc.frame
+    if fd is None:
+        raise ValueError("that is not a frame")
+    if kind not in TREATMENTS:
+        raise ValueError("there is no end treatment %s" % kind)
+    known = {m.id for m in fd.members}
+    for mid in list(members) + list(others):
+        if mid not in known:
+            raise ValueError("the frame has no member %d" % mid)
+    if kind == "miter" and (len(members) < 2 or len(members) % 2):
+        raise ValueError("a miter joins members two by two")
+    if kind in ("corner", "notch") and not (members and others):
+        raise ValueError("pick the members to cut and the ones they meet")
+    if kind == "trim_face" and ("point" not in params
+                                or "normal" not in params):
+        raise ValueError("pick the face to trim or extend to")
+    treatment = Treatment(id=max([t.id for t in fd.treatments] + [0]) + 1,
+                          kind=kind, members=list(members),
+                          others=list(others), params=dict(params))
+    fd.treatments.append(treatment)
+    problems = sync(frame_doc)
+    frame_doc.save(frame_doc.path)
+    return treatment, problems
+
+
+def remove_treatments(frame_doc, member_ids: Sequence[int]) -> int:
+    """Remove End Treatments: every treatment on these members goes, and
+    the members are as Insert Frame made them again.  Returns how many."""
+    fd = frame_doc.frame
+    picked = set(member_ids)
+    keep = [t for t in fd.treatments
+            if not (picked & (set(t.members) | set(t.others)))]
+    gone = len(fd.treatments) - len(keep)
+    fd.treatments = keep
+    sync(frame_doc)
+    frame_doc.save(frame_doc.path)
+    return gone
+
+
+def treatments_on(fd: "FrameDefinition", member_id: int) -> List["Treatment"]:
+    return [t for t in fd.treatments
+            if member_id in t.members or member_id in t.others]
+
+
+def member_world_solids(frame_doc, member_ids: Optional[Sequence[int]] = None,
+                        changes: Optional[Dict[str, Any]] = None,
+                        extra: Optional["Treatment"] = None):
+    """{member id: its solid where it sits in the frame}, the treatments
+    worked out, as they would be with ``changes`` made to those members
+    and ``extra`` added to the treatments: what a preview shows before
+    anything is written."""
+    import copy as _copy
+    fd = _copy.deepcopy(frame_doc.frame)
+    if fd is None:
+        return {}
+    if changes:
+        for mid in member_ids or []:
+            member = fd.member(mid)
+            for key, value in changes.items():
+                setattr(member, key, value)
+    if extra is not None:
+        fd.treatments.append(extra)
+    base = frame_doc.base_dir
+    skeleton = os.path.normpath(os.path.join(base, fd.skeleton)) \
+        if base and not os.path.isabs(fd.skeleton) else fd.skeleton
+    problems: List[str] = []
+    geos = member_geometries(fd, skeleton_sketches(skeleton), problems)
+    ends = resolve(fd, geos, problems)
+    out = {}
+    for mid in (member_ids if member_ids is not None else list(geos)):
+        geo = geos.get(mid)
+        if geo is None:
+            continue
+        e = ends.get(mid, {})
+        try:
+            solid = member_solid(geo.fam.kind, geo.dims, geo.fam.source,
+                                 geo.member.mirror, geo.length,
+                                 e.get("extend_a", 0.0), e.get("extend_b", 0.0),
+                                 e.get("cuts", []), e.get("notches", []))
+        except KernelError:
+            continue
+        out[mid] = solid.Moved(geo.placement.location())
+    return out
+
+
+def preview_solids(parent, skeleton_occurrence, line_ids_by_sketch,
+                   family_id: str, size: str, anchor: str = "mc",
+                   offset_a: float = 0.0, offset_b: float = 0.0,
+                   rotate: float = 0.0, mirror: bool = False,
+                   merge: bool = False):
+    """The members Insert Frame would make, as solids where they would
+    sit in the parent assembly, nothing written."""
+    skeleton = parent.component_path(skeleton_occurrence)
+    sketches = skeleton_sketches(skeleton)
+    fam = family(family_id)
+    fam.row(size)
+    out = []
+    location = skeleton_occurrence.placement.location()
+    for sketch_id, line_ids in line_ids_by_sketch.items():
+        found = sketches.get(sketch_id)
+        if found is None:
+            continue
+        plane, _name, lines = found
+        runs = mergeable_runs(lines, list(line_ids)) if merge \
+            else [[i] for i in line_ids]
+        for run in runs:
+            member = Member(id=0, sketch=sketch_id, lines=run,
+                            family=family_id, size=size, anchor=anchor,
+                            offset_a=offset_a, offset_b=offset_b,
+                            rotate=rotate, mirror=mirror)
+            try:
+                start, end = run_of(lines, run)
+                geo = MemberGeometry(member, fam, start, end, plane.normal)
+                solid = member_solid(fam.kind, geo.dims, fam.source, mirror,
+                                     geo.length)
+            except (KernelError, KeyError, ValueError):
+                continue
+            out.append(solid.Moved(geo.placement.location()).Moved(location))
+    return out
+
+
+def member_axes(frame_doc) -> Dict[int, Tuple[Any, Any, float]]:
+    """{member id: (start, end, how far its profile reaches from it)}: the
+    line down the middle of each member's profile, in the frame, for
+    picking members in the view."""
+    fd = frame_doc.frame
+    if fd is None:
+        return {}
+    base = frame_doc.base_dir
+    skeleton = os.path.normpath(os.path.join(base, fd.skeleton)) \
+        if base and not os.path.isabs(fd.skeleton) else fd.skeleton
+    out = {}
+    for mid, geo in member_geometries(fd, skeleton_sketches(skeleton),
+                                      []).items():
+        x0, y0, _z0, x1, y1, _z1 = kernel.bounding_box(geo.face)
+        cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+        reach = max(math.hypot(x - cx, y - cy) for x, y in geo.points)
+        out[mid] = (geo.to_world((cx, cy, 0.0)),
+                    geo.to_world((cx, cy, geo.length)), reach)
+    return out

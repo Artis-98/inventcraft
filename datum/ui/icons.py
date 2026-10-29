@@ -527,6 +527,68 @@ def _i_frame_library(p):
                         (22, 17.5), (22, 20)))
 
 
+def _i_frame_assembly(p):
+    """A welded frame: a top of tubes on two legs, in the solid colour."""
+    _sheet(p, [(2, 9), (14, 4), (22, 7), (10, 12)], 165)
+    _sheet(p, [(5, 9), (14, 5.5), (19, 7), (10, 10.5)], 40)
+    _sheet(p, [(2, 9), (4, 9.8), (4, 21), (2, 20)], 110)
+    _sheet(p, [(20, 7.8), (22, 7), (22, 18), (20, 19)], 110)
+    _sheet(p, [(9, 11.6), (11, 12), (11, 22), (9, 21.5)], 130)
+
+
+def _i_frame_change(p):
+    """A member and the arrows of a swap: a different size."""
+    _sheet(p, [(3, 15), (13, 9), (17, 11), (7, 17)], 150)
+    _sheet(p, [(3, 15), (7, 17), (7, 20), (3, 18)], 90)
+    _pen(p, _ACCENT, 1.8)
+    p.drawLine(QtCore.QPointF(15, 4), QtCore.QPointF(21, 4))
+    p.drawLine(QtCore.QPointF(21, 4), QtCore.QPointF(18.5, 2))
+    p.drawLine(QtCore.QPointF(21, 7), QtCore.QPointF(15, 7))
+    p.drawLine(QtCore.QPointF(15, 7), QtCore.QPointF(17.5, 9))
+
+
+def _i_frame_miter(p):
+    """Two members meeting on a 45 degree cut."""
+    _sheet(p, [(3, 20), (3, 13), (11, 13), (18, 20)], 140)
+    _sheet(p, [(11, 13), (11, 3), (18, 3), (18, 20)], 105)
+    _pen(p, _ACCENT, 1.6)
+    p.drawLine(QtCore.QPointF(10, 12), QtCore.QPointF(19, 21))
+
+
+def _i_frame_corner(p):
+    """A butt joint: one member stopped against the other's side."""
+    _sheet(p, [(3, 20), (3, 13), (13, 13), (13, 20)], 140)
+    _sheet(p, [(13, 21), (13, 3), (20, 3), (20, 21)], 105)
+    _pen(p, _ACCENT, 1.6)
+    p.drawLine(QtCore.QPointF(13, 11), QtCore.QPointF(13, 22))
+
+
+def _i_frame_trim(p):
+    """A member run on to a face."""
+    _sheet(p, [(2, 15), (2, 9), (15, 9), (15, 15)], 140)
+    _sheet(p, [(17, 3), (21, 3), (21, 21), (17, 21)], 60)
+    _pen(p, _ACCENT, 1.6)
+    p.drawLine(QtCore.QPointF(15, 12), QtCore.QPointF(17, 12))
+
+
+def _i_frame_notch(p):
+    """A member with the other's outline cut out of its end."""
+    _sheet(p, [(2, 16), (2, 8), (17, 8), (17, 11), (14, 11), (14, 13),
+               (17, 13), (17, 16)], 140)
+    _pen(p, _ACCENT, 1.6)
+    p.drawRoundedRect(QtCore.QRectF(14, 4, 7, 16), 1.5, 1.5)
+
+
+def _i_frame_lengthen(p):
+    """A member and how much longer it gets."""
+    _sheet(p, [(2, 15), (2, 9), (14, 9), (14, 15)], 140)
+    _pen(p, _ACCENT, 1.6, dashed=True)
+    p.drawRect(QtCore.QRectF(14, 9, 6, 6))
+    _pen(p, _ACCENT, 1.6)
+    p.drawLine(QtCore.QPointF(14, 19), QtCore.QPointF(21, 19))
+    p.drawLine(QtCore.QPointF(21, 19), QtCore.QPointF(19, 17))
+
+
 def _i_frame_member(p):
     """A length of square tube."""
     _sheet(p, [(3, 14), (15, 6), (21, 9), (9, 17)], 150)
@@ -1219,7 +1281,10 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "sm_defaults": _i_sm_defaults, "sm_convert": _i_sm_convert,
     "sm_inside": _i_sm_inside, "sm_adjacent": _i_sm_adjacent,
     "frame_insert": _i_frame_insert, "frame_library": _i_frame_library,
-    "frame_member": _i_frame_member,
+    "frame_member": _i_frame_member, "frame_assembly": _i_frame_assembly,
+    "frame_change": _i_frame_change, "frame_miter": _i_frame_miter,
+    "frame_corner": _i_frame_corner, "frame_trim": _i_frame_trim,
+    "frame_notch": _i_frame_notch, "frame_lengthen": _i_frame_lengthen,
     "sm_hem": _i_sm_hem, "sm_hem_teardrop": _i_sm_hem_teardrop,
     "sm_hem_rolled": _i_sm_hem_rolled, "sm_hem_double": _i_sm_hem_double,
     "sm_fold": _i_sm_fold, "sm_contour": _i_sm_contour,

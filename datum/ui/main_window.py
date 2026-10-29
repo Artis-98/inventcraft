@@ -702,9 +702,33 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("frame_insert", "Insert\nFrame",
                       "Frame members on the lines of a skeleton's sketch"
                       ).clicked.connect(self.insert_frame)
+        panel.add_big("frame_change", "Change",
+                      "Change Frame: new sizes, placement or material for "
+                      "members already made").clicked.connect(
+            lambda: self.change_frame())
         panel.add_small("update", "Refresh",
                         "Bring every frame up to its skeleton").clicked.connect(
             lambda: self.assembly_ui.rebuild())
+        panel = design.add_panel("End Treatments")
+        for kind, icon, label, tip in (
+                ("miter", "frame_miter", "Miter",
+                 "Miter Corners: two members cut to meet on the half angle"),
+                ("corner", "frame_corner", "Corner\nJoint",
+                 "One member stopped at the other's side, the other run on "
+                 "to its outside"),
+                ("trim_face", "frame_trim", "Trim - Extend",
+                 "Trim and Extend to a Face"),
+                ("notch", "frame_notch", "Notch",
+                 "Notch Frame Members: the other's outline cut out"),
+                ("lengthen", "frame_lengthen", "Lengthen - Shorten",
+                 "Lengthen - Shorten Frame Members")):
+            add = panel.add_big if kind in ("miter", "corner") \
+                else panel.add_small
+            add(icon, label, tip).clicked.connect(
+                lambda _c=False, k=kind: self.end_treatment(k))
+        panel.add_small("delete", "Remove End Treatments",
+                        "The picked members back as Insert Frame made them"
+                        ).clicked.connect(lambda: self.frame_action("remove"))
         panel = design.add_panel("Profiles")
         panel.add_big("frame_library", "Profile\nLibrary",
                       "The profile families and their sizes; your own too"
@@ -2013,6 +2037,58 @@ class MainWindow(QtWidgets.QMainWindow):
         self.frame_dialog = dialog
         dialog.show()
         return dialog
+
+    def _tree_frame_members(self):
+        """The frame and its members picked in the assembly tree."""
+        try:
+            return self.assembly_ui.browser.selected_frame_members()
+        except Exception:
+            return 0, []
+
+    def change_frame(self, frame_oid: int = 0, member_ids=None):
+        """Change Frame on members, picked in the tree or after in the
+        view."""
+        from .frames_ui import InsertFrameDialog
+        if self.assembly is None:
+            return None
+        if member_ids is None:
+            frame_oid, member_ids = self._tree_frame_members()
+        dialog = InsertFrameDialog(self, change=(frame_oid, list(member_ids)))
+        self.frame_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def end_treatment(self, kind: str, frame_oid: int = 0, member_ids=None):
+        """Miter, Corner Joint, Trim - Extend, Notch or Lengthen - Shorten,
+        on members picked in the tree or after in the view."""
+        from .frames_ui import EndTreatmentDialog
+        if self.assembly is None:
+            return None
+        if member_ids is None:
+            frame_oid, member_ids = self._tree_frame_members()
+        dialog = EndTreatmentDialog(self, kind, frame_oid, list(member_ids))
+        self.frame_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def frame_action(self, what: str, frame_oid: int = 0, member_ids=None):
+        """What the tree's Frame Generator menu asked for."""
+        if member_ids is None:
+            frame_oid, member_ids = self._tree_frame_members()
+        if what == "change":
+            return self.change_frame(frame_oid, member_ids)
+        if what == "remove":
+            from .frames_ui import remove_end_treatments
+            if not frame_oid or not member_ids:
+                self.status_message.setText(
+                    "Pick the members in the tree first.")
+                return 0
+            gone = remove_end_treatments(self, frame_oid, member_ids)
+            self.status_message.setStyleSheet("")
+            self.status_message.setText("%d end treatment%s removed."
+                                        % (gone, "" if gone == 1 else "s"))
+            return gone
+        return self.end_treatment(what, frame_oid, member_ids)
 
     def profile_library(self):
         from .frames_ui import ProfileLibraryDialog
