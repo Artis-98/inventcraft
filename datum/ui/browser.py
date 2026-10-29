@@ -422,6 +422,38 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             self.picked_changed.emit(str(item.data(0, ROLE_KIND) or ""),
                                      str(item.data(0, ROLE_ID) or ""))
 
+    # which sketches are hidden or shown by hand: the part's own record,
+    # saved with it, so an assembly shows what the part does
+    @property
+    def _hidden_sketches(self) -> set:
+        doc = getattr(self, "_doc", None)
+        if doc is not None and hasattr(doc, "hidden_sketches"):
+            return doc.hidden_sketches
+        return self.__dict__.setdefault("_hidden_fallback", set())
+
+    @_hidden_sketches.setter
+    def _hidden_sketches(self, value) -> None:
+        doc = getattr(self, "_doc", None)
+        if doc is not None and hasattr(doc, "hidden_sketches"):
+            doc.hidden_sketches = set(value)
+        else:
+            self.__dict__["_hidden_fallback"] = set(value)
+
+    @property
+    def _shown_sketches(self) -> set:
+        doc = getattr(self, "_doc", None)
+        if doc is not None and hasattr(doc, "shown_sketches"):
+            return doc.shown_sketches
+        return self.__dict__.setdefault("_shown_fallback", set())
+
+    @_shown_sketches.setter
+    def _shown_sketches(self, value) -> None:
+        doc = getattr(self, "_doc", None)
+        if doc is not None and hasattr(doc, "shown_sketches"):
+            doc.shown_sketches = set(value)
+        else:
+            self.__dict__["_shown_fallback"] = set(value)
+
     def is_sketch_hidden(self, feature_id: int,
                          doc: Optional[Document] = None) -> bool:
         """Hidden by hand, or used by a feature and not shown again.
@@ -429,11 +461,13 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         A shared sketch stays visible: sharing is how you say a sketch is
         still wanted on its own.
         """
+        doc = doc or self._doc
+        if doc is not None and hasattr(doc, "sketch_visible"):
+            return not doc.sketch_visible(feature_id)
         if feature_id in self._hidden_sketches:
             return True
         if feature_id in self._shown_sketches:
             return False
-        doc = doc or self._doc
         if doc is None or feature_id not in self._consumers(doc):
             return False
         feature = doc.feature(feature_id)
@@ -446,6 +480,8 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         else:
             self._hidden_sketches.add(feature_id)
             self._shown_sketches.discard(feature_id)
+        if self._doc is not None and hasattr(self._doc, "modified"):
+            self._doc.modified = True
         self.refresh()
         self.visibility_toggled.emit(feature_id)
 

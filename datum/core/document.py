@@ -265,6 +265,10 @@ class Document:
         # solid bodies put out of sight from the tree, by name; saved with
         # the part, as Inventor keeps them
         self.hidden_bodies: set = set()
+        # sketches hidden or shown by hand, by feature id: kept in the part,
+        # as Inventor keeps them, so an assembly shows what the part does
+        self.hidden_sketches: set = set()
+        self.shown_sketches: set = set()
         # What a solid is called on screen, by the name the part knows it
         # by.  Features, visibility and everything else hold the solid by
         # that name, which never changes, so renaming one breaks nothing
@@ -514,6 +518,43 @@ class Document:
             if found is not None and found.IsSame(shape):
                 return name
         return ""
+
+    def sketch_consumers(self) -> Dict[int, int]:
+        """sketch feature id -> the first feature that uses it."""
+        sketch_ids = {f.id for f in self.sketch_features()}
+        out: Dict[int, int] = {}
+        for feature in self.features:
+            if feature.id in sketch_ids:
+                continue
+            for dependency in feature.depends_on():
+                if dependency in sketch_ids and dependency not in out:
+                    out[dependency] = feature.id
+        return out
+
+    def sketch_visible(self, feature_id: int) -> bool:
+        """Whether a sketch shows: hidden or shown by hand, or else shown
+        unless a feature used it (and it is not shared)."""
+        if feature_id in self.hidden_sketches:
+            return False
+        if feature_id in self.shown_sketches:
+            return True
+        feature = self.feature(feature_id)
+        if feature is None:
+            return False
+        if feature_id not in self.sketch_consumers():
+            return True
+        if getattr(feature, "shared", False):
+            return True
+        sketch_ids = {f.id for f in self.sketch_features()}
+        users = sum(1 for f in self.features
+                    if f.id not in sketch_ids and feature_id in f.depends_on())
+        return users > 1
+
+    def visible_sketches(self) -> List[Any]:
+        """The sketch features that show, in the part and wherever it is
+        placed."""
+        return [f for f in self.sketch_features()
+                if not f.suppressed and self.sketch_visible(f.id)]
 
     def _sheet_key(self) -> str:
         """What of Sheet Metal Defaults a feature's result depends on that
@@ -1053,6 +1094,15 @@ class Document:
     def plane_visible(self, name: str) -> bool:
         return name not in self.hidden_planes
 
+    def set_sketch_visible(self, feature_id: int, visible: bool) -> None:
+        if visible:
+            self.hidden_sketches.discard(feature_id)
+            self.shown_sketches.add(feature_id)
+        else:
+            self.shown_sketches.discard(feature_id)
+            self.hidden_sketches.add(feature_id)
+        self.modified = True
+
     def set_plane_visible(self, name: str, visible: bool) -> None:
         if visible:
             self.hidden_planes.discard(name)
@@ -1224,6 +1274,8 @@ class Document:
             "rollback": self.rollback_index,
             "hidden_planes": sorted(self.hidden_planes),
             "hidden_bodies": sorted(self.hidden_bodies),
+            "hidden_sketches": sorted(self.hidden_sketches),
+            "shown_sketches": sorted(self.shown_sketches),
             "solid_labels": dict(self.solid_labels),
             "named_entities": {name: refs.to_list() for name, refs
                                in self.named_entities.items()},
@@ -1260,6 +1312,10 @@ class Document:
         self.rollback_index = data.get("rollback")
         self.hidden_planes = set(data.get("hidden_planes", []))
         self.hidden_bodies = set(data.get("hidden_bodies", []))
+        self.hidden_sketches = set(int(i) for i in
+                                   data.get("hidden_sketches", []))
+        self.shown_sketches = set(int(i) for i in
+                                  data.get("shown_sketches", []))
         self.solid_labels = {str(k): str(v) for k, v in
                              (data.get("solid_labels") or {}).items()}
         from .naming import RefSet

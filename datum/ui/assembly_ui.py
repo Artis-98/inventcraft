@@ -786,9 +786,82 @@ class AssemblyController(QtCore.QObject):
         if held:
             self.viewport.select_components(held)
         self.viewport.show_planes(self.visible_planes(), self._plane_size())
+        self.draw_component_sketches()
         # the components were just rebuilt underneath them, so the arrows
         # have to be put back where the faces now are
         self._draw_arrows()
+
+    # ------------------------------------------- the parts' sketches, placed
+
+    def _component_sketches(self):
+        """(occurrence, sketch id, sketch) for every sketch that shows in
+        a part placed here: what shows in the part shows here too, as it
+        does in Inventor, moved to where the part sits."""
+        doc = self.document
+        if doc is None:
+            return
+        host = self.host
+        for occurrence in doc.occurrences:
+            if occurrence.suppressed or not occurrence.visible:
+                continue
+            path = doc.component_path(occurrence)
+            if not path or fileformat.is_assembly(path):
+                continue
+            part = None
+            live = getattr(host, "_live_document", None)
+            if live is not None:
+                part = live(path)
+            if part is None and hasattr(host, "component_document"):
+                part = host.component_document(path)
+            if part is None or not hasattr(part, "visible_sketches"):
+                continue
+            sketches = part.all_sketches()
+            for feature in part.visible_sketches():
+                sketch = sketches.get(feature.id) or feature.sketch
+                if sketch is not None:
+                    yield occurrence, feature.id, sketch
+
+    def component_sketch_lines(self) -> Dict[Any, Any]:
+        """{(occurrence id, sketch id, line id): (start, end)} in the
+        assembly's coordinates: the lines a frame can be put on."""
+        out: Dict[Any, Any] = {}
+        for occurrence, sketch_id, sketch in self._component_sketches():
+            plane = sketch.plane
+            for eid, entity in sketch.entities.items():
+                if entity.kind != "line" or entity.construction:
+                    continue
+                a = sketch.points[entity.points[0]]
+                b = sketch.points[entity.points[1]]
+                out[(occurrence.id, sketch_id, eid)] = (
+                    occurrence.placement.apply_point(plane.to_3d(a.x, a.y)),
+                    occurrence.placement.apply_point(plane.to_3d(b.x, b.y)))
+        return out
+
+    def draw_component_sketches(self) -> None:
+        """Into the overlay, so it goes with the assembly's pictures when
+        the window turns to something else."""
+        from OCP.BRep import BRep_Builder
+        from OCP.TopoDS import TopoDS_Compound
+        for occurrence, _sid, sketch in self._component_sketches():
+            builder = BRep_Builder()
+            compound = TopoDS_Compound()
+            builder.MakeCompound(compound)
+            count = 0
+            for eid, entity in sketch.entities.items():
+                if entity.kind == "point":
+                    continue
+                try:
+                    edge = kernel._sketch_edge(sketch, eid)
+                except Exception:
+                    edge = None
+                if edge is not None:
+                    builder.Add(compound, edge)
+                    count += 1
+            if count:
+                self.viewport.draw_shape(
+                    compound.Moved(occurrence.placement.location()),
+                    C.sketch_line, 1.6, fittable=True)
+        self.viewport.redraw()
 
     # ------------------------------------------------- which way a face looks
 

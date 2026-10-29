@@ -79,40 +79,81 @@ settle(800)
 check("an assembly has the Design tab", win.ribbon._buttons[TAB_DESIGN]
       .isVisible())
 
+print("the part's sketch shows in the assembly")
+lines = win.assembly_ui.component_sketch_lines()
+check("its four lines are there to pick, where the part sits",
+      len(lines) == 4 and all(near(a[2], 750) for a, _b in lines.values()),
+      lines)
+
 print("Insert Frame")
 dialog = win.insert_frame()
 pump()
-check("it finds the skeleton and its sketch",
-      dialog.skeleton.count() == 1 and dialog.sketch.count() == 1)
-check("and lists its four lines", dialog.lines.count() == 4)
+check("no skeleton or sketch to choose first: the lines are the input",
+      not hasattr(dialog, "skeleton") and len(dialog.candidates()) == 4)
 check("the families are offered by category",
       [dialog.category.itemText(i) for i in range(dialog.category.count())]
       [:2] == ["Angles", "Square Tubes"])
+check("it starts with none selected",
+      dialog.count.text() == "No lines selected", dialog.count.text())
 win.viewport.set_view("top")
 win.viewport.fit_all()
 settle(400)
-dialog._redraw()
 pump()
+
+
+def mouse(kind, x, y, buttons=None):
+    pos = QtCore.QPointF(x, y)
+    held = (QtCore.Qt.LeftButton if kind != QtCore.QEvent.MouseButtonRelease
+            else QtCore.Qt.NoButton) if buttons is None else buttons
+    event = QtGui.QMouseEvent(kind, pos, win.viewport.mapToGlobal(pos),
+                              QtCore.Qt.LeftButton if kind !=
+                              QtCore.QEvent.MouseMove else QtCore.Qt.NoButton,
+                              held, QtCore.Qt.NoModifier)
+    return dialog.eventFilter(win.viewport, event)
+
+
 # a click on a line in the view picks it
-lines = dialog.current_lines()
 first = next(iter(lines))
 a, b = lines[first]
-mid = tuple((a[i] + b[i]) / 2 for i in range(3))
-x, y = win.viewport.project(mid)
-for kind in (QtCore.QEvent.MouseButtonPress, QtCore.QEvent.MouseButtonRelease):
-    pos = QtCore.QPointF(x, y)
-    event = QtGui.QMouseEvent(kind, pos, win.viewport.mapToGlobal(pos),
-                              QtCore.Qt.LeftButton,
-                              QtCore.Qt.LeftButton if kind ==
-                              QtCore.QEvent.MouseButtonPress
-                              else QtCore.Qt.NoButton, QtCore.Qt.NoModifier)
-    dialog.eventFilter(win.viewport, event)
+x, y = win.viewport.project(tuple((a[i] + b[i]) / 2 for i in range(3)))
+eaten = mouse(QtCore.QEvent.MouseButtonPress, x, y)
+mouse(QtCore.QEvent.MouseButtonRelease, x, y)
 check("a click on a line in the view picks it", dialog.picked() == [first],
       dialog.picked())
+check("the view does not get the click as well", eaten)
+check("and it says so", dialog.count.text() == "1 line selected",
+      dialog.count.text())
+mouse(QtCore.QEvent.MouseButtonPress, x, y)
+mouse(QtCore.QEvent.MouseButtonRelease, x, y)
+check("clicked again, it is dropped", dialog.picked() == [])
 if SHOTS:
     win.viewport.grab_image(os.path.join(SHOTS, "frame_pick.png"))
-dialog._tick_all(True)
-check("All Lines takes the rest", len(dialog.picked()) == 4)
+# a box dragged over the whole lot, left to right: all four in it
+w, h = win.viewport.width(), win.viewport.height()
+mouse(QtCore.QEvent.MouseButtonPress, 2, 2)
+mouse(QtCore.QEvent.MouseMove, w / 2, h / 2)
+mouse(QtCore.QEvent.MouseMove, w - 2, h - 2)
+mouse(QtCore.QEvent.MouseButtonRelease, w - 2, h - 2)
+check("a box dragged over them takes all four",
+      len(dialog.picked()) == 4 and dialog.count.text() == "4 lines selected",
+      dialog.count.text())
+dialog.clear()
+check("Clear drops them", dialog.picked() == [])
+# a box over half of it, left to right: only the line wholly inside
+pa = win.viewport.project((0.0, 0.0, 750.0))
+pb = win.viewport.project((1000.0, 600.0, 750.0))
+xs, ys = sorted((pa[0], pb[0])), sorted((pa[1], pb[1]))
+left = (xs[0] - 20, ys[0] - 20)
+mid_x = (xs[0] + xs[1]) / 2
+window = dialog.lines_in_box(QtCore.QPoint(*map(int, left)),
+                             QtCore.QPoint(int(mid_x), int(ys[1] + 20)))
+crossing = dialog.lines_in_box(QtCore.QPoint(int(mid_x), int(ys[1] + 20)),
+                               QtCore.QPoint(*map(int, left)))
+check("left to right takes what is wholly inside: the left end",
+      len(window) == 1, window)
+check("right to left takes what it touches: three", len(crossing) == 3,
+      crossing)
+dialog.add_lines(list(dialog.candidates()))
 check("a family and size are chosen",
       dialog.choose("din-en-10219-2-square", "40 x 40 x 3"))
 check("it applies", dialog.apply(), dialog.message.text())
@@ -125,6 +166,7 @@ box = kernel.bounding_box(asm.shape)
 check("four tubes round the top", near(box[0], -20, 0.05)
       and near(box[3], 1020, 0.05) and near(box[5], 770, 0.05),
       [round(c, 2) for c in box])
+check("the selection is cleared for the next lot", dialog.picked() == [])
 dialog.close()
 pump()
 if SHOTS:
@@ -133,18 +175,38 @@ if SHOTS:
     settle(500)
     win.viewport.grab_image(os.path.join(SHOTS, "frame_table.png"))
 
-print("the skeleton edited, Refresh")
-part = Document.load(skeleton_path)
-sid = next(iter(part.all_sketches()))
-for point in part.all_sketches()[sid].points.values():
+print("the skeleton edited in place, not saved: the frame follows")
+skeleton_occurrence = next(o for o in win.assembly.occurrences
+                           if not o.follows)
+live = win._in_place_document(win.assembly.component_path(skeleton_occurrence))
+sid = next(iter(live.all_sketches()))
+feature = live.feature(sid)
+for point in feature.sketch.points.values():
     if near(point.y, 600.0):
         point.y = 800.0
-part.rebuild()
-part.save(skeleton_path)
+live.rebuild()
 win.assembly_ui.rebuild()
 pump()
 box = kernel.bounding_box(win.assembly.shape)
 check("the frame is 800 deep now", near(box[4], 820, 0.05), box)
+check("and its sketch is drawn where it now is", any(
+    near(a[1], 800) or near(b[1], 800)
+    for a, b in win.assembly_ui.component_sketch_lines().values()))
+live.modified = False
+win._in_place_docs.clear()
+
+print("a sketch hidden in the part is hidden in the assembly too")
+part = Document.load(skeleton_path)
+part.set_sketch_visible(sid, False)
+part.save(skeleton_path)
+win._browse_docs.clear()
+reread = Document.load(skeleton_path)
+check("hiding a sketch is kept in the part", sid in reread.hidden_sketches)
+check("its lines are not offered in the assembly",
+      win.assembly_ui.component_sketch_lines() == {})
+part.set_sketch_visible(sid, True)
+part.save(skeleton_path)
+win._browse_docs.clear()
 
 # ==========================================================================
 print("the Profile Library")

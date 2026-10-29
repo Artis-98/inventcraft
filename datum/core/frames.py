@@ -264,7 +264,21 @@ def sketch_parameters(path: str) -> List[str]:
     return names
 
 
+# The window sets this: the document behind a file as it is being edited
+# now, unsaved edits and all, or None.  A skeleton edited in place in the
+# assembly is read from there, so the frame follows the sketch as it is
+# on screen rather than as it was last saved.
+live_document = None
+
+
 def _open_part(path: str):
+    if live_document is not None:
+        try:
+            held = live_document(path)
+        except Exception:
+            held = None
+        if held is not None and hasattr(held, "all_sketches"):
+            return held
     from .document import Document
     doc = Document.load(path)
     doc.rebuild()

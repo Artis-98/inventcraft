@@ -1532,7 +1532,8 @@ class MainWindow(QtWidgets.QMainWindow):
         b.rollback_requested.connect(self.set_rollback)
         b.delete_below_requested.connect(self.delete_features_below)
         b.model_state_requested.connect(self.model_state_action)
-        b.visibility_toggled.connect(lambda _fid: self._draw_visible_sketches())
+        b.visibility_toggled.connect(lambda _fid: (
+            self._draw_visible_sketches(), self._update_title()))
         b.properties_requested.connect(self.show_properties)
         b.open_location_requested.connect(
             lambda: self.open_file_location(self.document.path))
@@ -4764,6 +4765,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.in_place = []          # the levels descended, deepest last
         self._in_place_docs = {}    # path -> the document opened in place
         self._browse_docs = {}      # path -> a document we only read
+        # a frame reads its skeleton as it is on screen, unsaved edits too
+        from ..core import frames as core_frames
+        core_frames.live_document = self._live_document
         # guards the one rebuild a rule is allowed to cause
         self._rules_running = False
         self._activating = False
@@ -4955,6 +4959,15 @@ class MainWindow(QtWidgets.QMainWindow):
             return None
         self._browse_docs[key] = document
         return document
+
+    def _live_document(self, path: str):
+        """The document behind a file as it is being edited now, or None
+        when it is only on disk."""
+        held = self._in_place_docs.get(os.path.normcase(os.path.abspath(path)))
+        if held is not None:
+            return held
+        entry = self.session.by_path(path)
+        return entry.document if entry is not None else None
 
     def _shape_provider(self, path: str):
         """What an assembly should use for a file being edited right now."""
@@ -5787,7 +5800,14 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         picked = self.viewport.selected_shapes()
         if not picked:
-            return
+            # not a model edge: a line of another sketch on show, which
+            # Inventor projects the same way
+            pos = getattr(self.viewport, "_press_pos", None)
+            edge = (self._reference_edge_at(pos.x(), pos.y())
+                    if pos is not None else None)
+            if edge is None:
+                return
+            picked = [edge]
         made = 0
         for shape in picked:
             made += self.editor.project_one(
@@ -5802,6 +5822,40 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_message.setText(
                 "That is square to the sketch, so it projects to nothing. "
                 "Pick another.")
+
+    REFERENCE_PICK_PIXELS = 10
+
+    def _reference_edge_at(self, x: int, y: int):
+        """The edge of a visible sketch (not the one being edited) under a
+        click in the view, within a few pixels, or None."""
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        best, best_d = None, self.REFERENCE_PICK_PIXELS
+        for sketch in getattr(self.editor, "references", None) or []:
+            for eid, entity in sketch.entities.items():
+                if entity.kind == "point":
+                    continue
+                try:
+                    edge = kernel._sketch_edge(sketch, eid)
+                except Exception:
+                    edge = None
+                if edge is None:
+                    continue
+                curve = BRepAdaptor_Curve(edge)
+                u0, u1 = curve.FirstParameter(), curve.LastParameter()
+                steps = 1 if entity.kind == "line" else 32
+                screen = []
+                for i in range(steps + 1):
+                    p = curve.Value(u0 + (u1 - u0) * i / steps)
+                    screen.append(self.viewport.project((p.X(), p.Y(), p.Z())))
+                for (ax, ay), (bx, by) in zip(screen, screen[1:]):
+                    dx, dy = bx - ax, by - ay
+                    span = dx * dx + dy * dy
+                    t = 0.0 if span == 0 else max(0.0, min(1.0, (
+                        (x - ax) * dx + (y - ay) * dy) / span))
+                    d = math.hypot(x - (ax + t * dx), y - (ay + t * dy))
+                    if d < best_d:
+                        best, best_d = edge, d
+        return best
 
     def _plane_from_selected_face(self) -> None:
         """Build a work plane straight off the face that was right-clicked."""

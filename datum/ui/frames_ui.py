@@ -4,26 +4,50 @@ Insert Frame is laid out as Inventor's is (read from it through UI
 Automation): the geometry to place members on, the member (category,
 standard, family, size, material, Merge Frame Members), and its
 orientation (the nine points, rotate, offsets A and B, mirror), with OK,
-Apply and Cancel.  Lines are picked by clicking them in the view, where
-the skeleton's sketch is drawn while the window is open.
+Apply and Cancel.  Lines are picked as Inventor picks them: straight off
+the view, any visible sketch of any part placed here, by a click or by a
+box dragged over them, and the window says how many are selected.
 """
 
 from __future__ import annotations
 
-import math
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from ..core import frames, kernel, materials
 from .theme import C
 
 PICK_PIXELS = 12
+DRAG_PIXELS = 5
+
+# a picked line: (the occurrence its part is placed as, its sketch, the line)
+LineKey = Tuple[int, int, int]
+
+
+def _clip(ax, ay, bx, by, x0, y0, x1, y1) -> bool:
+    """Whether the segment a b passes through the box (Liang and Barsky)."""
+    t0, t1 = 0.0, 1.0
+    dx, dy = bx - ax, by - ay
+    for p, q in ((-dx, ax - x0), (dx, x1 - ax), (-dy, ay - y0),
+                 (dy, y1 - ay)):
+        if p == 0:
+            if q < 0:
+                return False
+            continue
+        r = q / p
+        if p < 0:
+            t0 = max(t0, r)
+        else:
+            t1 = min(t1, r)
+        if t0 > t1:
+            return False
+    return True
 
 
 class InsertFrameDialog(QtWidgets.QDialog):
-    """Insert Frame: members on the skeleton's lines, in an assembly."""
+    """Insert Frame: members on the lines picked in the view."""
 
     def __init__(self, host, parent=None) -> None:
         super().__init__(parent or host)
@@ -31,30 +55,28 @@ class InsertFrameDialog(QtWidgets.QDialog):
         self.setWindowTitle("Insert Frame")
         self.setModal(False)
         self._drawn: List[Any] = []
-        self._sketches: Dict[int, Any] = {}
-        self._press = None
+        self._lines: Dict[LineKey, Any] = {}
+        self._picked: List[LineKey] = []
+        self._press: Optional[QtCore.QPoint] = None
+        self._boxing = False
         layout = QtWidgets.QVBoxLayout(self)
 
-        # -- input geometry
+        # -- input geometry: what is picked in the view
         group = QtWidgets.QGroupBox("Input Geometry")
-        form = QtWidgets.QFormLayout(group)
-        self.skeleton = QtWidgets.QComboBox()
-        form.addRow("Skeleton", self.skeleton)
-        self.sketch = QtWidgets.QComboBox()
-        form.addRow("Sketch", self.sketch)
-        self.lines = QtWidgets.QListWidget()
-        self.lines.setMinimumHeight(110)
-        self.lines.setToolTip("Click the lines in the view, or tick them here")
-        form.addRow("Lines", self.lines)
+        box = QtWidgets.QVBoxLayout(group)
+        hint = QtWidgets.QLabel("Click sketch lines in the view, or drag a "
+                                "box over them. Left to right takes what is "
+                                "inside, right to left what it touches. "
+                                "Click a picked line again to drop it.")
+        hint.setWordWrap(True)
+        box.addWidget(hint)
         row = QtWidgets.QHBoxLayout()
-        every = QtWidgets.QPushButton("All Lines")
-        every.clicked.connect(lambda: self._tick_all(True))
-        none = QtWidgets.QPushButton("None")
-        none.clicked.connect(lambda: self._tick_all(False))
-        row.addWidget(every)
-        row.addWidget(none)
-        row.addStretch(1)
-        form.addRow("", row)
+        self.count = QtWidgets.QLabel("")
+        row.addWidget(self.count, 1)
+        clear = QtWidgets.QPushButton("Clear")
+        clear.clicked.connect(self.clear)
+        row.addWidget(clear)
+        box.addLayout(row)
         layout.addWidget(group)
 
         # -- frame member
@@ -97,7 +119,6 @@ class InsertFrameDialog(QtWidgets.QDialog):
             anchors.addButton(button)
             grid.addWidget(button, i // 3, i % 3)
             self.anchor_buttons[key] = button
-            button.toggled.connect(lambda _on: self._redraw())
         self.anchor_buttons["mc"].setChecked(True)
         holder = QtWidgets.QWidget()
         holder.setLayout(grid)
@@ -131,14 +152,11 @@ class InsertFrameDialog(QtWidgets.QDialog):
             self.apply)
         layout.addWidget(buttons)
 
-        self.skeleton.currentIndexChanged.connect(lambda _i: self._skeleton())
-        self.sketch.currentIndexChanged.connect(lambda _i: self._lines())
-        self.lines.itemChanged.connect(lambda _item: self._redraw())
         self.category.currentIndexChanged.connect(lambda _i: self._standards())
         self.standard.currentIndexChanged.connect(lambda _i: self._families())
         self.family.currentIndexChanged.connect(lambda _i: self._sizes())
 
-        self._fill_skeletons()
+        self.reload_lines()
         self._fill_categories()
         viewport = getattr(host, "viewport", None)
         if viewport is not None:
@@ -151,139 +169,144 @@ class InsertFrameDialog(QtWidgets.QDialog):
     def doc(self):
         return self.host.assembly
 
-    def _fill_skeletons(self) -> None:
-        """Every part placed here that has a sketch of lines in it."""
-        self.skeleton.blockSignals(True)
-        self.skeleton.clear()
-        doc = self.doc
-        for occurrence in getattr(doc, "occurrences", []):
-            path = doc.component_path(occurrence)
-            if not path or not path.lower().endswith(".icpart"):
-                continue
-            try:
-                sketches = frames.skeleton_sketches(path)
-            except Exception:
-                continue
-            if any(s[2] for s in sketches.values()):
-                self.skeleton.addItem(occurrence.label, occurrence.id)
-                self._sketches[occurrence.id] = sketches
-        self.skeleton.blockSignals(False)
-        if self.skeleton.count():
-            self._skeleton()
-        else:
+    def reload_lines(self) -> None:
+        """Every line of every sketch that shows, where it sits now."""
+        controller = getattr(self.host, "assembly_ui", None)
+        try:
+            self._lines = controller.component_sketch_lines() \
+                if controller is not None else {}
+        except Exception:
+            self._lines = {}
+        self._picked = [k for k in self._picked if k in self._lines]
+        if not self._lines:
             self.message.setText("Place a skeleton first: a part with a "
-                                 "sketch of lines in it.")
+                                 "sketch of lines in it, the sketch visible.")
+        self._changed()
 
-    def _skeleton(self) -> None:
-        self.sketch.blockSignals(True)
-        self.sketch.clear()
-        sketches = self._sketches.get(self.skeleton.currentData(), {})
-        for sketch_id, (_plane, name, lines) in sketches.items():
-            if lines:
-                self.sketch.addItem("%s (%d lines)" % (name, len(lines)),
-                                    sketch_id)
-        self.sketch.blockSignals(False)
-        self._lines()
+    def candidates(self) -> Dict[LineKey, Any]:
+        return dict(self._lines)
 
-    def current_lines(self) -> Dict[int, Any]:
-        sketches = self._sketches.get(self.skeleton.currentData(), {})
-        found = sketches.get(self.sketch.currentData())
-        return found[2] if found else {}
+    def picked(self) -> List[LineKey]:
+        return list(self._picked)
 
-    def _lines(self) -> None:
-        self.lines.blockSignals(True)
-        self.lines.clear()
-        for line_id, (a, b) in self.current_lines().items():
-            item = QtWidgets.QListWidgetItem("Line %d, %.4g long"
-                                             % (line_id, math.dist(a, b)))
-            item.setData(QtCore.Qt.UserRole, line_id)
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState(QtCore.Qt.Unchecked)
-            self.lines.addItem(item)
-        self.lines.blockSignals(False)
+    def toggle_line(self, key: LineKey) -> None:
+        if key in self._picked:
+            self._picked.remove(key)
+        else:
+            self._picked.append(key)
+        self._changed()
+
+    def add_lines(self, keys) -> None:
+        for key in keys:
+            if key not in self._picked:
+                self._picked.append(key)
+        self._changed()
+
+    def clear(self) -> None:
+        self._picked = []
+        self._changed()
+
+    def _changed(self) -> None:
+        n = len(self._picked)
+        self.count.setText("No lines selected" if not n else
+                           "1 line selected" if n == 1 else
+                           "%d lines selected" % n)
         self._redraw()
 
-    def _tick_all(self, on: bool) -> None:
-        self.lines.blockSignals(True)
-        for i in range(self.lines.count()):
-            self.lines.item(i).setCheckState(QtCore.Qt.Checked if on
-                                             else QtCore.Qt.Unchecked)
-        self.lines.blockSignals(False)
-        self._redraw()
-
-    def picked(self) -> List[int]:
-        return [int(self.lines.item(i).data(QtCore.Qt.UserRole))
-                for i in range(self.lines.count())
-                if self.lines.item(i).checkState() == QtCore.Qt.Checked]
-
-    def toggle_line(self, line_id: int) -> None:
-        for i in range(self.lines.count()):
-            item = self.lines.item(i)
-            if int(item.data(QtCore.Qt.UserRole)) == line_id:
-                item.setCheckState(QtCore.Qt.Unchecked
-                                   if item.checkState() == QtCore.Qt.Checked
-                                   else QtCore.Qt.Checked)
-
-    def _occurrence(self):
-        return self.doc.occurrence(int(self.skeleton.currentData() or 0))
-
-    def _world(self, p):
-        occurrence = self._occurrence()
-        return occurrence.placement.apply_point(p) if occurrence else p
-
-    def line_at(self, x: int, y: int) -> Optional[int]:
-        """The skeleton line nearest a click in the view, within reach."""
+    def _screen(self, key: LineKey):
         viewport = self.host.viewport
+        a, b = self._lines[key]
+        return viewport.project(a), viewport.project(b)
+
+    def line_at(self, x: int, y: int) -> Optional[LineKey]:
+        """The sketch line nearest a click in the view, within reach."""
         best, best_d = None, PICK_PIXELS
-        for line_id, (a, b) in self.current_lines().items():
-            ax, ay = viewport.project(self._world(a))
-            bx, by = viewport.project(self._world(b))
+        for key in self._lines:
+            (ax, ay), (bx, by) = self._screen(key)
             dx, dy = bx - ax, by - ay
             span = dx * dx + dy * dy
             t = 0.0 if span == 0 else max(0.0, min(1.0, (
                 (x - ax) * dx + (y - ay) * dy) / span))
-            d = math.hypot(x - (ax + t * dx), y - (ay + t * dy))
+            d = ((x - (ax + t * dx)) ** 2 + (y - (ay + t * dy)) ** 2) ** 0.5
             if d < best_d:
-                best, best_d = line_id, d
+                best, best_d = key, d
         return best
 
+    def lines_in_box(self, start: QtCore.QPoint,
+                     end: QtCore.QPoint) -> List[LineKey]:
+        """The lines a dragged box takes: left to right those wholly in it,
+        right to left those it touches, as a selection box does."""
+        x0, x1 = sorted((start.x(), end.x()))
+        y0, y1 = sorted((start.y(), end.y()))
+        crossing = end.x() < start.x()
+        out = []
+        for key in self._lines:
+            (ax, ay), (bx, by) = self._screen(key)
+            inside = all(x0 <= x <= x1 and y0 <= y <= y1
+                         for x, y in ((ax, ay), (bx, by)))
+            if inside or (crossing and _clip(ax, ay, bx, by,
+                                             x0, y0, x1, y1)):
+                out.append(key)
+        return out
+
     def eventFilter(self, obj, event) -> bool:
+        """While the window is open the left button picks lines; the view
+        turns and pans as it always does with the others."""
         if not self.isVisible():
             return False
-        if event.type() == QtCore.QEvent.MouseButtonPress \
+        kind = event.type()
+        if kind == QtCore.QEvent.MouseButtonPress \
                 and event.button() == QtCore.Qt.LeftButton:
             self._press = event.position().toPoint()
-        elif event.type() == QtCore.QEvent.MouseButtonRelease \
+            self._boxing = False
+            return True
+        if kind == QtCore.QEvent.MouseMove and self._press is not None \
+                and event.buttons() & QtCore.Qt.LeftButton:
+            pos = event.position().toPoint()
+            if self._boxing or (pos - self._press).manhattanLength() \
+                    >= DRAG_PIXELS:
+                self._boxing = True
+                try:
+                    obj._draw_selection_box(self._press, pos)
+                except Exception:
+                    pass
+            return True
+        if kind == QtCore.QEvent.MouseButtonRelease \
                 and event.button() == QtCore.Qt.LeftButton \
                 and self._press is not None:
             pos = event.position().toPoint()
-            if (pos - self._press).manhattanLength() < 5:
-                line_id = self.line_at(pos.x(), pos.y())
-                if line_id is not None:
-                    self.toggle_line(line_id)
-                    self._press = None
-                    return True
+            if self._boxing:
+                try:
+                    obj._clear_selection_box()
+                except Exception:
+                    pass
+                self.add_lines(self.lines_in_box(self._press, pos))
+            else:
+                key = self.line_at(pos.x(), pos.y())
+                if key is not None:
+                    self.toggle_line(key)
             self._press = None
+            self._boxing = False
+            return True
         return False
 
     def _redraw(self) -> None:
+        """The picked lines lit up over everything; the rest are drawn
+        already, with the parts' sketches."""
         viewport = getattr(self.host, "viewport", None)
         if viewport is None:
             return
         viewport.remove_drawn(self._drawn)
         self._drawn = []
-        picked = set(self.picked())
         from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
         from OCP.gp import gp_Pnt
         with viewport.collecting() as drawn:
-            for line_id, (a, b) in self.current_lines().items():
-                wa, wb = self._world(a), self._world(b)
-                if math.dist(wa, wb) < 1e-9:
+            for key in self._picked:
+                a, b = self._lines[key]
+                if sum((a[i] - b[i]) ** 2 for i in range(3)) < 1e-18:
                     continue
-                edge = BRepBuilderAPI_MakeEdge(gp_Pnt(*wa), gp_Pnt(*wb)).Edge()
-                on = line_id in picked
-                viewport.draw_shape(edge, C.accent if on else C.sketch_line,
-                                    4.0 if on else 1.6)
+                edge = BRepBuilderAPI_MakeEdge(gp_Pnt(*a), gp_Pnt(*b)).Edge()
+                viewport.draw_shape(edge, C.accent, 4.0)
         viewport.on_top(drawn)
         self._drawn = drawn
         viewport.redraw()
@@ -364,32 +387,50 @@ class InsertFrameDialog(QtWidgets.QDialog):
             self.message.setText("Save the assembly first: the frame's "
                                  "files go beside it.")
             return False
-        skeleton = self._occurrence()
-        existing = next((o for o in doc.occurrences
-                         if o.follows == skeleton.id), None)
-        try:
-            doc.push_undo()
-            frame_doc, occurrence, problems = frames.insert(
-                doc, skeleton, int(self.sketch.currentData()), picked,
-                self.family.currentData(), self.size.currentText(),
-                anchor=self.anchor(), offset_a=self.offset_a.value(),
-                offset_b=self.offset_b.value(), rotate=self.rotate.value(),
-                mirror=self.mirror.isChecked(), merge=self.merge.isChecked(),
-                material=self.material.currentData() or "",
-                frame_occurrence=existing)
-        except (ValueError, KeyError, kernel.KernelError) as exc:
+        # one frame per skeleton, as Inventor makes one per skeleton: the
+        # lines are put in by sketch, each sketch's into the same frame
+        groups: Dict[Tuple[int, int], List[int]] = {}
+        for oid, sid, lid in picked:
+            groups.setdefault((oid, sid), []).append(lid)
+        problems: List[str] = []
+        made = []
+        doc.push_undo()
+        for (oid, sid), line_ids in groups.items():
+            skeleton = doc.occurrence(oid)
+            if skeleton is None:
+                continue
+            existing = next((o for o in doc.occurrences
+                             if o.follows == skeleton.id), None)
+            try:
+                frame_doc, _occurrence, wrong = frames.insert(
+                    doc, skeleton, sid, line_ids,
+                    self.family.currentData(), self.size.currentText(),
+                    anchor=self.anchor(), offset_a=self.offset_a.value(),
+                    offset_b=self.offset_b.value(),
+                    rotate=self.rotate.value(),
+                    mirror=self.mirror.isChecked(),
+                    merge=self.merge.isChecked(),
+                    material=self.material.currentData() or "",
+                    frame_occurrence=existing)
+            except (ValueError, KeyError, kernel.KernelError) as exc:
+                problems.append(str(exc))
+                continue
+            problems += wrong
+            made.append(frame_doc)
+        if not made:
             self.message.setStyleSheet("color: %s;" % C.error)
-            self.message.setText(str(exc))
+            self.message.setText("; ".join(problems) or "Nothing was made.")
             return False
         doc.save(doc.path)
         self.host.assembly_ui.rebuild()
         self.message.setStyleSheet("" if not problems
                                    else "color: %s;" % C.error)
-        count = len(frame_doc.frame.members)
-        self.message.setText("; ".join(problems) if problems else
-                             "%s has %d member(s)." % (
-                                 os.path.basename(frame_doc.path), count))
-        self._tick_all(False)
+        self.message.setText("; ".join(problems) if problems else "; ".join(
+            "%s has %d member(s)." % (os.path.basename(f.path),
+                                      len(f.frame.members))
+            for f in dict((id(f), f) for f in made).values()))
+        self._picked = []
+        self.reload_lines()
         return not problems
 
     def _ok(self) -> None:
