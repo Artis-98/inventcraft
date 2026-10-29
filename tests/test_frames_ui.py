@@ -19,7 +19,8 @@ from PySide6 import QtCore, QtGui, QtWidgets                       # noqa: E402
 from datum.core import frames, kernel                             # noqa: E402
 from datum.core.assembly import AssemblyDocument                  # noqa: E402
 from datum.core.document import Document                          # noqa: E402
-from datum.core.features import HoleFeature, SketchFeature        # noqa: E402
+from datum.core.features import (                                 # noqa: E402
+    ExtrudeFeature, HoleFeature, SketchFeature)
 from datum.core.sketch import (                                   # noqa: E402
     STANDARD_PLANES, Sketch, SketchPlane)
 from datum.ui import frames_ui                                    # noqa: E402
@@ -441,6 +442,18 @@ part.rebuild()
 part.save(member_path)
 check("it opens as a part, and takes a hole",
       kernel.volume(part.shape) < plain - 100)
+check("made as Inventor makes one: a profile sketch, extruded",
+      [f.type_name for f in part.features][:3]
+      == ["sketch", "extrude", "frame_ends"])
+win.new_feature(ExtrudeFeature)
+pump()
+extrude_dialog = win._active_dialog
+check("Extrude on it offers Join, Cut and New Solid: the member is a solid",
+      extrude_dialog is not None and not extrude_dialog.makes_first_solid()
+      and extrude_dialog.operation is not None)
+extrude_dialog.cancel() if hasattr(extrude_dialog, "cancel") \
+    else extrude_dialog.reject()
+pump()
 win.activate(win.session.by_path(table.path))
 settle(300)
 size = "50 x 50 x 4"

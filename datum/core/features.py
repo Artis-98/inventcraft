@@ -3187,6 +3187,72 @@ class FrameMemberFeature(Feature):
         self.notches = [dict(n) for n in data.get("notches", [])]
 
 
+@dataclass
+class FrameEndsFeature(Feature):
+    """A frame member's ends, as the end treatments leave them: the
+    planes it is cut off at and the members notched out of it.
+
+    The member itself is the sketch and extrusion before this, as
+    Inventor makes one; this is where the Frame Generator keeps what the
+    member is (family, size, how long, how far each end runs on), which is
+    how it knows the part for one of its own and what to bring up to date.
+    """
+
+    type_name: str = "frame_ends"
+    icon: str = "frame_miter"
+    name: str = "End Treatments"
+    family: str = ""
+    size: str = ""
+    kind: str = "angle"
+    dims: Dict[str, float] = field(default_factory=dict)
+    length: str = "100"
+    mirror: bool = False
+    source: str = ""
+    extend_a: float = 0.0
+    extend_b: float = 0.0
+    cuts: List[List[float]] = field(default_factory=list)
+    notches: List[Dict[str, Any]] = field(default_factory=list)
+    # the member's profile sketch and its extrusion
+    sketch_id: int = 0
+    extrude_id: int = 0
+
+    def depends_on(self) -> List[int]:
+        return [i for i in (self.extrude_id,) if i]
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import frames
+        if not self.cuts and not self.notches:
+            return
+        if ctx.shape is None or ctx.shape.IsNull():
+            raise FeatureError("%s: there is no member to cut" % self.name)
+        try:
+            tools = [frames.half_space(c) for c in self.cuts] \
+                + [frames.notch_tool(n) for n in self.notches]
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        for tool in tools:
+            ctx.apply(tool, CUT, self.id, targets=self.solids)
+
+    def summary(self) -> str:
+        n = len(self.cuts) + len(self.notches)
+        return "%s: %s, %d cut%s" % (self.name, self.size, n,
+                                      "" if n == 1 else "s")
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"family": self.family, "size": self.size, "kind": self.kind,
+                "dims": dict(self.dims), "length": self.length,
+                "mirror": self.mirror, "source": self.source,
+                "extend_a": self.extend_a, "extend_b": self.extend_b,
+                "cuts": [list(c) for c in self.cuts],
+                "notches": [dict(n) for n in self.notches],
+                "sketch_id": self.sketch_id, "extrude_id": self.extrude_id}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        FrameMemberFeature.load_fields(self, data)
+        self.sketch_id = int(data.get("sketch_id", 0))
+        self.extrude_id = int(data.get("extrude_id", 0))
+
+
 FEATURE_TYPES: Dict[str, type] = {
     cls.type_name: cls for cls in (
         SketchFeature, WorkPlaneFeature, WorkAxisFeature,
@@ -3196,6 +3262,6 @@ FEATURE_TYPES: Dict[str, type] = {
         MirrorFeature, PatternFeature, MoveFeature, CodeFeature,
         SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
         HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
-        FrameMemberFeature,
+        FrameMemberFeature, FrameEndsFeature,
     )
 }

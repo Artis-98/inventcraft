@@ -580,14 +580,271 @@ def member_part_name(member: Member, fam: ProfileFamily) -> str:
     return "%s %05d" % (stem, member.id)
 
 
+# ------------------------------------------------------ a member's part
+#
+# Made as Inventor makes one: a sketch of the profile, its dimensions
+# written in the part's parameters (G_B, G_T, G_RO and so on, from the
+# family's table), extruded G_L long, then the end treatments' cuts.  So a
+# member opened on its own is an ordinary part: the extrusion is a solid
+# for whatever comes after it to join to or cut from, and the profile can
+# be changed in its sketch.  The Frame Generator only ever touches the
+# parameters, the sketch's place on Z and the end treatments; what is
+# added after them stays.
+
+PROFILE_SKETCH = "Profile"
+EXTRUSION = "Extrusion"
+
+
+def member_parameter(key: str) -> str:
+    """The part parameter a family's column is written in: b is G_B."""
+    return "G_" + re.sub(r"[^A-Za-z0-9_]", "_", key).upper()
+
+
+class _Drawing:
+    """A profile drawn into a sketch, mirrored across Y if it is, with
+    its constraints and dimensions."""
+
+    def __init__(self, sketch, mirror: bool) -> None:
+        self.sketch = sketch
+        self.k = -1.0 if mirror else 1.0
+
+    def at(self, x: float, y: float) -> Tuple[float, float]:
+        return (self.k * x, y)
+
+    def point(self, x: float, y: float) -> int:
+        found = self.sketch.point_at(*self.at(x, y), tol=1e-6)
+        if found is None:
+            raise KernelError("the profile's sketch lost a corner")
+        return found
+
+    def line(self, a, b) -> int:
+        eid = self.sketch.add_line(self.at(*a), self.at(*b))
+        p, q = self.sketch.entities[eid].points
+        pa, pb = self.sketch.points[p], self.sketch.points[q]
+        self.sketch.add_constraint(
+            "horizontal" if abs(pa.y - pb.y) < 1e-9 else "vertical",
+            entities=[eid])
+        return eid
+
+    def arc(self, centre, r: float, start_deg: float, end_deg: float) -> int:
+        """Counter-clockwise from start to end as drawn unmirrored; a
+        mirror turns it the other way round."""
+        if self.k < 0:
+            start_deg, end_deg = 180.0 - end_deg, 180.0 - start_deg
+        return self.sketch.add_arc(self.at(*centre), r,
+                                   math.radians(start_deg),
+                                   math.radians(end_deg))
+
+    def centre(self, eid: int) -> int:
+        return self.sketch.entities[eid].points[0]
+
+    def tangent(self, *pairs) -> None:
+        for a, b in pairs:
+            self.sketch.add_constraint("tangent", entities=[a, b])
+
+    def equal(self, first: int, *others: int) -> None:
+        for other in others:
+            self.sketch.add_constraint("equal", entities=[first, other])
+
+    def radius(self, eid: int, name: str) -> None:
+        self.sketch.add_constraint("radius", entities=[eid],
+                                   value=self.sketch.entities[eid].radius,
+                                   expression=name)
+
+    def across(self, kind: str, a: int, b: int, name: str) -> None:
+        """A distance_x or distance_y, its points put in the order that
+        makes it positive as drawn, so a mirror keeps the same value."""
+        pa, pb = self.sketch.points[a], self.sketch.points[b]
+        gap = (pb.x - pa.x) if kind == "distance_x" else (pb.y - pa.y)
+        if gap < 0:
+            a, b, gap = b, a, -gap
+        self.sketch.add_constraint(kind, points=[a, b], value=gap,
+                                   expression=name)
+
+
+def _tube_sketch(d: _Drawing, b: float, t: float, ro: float) -> None:
+    """A square hollow section, about the origin: the outside corners
+    rounded at G_RO and the inside ones on the same centres, G_T in."""
+    s = d.sketch
+
+    def loop(h, r):
+        lines = [d.line((-h + r, -h), (h - r, -h)),
+                 d.line((h, -h + r), (h, h - r)),
+                 d.line((h - r, h), (-h + r, h)),
+                 d.line((-h, h - r), (-h, -h + r))]
+        arcs = [d.arc((h - r, -h + r), r, -90, 0),
+                d.arc((h - r, h - r), r, 0, 90),
+                d.arc((-h + r, h - r), r, 90, 180),
+                d.arc((-h + r, -h + r), r, 180, 270)]
+        d.tangent(*[(arcs[i], lines[i]) for i in range(4)],
+                  *[(arcs[i], lines[(i + 1) % 4]) for i in range(4)])
+        d.equal(arcs[0], *arcs[1:])
+        return lines, arcs
+
+    h = b / 2.0
+    lines, arcs = loop(h, ro)
+    inner_lines, inner_arcs = loop(h - t, ro - t)
+    d.radius(arcs[3], "G_RO")
+    d.across("distance_x", d.point(-h, -h + ro), d.point(h, -h + ro), "G_B")
+    d.across("distance_y", d.point(-h + ro, -h), d.point(-h + ro, h), "G_B")
+    # held on the origin: the middle of the line between two corners'
+    # centres
+    origin = s.add_point(0.0, 0.0, fixed=True)
+    diagonal = s.add_line_ids(d.centre(arcs[3]), d.centre(arcs[1]),
+                              construction=True)
+    s.add_constraint("midpoint", points=[origin], entities=[diagonal])
+    for i in (1, 3):
+        s.add_constraint("concentric", entities=[inner_arcs[i], arcs[i]])
+    s.add_constraint("radial_gap", entities=[inner_arcs[3], arcs[3]],
+                     value=t, expression="G_T")
+
+
+def _angle_sketch(d: _Drawing, b: float, t: float, r1: float,
+                  r2: float) -> None:
+    """An equal angle, its heel on the origin and its legs along X and Y."""
+    s = d.sketch
+    legs = [d.line((0.0, 0.0), (b, 0.0)), d.line((b, 0.0), (b, t - r2))]
+    toe = d.arc((b - r2, t - r2), r2, 0, 90)
+    inside = d.line((b - r2, t), (t + r1, t))
+    root = d.arc((t + r1, t + r1), r1, 180, 270)
+    up = d.line((t, t + r1), (t, b - r2))
+    toe2 = d.arc((t - r2, b - r2), r2, 0, 90)
+    top = d.line((t - r2, b), (0.0, b))
+    d.line((0.0, b), (0.0, 0.0))
+    d.tangent((toe, legs[1]), (toe, inside), (root, inside), (root, up),
+              (toe2, up), (toe2, top))
+    heel = d.point(0.0, 0.0)
+    s.add_constraint("fix", points=[heel])
+    d.across("distance_x", heel, d.point(b, 0.0), "G_B")
+    d.across("distance_y", heel, d.point(0.0, b), "G_B")
+    d.across("distance_y", heel, d.point(b - r2, t), "G_T")
+    d.across("distance_x", heel, d.point(t, t + r1), "G_T")
+    d.radius(root, "G_R1")
+    d.radius(toe, "G_R2")
+    d.equal(toe, toe2)
+
+
+def _fixed_sketch(sketch, face) -> None:
+    """A profile's outline as it is, every point held: for a profile
+    there is no drawing of with dimensions."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+    explorer = TopExp_Explorer(face, TopAbs_EDGE)
+    while explorer.More():
+        curve = BRepAdaptor_Curve(TopoDS.Edge_s(explorer.Current()))
+        a = curve.Value(curve.FirstParameter())
+        b = curve.Value(curve.LastParameter())
+        if curve.GetType() == GeomAbs_Line:
+            sketch.add_line((a.X(), a.Y()), (b.X(), b.Y()))
+        elif curve.GetType() == GeomAbs_Circle:
+            circle = curve.Circle()
+            c = circle.Location()
+            sense = 1.0 if circle.Axis().Direction().Z() > 0 else -1.0
+            u0, u1 = curve.FirstParameter(), curve.LastParameter()
+            r = circle.Radius()
+            if abs(u1 - u0 - 2 * math.pi) < 1e-9:
+                sketch.add_circle((c.X(), c.Y()), r)
+            else:
+                ang = [math.atan2(p.Y() - c.Y(), p.X() - c.X())
+                       for p in (a, b)]
+                if sense < 0:
+                    ang.reverse()
+                sketch.add_arc((c.X(), c.Y()), r, ang[0], ang[1])
+        else:
+            raise KernelError("the profile has a curve a sketch cannot hold")
+        explorer.Next()
+    for point in sketch.points.values():
+        point.fixed = True
+
+
+def member_sketch(kind: str, dims: Dict[str, float], source: str = "",
+                  mirror: bool = False):
+    """The profile as a sketch on XY, and the part parameters its
+    dimensions read: (sketch, {name: value})."""
+    from .sketch import Sketch, SketchPlane
+    sketch = Sketch(SketchPlane(), PROFILE_SKETCH)
+    values = {member_parameter(k): float(v) for k, v in dims.items()}
+    d = _Drawing(sketch, mirror)
+    try:
+        if kind == "square_tube" and dims.get("ro", 0.0) > dims["t"] + 1e-6:
+            _tube_sketch(d, dims["b"], dims["t"], dims["ro"])
+        elif kind == "angle" and dims.get("r1", 0.0) > 1e-6 \
+                and dims.get("r2", 0.0) > 1e-6:
+            _angle_sketch(d, dims["b"], dims["t"], dims["r1"], dims["r2"])
+        elif kind == "sketch" and not mirror:
+            sketch, values = _copied_sketch(source, dims)
+        else:
+            raise KernelError("drawn as it is")
+        # checked against the profile itself: a sketch that came out other
+        # than the profile, or will not solve, is not worth having
+        solved = Sketch.from_dict(sketch.to_dict())
+        if not solved.solve(dict(values)):
+            raise KernelError("its sketch does not solve")
+        want = kernel.face_area(built_face(kind, dims, source, mirror))
+        got = _area(kernel.sketch_profile(solved))
+        if abs(got - want) > 1e-3 * max(want, 1.0):
+            raise KernelError("its sketch is not the profile")
+    except (KernelError, KeyError, ValueError):
+        sketch = Sketch(SketchPlane(), PROFILE_SKETCH)
+        _fixed_sketch(sketch, built_face(kind, dims, source, mirror))
+        values = {member_parameter(k): float(v) for k, v in dims.items()}
+    return sketch, values
+
+
+def _area(shape) -> float:
+    from OCP.TopAbs import TopAbs_FACE
+    from OCP.TopoDS import TopoDS
+    return sum(kernel.face_area(TopoDS.Face_s(f))
+               for f in kernel.explore(shape, TopAbs_FACE))
+
+
+def _copied_sketch(source: str, dims: Dict[str, float]):
+    """A sketch profile's own sketch, moved on to XY, and the parameters
+    it reads, with the table's row written in."""
+    from .sketch import Sketch, SketchPlane
+    doc = _open_part(source)
+    sketches = list(doc.all_sketches().values())
+    if not sketches:
+        raise KernelError("the profile part has no sketch")
+    data = sketches[0].to_dict()
+    data["projections"] = []
+    sketch = Sketch.from_dict(data)
+    sketch.plane = SketchPlane()
+    sketch.name = PROFILE_SKETCH
+    values = {p.name: p.value for p in doc.params}
+    named = {c.name: c for c in sketch.constraints.values() if c.name}
+    for key, value in dims.items():
+        if key in named:
+            named[key].expression = repr(float(value))
+            named[key].value = float(value)
+        else:
+            values[key] = float(value)
+    return sketch, values
+
+
+def _set_parameter(doc, name: str, value: float) -> None:
+    text = "%.6g" % value
+    held = doc.params.get(name)
+    if held is None:
+        doc.params.add(name, text, comment="Frame Generator")
+    elif held.expression != text:
+        doc.params.set_expression(name, text)
+
+
 def write_member_part(path: str, member: Member, fam: ProfileFamily,
                       length: float, ends: Optional[Dict[str, Any]] = None
                       ) -> bool:
-    """The member's part: one Frame Member feature, the profile run the
-    length, its ends as the end treatments leave them.  Written only when
+    """The member's part: its profile's sketch, extruded its length, and
+    its ends as the end treatments leave them.  Written only when
     something in it changed; True when it was."""
     from .document import Document
-    from .features import FrameMemberFeature
+    from .features import (ExtrudeFeature, FrameEndsFeature,
+                           FrameMemberFeature, ProfileSelection,
+                           SketchFeature)
+    from .sketch import SketchPlane
     dims = fam.row(member.size)
     ends = ends or {}
     wanted = {"family": fam.id, "size": member.size, "kind": fam.kind,
@@ -599,8 +856,8 @@ def write_member_part(path: str, member: Member, fam: ProfileFamily,
               "cuts": [list(c) for c in ends.get("cuts", [])],
               "notches": [dict(n) for n in ends.get("notches", [])]}
     # A member's part is a part like any other: holes, cuts and whatever
-    # else are put on it after the Frame Member feature, and stay there.
-    # So only that feature is brought up to date, in the part as it is
+    # else are put on it after the member, and stay there.  So only the
+    # member's own features are brought up to date, in the part as it is
     # open now if it is, and nothing else in it is touched.
     doc, current = _live(path, Document), None
     if doc is None and os.path.exists(path):
@@ -608,19 +865,67 @@ def write_member_part(path: str, member: Member, fam: ProfileFamily,
             doc = Document.load(path)
         except Exception:
             doc = None
-    if doc is not None:
-        current = next((f for f in doc.features
-                        if isinstance(f, FrameMemberFeature)), None)
-        if current is not None and all(
-                getattr(current, k) == v for k, v in wanted.items()):
-            return False
-    if current is None:
+    if doc is None:
         doc = Document()
-        current = FrameMemberFeature()
-        doc.add_feature(current)
-    current.name = "%s %s" % (fam.standard or fam.name, member.size)
+    current = next((f for f in doc.features
+                    if isinstance(f, FrameEndsFeature)), None)
+    if current is not None and all(
+            getattr(current, k) == v for k, v in wanted.items()):
+        return False
+    profile = doc.feature(current.sketch_id) if current else None
+    extrusion = doc.feature(current.extrude_id) if current else None
+    redraw = current is None or profile is None or any(
+        getattr(current, k) != wanted[k]
+        for k in ("family", "kind", "source", "mirror"))
+    if current is None:
+        # a new part, or one the Frame Generator made before members were
+        # sketches: its one Frame Member feature becomes the three
+        old = next((f for f in doc.features
+                    if isinstance(f, FrameMemberFeature)), None)
+        at = doc.index_of(old.id) if old is not None else 0
+        if old is not None:
+            doc.remove_feature(old.id)
+        profile = SketchFeature(name=PROFILE_SKETCH)
+        doc.add_feature(profile, at)
+        extrusion = ExtrudeFeature(name=EXTRUSION)
+        extrusion.distance = "G_L"
+        doc.add_feature(extrusion, at + 1)
+        current = FrameEndsFeature()
+        doc.add_feature(current, at + 2)
+        current.sketch_id, current.extrude_id = profile.id, extrusion.id
+    if redraw:
+        sketch, values = member_sketch(fam.kind, dims, fam.source,
+                                       member.mirror)
+        profile.sketch = sketch
+        for name in [p.name for p in doc.params]:
+            if name.startswith("G_") and name != "G_L" \
+                    and name not in values:
+                try:
+                    doc.params.remove(name)
+                except Exception:
+                    pass
+    else:
+        values = ({member_parameter(k): float(v) for k, v in dims.items()}
+                  if fam.kind != "sketch"
+                  else _copied_sketch(fam.source, dims)[1])
+    for name, value in values.items():
+        _set_parameter(doc, name, value)
+    extend_a, extend_b = wanted["extend_a"], wanted["extend_b"]
+    _set_parameter(doc, "G_L", length + extend_a + extend_b)
+    # the sketch sits where the start end now is, so the extrusion runs
+    # from there the whole length, ends and all
+    profile.sketch.plane = SketchPlane((0.0, 0.0, -extend_a),
+                                       (0.0, 0.0, 1.0), (1.0, 0.0, 0.0),
+                                       name="XY Plane")
+    # the whole sketch is the profile, the material inside its outline
+    # less the holes, so it stays the profile however the sketch is
+    # changed; picked regions are known by a point, which a new size moves
+    extrusion.sketch_id = profile.id
+    if redraw:
+        extrusion.profiles = ProfileSelection()
     for key, value in wanted.items():
         setattr(current, key, value)
+    current.name = "End Treatments"
     if member.material:
         doc.material = member.material
     doc.properties["Description"] = "%s %s" % (fam.name, member.size)
@@ -757,7 +1062,7 @@ def is_member_part(path: str) -> bool:
         return held[1]
     try:
         features = (fileformat.read(path).geometry or {}).get("features", [])
-        found = any(isinstance(f, dict) and f.get("type") == "frame_member"
+        found = any(isinstance(f, dict) and f.get("type") in ("frame_member", "frame_ends")
                     for f in features)
     except Exception:
         found = False

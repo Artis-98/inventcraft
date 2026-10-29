@@ -27,6 +27,7 @@ from ..core.features import (
     AXIS_PREFIX, WorkAxisFeature,
     SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
     HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
+    FrameMemberFeature,
 )
 from ..core.naming import RefSet
 from . import icons
@@ -44,7 +45,8 @@ OP_OPTIONS = [(op, OP_ICONS[op],
 
 # feature types that put a solid into the part
 SOLID_MAKERS = (ExtrudeFeature, RevolveFeature, SweepFeature, LoftFeature,
-                PrimitiveFeature, ImportFeature, CodeFeature)
+                PrimitiveFeature, ImportFeature, CodeFeature,
+                FrameMemberFeature)
 
 
 class FeatureDialog(QtWidgets.QDialog):

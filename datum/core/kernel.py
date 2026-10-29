@@ -1048,15 +1048,17 @@ def _inside_point(face: TopoDS_Face, sketch: Sketch) -> Tuple[float, float]:
             pass
 
         umin, umax, vmin, vmax = BRepTools.UVBounds_s(face)
-        steps = 12
-        for i in range(1, steps):
-            for j in range(1, steps):
-                u = umin + (umax - umin) * i / steps
-                v = vmin + (vmax - vmin) * j / steps
-                if classifier.Perform(gp_Pnt2d(u, v)) != TopAbs_OUT:
-                    point = surface.Value(u, v)
-                    return sketch.plane.to_2d((point.X(), point.Y(),
-                                               point.Z()))
+        # coarse first, then finer: a tube's wall is a thin ring round a
+        # hole the centre falls in, and a coarse grid can miss it entirely
+        for steps in (12, 48, 192):
+            for i in range(1, steps):
+                for j in range(1, steps):
+                    u = umin + (umax - umin) * i / steps
+                    v = vmin + (vmax - vmin) * j / steps
+                    if classifier.Perform(gp_Pnt2d(u, v)) != TopAbs_OUT:
+                        point = surface.Value(u, v)
+                        return sketch.plane.to_2d((point.X(), point.Y(),
+                                                   point.Z()))
     except Exception:
         pass
     return centre
