@@ -244,9 +244,16 @@ def _write_edge(document: DxfDocument, edge, plane: SketchPlane,
                                              start[0] - centre[0]))
                 a1 = math.degrees(math.atan2(end[1] - centre[1],
                                              end[0] - centre[0]))
-                # a DXF arc always runs anticlockwise, so a clockwise edge
-                # has to be written with its ends the other way round
-                if edge.Orientation() == TopAbs_REVERSED:
+                # A DXF arc always runs anticlockwise, so an arc that runs
+                # clockwise in the plane is written with its ends the other
+                # way round.  Which way it runs is the circle's axis against
+                # the plane's normal, not the edge's orientation in its
+                # wire: going by that turned every arc whose circle faces
+                # down inside out.  Its middle says it either way.
+                middle = flat(curve.Value((first + last) / 2.0))
+                am = math.degrees(math.atan2(middle[1] - centre[1],
+                                             middle[0] - centre[0]))
+                if (am - a0) % 360.0 > (a1 - a0) % 360.0:
                     a0, a1 = a1, a0
                 document.arc(centre, radius, a0, a1, layer)
             return

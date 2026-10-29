@@ -160,6 +160,94 @@ check("four sides on OUTER_PROFILE and a bend on BEND_CENTERLINE",
       text.count("\nLINE\n") == 5 and "BEND_CENTERLINE" in text
       and "OUTER_PROFILE" in text)
 
+# a slot through the plate: its round ends are arcs on a hole, which were
+# written the wrong way round, every one bulging into the slot
+from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut                       # noqa: E402
+from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex          # noqa: E402
+from OCP.BRepExtrema import BRepExtrema_DistShapeShape            # noqa: E402
+from OCP.BRepPrimAPI import BRepPrimAPI_MakeCylinder              # noqa: E402
+from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt                         # noqa: E402
+slotted = PLATE
+for x in (15.0, 35.0):
+    slotted = BRepAlgoAPI_Cut(slotted, BRepPrimAPI_MakeCylinder(
+        gp_Ax2(gp_Pnt(x, 40, -1), gp_Dir(0, 0, 1)), 6, T + 2).Shape()).Shape()
+slotted = BRepAlgoAPI_Cut(slotted, BRepPrimAPI_MakeBox(
+    gp_Pnt(15, 34, -1), 20, 12, T + 2).Shape()).Shape()
+flat = sm.unfold(sm.flange(slotted, top_edge(slotted, y=0.0), T, R, 90, 30),
+                 K)
+lines = open(sm.flat_to_dxf(flat, os.path.join(tempfile.mkdtemp(),
+                                               "slot.dxf"))).read().split("\n")
+x0, y0, _x1, _y1 = flat.box()
+off = []
+for i, line in enumerate(lines):
+    if line.strip() != "ARC":
+        continue
+    rec, j = {}, i + 1
+    while lines[j].strip() != "0":
+        rec[lines[j].strip()] = lines[j + 1].strip()
+        j += 2
+    rec = {k: float(rec[k]) for k in ("10", "20", "40", "50", "51")}
+    a0, a1 = rec["50"], rec["51"]
+    mid = math.radians(a0 + ((a1 - a0) % 360.0) / 2.0)
+    p = gp_Pnt(rec["10"] + rec["40"] * math.cos(mid) + x0,
+               rec["20"] + rec["40"] * math.sin(mid) + y0, 0.0)
+    off.append(BRepExtrema_DistShapeShape(
+        BRepBuilderAPI_MakeVertex(p).Vertex(), flat.outline()).Value())
+check("a slot's round ends go round the way the slot does",
+      len(off) == 2 and max(off) < 1e-4, off)
+
+# ==========================================================================
+print("a flange with the sheet or another flange in its way: bend relief")
+from OCP.BRepFilletAPI import BRepFilletAPI_MakeFillet           # noqa: E402
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_SOLID                  # noqa: E402
+from OCP.TopoDS import TopoDS                                     # noqa: E402
+rounding = BRepFilletAPI_MakeFillet(PLATE)
+for e in kernel.explore(PLATE, TopAbs_EDGE):
+    a, b = sm._edge_ends(TopoDS.Edge_s(e))
+    if near(a[0], 100) and near(b[0], 100) and near(a[1], 60) \
+            and near(b[1], 60):
+        rounding.Add(10.0, TopoDS.Edge_s(e))
+rounded = rounding.Shape()
+
+
+def laid_flat(body):
+    try:
+        return sm.unfold(body, K, thickness=T) is not None
+    except kernel.KernelError:
+        return False
+
+
+def one_good_solid(body):
+    return kernel.is_valid(body) and len(kernel.explore(body,
+                                                        TopAbs_SOLID)) == 1
+
+
+edge = top_edge(rounded, y=60.0)
+check("an edge running into a rounded corner is relieved at that end, "
+      "by the thickness",
+      sm.end_reliefs(rounded, edge, T, R, 90, 20) == ((0.0, 0.0), (T, 0.0)))
+check("a square corner is not",
+      sm.end_reliefs(PLATE, top_edge(PLATE, y=60.0), T, R, 90, 20)
+      == ((0.0, 0.0), (0.0, 0.0)))
+body = sm.flanges(rounded, [edge], T, R, 90, 20)
+check("so the bend stands clear of the corner, and lays flat",
+      one_good_solid(body) and laid_flat(body))
+for corner_body, what in ((PLATE, "a square corner"),
+                          (rounded, "a rounded corner")):
+    for radius in (R, 20.0):
+        first = sm.flanges(corner_body, [top_edge(corner_body, y=60.0)], T,
+                           radius, 90, 30)
+        side = max((TopoDS.Edge_s(e) for e in kernel.explore(first,
+                                                             TopAbs_EDGE)
+                    if sm._is_line(TopoDS.Edge_s(e))
+                    and all(near(p[0], 100) and near(p[2], T)
+                            for p in sm._edge_ends(TopoDS.Edge_s(e)))),
+                   key=kernel.edge_length)
+        second = sm.flanges(first, [side], T, radius, 90, 30)
+        check("%s, radius %g: a second flange beside the first's bend is "
+              "one body, nothing touching, and lays flat" % (what, radius),
+              one_good_solid(second) and laid_flat(second))
+
 # ==========================================================================
 print("a part converted to sheet metal")
 

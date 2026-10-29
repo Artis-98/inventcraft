@@ -450,6 +450,18 @@ def _unbend(solid, found, face, bend, edge, where: gp_Trsf, t: float,
     n_face = face_normal(face, near_mid)
     e0, e1 = _edge_ends(edge)
     d = _unit(_sub(e1, e0))
+    # the bend's whole root, not only the part of it the face shares: a
+    # bend relief or a notch beside it leaves the rest of the root on
+    # another face, and the strip is still the bend's full length
+    from OCP.BRep import BRep_Tool
+    from OCP.TopAbs import TopAbs_VERTEX
+    along = [0.0, _dot(_sub(e1, e0), d)]
+    for vertex in kernel.explore(bend, TopAbs_VERTEX):
+        rel = _sub(_v(BRep_Tool.Pnt_s(TopoDS.Vertex_s(vertex))), e0)
+        off = _sub(rel, _mul(d, _dot(rel, d)))
+        if _dot(off, off) < 1e-8:
+            along.append(_dot(rel, d))
+    e0, e1 = _add(e0, _mul(d, min(along))), _add(e0, _mul(d, max(along)))
     u = _unit(_cross(d, n_face))
     if _dot(_sub(p, near_mid), u) < 0:
         u = _mul(u, -1.0)
@@ -508,7 +520,9 @@ def setback(thickness: float, radius: float, angle_deg: float) -> float:
 def flange_tools(shape: TopoDS_Shape, edge: TopoDS_Shape, thickness: float,
                  radius: float, angle_deg: float, height: float,
                  flip: bool = False, position: str = INSIDE,
-                 trim: Tuple[float, float] = (0.0, 0.0)
+                 trim: Tuple[float, float] = (0.0, 0.0),
+                 relief: Tuple[float, float] = (0.0, 0.0),
+                 cut_short: Tuple[float, float] = (0.0, 0.0)
                  ) -> Tuple[Optional[TopoDS_Shape], TopoDS_Shape]:
     """A Flange as Inventor makes it, as (what to cut away, what to add).
 
@@ -518,7 +532,9 @@ def flange_tools(shape: TopoDS_Shape, edge: TopoDS_Shape, thickness: float,
     straight edge where a face of the sheet meets its thickness; the wall
     bends towards that face's side, or away with ``flip``.
     ``trim`` shortens the wall at each end of the edge, where it would run
-    into another flange's at a corner.
+    into another flange's at a corner.  ``relief`` shortens bend and wall
+    alike, and ``cut_short`` the base's cut, where something is in the
+    way: see :func:`end_reliefs`.
     """
     if not _is_line(edge):
         raise KernelError("a flange needs a straight edge")
@@ -548,8 +564,10 @@ def flange_tools(shape: TopoDS_Shape, edge: TopoDS_Shape, thickness: float,
     cut = None
     if position == INSIDE:
         # the base gives up the length the bend takes
+        c0 = _add(e0, _mul(d, cut_short[0]))
+        c1 = _add(e1, _mul(d, -cut_short[1]))
         poly = BRepBuilderAPI_MakePolygon()
-        for c in (e0, e1, _add(e1, _mul(s, -back)), _add(e0, _mul(s, -back))):
+        for c in (c0, c1, _add(c1, _mul(s, -back)), _add(c0, _mul(s, -back))):
             poly.Add(gp_Pnt(*c))
         poly.Close()
         strip = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
@@ -578,8 +596,11 @@ def flange_tools(shape: TopoDS_Shape, edge: TopoDS_Shape, thickness: float,
 
     bend_back = setback(thickness, radius, angle_deg)
     bend_trim = tuple(max(x, bend_back) if x > 0 else 0.0 for x in trim)
+    # an end with material just past it, Inventor's bend relief: bend and
+    # wall stop short by the relief, so nothing is left touching the bend
+    bend_trim = tuple(max(b, r) for b, r in zip(bend_trim, relief))
     end = end_face(*bend_trim)
-    wall_start = end_face(*trim)
+    wall_start = end_face(*(max(w, r) for w, r in zip(trim, relief)))
 
     a = math.radians(angle_deg)
     centre = _add(e0, _mul(n, radius))
@@ -666,6 +687,103 @@ def corner_trims(edges: Sequence[TopoDS_Shape], thickness: float,
     return out
 
 
+def end_reliefs(shape: TopoDS_Shape, edge: TopoDS_Shape, thickness: float,
+                radius: float, angle_deg: float, height: float,
+                flip: bool = False, position: str = INSIDE,
+                gap: Optional[float] = None
+                ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+    """How far a flange stops short at each end of its edge where it
+    would run into the sheet: ((bend and wall, the base's cut), the same
+    at the other end), each counted in from that end.
+
+    The sheet can carry on past an end, where the edge runs into a rounded
+    corner: a bend made the full length of the edge stands against it with
+    nothing between.  Or a flange made before can stand in the way, its
+    bend rising beside the edge or just past its end.  Either is a body
+    that cannot be folded or laid flat.  Inventor puts a bend relief
+    there; here the bend and wall stop the gap short of whatever is in the
+    way, and the base is cut only up to it, leaving the same clearance.  A
+    plain square corner has nothing past it and is left as it is.
+    """
+    gap = thickness if gap is None else gap
+    none = ((0.0, 0.0), (0.0, 0.0))
+    found = _neighbours(shape)
+    beside = [f for f in _faces_of(found, edge) if _kind(f) == GeomAbs_Plane]
+    if len(beside) < 2 or gap <= 0:
+        return none
+    sheet, side = sorted(beside, key=kernel.face_area, reverse=True)[:2]
+    mid = _mid(edge)
+    n = face_normal(sheet, mid)
+    s = face_normal(side, mid)
+    e0, e1 = edge_ends_ordered(edge)
+    if flip:
+        e0, e1 = _add(e0, _mul(n, -thickness)), _add(e1, _mul(n, -thickness))
+        n = _mul(n, -1.0)
+    d = _unit(_sub(e1, e0))
+    length = math.dist(e0, e1)
+    back = setback(thickness, radius, angle_deg)
+    # across the edge, where the bend and wall stand: inside the sheet's
+    # outline for Inside, outside it for Adjacent; a hair in from every
+    # face that only touches
+    eps = 1e-3
+    s0, s1 = (-back + eps, -eps) if position == INSIDE else (eps, back - eps)
+    rise = max(height, back) + thickness
+
+    def found_in(t0, t1, n0, n1) -> List[Tuple[float, float]]:
+        """Each piece of the sheet in a block along the edge from t0 to
+        t1, between n0 and n1 off the sheet's face: its span along the
+        edge."""
+        poly = BRepBuilderAPI_MakePolygon()
+        for t, q in ((t0, s0), (t1, s0), (t1, s1), (t0, s1)):
+            poly.Add(gp_Pnt(*_add(_add(_add(e0, _mul(d, t)), _mul(s, q)),
+                                  _mul(n, n0))))
+        poly.Close()
+        face = BRepBuilderAPI_MakeFace(poly.Wire(), True).Face()
+        probe = BRepPrimAPI_MakePrism(face,
+                                      gp_Vec(*_mul(n, n1 - n0))).Shape()
+        try:
+            common = kernel.boolean(shape, probe, "intersect")
+        except Exception:
+            return []
+        if not kernel.is_valid(common):
+            return []
+        spans = []
+        for piece in kernel.explore(common, TopAbs_SOLID):
+            if kernel.volume(piece) <= 1e-6:
+                continue
+            box = kernel.bounding_box(piece)
+            ts = [_dot(_sub((x, y, z), e0), d)
+                  for x in (box[0], box[3]) for y in (box[1], box[4])
+                  for z in (box[2], box[5])]
+            spans.append((min(ts), max(ts)))
+        return spans
+
+    # the sheet itself just past each end, and anything standing above the
+    # sheet anywhere along the edge or just past it
+    # A bend standing above the sheet beside the edge is only seen once it
+    # has risen off it, a little after it starts, so the cut stops half
+    # the gap before it: the bend keeps all of its root, and the sheet it
+    # stands on.  One just past the end has its root past the end too.
+    in_way = [(t0, t1, 0.0) for t0, t1 in
+              found_in(-gap, -eps, -thickness + eps, -eps)
+              + found_in(length + eps, length + gap, -thickness + eps, -eps)]
+    in_way += [(t0, t1, gap / 2.0) for t0, t1 in
+               found_in(-gap, length + gap, eps, rise)]
+    # each end's way is blocked from where the nearest thing in it begins
+    blocked = [None, None]
+    for t0, t1, margin in in_way:
+        if (t0 + t1) / 2.0 > length / 2.0:
+            here = length - t0 + margin if t0 < length - eps else 0.0
+            blocked[1] = here if blocked[1] is None else max(blocked[1],
+                                                             here)
+        else:
+            here = t1 + margin if t1 > eps else 0.0
+            blocked[0] = here if blocked[0] is None else max(blocked[0],
+                                                             here)
+    return tuple((b + gap, b) if b is not None else (0.0, 0.0)
+                 for b in blocked)
+
+
 def flanges(shape: TopoDS_Shape, edges: Sequence[TopoDS_Shape],
             thickness: float, radius: float, angle_deg: float,
             height: float, flip: bool = False,
@@ -675,17 +793,36 @@ def flanges(shape: TopoDS_Shape, edges: Sequence[TopoDS_Shape],
     them: worked out on the body as it was, then cut and added together,
     stopping short of one another at shared corners."""
     trims = corner_trims(edges, thickness, radius, angle_deg, position, gap)
-    made = [flange_tools(shape, e, thickness, radius, angle_deg, height,
-                         flip, position, trim)
-            for e, trim in zip(edges, trims)]
+    made = []
+    for e, trim in zip(edges, trims):
+        ends = end_reliefs(shape, e, thickness, radius, angle_deg, height,
+                           flip, position, gap)
+        # a corner shared with another of these flanges is seen to by its
+        # own trim
+        ends = [(0.0, 0.0) if t else end for end, t in zip(ends, trim)]
+        made.append(flange_tools(
+            shape, e, thickness, radius, angle_deg, height, flip, position,
+            trim, tuple(r for r, _c in ends), tuple(c for _r, c in ends)))
     body = shape
     cuts = [c for c, _t in made if c is not None]
     if cuts:
         body = kernel.boolean(body, cuts[0] if len(cuts) == 1
                               else kernel.fuse_all(cuts), "cut")
     adds = [t for _c, t in made]
-    return kernel.boolean(body, adds[0] if len(adds) == 1
+    body = kernel.boolean(body, adds[0] if len(adds) == 1
                           else kernel.fuse_all(adds), "join")
+    return _without_remnants(body, len(kernel.explore(shape, TopAbs_SOLID)))
+
+
+def _without_remnants(body: TopoDS_Shape, solids: int) -> TopoDS_Shape:
+    """The body less any scraps a flange's cut left loose: a corner between
+    two reliefs, cut off from the sheet.  Inventor's Minimum Remnant takes
+    such a scrap away too.  ``solids`` is how many there were before."""
+    pieces = kernel.explore(body, TopAbs_SOLID)
+    if len(pieces) <= max(solids, 1):
+        return body
+    keep = sorted(pieces, key=kernel.volume, reverse=True)[:max(solids, 1)]
+    return keep[0] if len(keep) == 1 else kernel.compound(keep)
 
 
 def flange(shape: TopoDS_Shape, edge: TopoDS_Shape, thickness: float,
@@ -1057,6 +1194,12 @@ def corner_seam(shape: TopoDS_Shape, edge_a: TopoDS_Shape,
     trim = thickness + gap / math.sqrt(2.0)
     back = setback(thickness, radius, 90.0)
     span = high - low
+    # A flange made after the other stops short of it, the bend relief
+    # (see end_reliefs).  The seam closes the corner as one Flange on both
+    # edges makes it, so each is first carried back to where it would
+    # start there; the cut and the fills below then make that corner.
+    shape = _unrelieved(shape, c, ua, ub, edge_a, thickness, back)
+    shape = _unrelieved(shape, c, ub, ua, edge_b, thickness, back)
 
     def block(u0, u1, v0, v1, h0, h1):
         corners = []
@@ -1093,6 +1236,31 @@ def corner_seam(shape: TopoDS_Shape, edge_a: TopoDS_Shape,
                  block(0.0, thickness, trim, back, rise, top(edge_b))]
         result = kernel.boolean(result, kernel.fuse_all(fills), "join")
     return result
+
+
+def _unrelieved(shape, corner, u, v, edge, thickness: float, back: float):
+    """A flange's wall and bend carried on towards a corner, from where
+    a bend relief stopped them to the bend's setback from it: its end, the
+    faces square across its run at the end edge, pushed out.  ``u`` runs
+    along the flange away from the corner, ``v`` across it, inwards from
+    its wall's outside."""
+    at = _dot(_sub(_mid(edge), corner), u)
+    if at <= back + 1e-6:
+        return shape
+    pieces = []
+    for face in kernel.faces(shape):
+        if _kind(face) != GeomAbs_Plane:
+            continue
+        centre = kernel.shape_centre(face)
+        rel = _sub(centre, corner)
+        if abs(_dot(rel, u) - at) > 1e-6                 or abs(abs(_dot(face_normal(face, centre), u)) - 1.0) > 1e-6                 or _dot(rel, v) > back + thickness + 1e-6:
+            continue
+        pieces.append(BRepPrimAPI_MakePrism(
+            face, gp_Vec(*_mul(u, -(at - back)))).Shape())
+    if not pieces:
+        return shape
+    return kernel.boolean(shape, pieces[0] if len(pieces) == 1
+                          else kernel.fuse_all(pieces), "join")
 
 
 # ------------------------------------------------------------------- fold

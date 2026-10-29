@@ -303,7 +303,9 @@ check("Corner Seam opens its dialog",
 base = win.pick_shape()
 seam._edges_from_view([
     edge_where(base, lambda p: abs(p[0]) < 1e-9 and abs(p[1] - 2) < 1e-9),
-    edge_where(base, lambda p: abs(p[0] - 2) < 1e-9 and abs(p[1] - 4) < 1e-9)])
+    # the second flange's wall ends the relief, the thickness, past the
+    # first's bend
+    edge_where(base, lambda p: abs(p[0] - 2) < 1e-9 and abs(p[1] - 6) < 1e-9)])
 seam.commit()
 pump()
 together = sm.flanges(plate, [

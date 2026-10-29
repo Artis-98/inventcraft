@@ -333,11 +333,17 @@ second.edges.capture_from(doc.shape, "edge", [top_edge(doc.shape, x=0.0)])
 second.height = "30"
 doc.add_feature(second)
 doc.rebuild()
+check("the second flange stops the gap short of the first's bend, a bend "
+      "relief, so nothing touches and it lays flat",
+      kernel.is_valid(doc.shape) and edge_where(
+          doc.shape, lambda p: abs(p[0] - 2) < 1e-9
+          and abs(p[1] - 6) < 1e-9) is not None
+      and sm.flat_pattern(doc) is not None)
 seam = CornerSeamFeature()
 seam.edges.capture_from(doc.shape, "edge", [
     edge_where(doc.shape, lambda p: abs(p[0]) < 1e-9 and abs(p[1] - 2) < 1e-9),
     edge_where(doc.shape, lambda p: abs(p[0] - 2) < 1e-9
-               and abs(p[1] - 4) < 1e-9)])
+               and abs(p[1] - 6) < 1e-9)])
 doc.add_feature(seam)
 report = doc.rebuild()
 together = sm.flanges(PLATE, [EDGE, top_edge(PLATE, x=0.0)], T, R, 90, 30)
