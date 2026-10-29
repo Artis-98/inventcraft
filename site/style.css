@@ -99,6 +99,8 @@ header.top {
 }
 .brand:hover { color: var(--text); }
 .brand svg { width: 26px; height: 26px; flex: none; }
+/* the mark is a 64 px file, drawn to sit inside the 62 px bar */
+.brand img { width: 34px; height: 34px; flex: none; border-radius: 8px; }
 
 .nav a.link {
   color: var(--dim);
