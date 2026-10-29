@@ -1329,12 +1329,21 @@ class FlatFeature:
     # Bend Perforation: slots down each bend line, with bridges of sheet
     # between them, so a plate cut flat can be bent by hand along them
     bends: str = "all"              # "all", or bend numbers "1, 3"
-    style: str = "zigzag"           # zigzag (V shaped slots) or straight
+    # trapezoid (the default: cuts along the line, their ends angled off
+    # it, open trapezoids whose tops all lie on the line), zigzag (V
+    # shaped), straight, or custom (one repeat drawn in a sketch)
+    style: str = "trapezoid"
     width: str = "1.5"              # the slot, as the cutter leaves it
     slot: str = "20"                # each slot's length along the bend
     bridge: str = "3"               # the sheet left between two slots
     margin: str = "Thickness * 2"   # sheet left whole at each end
     depth: str = "Thickness"        # how far a zigzag reaches off the line
+    leg: str = "Thickness * 2"      # a trapezoid's angled ends, how long
+    angle: str = "45"               # and at what angle to the line
+    alternate: bool = True          # every other one to the other side
+    # a custom pattern: one repeat, as polylines (u along the bend from 0,
+    # v across it, the bend line at v = 0), taken from a sketch
+    custom: List[List[Tuple[float, float]]] = field(default_factory=list)
     error: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -1342,16 +1351,21 @@ class FlatFeature:
                 "suppressed": self.suppressed, "bends": self.bends,
                 "style": self.style, "width": self.width, "slot": self.slot,
                 "bridge": self.bridge, "margin": self.margin,
-                "depth": self.depth}
+                "depth": self.depth, "leg": self.leg, "angle": self.angle,
+                "alternate": self.alternate,
+                "custom": [[list(p) for p in line] for line in self.custom]}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "FlatFeature":
         out = cls()
         for key in ("kind", "name", "bends", "style", "width", "slot",
-                    "bridge", "margin", "depth"):
+                    "bridge", "margin", "depth", "leg", "angle"):
             if key in data:
                 setattr(out, key, str(data[key]))
         out.suppressed = bool(data.get("suppressed", False))
+        out.alternate = bool(data.get("alternate", True))
+        out.custom = [[(float(p[0]), float(p[1])) for p in line]
+                      for line in data.get("custom") or [] if len(line) >= 2]
         return out
 
     def chosen(self, count: int) -> List[int]:
@@ -1371,6 +1385,28 @@ class FlatFeature:
             out.append(number - 1)
         return out
 
+    def cell(self, length: float, scope: Dict[str, float]
+             ) -> List[List[Tuple[float, float]]]:
+        """One repeat of the pattern, ``length`` along the bend, as
+        polylines: u along it from 0, v across, the bend line at v = 0."""
+        from .params import evaluate
+        if self.style == "custom":
+            if not self.custom:
+                raise ValueError("the custom pattern is empty: take one from "
+                                 "a sketch")
+            return [list(line) for line in self.custom]
+        if self.style == "straight":
+            return [[(0.0, 0.0), (length, 0.0)]]
+        if self.style == "zigzag":
+            depth = float(evaluate(self.depth, scope))
+            return [[(0.0, depth), (length / 2.0, -depth), (length, depth)]]
+        leg = float(evaluate(self.leg, scope))
+        angle = math.radians(float(evaluate(self.angle, scope)))
+        du, dv = leg * math.cos(angle), leg * math.sin(angle)
+        # the top along the line; each end turned off it, away from the
+        # middle, so the cut is a trapezoid without its base
+        return [[(-du, dv), (0.0, 0.0), (length, 0.0), (length + du, dv)]]
+
     def slots(self, flat: FlatPattern, scope: Dict[str, float]
               ) -> List[TopoDS_Shape]:
         """The slots, as faces on the flat."""
@@ -1379,37 +1415,53 @@ class FlatFeature:
         slot = float(evaluate(self.slot, scope))
         bridge = float(evaluate(self.bridge, scope))
         margin = float(evaluate(self.margin, scope))
-        depth = float(evaluate(self.depth, scope))
         if width <= 0 or slot <= 0 or bridge <= 0 or margin < 0:
             raise ValueError("the slot, its width and the bridges must be "
                              "more than 0")
+        if self.style == "custom":
+            if not self.custom:
+                raise ValueError("the custom pattern is empty: take one "
+                                 "from a sketch")
+            us = [u for line in self.custom for u, _v in line]
+            fixed = max(us) - min(us)
+            if fixed <= 1e-9:
+                raise ValueError("the custom pattern has no length along "
+                                 "the bend")
         faces = []
         for index in self.chosen(len(flat.bends)):
             a, b, _angle = flat.bends[index]
             length = math.dist(a, b)
             usable = length - 2.0 * margin
-            if usable < slot * 0.5:
+            each = fixed if self.style == "custom" else slot
+            if usable < each * 0.5:
                 raise ValueError("bend %d is too short for its margins"
                                  % (index + 1))
-            count = max(1, int((usable + bridge) // (slot + bridge)))
-            each = (usable - (count - 1) * bridge) / count
+            count = max(1, int((usable + bridge) // (each + bridge)))
+            if self.style == "custom":
+                # a drawn repeat keeps its size: the set is centred
+                lead = margin + (usable - count * each
+                                 - (count - 1) * bridge) / 2.0
+            else:
+                # a built in one stretches to fill the bend evenly
+                each = (usable - (count - 1) * bridge) / count
+                lead = margin
             along = ((b[0] - a[0]) / length, (b[1] - a[1]) / length)
             across = (-along[1], along[0])
+            shape = self.cell(each, scope)
+            u0 = min(u for line in shape for u, _v in line) \
+                if self.style == "custom" else 0.0
             for i in range(count):
-                start = margin + i * (each + bridge)
-                end = start + each
-                p0 = (a[0] + along[0] * start, a[1] + along[1] * start)
-                p1 = (a[0] + along[0] * end, a[1] + along[1] * end)
-                if self.style == "zigzag":
-                    mid = ((p0[0] + p1[0]) / 2 - across[0] * depth,
-                           (p0[1] + p1[1]) / 2 - across[1] * depth)
-                    points = [(p0[0] + across[0] * depth,
-                               p0[1] + across[1] * depth), mid,
-                              (p1[0] + across[0] * depth,
-                               p1[1] + across[1] * depth)]
-                else:
-                    points = [p0, p1]
-                faces.append(_slot_face(points, width))
+                start = lead + i * (each + bridge)
+                side = -1.0 if (self.alternate and i % 2) else 1.0
+                for line in shape:
+                    points = []
+                    for u, v in line:
+                        at = start + (u - u0)
+                        points.append((a[0] + along[0] * at
+                                       + across[0] * v * side,
+                                       a[1] + along[1] * at
+                                       + across[1] * v * side))
+                    faces.append(_slot_face(points, width))
         return faces
 
     def apply(self, flat: FlatPattern, scope: Dict[str, float]
@@ -1482,3 +1534,31 @@ def _cut_faces(outline: TopoDS_Shape, cutter: TopoDS_Shape) -> TopoDS_Shape:
     if not algo.IsDone():
         raise KernelError("the slots could not be cut")
     return algo.Shape()
+
+
+def pattern_from_sketch(sketch) -> List[List[Tuple[float, float]]]:
+    """One repeat of a custom perforation, drawn in a sketch: its lines,
+    chained into polylines, the sketch's X along the bend and its X axis
+    the bend line itself."""
+    closed, chains = kernel._chains(sketch)
+    out = []
+    for chain, loop in [(c, False) for c in chains] + [(c, True)
+                                                      for c in closed]:
+        if any(sketch.entities[e].kind != "line" for e in chain):
+            raise KernelError("a perforation pattern is drawn in lines only")
+        ends = [tuple(sketch.entities[e].points[:2]) for e in chain]
+        if len(ends) == 1:
+            order = list(ends[0])
+        else:
+            first, second = ends[0], ends[1]
+            order = ([first[1], first[0]] if first[0] in second
+                     else [first[0], first[1]])
+            for p, q in ends[1:]:
+                order.append(q if p == order[-1] else p)
+        points = [(sketch.points[p].x, sketch.points[p].y) for p in order]
+        if loop and points[0] != points[-1]:
+            points.append(points[0])
+        out.append(points)
+    if not out:
+        raise KernelError("the sketch has no lines to take a pattern from")
+    return out

@@ -262,10 +262,14 @@ class BendPerforationDialog(QtWidgets.QDialog):
     with bridges of sheet between them, so a plate cut flat on the plasma
     table bends by hand.  The flat in the view shows it as it is typed."""
 
-    STYLES = [("zigzag", "sm_perforation", "V shaped slots, as in the "
-               "photo: the bridges cross the bend at a slant"),
+    STYLES = [("trapezoid", "sm_perforation_trapezoid",
+               "Cuts along the bend line, their ends angled off it: open "
+               "trapezoids, every other one turned to the other side"),
+              ("zigzag", "sm_perforation", "V shaped slots"),
               ("straight", "sm_perforation_straight",
-               "Straight slots along the bend line")]
+               "Straight slots along the bend line"),
+              ("custom", "sketch", "Your own: one repeat drawn in a sketch, "
+               "its X axis the bend line")]
 
     def __init__(self, doc, feature, parent=None) -> None:
         super().__init__(parent)
@@ -290,12 +294,32 @@ class BendPerforationDialog(QtWidgets.QDialog):
                  "the bend"),
                 ("depth", "Zigzag depth", "How far a V shaped slot reaches "
                  "off the bend line"),
+                ("leg", "Leg length", "A trapezoid's angled ends: how long"),
+                ("angle", "Leg angle", "A trapezoid's angled ends: degrees "
+                 "off the bend line; past 90 they turn back in"),
                 ("bends", "Bends", "all, or the bends by number: 1, 3")):
             edit = QtWidgets.QLineEdit(getattr(feature, key))
             edit.setToolTip(tip)
             edit.textChanged.connect(self._changed)
             form.addRow(label, edit)
             self.fields[key] = edit
+        self.alternate = QtWidgets.QCheckBox("Every other one to the "
+                                             "other side")
+        self.alternate.setChecked(feature.alternate)
+        self.alternate.toggled.connect(lambda _on: self._changed())
+        form.addRow("", self.alternate)
+        # a custom pattern, taken from a sketch of the part
+        row = QtWidgets.QHBoxLayout()
+        self.sketches = QtWidgets.QComboBox()
+        for sketch_feature in getattr(doc, "sketch_features", lambda: [])():
+            self.sketches.addItem(sketch_feature.name, sketch_feature.id)
+        row.addWidget(self.sketches, 1)
+        take = QtWidgets.QPushButton("Take Pattern")
+        take.setToolTip("Draw one repeat of the pattern in a sketch, the "
+                        "sketch's X axis the bend line, and take it here")
+        take.clicked.connect(self.take_pattern)
+        row.addWidget(take)
+        form.addRow("From sketch", row)
         self.style.changed.connect(lambda _k: self._changed())
         self.message = QtWidgets.QLabel("")
         self.message.setWordWrap(True)
@@ -308,8 +332,27 @@ class BendPerforationDialog(QtWidgets.QDialog):
         form.addRow(buttons)
         self._changed()
 
+    def take_pattern(self, sketch_id: int = 0) -> bool:
+        """The custom pattern, from a sketch's lines."""
+        from ..core.kernel import KernelError
+        sketch_id = sketch_id or int(self.sketches.currentData() or 0)
+        owner = self.doc.feature(sketch_id) if sketch_id else None
+        sketch = getattr(owner, "sketch", None)
+        if sketch is None:
+            self.message.setText("Pick the sketch with the pattern in it.")
+            return False
+        try:
+            self.feature.custom = sheetmetal.pattern_from_sketch(sketch)
+        except KernelError as exc:
+            self.message.setStyleSheet("color: %s;" % C.error)
+            self.message.setText(str(exc))
+            return False
+        self.style.set_value("custom")
+        return self._changed()
+
     def _store(self) -> None:
         self.feature.style = self.style.value()
+        self.feature.alternate = self.alternate.isChecked()
         for key, edit in self.fields.items():
             setattr(self.feature, key, edit.text().strip())
 

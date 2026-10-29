@@ -156,6 +156,28 @@ if SHOTS:
     win.viewport.fit_all()
     settle(400)
     win.viewport.grab_image(os.path.join(SHOTS, "flat_perforated.png"))
+check("the default is the open trapezoid", dialog.style.value() == "trapezoid")
+
+print("a pattern of your own, from a sketch")
+from datum.core.features import SketchFeature                     # noqa: E402
+from datum.core.sketch import Sketch, SketchPlane                 # noqa: E402
+pattern = SketchFeature(name="My pattern")
+pattern.sketch = Sketch(SketchPlane(), "My pattern")
+pattern.sketch.add_line((0.0, 0.0), (8.0, 0.0))
+pattern.sketch.add_line((8.0, 0.0), (11.0, 3.0))
+win.document.add_feature(pattern)
+own = sheetmetal_ui.BendPerforationDialog(
+    win.document, sm.FlatFeature(), win)
+check("Take Pattern takes it", own.take_pattern(pattern.id)
+      and own.style.value() == "custom" and own.feature.custom,
+      own.message.text())
+check("and shows it on the flat", "slot(s)" in own.message.text(),
+      own.message.text())
+own.reject()
+win.document.features.remove(pattern)
+win.rebuild()
+pump()
+
 win.show_flat_pattern()
 pump()
 written = win.flat_pattern_dialog.export(os.path.join(WORK, "bracket.dxf"))

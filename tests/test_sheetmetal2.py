@@ -355,7 +355,9 @@ flange.height = "30"
 doc.add_feature(flange)
 doc.rebuild()
 plain = sm.flat_pattern(doc)
-for style in ("zigzag", "straight"):
+check("the default is the open trapezoid",
+      sm.FlatFeature().style == "trapezoid" and sm.FlatFeature().alternate)
+for style in ("trapezoid", "zigzag", "straight"):
     doc.sheet_metal.flat_features = [sm.FlatFeature(style=style)]
     flat = sm.flat_pattern(doc)
     loops = kernel.explore(flat.outline(), kernel.TopAbs_WIRE)
@@ -368,6 +370,40 @@ for style in ("zigzag", "straight"):
     path = sm.flat_to_dxf(flat, os.path.join(WORK, style + ".dxf"))
     check("%s: the slots go into the DXF" % style,
           open(path).read().count("OUTER_PROFILE") > 8)
+print("the trapezoid's shape")
+feature = sm.FlatFeature()
+cell = feature.cell(20.0, {"Thickness": 2.0})[0]
+check("its top lies on the bend line, its legs at 45 degrees, 4 long",
+      cell[1] == (0.0, 0.0) and cell[2] == (20.0, 0.0)
+      and near(cell[0][0], -4 * math.cos(math.radians(45)))
+      and near(cell[3][1], 4 * math.sin(math.radians(45))), cell)
+faces = feature.slots(plain, {"Thickness": 2.0})
+first = kernel.bounding_box(faces[0])
+second = kernel.bounding_box(faces[1])
+check("every other one opens to the other side of the line",
+      (first[1] + first[4]) / 2 * (second[1] + second[4]) / 2 < 0
+      or (first[0] + first[3]) / 2 * 0 == 0 and abs(
+          (first[0] + first[3]) - (second[0] + second[3])) > 1.0,
+      (first, second))
+
+print("a pattern of your own, drawn in a sketch")
+pattern_sketch = Sketch()
+pattern_sketch.add_line((0.0, 0.0), (8.0, 0.0))
+pattern_sketch.add_line((8.0, 0.0), (11.0, 3.0))
+pattern_sketch.add_line((0.0, 0.0), (-3.0, -3.0))
+own = sm.pattern_from_sketch(pattern_sketch)
+check("its lines chain into one polyline",
+      own == [[(-3.0, -3.0), (0.0, 0.0), (8.0, 0.0), (11.0, 3.0)]], own)
+doc.sheet_metal.flat_features = [sm.FlatFeature(style="custom", custom=own,
+                                                alternate=False)]
+flat = sm.flat_pattern(doc)
+slots = len(kernel.explore(flat.outline(), kernel.TopAbs_WIRE)) - 1
+check("it repeats down the bend at its own size", slots >= 4, slots)
+doc.sheet_metal.flat_features = [sm.FlatFeature(style="custom")]
+sm.flat_pattern(doc)
+check("an empty custom pattern says so",
+      "empty" in doc.sheet_metal.flat_features[0].error)
+
 doc.sheet_metal.flat_features = [sm.FlatFeature(bridge="200")]
 flat = sm.flat_pattern(doc)
 check("bridges longer than the bend leave a single slot",

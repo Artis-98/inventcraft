@@ -491,6 +491,15 @@ def _i_sm_perforation(p):
         p.drawPolyline(_poly((10, y), (13, y + 2.5), (10, y + 5)))
 
 
+def _i_sm_perforation_trapezoid(p):
+    """Open trapezoids along a bend line, every other one turned over."""
+    _pen(p, _LINE, 1.4)
+    p.drawRect(QtCore.QRectF(3, 4, 18, 16))
+    _pen(p, _ACCENT, 1.8)
+    p.drawPolyline(_poly((9.5, 4.5), (12, 7), (12, 11), (9.5, 13.5)))
+    p.drawPolyline(_poly((14.5, 11.5), (12, 14), (12, 17.5), (14.5, 20)))
+
+
 def _i_sm_perforation_straight(p):
     _pen(p, _LINE, 1.4)
     p.drawRect(QtCore.QRectF(3, 4, 18, 16))
@@ -1188,6 +1197,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "sm_fold": _i_sm_fold, "sm_contour": _i_sm_contour,
     "sm_corner": _i_sm_corner, "sm_perforation": _i_sm_perforation,
     "sm_perforation_straight": _i_sm_perforation_straight,
+    "sm_perforation_trapezoid": _i_sm_perforation_trapezoid,
     "revolve": _i_revolve, "sweep": _i_sweep, "loft": _i_loft,
     "file": _i_file, "exit": _i_exit,
     "hole": _i_hole, "fillet": _i_fillet,
