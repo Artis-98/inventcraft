@@ -195,3 +195,151 @@ class FlatPatternDialog(QtWidgets.QDialog):
         self.size.setText(self.size.text().split("  |")[0]
                           + "  |  saved %s" % os.path.basename(written))
         return written
+
+
+class SheetMetalConvertDialog(QtWidgets.QDialog):
+    """Convert to Sheet Metal for a part that has a body already, a STEP
+    file opened: Inventor asks for the base face, measures the thickness
+    from it and shows Sheet Metal Defaults with that thickness in."""
+
+    def __init__(self, doc, parent=None) -> None:
+        super().__init__(parent)
+        self.doc = doc
+        self.face = None
+        self.setWindowTitle("Convert to Sheet Metal")
+        self.setModal(False)
+        form = QtWidgets.QFormLayout(self)
+        self.prompt = QtWidgets.QLabel("Select the base face in the view.")
+        self.prompt.setWordWrap(True)
+        form.addRow(self.prompt)
+        self.thickness = QtWidgets.QLineEdit("")
+        self.thickness.setEnabled(False)
+        form.addRow("Thickness (%s)" % doc.units, self.thickness)
+        self.radius = QtWidgets.QLineEdit("Thickness")
+        form.addRow("Bend Radius (%s)" % doc.units, self.radius)
+        self.k = QtWidgets.QLineEdit(sheetmetal.DEFAULT_K)
+        self.k.setToolTip("Where the neutral fibre lies through the "
+                          "thickness, 0 to 1. Inventor's default is 0.44.")
+        form.addRow("K-Factor", self.k)
+        self.buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+            self)
+        self.buttons.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        form.addRow(self.buttons)
+
+    def take_face(self, face) -> bool:
+        """A face picked in the view: the base face, if it is flat."""
+        from ..core.features import plane_from_face
+        from ..core.kernel import KernelError
+        if plane_from_face(face) is None:
+            self.prompt.setText("That face is not flat. Select a flat face "
+                                "of the sheet.")
+            return False
+        try:
+            measured = sheetmetal.measure(self.doc, face)
+        except KernelError as exc:
+            self.prompt.setText("Cannot measure from that face: %s" % exc)
+            return False
+        self.face = face
+        self.thickness.setText(("%.4f" % measured).rstrip("0").rstrip("."))
+        self.thickness.setEnabled(True)
+        self.prompt.setText("Base face picked: the sheet is %s thick. "
+                            "Another face picks again." % unitlib.length_text(
+                                measured, self.doc.units))
+        self.buttons.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(True)
+        return True
+
+    def values(self):
+        return (self.thickness.text().strip() or None,
+                self.radius.text().strip() or "Thickness",
+                self.k.text().strip() or sheetmetal.DEFAULT_K)
+
+
+class BendPerforationDialog(QtWidgets.QDialog):
+    """A Bend Perforation of the flat pattern: slots down the bend lines
+    with bridges of sheet between them, so a plate cut flat on the plasma
+    table bends by hand.  The flat in the view shows it as it is typed."""
+
+    STYLES = [("zigzag", "sm_perforation", "V shaped slots, as in the "
+               "photo: the bridges cross the bend at a slant"),
+              ("straight", "sm_perforation_straight",
+               "Straight slots along the bend line")]
+
+    def __init__(self, doc, feature, parent=None) -> None:
+        super().__init__(parent)
+        from .widgets import SegmentedControl
+        self.doc = doc
+        self.feature = feature
+        self.host = parent
+        self.setWindowTitle(feature.name)
+        form = QtWidgets.QFormLayout(self)
+        self.style = SegmentedControl(self.STYLES)
+        self.style.set_value(feature.style)
+        form.addRow("Style", self.style)
+        self.fields = {}
+        for key, label, tip in (
+                ("width", "Slot width", "What the cutter leaves: the "
+                 "plasma's kerf, or more"),
+                ("slot", "Slot length", "Each slot along the bend, before "
+                 "it is evened out over the bend's length"),
+                ("bridge", "Bridge", "The sheet left between two slots: "
+                 "the attachment points"),
+                ("margin", "End margin", "Sheet left whole at each end of "
+                 "the bend"),
+                ("depth", "Zigzag depth", "How far a V shaped slot reaches "
+                 "off the bend line"),
+                ("bends", "Bends", "all, or the bends by number: 1, 3")):
+            edit = QtWidgets.QLineEdit(getattr(feature, key))
+            edit.setToolTip(tip)
+            edit.textChanged.connect(self._changed)
+            form.addRow(label, edit)
+            self.fields[key] = edit
+        self.style.changed.connect(lambda _k: self._changed())
+        self.message = QtWidgets.QLabel("")
+        self.message.setWordWrap(True)
+        form.addRow(self.message)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+            self)
+        buttons.accepted.connect(self._ok)
+        buttons.rejected.connect(self._cancel)
+        form.addRow(buttons)
+        self._changed()
+
+    def _store(self) -> None:
+        self.feature.style = self.style.value()
+        for key, edit in self.fields.items():
+            setattr(self.feature, key, edit.text().strip())
+
+    def _changed(self, *_args) -> bool:
+        """Try it on the flat, and show it there."""
+        from ..core.kernel import KernelError
+        self._store()
+        try:
+            base = sheetmetal.flat_pattern(self.doc)
+            flat = self.feature.apply(base, self.doc.parameter_scope())
+        except (KernelError, ValueError, Exception) as exc:
+            self.message.setStyleSheet("color: %s;" % C.error)
+            self.message.setText(str(exc))
+            return False
+        slots = sum(len(kernel.explore(f, sheetmetal.TopAbs_WIRE)) - 1
+                    for f in flat.faces)
+        self.message.setStyleSheet("")
+        self.message.setText("%d slot(s) down %d bend(s)."
+                             % (slots, len(self.feature.chosen(
+                                 len(base.bends)))))
+        viewport = getattr(self.host, "viewport", None)
+        if viewport is not None and flat.solid is not None:
+            viewport.set_shape(flat.solid, keep_camera=True)
+        return True
+
+    def _ok(self) -> None:
+        if self._changed():
+            self.accept()
+
+    def _cancel(self) -> None:
+        self.reject()
+        if self.host is not None and hasattr(self.host, "rebuild"):
+            self.host.rebuild()

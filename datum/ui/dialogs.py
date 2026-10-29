@@ -10,6 +10,7 @@ restores the snapshot taken when the dialog opened.
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Callable, Dict, List, Optional
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -25,6 +26,7 @@ from ..core.features import (
     SketchFeature, SweepFeature, WorkPlaneFeature, CodeFeature,
     AXIS_PREFIX, WorkAxisFeature,
     SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
+    HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
 )
 from ..core.naming import RefSet
 from . import icons
@@ -2587,6 +2589,253 @@ class FlangeDialog(FeatureDialog):
         super().closeEvent(event)
 
 
+def newest_sketch(combo: QtWidgets.QComboBox, current: int) -> None:
+    """A new feature starts on the sketch made last, the one just drawn
+    for it; one being edited stays on its own."""
+    if combo.findData(current) < 0 and combo.count():
+        combo.blockSignals(True)
+        combo.setCurrentIndex(combo.count() - 1)
+        combo.blockSignals(False)
+
+
+class _EdgesDialog(FeatureDialog):
+    """A sheet metal feature picked by edges: they add and drop with
+    each click, as Inventor's do."""
+
+    def edges_field(self, tip: str) -> SelectionField:
+        field = self.picker("Select edges", "edge", "edge",
+                            self._edges_from_view)
+        field.cleared.connect(self._clear_edges)
+        field.setToolTip(tip)
+        self.edges = field
+        QtCore.QTimer.singleShot(0, lambda: field.set_picking(True))
+        return field
+
+    def _show_edges(self) -> None:
+        self.edges.set_count(len(self.feature.edges), "edge")
+
+    def _edges_from_view(self, shapes) -> None:
+        from OCP.TopAbs import TopAbs_EDGE
+        base = self.host.pick_shape()
+        if base is None:
+            return
+        picked = [s for s in shapes if s.ShapeType() == TopAbs_EDGE]
+        if not picked:
+            return
+        fresh = RefSet()
+        fresh.capture_from(base, "edge", picked)
+        for ref in fresh:
+            match = next((e for e in self.feature.edges if e.same_as(ref)),
+                         None)
+            if match is not None:
+                self.feature.edges.refs.remove(match)
+            else:
+                self.feature.edges.add(ref)
+        self._show_edges()
+
+    def _clear_edges(self) -> None:
+        self.feature.edges = RefSet()
+        self._show_edges()
+        self.preview()
+
+
+class HemDialog(_EdgesDialog):
+    """Inventor's Hem: the edges, the kind, and its two values."""
+
+    KINDS = [
+        ("single", "sm_hem", "Single - folded back flat, a gap under it"),
+        ("teardrop", "sm_hem_teardrop",
+         "Teardrop - curled past a half turn"),
+        ("rolled", "sm_hem_rolled", "Rolled - curled round a radius"),
+        ("double", "sm_hem_double", "Double - folded back twice"),
+    ]
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Hem", "sm_hem", is_new, snapshot)
+
+    def build(self):
+        self.form.add("Edges", self.edges_field(
+            "The edges of the sheet to fold back"))
+        self.kind = SegmentedControl(self.KINDS)
+        self.form.add("Type", self.kind)
+        self.first = self.expression(self.feature.first)
+        self.second = self.expression(self.feature.second)
+        self.form.add("Gap", self.first)
+        self.form.add("Length", self.second)
+        self.flip = QtWidgets.QCheckBox("Flip direction")
+        self.flip.setToolTip("Fold it over the sheet's other face")
+        self.bind(self.flip)
+        self.form.add("", self.flip)
+        self.kind.changed.connect(self._kind_changed)
+        self.bind(self.kind)
+
+    def _labels(self) -> None:
+        from ..core.features import HemFeature
+        probe = HemFeature()
+        probe.kind = self.kind.value()
+        a, b = probe.labels()
+        self.form.set_label(self.first, a.title())
+        self.form.set_label(self.second, b.title())
+        self.second.unit = "deg" if b == "angle" else "mm"
+
+    def _kind_changed(self, kind) -> None:
+        from ..core import sheetmetal
+        # a value left at the last kind's default takes the new kind's
+        old = getattr(self, "_shown_kind", self.feature.kind)
+        before = sheetmetal.hem_defaults(old)
+        after = sheetmetal.hem_defaults(self.kind.value())
+        if self.first.text() == before[0]:
+            self.first.set_text(after[0])
+        if self.second.text() == before[1]:
+            self.second.set_text(after[1])
+        self._shown_kind = self.kind.value()
+        self._labels()
+
+    def load(self):
+        self.kind.set_value(self.feature.kind)
+        self._shown_kind = self.feature.kind
+        self.first.set_text(self.feature.first)
+        self.second.set_text(self.feature.second)
+        self.flip.setChecked(self.feature.flipped)
+        self._labels()
+        self._show_edges()
+
+    def store(self):
+        self.feature.kind = self.kind.value()
+        self.feature.first = self.first.text()
+        self.feature.second = self.second.text()
+        self.feature.flipped = self.flip.isChecked()
+
+
+class CornerSeamDialog(_EdgesDialog):
+    """Inventor's Corner Seam: the two wall edges facing each other across
+    an open corner, and the gap to leave."""
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Corner Seam", "sm_corner", is_new,
+                         snapshot)
+
+    def build(self):
+        self.form.add("Edges", self.edges_field(
+            "The two edges, one on each wall, facing each other across "
+            "the corner"))
+        self.gap = self.expression(self.feature.gap)
+        self.form.add("Gap", self.gap)
+
+    def load(self):
+        self.gap.set_text(self.feature.gap)
+        self._show_edges()
+
+    def store(self):
+        self.feature.gap = self.gap.text()
+
+
+class FoldDialog(FeatureDialog):
+    """Inventor's Fold: a line sketched on the sheet, the angle, the
+    radius, and which side turns which way."""
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Fold", "sm_fold", is_new, snapshot)
+
+    def build(self):
+        self.sketch = self.sketch_combo(self.feature.sketch_id)
+        self.form.add("Sketch", self.sketch)
+        self.line = QtWidgets.QComboBox()
+        self.bind(self.line)
+        self.form.add("Bend Line", self.line)
+        self.angle = self.expression(self.feature.angle, "deg")
+        self.form.add("Fold Angle", self.angle)
+        self.radius = self.expression(self.feature.bend_radius)
+        self.form.add("Bend Radius", self.radius)
+        self.flip_side = QtWidgets.QCheckBox("Flip side")
+        self.flip_side.setToolTip("Fold the sheet on the line's other side")
+        self.bind(self.flip_side)
+        self.form.add("", self.flip_side)
+        self.flip_direction = QtWidgets.QCheckBox("Flip direction")
+        self.flip_direction.setToolTip("Fold it the other way, down")
+        self.bind(self.flip_direction)
+        self.form.add("", self.flip_direction)
+        self.sketch.currentIndexChanged.connect(lambda _i: self._lines())
+
+    def _lines(self) -> None:
+        self.line.blockSignals(True)
+        self.line.clear()
+        owner = self.doc.feature(int(self.sketch.currentData() or 0))
+        sketch = getattr(owner, "sketch", None)
+        if sketch is not None:
+            for eid, entity in sketch.entities.items():
+                if entity.kind == "line" and not entity.construction:
+                    a = sketch.points[entity.points[0]]
+                    b = sketch.points[entity.points[1]]
+                    self.line.addItem("Line %d, %.4g long" % (
+                        eid, math.hypot(b.x - a.x, b.y - a.y)), eid)
+        pos = self.line.findData(self.feature.line)
+        self.line.setCurrentIndex(max(0, pos))
+        self.line.blockSignals(False)
+
+    def load(self):
+        newest_sketch(self.sketch, self.feature.sketch_id)
+        self._lines()
+        self.angle.set_text(self.feature.angle)
+        self.radius.set_text(self.feature.bend_radius)
+        self.flip_side.setChecked(self.feature.flip_side)
+        self.flip_direction.setChecked(self.feature.flip_direction)
+
+    def store(self):
+        self.feature.sketch_id = int(self.sketch.currentData() or 0)
+        self.feature.line = int(self.line.currentData() or 0)
+        self.feature.angle = self.angle.text()
+        self.feature.bend_radius = self.radius.text()
+        self.feature.flip_side = self.flip_side.isChecked()
+        self.feature.flip_direction = self.flip_direction.isChecked()
+
+
+class ContourFlangeDialog(FeatureDialog):
+    """Inventor's Contour Flange: an open path in a sketch, how wide, which
+    way, and which side the thickness goes."""
+
+    DIRECTIONS = [
+        ("positive", "dir_default", "Along the sketch's normal"),
+        ("negative", "dir_flipped", "The other way"),
+        ("symmetric", "dir_symmetric", "Half each way"),
+    ]
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Contour Flange", "sm_contour",
+                         is_new, snapshot)
+
+    def build(self):
+        self.sketch = self.sketch_combo(self.feature.sketch_id)
+        self.sketch.setToolTip("A sketch with an open path of lines: the "
+                               "inside of the sheet")
+        self.form.add("Profile", self.sketch)
+        self.width = self.expression(self.feature.width)
+        self.form.add("Distance", self.width)
+        self.direction = SegmentedControl(self.DIRECTIONS)
+        self.bind(self.direction)
+        self.form.add("Direction", self.direction)
+        self.radius = self.expression(self.feature.bend_radius)
+        self.form.add("Bend Radius", self.radius)
+        self.flip = QtWidgets.QCheckBox("Flip side")
+        self.flip.setToolTip("The thickness on the path's other side")
+        self.bind(self.flip)
+        self.form.add("", self.flip)
+
+    def load(self):
+        newest_sketch(self.sketch, self.feature.sketch_id)
+        self.width.set_text(self.feature.width)
+        self.direction.set_value(self.feature.direction)
+        self.radius.set_text(self.feature.bend_radius)
+        self.flip.setChecked(self.feature.flipped)
+
+    def store(self):
+        self.feature.sketch_id = int(self.sketch.currentData() or 0)
+        self.feature.width = self.width.text()
+        self.feature.direction = self.direction.value()
+        self.feature.bend_radius = self.radius.text()
+        self.feature.flipped = self.flip.isChecked()
+
+
 DIALOGS = {
     ExtrudeFeature: ExtrudeDialog,
     RevolveFeature: RevolveDialog,
@@ -2606,6 +2855,10 @@ DIALOGS = {
     EmbossFeature: EmbossDialog,
     SheetFaceFeature: SheetFaceDialog,
     FlangeFeature: FlangeDialog,
+    HemFeature: HemDialog,
+    FoldFeature: FoldDialog,
+    ContourFlangeFeature: ContourFlangeDialog,
+    CornerSeamFeature: CornerSeamDialog,
 }
 
 

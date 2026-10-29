@@ -27,7 +27,8 @@ from ..core.features import (
     PrimitiveFeature, RevolveFeature, ShellFeature, SketchFeature,
     SweepFeature, WorkPlaneFeature, plane_from_face, CodeFeature,
     WorkAxisFeature, SplitFeature, EmbossFeature, SheetFaceFeature,
-    FlangeFeature,
+    FlangeFeature, HemFeature, FoldFeature, ContourFlangeFeature,
+    CornerSeamFeature,
 )
 from ..core.naming import RefSet, ShapeRef
 from ..core.sketch import STANDARD_PLANES, Sketch, SketchPlane
@@ -99,6 +100,8 @@ TAB_MODEL = "3D Model"
 TAB_SKETCH = "Sketch"
 # shown beside 3D Model once a part is converted to sheet metal
 TAB_SHEET = "Sheet Metal"
+# the flat pattern's own tab, while it is being edited
+TAB_FLAT = "Flat Pattern"
 TAB_ASSEMBLE = "Assemble"
 TAB_CAM = "CAM"
 TAB_DRAWING = "Drawing"
@@ -411,6 +414,16 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("sm_flange", "Flange",
                       "Bend a wall up from edges of the sheet"
                       ).clicked.connect(lambda: self.new_feature(FlangeFeature))
+        panel.add_big("sm_contour", "Contour\nFlange",
+                      "An open path of lines, given the thickness and bent "
+                      "at its corners").clicked.connect(
+            lambda: self.new_feature(ContourFlangeFeature))
+        panel.add_small("sm_hem", "Hem", "Fold the edge of the sheet back: "
+                        "single, teardrop, rolled or double"
+                        ).clicked.connect(lambda: self.new_feature(HemFeature))
+        panel.add_small("sm_fold", "Fold", "Bend the sheet along a line "
+                        "sketched on it").clicked.connect(
+            lambda: self.new_feature(FoldFeature))
         panel = sheet.add_panel("Modify")
         panel.add_small("extrude", "Cut", "Cut a profile through the sheet"
                         ).clicked.connect(
@@ -419,14 +432,38 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.new_feature(HoleFeature))
         panel.add_small("fillet", "Corner Round").clicked.connect(
             lambda: self.new_feature(FilletFeature))
+        panel.add_small("sm_corner", "Corner Seam",
+                        "Close the corner between two flanges made apart"
+                        ).clicked.connect(
+            lambda: self.new_feature(CornerSeamFeature))
         panel = sheet.add_panel("Setup")
         panel.add_big("sm_defaults", "Sheet Metal\nDefaults",
                       "Thickness, bend radius and K-factor"
                       ).clicked.connect(self.edit_sheet_metal_defaults)
         panel = sheet.add_panel("Flat Pattern")
         panel.add_big("sm_flat", "Flat\nPattern",
-                      "The sheet laid flat, its size, and a DXF to cut from"
+                      "Lay the sheet flat and edit the flat pattern"
+                      ).clicked.connect(self.enter_flat)
+
+        # ------------------------------------------------------ Flat Pattern
+        flat = r.add_tab(TAB_FLAT, contextual=True)
+        panel = flat.add_panel("Create")
+        panel.add_big("sm_perforation", "Bend\nPerforation",
+                      "Slots down the bend lines with bridges between them, "
+                      "for bending by hand").clicked.connect(
+            lambda: self.edit_flat_feature(-1))
+        panel = flat.add_panel("Manage")
+        panel.add_big("sm_defaults", "Sheet Metal\nDefaults",
+                      "Thickness, bend radius and K-factor"
+                      ).clicked.connect(self.edit_sheet_metal_defaults)
+        panel = flat.add_panel("Export")
+        panel.add_big("export", "Save Copy\nAs DXF",
+                      "The flat's size, and a DXF to cut from"
                       ).clicked.connect(self.show_flat_pattern)
+        panel = flat.add_panel("Folded Part")
+        panel.add_big("sm_face", "Go to\nFolded Part",
+                      "Back to the part as it is bent"
+                      ).clicked.connect(self.exit_flat)
         panel = sheet.add_panel("Convert")
         panel.add_small("sm_convert", "Convert to Standard Part",
                         "Back to an ordinary part; the features stay"
@@ -1464,6 +1501,7 @@ class MainWindow(QtWidgets.QMainWindow):
         b.delete_requested.connect(self.delete_feature)
         b.rename_requested.connect(self.rename_feature)
         b.solid_rename_requested.connect(self.rename_solid)
+        b.flat_requested.connect(self._flat_requested)
         b.suppress_toggled.connect(self.toggle_suppress)
         b.share_toggled.connect(self.toggle_share)
         b.plane_visibility_toggled.connect(self.toggle_plane_visibility)
@@ -1621,6 +1659,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ribbon.set_tab_visible(title, title in wanted)
         self.ribbon.set_tab_visible(TAB_SKETCH, False)
         sheet = doc_type == fileformat.PART and self._is_sheet_metal()
+        self.flat_mode = False
+        self.ribbon.set_tab_visible(TAB_FLAT, False)
         self.ribbon.set_tab_visible(TAB_SHEET, sheet)
         self.ribbon.show_tab(TAB_SHEET if sheet else wanted[0])
 
@@ -1970,6 +2010,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _sync_sheet_tab(self, show: bool = False) -> None:
         on = self.in_part and self._is_sheet_metal()
+        if not on and self.flat_mode:
+            self.flat_mode = False
+            self.ribbon.set_tab_visible(TAB_FLAT, False)
+            self.rebuild()
         self.ribbon.set_tab_visible(TAB_SHEET, on)
         if on and show:
             self.ribbon.show_tab(TAB_SHEET)
@@ -1978,16 +2022,43 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def convert_to_sheet_metal(self) -> None:
         """Inventor's Convert to Sheet Metal: same file, same features,
-        and the Sheet Metal tab."""
+        and the Sheet Metal tab.  A part with a body already, a STEP file
+        opened, asks for its base face first, as Inventor does, and takes
+        its thickness from there."""
         from ..core import sheetmetal
-        from ..core import units as unitlib
         if not self.in_part or self._is_sheet_metal():
             self._sync_sheet_tab(show=True)
             return
         if self.editor.active:
             self.finish_sketch()
+        if self.document.shape is not None:
+            from .sheetmetal_ui import SheetMetalConvertDialog
+            self.convert_dialog = SheetMetalConvertDialog(self.document, self)
+            self.convert_dialog.accepted.connect(self._convert_from_face)
+            self.convert_dialog.finished.connect(
+                lambda _r: self.set_pick_mode(None))
+            self.set_pick_mode("face")
+            self.convert_dialog.show()
+            self.status_message.setStyleSheet("")
+            self.status_message.setText(
+                "Select the base face: the thickness is measured from it "
+                "and the flat pattern lies on it.")
+            return
+        self._converted(lambda: sheetmetal.convert(self.document))
+
+    def _convert_from_face(self) -> None:
+        from ..core import sheetmetal
+        dialog = self.convert_dialog
+        face = dialog.face
+        thickness, radius, k = dialog.values()
+        self._converted(lambda: sheetmetal.convert(
+            self.document, thickness=thickness, base_face=face,
+            bend_radius=radius, k_factor=k))
+
+    def _converted(self, convert) -> None:
+        from ..core import units as unitlib
         self.document.push_undo()
-        sheetmetal.convert(self.document)
+        convert()
         self.rebuild()
         self._sync_sheet_tab(show=True)
         self._update_title()
@@ -2003,6 +2074,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self._is_sheet_metal():
             return
         self.document.push_undo()
+        if self.flat_mode:
+            self.exit_flat()
         sheetmetal.convert_to_standard(self.document)
         self._sync_sheet_tab()
         self._update_title()
@@ -2017,6 +2090,121 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog = SheetMetalDefaultsDialog(self.document, self)
         self.sheet_defaults_dialog = dialog
         if dialog.exec() == QtWidgets.QDialog.Accepted:
+            self.rebuild()
+            self._update_title()
+
+    # -- the flat pattern, as its own environment ------------------------
+
+    flat_mode = False
+
+    def enter_flat(self) -> bool:
+        """Lay the part flat in the view, with the Flat Pattern tab, as
+        Inventor's Flat Pattern environment does."""
+        from ..core import sheetmetal
+        from ..core.kernel import KernelError
+        if not self._is_sheet_metal():
+            return False
+        if self.editor.active:
+            self.finish_sketch()
+        try:
+            sheetmetal.flat_pattern(self.document)
+        except (KernelError, Exception) as exc:
+            QtWidgets.QMessageBox.warning(self, "Flat Pattern",
+                                          "Cannot lay it flat: %s" % exc)
+            return False
+        self.flat_mode = True
+        self.ribbon.set_tab_visible(TAB_FLAT, True)
+        self.ribbon.show_tab(TAB_FLAT)
+        self.rebuild(keep_camera=False)
+        self.viewport.set_view("top")
+        self.viewport.fit_all()
+        return True
+
+    def exit_flat(self) -> None:
+        if not self.flat_mode:
+            return
+        self.flat_mode = False
+        self.ribbon.set_tab_visible(TAB_FLAT, False)
+        self.ribbon.show_tab(TAB_SHEET if self._is_sheet_metal()
+                             else TAB_MODEL)
+        self.rebuild(keep_camera=False)
+        self.viewport.set_view("iso")
+        self.viewport.fit_all()
+
+    def _show_flat(self, keep_camera: bool) -> None:
+        from ..core import sheetmetal
+        from ..core.kernel import KernelError
+        try:
+            flat = sheetmetal.flat_pattern(self.document)
+        except (KernelError, Exception) as exc:
+            self.flat_mode = False
+            self.ribbon.set_tab_visible(TAB_FLAT, False)
+            self.status_message.setStyleSheet("color: %s;" % C.error)
+            self.status_message.setText("The flat pattern failed: %s" % exc)
+            self.viewport.set_shape(self.document.visible_shape(),
+                                    keep_camera=keep_camera,
+                                    appearance=self.document
+                                    .material_appearance)
+            return
+        self._flat = flat
+        self.viewport.set_shape(flat.solid, keep_camera=keep_camera,
+                                appearance=self.document.material_appearance)
+        length, width = flat.extents()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Flat pattern: %.3f x %.3f, %d bend(s)."
+            % (length, width, len(flat.bends)))
+
+    def edit_flat_feature(self, index: int = -1) -> bool:
+        """Add a Bend Perforation to the flat pattern, or edit one."""
+        from ..core import sheetmetal
+        from .sheetmetal_ui import BendPerforationDialog
+        if not self._is_sheet_metal():
+            return False
+        if not self.flat_mode and not self.enter_flat():
+            return False
+        features = self.document.sheet_metal.flat_features
+        existing = features[index] if 0 <= index < len(features) else None
+        feature = sheetmetal.FlatFeature.from_dict(
+            existing.to_dict()) if existing else sheetmetal.FlatFeature()
+        if existing is None:
+            taken = {f.name for f in features}
+            number = 1
+            while "Bend Perforation%d" % number in taken:
+                number += 1
+            feature.name = "Bend Perforation%d" % number
+        dialog = BendPerforationDialog(self.document, feature, self)
+        self.perforation_dialog = dialog
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return False
+        self.document.push_undo()
+        if existing is None:
+            features.append(dialog.feature)
+        else:
+            features[index] = dialog.feature
+        self.document.modified = True
+        self.rebuild()
+        self._update_title()
+        return True
+
+    def _flat_requested(self, action: str, index: int) -> None:
+        if action == "open":
+            self.enter_flat()
+        elif action == "dxf":
+            if self.flat_mode or self.enter_flat():
+                self.show_flat_pattern()
+        elif action == "edit":
+            self.edit_flat_feature(index)
+        elif action in ("suppress", "delete"):
+            features = self.document.sheet_metal.flat_features
+            if not 0 <= index < len(features):
+                return
+            self.document.push_undo()
+            if action == "delete":
+                del features[index]
+            else:
+                features[index].suppressed = not features[index].suppressed
+            self.document.modified = True
             self.rebuild()
             self._update_title()
 
@@ -2695,7 +2883,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.box_select_enabled = True
         # with a feature dialog open, the part as it was and what the
         # feature does to it; otherwise the part
-        if not self._feature_preview(keep_camera):
+        if getattr(self, "flat_mode", False):
+            self._show_flat(keep_camera)
+        elif not self._feature_preview(keep_camera):
             self.viewport.set_shape(
                 self.document.visible_shape(), keep_camera=keep_camera,
                 appearance=self.document.material_appearance)
@@ -3947,6 +4137,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_viewport_selection(self) -> None:
         if self._section_picked():
+            return
+        convert = getattr(self, "convert_dialog", None)
+        if convert is not None and convert.isVisible():
+            faces = self.viewport.selected_faces()
+            if faces:
+                convert.take_face(faces[0])
             return
         if self.measure_dialog is not None:
             # while Measure is open a pick is a measurement, whatever else

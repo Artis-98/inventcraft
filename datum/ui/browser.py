@@ -52,6 +52,9 @@ class ModelBrowser(QtWidgets.QTreeWidget):
     rename_requested = QtCore.Signal(int, str)
     # a solid by the name the part knows it by, and what to call it
     solid_rename_requested = QtCore.Signal(str, str)
+    # the Flat Pattern: ("open" | "dxf" | "edit" | "suppress" | "delete",
+    # the flat feature's index, or -1)
+    flat_requested = QtCore.Signal(str, int)
     suppress_toggled = QtCore.Signal(int)
     share_toggled = QtCore.Signal(int)
     plane_visibility_toggled = QtCore.Signal(str)
@@ -277,6 +280,30 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         if end is None:
             end = add_end_marker()
 
+        # Inventor's second tree: the Flat Pattern, after the folded part,
+        # with the features of its own under it
+        sheet = getattr(doc, "sheet_metal", None)
+        if sheet is not None:
+            flat = QtWidgets.QTreeWidgetItem(root, ["Flat Pattern"])
+            flat.setIcon(0, icons.icon("sm_flat", 16))
+            flat.setData(0, ROLE_KIND, "flat")
+            flat.setToolTip(0, "Double-click to lay the part flat and add "
+                               "the flat pattern's own features")
+            for index, feature in enumerate(sheet.flat_features):
+                child = QtWidgets.QTreeWidgetItem(flat, [feature.name])
+                child.setIcon(0, icons.icon("sm_perforation", 16))
+                child.setData(0, ROLE_KIND, "flat_feature")
+                child.setData(0, ROLE_ID, index)
+                if feature.error:
+                    child.setForeground(0, QtGui.QBrush(QtGui.QColor(
+                        C.error)))
+                    child.setText(0, feature.name + "   !")
+                    child.setToolTip(0, feature.error)
+                elif feature.suppressed:
+                    child.setForeground(0, QtGui.QBrush(QtGui.QColor(
+                        C.tree_faint)))
+            flat.setExpanded(True)
+
         self.expandItem(root)
         self.blockSignals(False)
 
@@ -441,6 +468,10 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             self.plane_activated.emit(str(item.data(0, ROLE_ID)))
         elif kind == "end":
             self.rollback_requested.emit(None)
+        elif kind == "flat":
+            self.flat_requested.emit("open", -1)
+        elif kind == "flat_feature":
+            self.flat_requested.emit("edit", int(item.data(0, ROLE_ID)))
         elif kind == "state":
             self.model_state_requested.emit(
                 "activate", str(item.data(0, ROLE_ID)), "")
@@ -509,6 +540,30 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                 new = menu.addAction("New Model State")
                 new.triggered.connect(lambda: self.model_state_requested.emit(
                     "new", "", ""))
+            return menu
+
+        if kind == "flat":
+            menu.addAction(icons.icon("sm_flat", 16), "Edit Flat Pattern"
+                           ).triggered.connect(
+                lambda: self.flat_requested.emit("open", -1))
+            menu.addAction(icons.icon("export", 16), "Save Copy As DXF..."
+                           ).triggered.connect(
+                lambda: self.flat_requested.emit("dxf", -1))
+            return menu
+        if kind == "flat_feature":
+            index = int(item.data(0, ROLE_ID))
+            features = self._doc.sheet_metal.flat_features
+            feature = features[index] if index < len(features) else None
+            menu.addAction("Edit Feature").triggered.connect(
+                lambda: self.flat_requested.emit("edit", index))
+            menu.addAction("Unsuppress" if feature is not None
+                           and feature.suppressed else "Suppress"
+                           ).triggered.connect(
+                lambda: self.flat_requested.emit("suppress", index))
+            menu.addSeparator()
+            menu.addAction(icons.icon("delete", 16), "Delete"
+                           ).triggered.connect(
+                lambda: self.flat_requested.emit("delete", index))
             return menu
 
         if kind == "body":

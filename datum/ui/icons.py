@@ -415,6 +415,90 @@ def _i_sm_convert(p):
     p.drawLine(QtCore.QPointF(9, 8), QtCore.QPointF(12, 8))
 
 
+def _i_sm_hem(p):
+    """Single hem: the sheet folded back flat over itself."""
+    _pen(p, _LINE, 2.0)
+    path = QtGui.QPainterPath(QtCore.QPointF(21, 15))
+    path.lineTo(7, 15)
+    path.arcTo(QtCore.QRectF(3, 9, 8, 6), 270, -180)
+    path.lineTo(17, 9)
+    p.drawPath(path)
+
+
+def _i_sm_hem_teardrop(p):
+    _pen(p, _LINE, 2.0)
+    path = QtGui.QPainterPath(QtCore.QPointF(21, 16))
+    path.lineTo(10, 16)
+    path.arcTo(QtCore.QRectF(3, 6, 10, 10), 270, -250)
+    p.drawPath(path)
+
+
+def _i_sm_hem_rolled(p):
+    _pen(p, _LINE, 2.0)
+    path = QtGui.QPainterPath(QtCore.QPointF(21, 16))
+    path.lineTo(10, 16)
+    path.arcTo(QtCore.QRectF(4, 6, 10, 10), 270, -180)
+    p.drawPath(path)
+
+
+def _i_sm_hem_double(p):
+    _pen(p, _LINE, 1.8)
+    path = QtGui.QPainterPath(QtCore.QPointF(21, 18))
+    path.lineTo(6, 18)
+    path.lineTo(6, 8)
+    path.lineTo(18, 8)
+    path.lineTo(18, 13)
+    path.lineTo(9, 13)
+    p.drawPath(path)
+
+
+def _i_sm_fold(p):
+    """A sheet folded up along a dashed line."""
+    _sheet(p, [(3, 15), (11, 19), (15, 17), (7, 13)], 160)
+    _sheet(p, [(7, 13), (15, 17), (21, 7), (13, 3)], 120)
+    _pen(p, _ACCENT, 1.4, dashed=True)
+    p.drawLine(QtCore.QPointF(6.5, 13), QtCore.QPointF(15.5, 17))
+
+
+def _i_sm_contour(p):
+    """A U channel drawn from an open path."""
+    _pen(p, _LINE, 2.2)
+    path = QtGui.QPainterPath(QtCore.QPointF(5, 5))
+    path.lineTo(5, 17)
+    path.quadTo(5, 19, 7, 19)
+    path.lineTo(17, 19)
+    path.quadTo(19, 19, 19, 17)
+    path.lineTo(19, 5)
+    p.drawPath(path)
+    _pen(p, _ACCENT, 1.2, dashed=True)
+    p.drawLine(QtCore.QPointF(8, 5), QtCore.QPointF(8, 16))
+
+
+def _i_sm_corner(p):
+    """Two walls meeting at a closed corner."""
+    _sheet(p, [(4, 8), (12, 12), (12, 21), (4, 17)], 100)
+    _sheet(p, [(13, 12), (21, 8), (21, 17), (13, 21)], 140)
+    _pen(p, _ACCENT, 1.6)
+    p.drawLine(QtCore.QPointF(12.5, 11), QtCore.QPointF(12.5, 22))
+
+
+def _i_sm_perforation(p):
+    """A bend line cut through by V slots with bridges between."""
+    _pen(p, _LINE, 1.4)
+    p.drawRect(QtCore.QRectF(3, 4, 18, 16))
+    _pen(p, _ACCENT, 1.8)
+    for y in (6, 12.5):
+        p.drawPolyline(_poly((10, y), (13, y + 2.5), (10, y + 5)))
+
+
+def _i_sm_perforation_straight(p):
+    _pen(p, _LINE, 1.4)
+    p.drawRect(QtCore.QRectF(3, 4, 18, 16))
+    _pen(p, _ACCENT, 2.0)
+    for y0, y1 in ((6, 10.5), (13.5, 18)):
+        p.drawLine(QtCore.QPointF(12, y0), QtCore.QPointF(12, y1))
+
+
 def _i_sm_inside(p):
     """Bend Position: inside the base face's extents."""
     _pen(p, _LINE, 1.8)
@@ -1099,6 +1183,11 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "sm_face": _i_sm_face, "sm_flange": _i_sm_flange, "sm_flat": _i_sm_flat,
     "sm_defaults": _i_sm_defaults, "sm_convert": _i_sm_convert,
     "sm_inside": _i_sm_inside, "sm_adjacent": _i_sm_adjacent,
+    "sm_hem": _i_sm_hem, "sm_hem_teardrop": _i_sm_hem_teardrop,
+    "sm_hem_rolled": _i_sm_hem_rolled, "sm_hem_double": _i_sm_hem_double,
+    "sm_fold": _i_sm_fold, "sm_contour": _i_sm_contour,
+    "sm_corner": _i_sm_corner, "sm_perforation": _i_sm_perforation,
+    "sm_perforation_straight": _i_sm_perforation_straight,
     "revolve": _i_revolve, "sweep": _i_sweep, "loft": _i_loft,
     "file": _i_file, "exit": _i_exit,
     "hole": _i_hole, "fillet": _i_fillet,
