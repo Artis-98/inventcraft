@@ -2,7 +2,9 @@
 
 Points, edges and faces are all pickable at once, the nearest under the
 cursor winning, so a corner gives a point and the middle of a face gives
-the face, with no mode to choose first.  One pick says what it is: where a
+the face, with no mode to choose first.  So are the sketches on show:
+their points, lines, arcs and circles, which a frame's skeleton is made
+of, measured as the model's are.  One pick says what it is: where a
 point is, how long an edge is and its diameter if round, a face's area and
 its diameter if round.  Two picks say how far apart they are, the shortest
 way, with that distance split into X, Y and Z, and the angle between them
@@ -116,7 +118,11 @@ class MeasureDialog(QtWidgets.QDialog):
         super().__init__(parent or host)
         self.host = host
         self.picks: List = []
+        # what each pick is called, when it says more than its shape does:
+        # a sketch's point or line
+        self._names: dict = {}
         self._drawn: List = []
+        self._eaten = False
         self.setWindowTitle("Measure")
         self.setWindowIcon(icons.icon("measure", 24))
         self.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.WindowTitleHint
@@ -160,6 +166,39 @@ class MeasureDialog(QtWidgets.QDialog):
         self._previous_mode = viewport.selection_mode
         viewport.set_selection_mode("measure")
         viewport.clear_selection()
+        # a click on a sketch is looked at before the model gets it
+        viewport.installEventFilter(self)
+        self.refresh()
+
+    def eventFilter(self, watched, event) -> bool:
+        """A click on a sketch's point, line or curve is a pick; anything
+        else goes on to the view, to pick the model."""
+        kind = event.type()
+        if kind == QtCore.QEvent.MouseButtonPress \
+                and event.button() == QtCore.Qt.LeftButton \
+                and event.modifiers() == QtCore.Qt.NoModifier:
+            finder = getattr(self.host, "sketch_geometry_at", None)
+            pos = event.position().toPoint() if hasattr(event, "position") \
+                else event.pos()
+            found = finder(pos.x(), pos.y()) if finder else None
+            if found is not None:
+                self.take(found[0], found[1])
+                self._eaten = True
+                return True
+        if kind == QtCore.QEvent.MouseButtonRelease and self._eaten:
+            self._eaten = False
+            return True
+        return False
+
+    def take(self, shape, name: str = "") -> None:
+        """One more pick: the next of the two, or a fresh start."""
+        if len(self.picks) >= PICKS:
+            self.picks = []
+            self._names = {}
+        if not any(shape.IsSame(p) for p in self.picks):
+            self.picks.append(shape)
+            if name:
+                self._names[id(shape)] = name
         self.refresh()
 
     # -- picking --------------------------------------------------------------
@@ -169,15 +208,11 @@ class MeasureDialog(QtWidgets.QDialog):
         shapes = self.host.viewport.selected_shapes()
         if not shapes:
             return
-        shape = shapes[-1]
-        if len(self.picks) >= PICKS:
-            self.picks = []
-        if not any(shape.IsSame(p) for p in self.picks):
-            self.picks.append(shape)
-        self.refresh()
+        self.take(shapes[-1])
 
     def restart(self) -> None:
         self.picks = []
+        self._names = {}
         self.host.viewport.clear_selection()
         self.refresh()
 
@@ -199,10 +234,11 @@ class MeasureDialog(QtWidgets.QDialog):
 
         if not self.picks:
             return ["Select geometry in the view: a point, an edge or a "
-                    "face."]
+                    "face, of the model or of a sketch."]
         out = []
         for index, shape in enumerate(self.picks):
             kind, measures = describe(shape)
+            kind = self._names.get(id(shape), kind)
             out.append("%s  %s" % ("First " if index == 0 else "Second",
                                    kind))
             for name, value, sort in measures:
@@ -247,11 +283,20 @@ class MeasureDialog(QtWidgets.QDialog):
         viewport = self.host.viewport
         viewport.remove_drawn(self._drawn)
         self._drawn = []
+        with viewport.collecting() as drawn:
+            # a sketch's pick, picked out: the view's own selection only
+            # ever shows the model's
+            for shape in self.picks:
+                if id(shape) in self._names:
+                    viewport.draw_shape(shape, C.annotation, 3.2)
+        self._drawn = drawn
         if len(self.picks) != PICKS:
+            viewport.on_top(drawn)
             viewport.redraw()
             return
         found = closest(*self.picks)
         if found is None:
+            viewport.on_top(drawn)
             viewport.redraw()
             return
         distance, pa, pb = found
@@ -265,8 +310,8 @@ class MeasureDialog(QtWidgets.QDialog):
                                middle, C.annotation, 16.0)
         # over the model, as Inventor draws it: a line from corner to
         # corner of a box runs through the box
-        viewport.on_top(drawn)
-        self._drawn = drawn
+        self._drawn += drawn
+        viewport.on_top(self._drawn)
         viewport.redraw()
 
     # -- going ------------------------------------------------------------------
@@ -279,6 +324,7 @@ class MeasureDialog(QtWidgets.QDialog):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         viewport = self.host.viewport
+        viewport.removeEventFilter(self)
         viewport.remove_drawn(self._drawn)
         self._drawn = []
         viewport.set_selection_mode(self._previous_mode or "face")
