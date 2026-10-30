@@ -473,7 +473,7 @@ dialog._sync_solids()
 check("the Solids row is a pick field, not a list",
       isinstance(dialog.solids, SelectionField))
 dialog.solids.set_picking(True)
-check("which picks faces in the view", dialog.wants_selection() == "face",
+check("which picks whole solids in the view", dialog.wants_selection() == "body",
       dialog.wants_selection())
 picked_in_view(dialog, [right_face])
 check("a face picks the solid it is on", dialog.picked_solids() == ["Right"],
