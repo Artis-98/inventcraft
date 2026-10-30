@@ -60,10 +60,26 @@ def shot(name):
         vp.grab_image(os.path.join(SHOTS, name + ".png"))
 
 
+def hover(x, y):
+    """The pointer moved to (x, y), and long enough for a fade."""
+    pos = QtCore.QPointF(x, y)
+    event = QtGui.QMouseEvent(QtCore.QEvent.MouseMove, pos,
+                              vp.mapToGlobal(pos), QtCore.Qt.NoButton,
+                              QtCore.Qt.NoButton, QtCore.Qt.NoModifier)
+    QtWidgets.QApplication.sendEvent(vp, event)
+    timer = QtCore.QElapsedTimer()
+    timer.start()
+    while timer.elapsed() < 400:
+        QtWidgets.QApplication.processEvents(QtCore.QEventLoop.AllEvents, 20)
+
+
 def press(name):
-    """A real click on a cube button, where it is drawn."""
+    """A real click on a cube button, where it is drawn, the pointer
+    having got there first, as it does, so the turning arrows are on."""
     at = vp.CUBE_BUTTONS[name][0]
     pos = QtCore.QPointF(vp.width() - at[0], at[1])
+    if name in vp.SQUARE_ONLY:
+        hover(pos.x(), pos.y())
     for kind in (QtCore.QEvent.MouseButtonPress,
                  QtCore.QEvent.MouseButtonRelease):
         event = QtGui.QMouseEvent(kind, pos, vp.mapToGlobal(pos),
@@ -93,6 +109,11 @@ shot("cube_iso")
 vp.set_view("front")
 vp.redraw()
 check("looking at Front, the view is square", vp.is_square())
+hover(vp.width() / 2, vp.height() / 2)
+check("but the arrows wait for the pointer to come near the cube",
+      vp.button_at(vp.width() - 85, 33) is None and vp._arrow_fade == 0.0)
+hover(vp.width() - 85, 85)
+check("near it, they fade in", vp._arrow_fade == 1.0)
 check("and the arrows are there",
       all(vp.button_at(vp.width() - vp.CUBE_BUTTONS[n][0][0],
                        vp.CUBE_BUTTONS[n][0][1]) == n
@@ -132,6 +153,11 @@ shot("cube_rolled")
 press("roll_ccw")
 right, up, forward = basis()
 check("anticlockwise turns it back", same(up, (0, 0, 1)), up)
+check("clicked one after another, they stayed on the whole time",
+      vp._arrow_fade == 1.0)
+hover(vp.width() / 2, vp.height() / 2)
+check("the pointer gone from the cube, they fade out again",
+      vp._arrow_fade == 0.0 and vp.button_at(vp.width() - 85, 33) is None)
 
 print("a quarter turn ends square even from a little off")
 vp.view.Rotate(0.0, 0.0, 0.0004)

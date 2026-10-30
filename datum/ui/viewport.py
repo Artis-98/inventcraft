@@ -1554,7 +1554,7 @@ class Viewport(QtWidgets.QWidget):
                         outline.Close()
                     builder.Add(shape, outline.Wire())
                 drawn = AIS_Shape(shape)
-                drawn.SetColor(_col(self._button_colour(name)))
+                drawn.SetColor(self._button_qcolour(name))
                 drawn.SetWidth(2.0 * size)
                 drawn.SetTransformPersistence(Graphic3d_TransformPers(
                     Graphic3d_TransModeFlags.Graphic3d_TMF_2d,
@@ -1564,11 +1564,93 @@ class Viewport(QtWidgets.QWidget):
                 drawn.SetInfiniteState(True)
                 self.context.Display(drawn, False)
                 self.context.Deactivate(drawn)
-                if name in self.SQUARE_ONLY and not self._square:
+                if name in self.SQUARE_ONLY and self._arrow_fade <= 0.0:
                     self.context.Erase(drawn, False)
                 self._cube_buttons[name] = drawn
             except Exception:
                 continue
+
+    # the turning arrows fade in when the pointer comes near the cube with
+    # the view square to it, and out when it goes; this near its middle
+    ARROWS_NEAR = 110
+    ARROW_FADE_STEP = 0.16          # of the way in or out, every 16 ms
+
+    _arrow_fade = 0.0
+    _arrows_near = False
+    _arrows_shown = False
+    _fade_timer = None
+
+    def _button_qcolour(self, name: str) -> Quantity_Color:
+        """A button's colour as drawn: a turning arrow's part way between
+        the background and its own while it fades."""
+        colour = _col(self._button_colour(name))
+        if name not in self.SQUARE_ONLY or self._arrow_fade >= 1.0:
+            return colour
+        back = _col(C.bg_top)
+        t = max(0.0, self._arrow_fade)
+        return Quantity_Color(
+            back.Red() + (colour.Red() - back.Red()) * t,
+            back.Green() + (colour.Green() - back.Green()) * t,
+            back.Blue() + (colour.Blue() - back.Blue()) * t,
+            Quantity_TOC_RGB)
+
+    def _near_cube(self, pos: QtCore.QPoint) -> bool:
+        cx, cy = self.width() - 85, 85
+        return (abs(pos.x() - cx) <= self.ARROWS_NEAR
+                and abs(pos.y() - cy) <= self.ARROWS_NEAR)
+
+    def _update_arrows(self) -> None:
+        """Fade the turning arrows towards shown, square to a face with the
+        pointer near, or hidden otherwise."""
+        target = 1.0 if (self._square and self._arrows_near) else 0.0
+        if self._arrow_fade == target:
+            return
+        if self._fade_timer is None:
+            self._fade_timer = QtCore.QTimer(self)
+            self._fade_timer.setInterval(16)
+            self._fade_timer.timeout.connect(self._fade_step)
+        if not self._fade_timer.isActive():
+            self._fade_timer.start()
+
+    def _fade_step(self) -> None:
+        target = 1.0 if (self._square and self._arrows_near) else 0.0
+        step = self.ARROW_FADE_STEP
+        if self._arrow_fade < target:
+            self._arrow_fade = min(target, self._arrow_fade + step)
+        else:
+            self._arrow_fade = max(target, self._arrow_fade - step)
+        if self._arrow_fade == target and self._fade_timer is not None:
+            self._fade_timer.stop()
+        self._apply_arrow_fade()
+
+    def _apply_arrow_fade(self) -> None:
+        """Draw the turning arrows as far faded in as they are now.  Each
+        is redisplayed: shown again after being hidden, an arrow was not
+        drawn until something else happened to repaint it, which is why
+        they used to turn up only when the cube's menu was hovered."""
+        if self.context is None:
+            return
+        shown = self._arrow_fade > 0.0
+        for name in self.SQUARE_ONLY:
+            drawn = self._cube_buttons.get(name)
+            if drawn is None:
+                continue
+            try:
+                if not shown:
+                    self.context.Erase(drawn, False)
+                    continue
+                if not self._arrows_shown:
+                    self.context.Display(drawn, False)
+                    self.context.Deactivate(drawn)
+                drawn.SetColor(self._button_qcolour(name))
+                self.context.Redisplay(drawn, False)
+            except Exception:
+                pass
+        self._arrows_shown = shown
+        try:
+            self.view.Redraw()
+        except Exception:
+            pass
 
     def _button_colour(self, name: str) -> str:
         if name == self._button_hot:
@@ -1635,8 +1717,10 @@ class Viewport(QtWidgets.QWidget):
         return True
 
     def _shown_buttons(self) -> List[str]:
+        # the turning arrows answer only once they have faded mostly in
         return [name for name in self._cube_buttons
-                if self._square or name not in self.SQUARE_ONLY]
+                if name not in self.SQUARE_ONLY
+                or (self._square and self._arrow_fade >= 0.5)]
 
     def is_square(self) -> bool:
         """Is the view looking straight at a face of the cube, the right
@@ -1669,22 +1753,15 @@ class Viewport(QtWidgets.QWidget):
         """Show the turning arrows when square to a face, hide them when
         not.  Cheap enough to ask on every frame, and only changes what is
         drawn when the answer changes."""
+        if getattr(self, "_animation", None) is not None:
+            # swinging from one face to the next: the arrows stay as they
+            # are rather than fading out and in on every click of one
+            return
         square = self.is_square()
         if square == self._square:
             return
         self._square = square
-        for name in self.SQUARE_ONLY:
-            drawn = self._cube_buttons.get(name)
-            if drawn is None:
-                continue
-            try:
-                if square:
-                    self.context.Display(drawn, False)
-                    self.context.Deactivate(drawn)
-                else:
-                    self.context.Erase(drawn, False)
-            except Exception:
-                pass
+        self._update_arrows()
 
     def cube_step(self, name: str, animate: bool = True) -> bool:
         """What a turning arrow does: to the face above, below, left or
@@ -1721,13 +1798,17 @@ class Viewport(QtWidgets.QWidget):
         return self.button_at(x, y) == "home"
 
     def _hover_buttons(self, pos: QtCore.QPoint) -> None:
+        near = self._near_cube(pos)
+        if near != self._arrows_near:
+            self._arrows_near = near
+            self._update_arrows()
         hot = self.button_at(pos.x(), pos.y())
         if hot == self._button_hot:
             return
         self._button_hot = hot
         for name in self._shown_buttons():
             drawn = self._cube_buttons[name]
-            drawn.SetColor(_col(self._button_colour(name)))
+            drawn.SetColor(self._button_qcolour(name))
             self.context.Redisplay(drawn, False)
         self.redraw()
         if hot:
@@ -3695,6 +3776,13 @@ class Viewport(QtWidgets.QWidget):
                     self._sel_box_from = QtCore.QPoint(pos)
                 else:
                     self._detect(pos.x(), pos.y())
+
+    def leaveEvent(self, event) -> None:
+        # the pointer gone from the view: the turning arrows go with it
+        if self._arrows_near:
+            self._arrows_near = False
+            self._update_arrows()
+        super().leaveEvent(event)
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
         if not self._ready:
