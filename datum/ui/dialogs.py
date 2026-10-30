@@ -301,13 +301,17 @@ class FeatureDialog(QtWidgets.QDialog):
         def from_tree(kind, key):
             return kind == "body" and toggle(str(key))
 
-        field = self.picker("Select solids", "solid", "face", from_view,
+        # picked in solids, so the cursor lights the whole of the one
+        # under it, and the ones picked stay lit
+        field = self.picker("Select solids", "solid", "body", from_view,
                             from_tree)
+        self._solids_field = field
         field.toggle = toggle
         field.names = names
         field.cleared.connect(lambda: (self._picked_solids.clear(),
                                        field.set_count(0, "solid"),
                                        self.preview()))
+        field.pick_toggled.connect(lambda _on: self._mark_solids())
         field.setToolTip("Pick a solid by any of its faces, or by its row "
                          "under Solid Bodies in the tree")
         field.set_count(len(self._picked_solids), "solid")
@@ -346,6 +350,21 @@ class FeatureDialog(QtWidgets.QDialog):
             self.status.setText(self.feature.summary())
             self.status.setStyleSheet("color: %s;" % C.ok)
             self.ok_button.setEnabled(True)
+        self._mark_solids()
+
+    def _mark_solids(self) -> None:
+        """The solids picked, lit in the view while they are being picked."""
+        field = getattr(self, "_solids_field", None)
+        if field is None:
+            return
+        shapes = []
+        if not self._closed and field.isVisible() and field.picking:
+            try:
+                shapes = self.doc.solid_shapes(self.picked_solids(),
+                                               self.feature.id)
+            except Exception:
+                shapes = []
+        self.host.viewport.mark_solids(shapes)
 
     def commit(self) -> None:
         self.store()
@@ -369,6 +388,8 @@ class FeatureDialog(QtWidgets.QDialog):
         if not self._closed:
             self.cancel()
             return
+        if getattr(self, "_solids_field", None) is not None:
+            self.host.viewport.mark_solids([])
         self.host.dialog_finished(self)
         super().closeEvent(event)
 
@@ -1923,13 +1944,23 @@ class SplitDialog(FeatureDialog):
         self.form.add("", self.all_faces)
 
         self.solids_row()
-        self.method.changed.connect(lambda _k: self._sync_enabled())
+        self.method.changed.connect(self._method_changed)
         self.all_faces.toggled.connect(lambda _on: self._sync_enabled())
+
+    def _method_changed(self, method) -> None:
+        self._sync_enabled()
+        # Split Solid on a part of several: which ones is the question, so
+        # the Solids pick is ready for it rather than every one going
+        if (method == "solid" and getattr(self, "solids", None) is not None
+                and not self.picked_solids()):
+            self.solids.set_picking(True)
 
     # -- which field is picking --------------------------------------------
 
     def _arm(self, field) -> None:
-        for candidate in (self.tool_pick, self.faces_pick):
+        # the Solids pick too: one field takes the clicks at a time
+        for candidate in (self.tool_pick, self.faces_pick,
+                          *self._pick_fields):
             if candidate is not field and candidate.picking:
                 candidate.blockSignals(True)
                 candidate.set_picking(False)
@@ -1962,7 +1993,10 @@ class SplitDialog(FeatureDialog):
         return True
 
     def on_tree_pick(self, kind: str, key: str) -> bool:
-        """An origin plane or a work plane clicked in the tree: the tool."""
+        """An origin plane or a work plane clicked in the tree: the tool;
+        or, with Solids picking, a solid."""
+        if self.armed_picker() is not None:
+            return super().on_tree_pick(kind, key)
         if kind == "plane":
             return self._take_plane(str(key))
         if kind == "feature":
@@ -1978,12 +2012,32 @@ class SplitDialog(FeatureDialog):
         self.host.viewport.hide_plane_picker()
         super().closeEvent(event)
 
+    def _picker_toggled(self, field, on: bool) -> None:
+        """The Solids pick turned on: the tool's and the faces' go off."""
+        if on:
+            for own in (self.tool_pick, self.faces_pick):
+                if own.picking:
+                    own.blockSignals(True)
+                    own.set_picking(False)
+                    own.blockSignals(False)
+            self.host.viewport.hide_plane_picker()
+        super()._picker_toggled(field, on)
+
     def wants_selection(self):
+        if self.armed_picker() is not None:
+            return super().wants_selection()
         return ("face" if self.tool_pick.picking or self.faces_pick.picking
                 else None)
 
     def on_selection(self):
         if self._in_selection:
+            return
+        if self.armed_picker() is not None:
+            # the Solids pick: the dialogs' own way of taking picks, which
+            # this one's tool and faces used to stand in front of, so a
+            # solid clicked was never taken and the split went through
+            # every solid
+            super().on_selection()
             return
         if self.tool_pick.picking:
             datum = self.host.viewport.picked_plane()

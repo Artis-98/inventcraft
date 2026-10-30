@@ -427,7 +427,7 @@ class Document:
         state = self._state_before(before_id)
         bodies = (state.bodies if state is not None
                   else [(b.name, b.shape) for b in self.bodies])
-        for kind in (kernel.faces, kernel.edges):
+        for kind in (kernel.solids, kernel.faces, kernel.edges):
             for name, body in bodies:
                 if not kernel.is_valid(body):
                     continue
@@ -437,7 +437,32 @@ class Document:
                         return name
                 except Exception:
                     continue
-        return None
+        # Not one of theirs: picked off what the feature itself made, a
+        # half of a solid a Split on screen has already cut. Whichever
+        # solid its corners and middle lie on is the one it came from.
+        try:
+            probes = [kernel.vertex_point(v) for v in kernel.vertices(shape)]
+            probes.append(kernel.centre_of_mass(shape))
+        except Exception:
+            return None
+        best, score = None, 0
+        for name, body in bodies:
+            if not kernel.is_valid(body):
+                continue
+            hits = sum(1 for p in probes
+                       if kernel.distance_to_point(body, p) < 1e-5
+                       or kernel.point_inside(body, p))
+            if hits > score:
+                best, score = name, hits
+        return best
+
+    def solid_shapes(self, names, before_id: Optional[int] = None) -> list:
+        """The solids by those names as they are just before a feature."""
+        state = self._state_before(before_id)
+        bodies = (state.bodies if state is not None
+                  else [(b.name, b.shape) for b in self.bodies])
+        wanted = set(names)
+        return [body for name, body in bodies if name in wanted]
 
     def feature_of_face(self, face, before_id: Optional[int] = None
                         ) -> Optional[int]:

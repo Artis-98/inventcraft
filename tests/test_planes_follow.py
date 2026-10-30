@@ -344,6 +344,50 @@ settle(300)
 check("and the planes it offered go when it closes",
       not getattr(win.viewport, "_plane_picker", None))
 
+print("Split Solid takes the one solid picked")
+from datum.core.features import NEW_BODY, PrimitiveFeature         # noqa: E402
+from datum.core import kernel                                      # noqa: E402
+
+two = Document()
+for x, name in ((0, "Left"), (100, "Right")):
+    box = PrimitiveFeature()
+    box.kind = "box"
+    box.a, box.b, box.c = "60", "40", "20"
+    box.origin = [x, -20, 0]
+    box.operation, box.body_name = NEW_BODY, name
+    two.add_feature(box)
+two.rebuild()
+two_path = os.path.join(WORK, "two.pdat")
+two.save(two_path)
+win.open_path(two_path)
+settle(900)
+win.new_feature(SplitFeature)
+settle(400)
+split = win._active_dialog
+split.method.set_value("solid")
+split.method.changed.emit("solid")
+split._take_plane("XZ")
+settle(300)
+check("Split Solid on two solids has the Solids pick ready",
+      split.solids is not None and split.solids.picking
+      and win.viewport.selection_mode == "body",
+      win.viewport.selection_mode)
+right = next(b.shape for b in win.document.bodies if b.name == "Right")
+win.viewport.selected_shapes = lambda: [kernel.solids(right)[0]]
+win._on_viewport_selection()
+del win.viewport.selected_shapes
+settle(300)
+check("a solid clicked is taken, not the split of the whole part",
+      split.picked_solids() == ["Right"], split.picked_solids())
+check("and the picked one is lit",
+      len(getattr(win.viewport, "_solid_marks", [])) == 1)
+split.commit()
+settle(400)
+names = sorted(b.name for b in win.document.bodies)
+check("only that one is split: three solids", len(names) == 3, names)
+check("and nothing is lit once it is done",
+      not getattr(win.viewport, "_solid_marks", []))
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))

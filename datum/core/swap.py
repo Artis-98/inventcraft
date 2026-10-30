@@ -108,10 +108,11 @@ def script_for(target: str, staging: str, executable: str, pid: int,
     lines += [
         "rem The staged files, checked already, moved over in one pass.",
         'del /f /q "%s" 2>nul' % ntpath.join(staging, update.PLAN_FILE),
-        # /IS /IT: every staged file goes over, even one the same size and
-        # time as the one it replaces, which robocopy would otherwise skip
-        # and, moving, delete from staging all the same
-        'robocopy "%s" "%s" /E /MOVE /IS /IT /NFL /NDL /NP /R:2 /W:1 '
+        # /IS /IT /IM: every staged file goes over, even one the same size
+        # and time as the one it replaces, or differing only in attributes,
+        # which robocopy would otherwise skip and, moving, delete from
+        # staging all the same
+        'robocopy "%s" "%s" /E /MOVE /IS /IT /IM /NFL /NDL /NP /R:2 /W:1 '
         '/LOG+:"%%LOG%%"'
         % (staging.rstrip("\\/"), target.rstrip("\\/")),
         'echo robocopy said %errorlevel% >> "%LOG%"',

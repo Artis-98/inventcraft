@@ -140,6 +140,26 @@ def vertices(shape: TopoDS_Shape) -> List[TopoDS_Shape]:
     return explore(shape, TopAbs_VERTEX)
 
 
+def solids(shape: TopoDS_Shape) -> List[TopoDS_Shape]:
+    return explore(shape, TopAbs_SOLID)
+
+
+def vertex_point(vertex: TopoDS_Shape) -> Tuple[float, float, float]:
+    p = BRep_Tool.Pnt_s(TopoDS.Vertex_s(vertex))
+    return (p.X(), p.Y(), p.Z())
+
+
+def point_inside(shape: TopoDS_Shape, p: Sequence[float]) -> bool:
+    """Whether a point is in a solid's material, not on or outside it."""
+    from OCP.BRepClass3d import BRepClass3d_SolidClassifier
+    from OCP.TopAbs import TopAbs_IN
+    try:
+        probe = BRepClass3d_SolidClassifier(shape, pnt(p), 1e-6)
+        return probe.State() == TopAbs_IN
+    except Exception:
+        return False
+
+
 def same_shape(a: Optional[TopoDS_Shape],
                b: Optional[TopoDS_Shape]) -> bool:
     """Whether two shapes are the same geometry, not merely equal-looking.

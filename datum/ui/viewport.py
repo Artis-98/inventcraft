@@ -83,6 +83,8 @@ SEL_SHAPE, SEL_VERTEX, SEL_EDGE, SEL_WIRE, SEL_FACE, SEL_SHELL, SEL_SOLID = rang
 SELECTION_MODES = {
     "none": (),
     "solid": (SEL_SHAPE,),
+    # one solid of a part of several, lit whole under the cursor
+    "body": (SEL_SOLID,),
     "face": (SEL_FACE,),
     "edge": (SEL_EDGE,),
     "vertex": (SEL_VERTEX,),
@@ -2898,6 +2900,25 @@ class Viewport(QtWidgets.QWidget):
         self.context.SetTransparency(ais, transparency, False)
         self.context.Redisplay(ais, False)
         return ais
+
+    def mark_solids(self, shapes: Sequence[TopoDS_Shape]) -> None:
+        """Solids a dialog has picked, washed over in the pick colour for
+        as long as they are picked: what the Solids field counts, seen."""
+        if not self._ready:
+            return
+        for ais in getattr(self, "_solid_marks", []):
+            self.context.Remove(ais, False)
+        self._solid_marks = []
+        for shape in shapes:
+            if shape is None or shape.IsNull():
+                continue
+            ais = self.draw_ghost(shape, C.highlight, 0.6)
+            if ais is not None:
+                # its own, not the overlay a rebuild clears
+                if ais in self._overlay:
+                    self._overlay.remove(ais)
+                self._solid_marks.append(ais)
+        self.redraw()
 
     def draw_tint(self, shape: TopoDS_Shape, colour: str,
                   preview: bool = True) -> AIS_InteractiveObject:
