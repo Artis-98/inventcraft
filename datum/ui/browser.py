@@ -67,6 +67,8 @@ class ModelBrowser(QtWidgets.QTreeWidget):
     # what the pointer is over, the same way; ("", "") once it leaves
     hovered_changed = QtCore.Signal(str, str)
     sketch_on_plane_requested = QtCore.Signal(str)
+    # a work plane's own actions: ("offset" or "redefine", its feature id)
+    plane_action_requested = QtCore.Signal(str, int)
     move_requested = QtCore.Signal(int, int)
     reorder_requested = QtCore.Signal(int, int)     # feature id, new index
     rollback_requested = QtCore.Signal(object)      # index or None
@@ -648,6 +650,15 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                 menu.addSeparator()
                 edit = menu.addAction(icons.icon("edit", 16), "Edit Plane")
                 edit.triggered.connect(lambda: self.feature_activated.emit(fid))
+                offset = menu.addAction("Edit Offset...")
+                offset.triggered.connect(
+                    lambda: self.plane_action_requested.emit("offset", fid))
+                redefine = menu.addAction(icons.icon("plane", 16),
+                                          "Redefine")
+                redefine.setToolTip("Pick what the plane is made from again: "
+                                    "a face, lines, points")
+                redefine.triggered.connect(
+                    lambda: self.plane_action_requested.emit("redefine", fid))
             else:
                 edit = menu.addAction(icons.icon("edit", 16), "Edit Feature")
                 edit.triggered.connect(lambda: self.feature_activated.emit(fid))

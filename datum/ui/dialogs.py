@@ -264,6 +264,15 @@ class FeatureDialog(QtWidgets.QDialog):
         field.set_count(len(self._picked_features), "feature")
         return field
 
+    def _arm_features(self) -> None:
+        """A new Pattern or Mirror of features opens ready to take them,
+        from the tree or the view, as Extrude opens ready for profiles:
+        the first thing it needs should not take a click to start."""
+        field = getattr(self, "parents", None)
+        if (field is not None and not field.isHidden()
+                and not field.picking and not self.picked_features()):
+            field.set_picking(True)
+
     def picked_features(self, _field=None) -> List[int]:
         return list(getattr(self, "_picked_features", []))
 
@@ -1705,7 +1714,9 @@ class PatternDialog(FeatureDialog):
         self.kind = SegmentedControl(self.KINDS, vertical=True)
         self.side.addWidget(self.kind)
         self.side.addStretch(1)
-        self.of.changed.connect(lambda _k: (self._sync_of(), self.preview()))
+        self.of.changed.connect(lambda _k: (self._sync_of(),
+                                            self._arm_features(),
+                                            self.preview()))
         self.kind.changed.connect(lambda _k: (self._sync_enabled(),
                                               self.preview()))
 
@@ -1789,6 +1800,7 @@ class PatternDialog(FeatureDialog):
                             self.feature.flip1)
         self._sync_of()
         self._sync_enabled()
+        self._arm_features()
 
     def store(self):
         self.feature.mode = self.kind.value()
@@ -1826,6 +1838,7 @@ class MirrorDialog(FeatureDialog):
         self.side.addWidget(self.scope)
         self.side.addStretch(1)
         self.scope.changed.connect(lambda _k: (self._sync_enabled(),
+                                               self._arm_features(),
                                                self.preview()))
 
         self.parents = self.feature_picker(None, self.feature.parents)
@@ -1850,6 +1863,7 @@ class MirrorDialog(FeatureDialog):
         self.scope.set_value(self.feature.scope)
         self.plane.set_value(self.feature.plane, self.feature.plane_ref)
         self._sync_enabled()
+        self._arm_features()
 
     def store(self):
         self.feature.scope = self.scope.value() or "body"

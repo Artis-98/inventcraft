@@ -218,6 +218,103 @@ check("taking one projects its line as construction, tied to it",
 win.finish_sketch()
 settle(300)
 
+print("a work plane's right-click: Edit Offset and Redefine")
+front = next(f for f in win.document.features if f.name == "Front")
+win.set_plane_offset(front.id, "depth/2 + 50")
+check("Edit Offset moves it, the sketch on it going too",
+      near(abs(win.document.planes["Front"].origin[1]), 300.0)
+      and near(abs(sketch.sketch.plane.origin[1]), 300.0),
+      win.document.planes["Front"].origin)
+t = next(f for f in win.document.features if f.name == "Top")
+lines = [eid for eid, e in t.sketch.entities.items() if e.kind == "line"]
+win.plane_action("redefine", front.id)
+for eid in (lines[0], lines[2]):
+    ends = tuple(t.sketch.plane.to_3d(t.sketch.points[q].x,
+                                      t.sketch.points[q].y)
+                 for q in t.sketch.entities[eid].points)
+    win._plane_take_pick(("line", {"sketch": t.id, "entity": eid}, ends))
+settle(300)
+dialog = win._active_dialog
+if dialog is not None:
+    dialog.commit() if hasattr(dialog, "commit") else dialog.accept()
+settle(300)
+check("Redefine makes the same plane from new picks, its name kept",
+      front.mode == "two_lines" and front.name == "Front"
+      and near(abs(win.document.planes["Front"].normal[2]), 1.0)
+      and sum(isinstance(f, WorkPlaneFeature)
+              for f in win.document.features) == 1,
+      (front.mode, win.document.planes["Front"].normal))
+
+print("a Select button lights up while it takes the picks")
+from datum.ui.widgets import SelectionField                      # noqa: E402
+
+field = SelectionField("Select features")
+field.set_picking(True)
+lit = field.button.styleSheet()
+field.set_picking(False)
+check("lit while on, plain when off", "background" in lit
+      and "background" not in field.button.styleSheet(), lit)
+
+print("a part edited in place")
+from datum.core.assembly import AssemblyDocument                 # noqa: E402
+from datum.core.features import ExtrudeFeature, MirrorFeature     # noqa: E402
+from datum.ui.assembly_browser import ROLE_ID, ROLE_KIND          # noqa: E402
+
+block = Document()
+outline = SketchFeature(name="Outline")
+outline.sketch = Sketch(SketchPlane(), "Outline")
+outline.sketch.add_rectangle((0.0, 0.0), (40.0, 20.0))
+block.add_feature(outline)
+ex = ExtrudeFeature(name="Block")
+ex.sketch_id = outline.id
+ex.distance = "10"
+block.add_feature(ex)
+block.rebuild()
+block_path = block.save(os.path.join(WORK, "block"))
+asm = AssemblyDocument()
+asm.path = os.path.join(WORK, "holder.icasm")
+asm.place(block_path)
+asm.save(asm.path)
+win.open_path(asm.path)
+settle(1200)
+win.edit_in_place(win.assembly.occurrences[0].id)
+settle(1000)
+win.new_feature(MirrorFeature)
+settle(400)
+mirror = win._active_dialog
+tree = win.assembly_ui.browser
+# mirroring features: the pick for them is on as soon as that is chosen
+mirror.scope.set_value("features")
+mirror.scope.changed.emit("features")
+picker = mirror.armed_picker()
+check("choosing features turns their pick on", picker is mirror.parents)
+row = None
+it = QtWidgets.QTreeWidgetItemIterator(tree)
+while it.value():
+    item = it.value()
+    if item.data(0, ROLE_KIND) == "feature" and item.text(0) == "Block":
+        row = item
+    it += 1
+tree._clicked(row, 0)
+check("a feature clicked in the assembly tree goes to Mirror's pick",
+      row is not None and ex.id in mirror.picked_features(),
+      mirror.picked_features() if mirror else None)
+mirror.cancel()
+settle(300)
+win.start_sketch_on_plane("XY")
+settle(600)
+win.editor.sketch.add_circle((10.0, 10.0), 3.0)
+win.finish_sketch()
+settle(600)
+names = []
+it = QtWidgets.QTreeWidgetItemIterator(tree)
+while it.value():
+    if it.value().data(0, ROLE_KIND) == "feature":
+        names.append(it.value().text(0))
+    it += 1
+check("a sketch made in it shows in the tree straight away",
+      any(n.startswith("Sketch") for n in names), names)
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))

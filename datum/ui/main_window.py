@@ -1551,6 +1551,7 @@ class MainWindow(QtWidgets.QMainWindow):
         b.picked_changed.connect(self._tree_picked)
         b.hovered_changed.connect(self._tree_hovered)
         b.sketch_on_plane_requested.connect(self.start_sketch_on_plane)
+        b.plane_action_requested.connect(self.plane_action)
         b.move_requested.connect(self.move_feature)
         b.reorder_requested.connect(self.reorder_feature)
         b.rollback_requested.connect(self.set_rollback)
@@ -2136,7 +2137,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.document.solid_labels = before
         self.document.push_undo()
         self.document.solid_labels = after
-        self.browser.refresh()
+        self._refresh_trees()
         self._update_title()
         self.status_message.setStyleSheet("")
         self.status_message.setText("Solid renamed %s." % label)
@@ -3029,7 +3030,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 appearance=self.document.material_appearance)
         self._draw_visible_planes()
         self._draw_visible_sketches()
-        self.browser.refresh()
+        self._refresh_trees()
         self.properties.update_from(self.document)
         self._update_title()
 
@@ -3061,11 +3062,20 @@ class MainWindow(QtWidgets.QMainWindow):
         base = getattr(self, "_preview_base", None)
         return base if base is not None else self.document.shape
 
+    def _refresh_trees(self) -> None:
+        """The part's tree, and while it is edited in place the assembly's
+        tree it is shown in: that is the one on screen, and a feature made
+        or renamed inside the part did not show there until the tree was
+        switched to Assembly and back."""
+        self.browser.refresh()
+        if self.in_place and self.in_part:
+            self.assembly_ui.browser.refresh()
+
     def toggle_plane_visibility(self, name: str) -> None:
         self.document.set_plane_visible(name,
                                         not self.document.plane_visible(name))
         self._draw_visible_planes()
-        self.browser.refresh()
+        self._refresh_trees()
         self._update_title()
 
     # the colours of what a feature does: green it adds, red it takes away
@@ -3637,7 +3647,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if getattr(other, attr, None) == old:
                         setattr(other, attr, name)
         self.document.modified = True
-        self.browser.refresh()
+        self._refresh_trees()
 
     def toggle_suppress(self, feature_id: int) -> None:
         feature = self.document.feature(feature_id)
@@ -3654,7 +3664,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.document.push_undo()
         feature.shared = not feature.shared
         self.document.modified = True
-        self.browser.refresh()
+        self._refresh_trees()
         self._update_title()
         self.status_message.setStyleSheet("")
         self.status_message.setText(
@@ -3747,6 +3757,84 @@ class MainWindow(QtWidgets.QMainWindow):
 
     PLANE_POINT_PIXELS = 9
     PLANE_LINE_PIXELS = 7
+
+    def _sketches_on_show(self):
+        """Every sketch drawn in the view now, and where it sits: (sketch,
+        TopLoc_Location or None).  In a part, its sketches on show and the
+        one being edited; in an assembly, its parts' sketches on show,
+        where each part is placed."""
+        if self.in_assembly:
+            return [(sketch, occurrence.placement.location())
+                    for occurrence, _sid, sketch
+                    in self.assembly_ui._component_sketches()]
+        out = []
+        if self.editor.active and self.editor.sketch is not None:
+            out.append((self.editor.sketch, None))
+        for feature in self.document.sketch_features():
+            if feature.suppressed or feature.sketch is self.editor.sketch \
+                    or self.browser.is_sketch_hidden(feature.id,
+                                                     self.document):
+                continue
+            out.append((feature.sketch, None))
+        return out
+
+    def sketch_geometry_at(self, x: int, y: int):
+        """The sketch point, line, arc or circle under a click, as model
+        geometry where it is drawn: (a vertex or an edge, what it is), or
+        None.  A point beats a curve it is the end of, as it does in the
+        sketcher."""
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+        from OCP.TopoDS import TopoDS
+        from OCP.gp import gp_Pnt
+        vp = self.viewport
+        best_point, best_curve = None, None
+        dp, dc = self.PLANE_POINT_PIXELS, self.PLANE_LINE_PIXELS
+        for sketch, where in self._sketches_on_show():
+            def placed(p, where=where):
+                if where is None:
+                    return p
+                q = gp_Pnt(*p).Transformed(where.Transformation())
+                return (q.X(), q.Y(), q.Z())
+
+            for point in sketch.points.values():
+                p3 = placed(sketch.plane.to_3d(point.x, point.y))
+                sx, sy = vp.project(p3)
+                d = math.hypot(sx - x, sy - y)
+                if d < dp:
+                    dp, best_point = d, p3
+            for eid, entity in sketch.entities.items():
+                if entity.kind not in ("line", "arc", "circle"):
+                    continue
+                try:
+                    edge = kernel._sketch_edge(sketch, eid)
+                except Exception:
+                    edge = None
+                if edge is None:
+                    continue
+                if where is not None:
+                    edge = TopoDS.Edge_s(edge.Moved(where))
+                curve = BRepAdaptor_Curve(edge)
+                u0, u1 = curve.FirstParameter(), curve.LastParameter()
+                steps = 1 if entity.kind == "line" else 48
+                screen = []
+                for i in range(steps + 1):
+                    p = curve.Value(u0 + (u1 - u0) * i / steps)
+                    screen.append(vp.project((p.X(), p.Y(), p.Z())))
+                for (ax, ay), (bx, by) in zip(screen, screen[1:]):
+                    dx, dy = bx - ax, by - ay
+                    span = dx * dx + dy * dy
+                    t = 0.0 if span == 0 else max(0.0, min(1.0, (
+                        (x - ax) * dx + (y - ay) * dy) / span))
+                    d = math.hypot(x - (ax + t * dx), y - (ay + t * dy))
+                    if d < dc:
+                        dc, best_curve = d, (edge, "Sketch " + {
+                            "line": "line", "arc": "arc",
+                            "circle": "circle"}[entity.kind])
+        if best_point is not None:
+            return (BRepBuilderAPI_MakeVertex(gp_Pnt(*best_point)).Vertex(),
+                    "Sketch point")
+        return best_curve
 
     def _plane_geometry_at(self, x: int, y: int):
         """A point or straight line under a click, for the Work Plane tool:
@@ -3841,9 +3929,61 @@ class MainWindow(QtWidgets.QMainWindow):
                 vp.draw_edge(shown[0], shown[1], C.warn, 3.0, preview=True)
         vp.redraw()
 
+    def plane_action(self, what: str, feature_id: int):
+        """A work plane's own right-click actions: a new offset typed in,
+        what it is made from picked again, or a sketch on it."""
+        feature = self.document.feature(feature_id) \
+            if hasattr(self.document, "feature") else None
+        if not isinstance(feature, WorkPlaneFeature):
+            return None
+        if what == "sketch":
+            return self.start_sketch_on_plane(feature.name)
+        if what == "redefine":
+            self.start_work_plane()
+            self._plane_redefine = feature.id
+            self.status_message.setText(
+                "Redefine %s: drag off a face or plane, or click two lines, "
+                "three points, a line and a point, or a line and a face. "
+                "Esc keeps it as it is." % feature.name)
+            return feature
+        if what == "offset":
+            text, ok = QtWidgets.QInputDialog.getText(
+                self, "Edit Offset",
+                "%s: how far it stands off what it is made from (mm, or a "
+                "parameter)" % feature.name, text=feature.offset)
+            if not ok or not text.strip():
+                return None
+            return self.set_plane_offset(feature.id, text.strip())
+        return None
+
+    def set_plane_offset(self, feature_id: int, offset: str):
+        """A work plane's offset changed, and the part built again."""
+        feature = self.document.feature(feature_id)
+        self.document.push_undo()
+        feature.offset = offset
+        self.document.modified = True
+        return self.rebuild()
+
+    def _redefined_plane(self):
+        """The plane Redefine is picking again, taken off the tool."""
+        fid = getattr(self, "_plane_redefine", None)
+        self._plane_redefine = None
+        feature = self.document.feature(fid) if fid else None
+        return feature if isinstance(feature, WorkPlaneFeature) else None
+
     def _plane_from_picks(self, mode: str, refs, angle: str = "0") -> None:
-        """Make the plane the picks describe, and open it to adjust."""
+        """Make the plane the picks describe, and open it to adjust; or,
+        redefining one, make that one from them instead."""
+        target = self._redefined_plane()
         self._end_plane_tool()
+        if target is not None:
+            self.document.push_undo()
+            target.mode, target.refs = mode, list(refs)
+            target.face_ref = None
+            target.offset, target.angle, target.flip = "0", angle, False
+            self.rebuild()
+            self._open_dialog(target, is_new=False)
+            return
         snapshot = self.document.snapshot()
         self.document.push_undo()
         feature = WorkPlaneFeature()
@@ -3973,7 +4113,19 @@ class MainWindow(QtWidgets.QMainWindow):
         if self._plane_base is None:
             return
         base, ref, datum, _centre = self._plane_base
+        target = self._redefined_plane()
         self._end_plane_tool()
+        if target is not None:
+            # redefined as an offset off what was dragged from
+            self.document.push_undo()
+            target.mode, target.refs = "offset", []
+            target.face_ref = ref
+            target.base = datum or "XY"
+            target.offset = "%.3g" % distance
+            target.angle, target.flip = "0", False
+            self.rebuild()
+            self._open_dialog(target, is_new=False)
+            return
 
         snapshot = self.document.snapshot()
         self.document.push_undo()
@@ -3990,6 +4142,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._plane_tool_active = False
         self._plane_base = None
         self._plane_picks = []
+        self._plane_redefine = None
         self.viewport.plane_tool = False
         self.viewport.end_axis_drag()
         self.viewport.hide_plane_picker()
@@ -4116,7 +4269,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._place_sketch_toggles()
         if self.slice_btn.isChecked():
             self.set_slice_graphics(True)
-        self.browser.refresh()
+        self._refresh_trees()
         self.status_message.setText("Editing %s" % feature.name)
         self._sync_tool_buttons()
 
@@ -6051,7 +6204,7 @@ class MainWindow(QtWidgets.QMainWindow):
             doc.show_all_bodies()
         self.viewport.set_shape(doc.visible_shape(), keep_camera=True,
                                 appearance=doc.material_appearance)
-        self.browser.refresh()
+        self._refresh_trees()
         self._update_title()
 
     def _tree_item_clicked(self, kind: str, key: str) -> None:

@@ -22,6 +22,8 @@ ROLE_KIND = QtCore.Qt.UserRole + 2
 # which component a feature row belongs to, so a click on one knows
 # whether it is looking at the part that is currently being edited
 ROLE_OWNER = QtCore.Qt.UserRole + 3
+# a feature row's kind of feature, "workplane" and so on
+ROLE_TYPE = QtCore.Qt.UserRole + 4
 
 ORIGIN_PLANES = (("XY Plane", "XY"), ("XZ Plane", "XZ"), ("YZ Plane", "YZ"))
 
@@ -64,6 +66,13 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     # ("frame_member", its id, its frame's occurrence); ("", 0, 0) for
     # nothing, so the view can light up what the row is
     hovered_changed = QtCore.Signal(str, int, int)
+    # a click on a row of the part being edited in place, as the part's own
+    # tree says it: ("feature", its id) or ("plane", its name), for the
+    # pick fields of a feature's window
+    item_clicked = QtCore.Signal(str, str)
+    # a work plane of the part edited in place: ("offset", "redefine" or
+    # "sketch", its feature id)
+    plane_action_requested = QtCore.Signal(str, int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -78,6 +87,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
 
         self.customContextMenuRequested.connect(self._menu)
         self.itemDoubleClicked.connect(self._double_clicked)
+        self.itemClicked.connect(self._clicked)
         self.setMouseTracking(True)
         self.itemEntered.connect(self._entered)
         self._hovered: Tuple[str, int, int] = ("", 0, 0)
@@ -349,6 +359,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             child.setData(0, ROLE_ID, feature.id)
             child.setData(0, ROLE_KIND, "feature")
             child.setData(0, ROLE_OWNER, occurrence.id)
+            child.setData(0, ROLE_TYPE, getattr(feature, "type_name", ""))
             child.setToolTip(0, feature.summary())
             if getattr(feature, "suppressed", False):
                 f = child.font(0)
@@ -442,6 +453,17 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         if constraints:
             self.constraint_selected.emit(constraints[0])
 
+    def _clicked(self, item: QtWidgets.QTreeWidgetItem, _col: int) -> None:
+        """A feature of the part being edited in place, or an origin plane,
+        clicked: passed on as the part's own tree passes it, so Pattern,
+        Mirror and the rest can take features and planes from here too."""
+        kind = item.data(0, ROLE_KIND)
+        if kind == "feature" and self.active is not None \
+                and item.data(0, ROLE_OWNER) == self.active:
+            self.item_clicked.emit("feature", str(item.data(0, ROLE_ID)))
+        elif kind == "plane":
+            self.item_clicked.emit("plane", str(item.data(0, ROLE_ID)))
+
     def _entered(self, item: QtWidgets.QTreeWidgetItem, _col: int) -> None:
         kind = item.data(0, ROLE_KIND) if item is not None else None
         if kind == "occurrence":
@@ -502,6 +524,25 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                 item.setSelected(True)
             frame_oid, member_ids = self.selected_frame_members()
             self._frame_menu(menu, frame_oid, member_ids)
+            menu.exec(self.viewport().mapToGlobal(pos))
+            return
+
+        if kind == "feature" and item.data(0, ROLE_OWNER) == self.active:
+            # a feature of the part edited in place, as its own tree has it
+            fid = int(item.data(0, ROLE_ID))
+            menu.addAction(icons.icon("edit", 16), "Edit Feature"
+                           ).triggered.connect(
+                lambda: self.feature_activated.emit(fid))
+            if item.data(0, ROLE_TYPE) == "workplane":
+                menu.addAction(icons.icon("sketch", 16), "New Sketch"
+                               ).triggered.connect(
+                    lambda: self.plane_action_requested.emit("sketch", fid))
+                menu.addAction("Edit Offset...").triggered.connect(
+                    lambda: self.plane_action_requested.emit("offset", fid))
+                menu.addAction(icons.icon("plane", 16), "Redefine"
+                               ).triggered.connect(
+                    lambda: self.plane_action_requested.emit("redefine",
+                                                             fid))
             menu.exec(self.viewport().mapToGlobal(pos))
             return
 

@@ -210,15 +210,29 @@ class SelectionField(QtWidgets.QWidget):
         self.clear_btn.setAutoRaise(True)
         layout.addWidget(self.clear_btn)
 
+        self._mark: Optional[str] = None
+        self.button.toggled.connect(self._restyle)
         self.button.toggled.connect(self.pick_toggled.emit)
         self.clear_btn.clicked.connect(self.cleared.emit)
 
     def set_mark(self, colour: Optional[str]) -> None:
         """Underline the button in the colour its pick is shown in."""
         self._mark = colour
+        self._restyle()
+
+    def _restyle(self, _on: bool = False) -> None:
+        """Lit up in the accent while it is the field that clicks go to,
+        so which one is taking picks is plain to see; underlined in its
+        pick's colour if it has one."""
+        rules = []
+        if self.button.isChecked():
+            rules.append("background: %s; color: %s; border: 1px solid %s;"
+                         " font-weight: 600;"
+                         % (C.accent_soft, C.text, C.accent))
+        if self._mark:
+            rules.append("border-bottom: 3px solid %s;" % self._mark)
         self.button.setStyleSheet(
-            "QPushButton { border-bottom: 3px solid %s; }" % colour
-            if colour else "")
+            "QPushButton { %s }" % " ".join(rules) if rules else "")
 
     def set_count(self, n: int, noun: str = "edge") -> None:
         if n == 0:

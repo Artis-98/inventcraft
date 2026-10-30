@@ -631,6 +631,9 @@ class AssemblyController(QtCore.QObject):
         b.frame_action_requested.connect(
             lambda what, oid, ids: self.host.frame_action(what, oid, ids))
         b.hovered_changed.connect(self.show_hover)
+        b.item_clicked.connect(self._item_clicked)
+        b.plane_action_requested.connect(
+            lambda what, fid: self.host.plane_action(what, fid))
 
         v = self.viewport
         v.component_drag_started.connect(self._drag_started)
@@ -793,6 +796,11 @@ class AssemblyController(QtCore.QObject):
         # the components were just rebuilt underneath them, so the arrows
         # have to be put back where the faces now are
         self._draw_arrows()
+
+    def _item_clicked(self, kind: str, key: str) -> None:
+        """A row of the part edited in place: to its feature window."""
+        if getattr(self.host, "in_place", None) and self.host.in_part:
+            self.host._tree_item_clicked(kind, key)
 
     def show_hover(self, kind: str, item_id: int, owner: int = 0) -> None:
         """Light up in the view what the pointer is over in the tree: a
