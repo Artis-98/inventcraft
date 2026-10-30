@@ -3,7 +3,7 @@
 A feature-based, history-driven modeller built on the OpenCASCADE kernel.
 """
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 APP_NAME = "InventCraft"
 # The name the program had until 0.3.0.  Settings, preferences, the
 # update feed, the taskbar identity and the format marker inside every
