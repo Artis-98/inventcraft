@@ -342,6 +342,12 @@ if os.name == "nt":
               encoding="utf-8") as handle:
         json.dump({"version": "0.2.1", "download": [],
                    "delete": ["_internal/stale.pyd"]}, handle)
+    # the new DATUM.exe the same size and time as the old one: robocopy
+    # took them for the same file, skipped it and, moving, deleted the
+    # staged one, so the update left the old program in place
+    held = os.stat(os.path.join(live, "DATUM.exe"))
+    os.utime(os.path.join(stage, "DATUM.exe"),
+             (held.st_atime, held.st_mtime))
 
     # pid 1 is not a real Windows process, so the script proceeds at once
     text = swap.script_for(live, stage, "cmd.exe /c exit", 1,

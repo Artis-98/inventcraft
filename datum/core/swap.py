@@ -84,7 +84,10 @@ def script_for(target: str, staging: str, executable: str, pid: int,
         "rem the process still has them open.",
         'set "TRIES=0"',
         ":wait",
-        'tasklist /FI "PID eq %d" /NH 2>nul | find "%d" >nul' % (pid, pid),
+        # Windows' own tools by their full path: a PATH with Git's Unix
+        # find ahead of it gave an error for every check
+        '"%%SystemRoot%%\\System32\\tasklist.exe" /FI "PID eq %d" /NH 2>nul'
+        ' | "%%SystemRoot%%\\System32\\find.exe" "%d" >nul' % (pid, pid),
         "if errorlevel 1 goto ready",
         "set /a TRIES+=1",
         "if %TRIES% GTR 150 goto giveup",
@@ -105,7 +108,10 @@ def script_for(target: str, staging: str, executable: str, pid: int,
     lines += [
         "rem The staged files, checked already, moved over in one pass.",
         'del /f /q "%s" 2>nul' % ntpath.join(staging, update.PLAN_FILE),
-        'robocopy "%s" "%s" /E /MOVE /NFL /NDL /NP /R:2 /W:1 '
+        # /IS /IT: every staged file goes over, even one the same size and
+        # time as the one it replaces, which robocopy would otherwise skip
+        # and, moving, delete from staging all the same
+        'robocopy "%s" "%s" /E /MOVE /IS /IT /NFL /NDL /NP /R:2 /W:1 '
         '/LOG+:"%%LOG%%"'
         % (staging.rstrip("\\/"), target.rstrip("\\/")),
         'echo robocopy said %errorlevel% >> "%LOG%"',
