@@ -3266,7 +3266,7 @@ class SketchEditor(QtCore.QObject):
         s.add_constraint("coincident", points=[arc_ent.points[2], pb])
         s.add_constraint("tangent", entities=[e1, arc])
         s.add_constraint("tangent", entities=[e2, arc])
-        s._prune_points()
+        s._prune_points({corner_id})
 
     def _trim_entity(self, eid: int, point) -> None:
         """Split the entity at its intersections and drop the clicked piece."""

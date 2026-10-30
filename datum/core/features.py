@@ -1945,9 +1945,19 @@ class HoleFeature(Feature):
     cb_depth: str = "4"
     cs_angle: str = "90"
     flip: bool = False
+    # the sketch points drilled, by id; none picked: every one it offers
+    # unasked, its circles' centres and the points placed on their own
+    points: List[int] = field(default_factory=list)
 
     def depends_on(self) -> List[int]:
         return [self.sketch_id]
+
+    def centres(self, sketch) -> List[int]:
+        """The point ids drilled in that sketch."""
+        offered = hole_centres(sketch)
+        if self.points:
+            return [pid for pid in self.points if pid in offered]
+        return [pid for pid, kind in offered.items() if kind != "arc"]
 
     def build(self, ctx: BuildContext) -> None:
         body = ctx.require_shape(self.name)
@@ -1955,12 +1965,10 @@ class HoleFeature(Feature):
         if sketch is None:
             raise FeatureError("%s: its sketch is missing or suppressed" % self.name)
 
-        centres = [sketch.points[e.points[0]]
-                   for e in sketch.entities.values()
-                   if e.kind == "circle" and not e.construction]
+        centres = [sketch.points[pid] for pid in self.centres(sketch)]
         if not centres:
-            raise FeatureError("%s: place circles in the sketch to mark hole "
-                               "centres" % self.name)
+            raise FeatureError("%s: place points or circles in the sketch to "
+                               "mark hole centres" % self.name)
 
         dia = ctx.evaluate(self.diameter, "%s diameter" % self.name)
         if dia <= 0:
@@ -2007,7 +2015,13 @@ class HoleFeature(Feature):
 
         # separate holes do not touch, so a compound is fine here
         combined = kernel.compound(tools) if len(tools) > 1 else tools[0]
-        ctx.apply(combined, "cut", self.id, targets=self.solids)
+        targets = list(self.solids)
+        if not targets and len(ctx.live) > 1:
+            # none picked: every solid a hole goes into, not just the one,
+            # a sketch of holes over two plates drills both
+            targets = [b.name for b in ctx.live
+                       if any(_overlaps(b.shape, t) for t in tools)]
+        ctx.apply(combined, "cut", self.id, targets=targets)
 
     def summary(self) -> str:
         depth = "through" if self.through else self.depth
@@ -2020,7 +2034,7 @@ class HoleFeature(Feature):
             "depth": self.depth, "through": self.through,
             "hole_type": self.hole_type, "cb_diameter": self.cb_diameter,
             "cb_depth": self.cb_depth, "cs_angle": self.cs_angle,
-            "flip": self.flip,
+            "flip": self.flip, "points": list(self.points),
         }
 
     def load_fields(self, data: Dict[str, Any]) -> None:
@@ -2033,6 +2047,30 @@ class HoleFeature(Feature):
         self.cb_depth = str(data.get("cb_depth", "4"))
         self.cs_angle = str(data.get("cs_angle", "90"))
         self.flip = bool(data.get("flip", False))
+        self.points = [int(p) for p in data.get("points") or []]
+
+
+def hole_centres(sketch) -> Dict[int, str]:
+    """Where a Hole can go in a sketch, point id to what it is: "circle"
+    for a circle's centre, "point" for a sketch point on its own, "arc" for
+    an arc's centre, which is offered but not taken unasked: a slot's ends
+    are arcs too."""
+    out: Dict[int, str] = {}
+    held = set()
+    for e in sketch.entities.values():
+        held.update(e.points)
+    for e in sketch.entities.values():
+        if e.construction or not e.points:
+            continue
+        if e.kind == "circle":
+            out[e.points[0]] = "circle"
+    for e in sketch.entities.values():
+        if e.kind == "arc" and e.points and e.points[0] not in out:
+            out[e.points[0]] = "arc"
+    for pid, p in sketch.points.items():
+        if pid not in held and not p.origin and pid not in out:
+            out[pid] = "point"
+    return out
 
 
 @dataclass

@@ -632,8 +632,9 @@ class Sketch:
     # -- deletion -----------------------------------------------------------
 
     def remove_text(self, tid: int) -> None:
-        if self.texts.pop(tid, None) is not None:
-            self._prune_points()
+        text = self.texts.pop(tid, None)
+        if text is not None:
+            self._prune_points({text.point})
 
     def remove_entity(self, eid: int) -> None:
         ent = self.entities.pop(eid, None)
@@ -659,12 +660,15 @@ class Sketch:
                         if going.intersection(c.points)]:
                 self.constraints.pop(cid, None)
 
-        self._prune_points()
+        self._prune_points(set(ent.points))
 
     def remove_constraint(self, cid: int) -> None:
         self.constraints.pop(cid, None)
 
-    def _prune_points(self) -> None:
+    def _prune_points(self, candidates=None) -> None:
+        """Drop points nothing holds any more: of ``candidates`` only, the
+        points of what was just removed, so a sketch point placed on its
+        own, a hole centre, is not swept away with them."""
         used = set()
         for ent in self.entities.values():
             used.update(ent.points)
@@ -673,7 +677,8 @@ class Sketch:
         used.update(t.point for t in self.texts.values())
         # the grounded origin survives even when nothing references it
         used.update(p.id for p in self.points.values() if p.origin)
-        for pid in [p for p in self.points if p not in used]:
+        for pid in [p for p in self.points if p not in used
+                    and (candidates is None or p in candidates)]:
             del self.points[pid]
         for cid in [c.id for c in self.constraints.values()
                     if any(p not in self.points for p in c.points)]:

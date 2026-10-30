@@ -1187,11 +1187,17 @@ class HoleDialog(FeatureDialog):
 
     def build(self):
         self.sketch = self.sketch_combo(self.feature.sketch_id)
-        self.form.add("Centres", self.sketch)
-
-        hint = QtWidgets.QLabel("Each circle in the sketch places one hole.")
-        hint.setProperty("hint", True)
-        self.form.add("", hint)
+        self.form.add("Sketch", self.sketch)
+        self._chosen = list(self.feature.points)
+        self.centres_label = QtWidgets.QLabel("")
+        self.centres_label.setProperty("hint", True)
+        self.centres_label.setWordWrap(True)
+        self.form.add("Centres", self.centres_label)
+        self.sketch.currentIndexChanged.connect(self._sketch_changed)
+        self._marks = []
+        self._eaten = False
+        self.host.viewport.installEventFilter(self)
+        self.solids_row()
 
         self.form.add_separator()
 
@@ -1235,6 +1241,125 @@ class HoleDialog(FeatureDialog):
         self.cb_depth.setEnabled(kind == "counterbore")
         self.cs_angle.setEnabled(kind == "countersink")
 
+    # -- the centres, seen and clicked in the view -------------------------
+    #
+    # Every point a hole can go on is drawn: the drilled ones filled, the
+    # rest as rings. A click on one turns it on or off. Nothing clicked yet
+    # means every circle's centre and every point placed on its own, which
+    # is what a sketch made for the holes nearly always wants.
+
+    def _sketch_now(self):
+        made = self.doc.feature(int(self.sketch.currentData() or 0))
+        return getattr(made, "sketch", None)
+
+    def _offered(self):
+        from ..core.features import hole_centres
+        sketch = self._sketch_now()
+        return (sketch, hole_centres(sketch)) if sketch is not None             else (None, {})
+
+    def _drilled(self) -> List[int]:
+        sketch, offered = self._offered()
+        if self._chosen:
+            return [p for p in self._chosen if p in offered]
+        return [p for p, kind in offered.items() if kind != "arc"]
+
+    def _sketch_changed(self, _index) -> None:
+        self._chosen = []
+
+    def toggle_centre(self, pid: int) -> bool:
+        sketch, offered = self._offered()
+        if pid not in offered:
+            return False
+        drilled = self._drilled()
+        if pid in drilled:
+            drilled.remove(pid)
+        else:
+            drilled.append(pid)
+        self._chosen = drilled
+        if not drilled:
+            # all of them off would read as all of them on
+            self._chosen = [-1]
+        self.preview()
+        return True
+
+    def _centre_at(self, x: int, y: int) -> Optional[int]:
+        sketch, offered = self._offered()
+        best, gap = None, 12.0
+        for pid in offered:
+            p = sketch.points[pid]
+            sx, sy = self.host.viewport.project(sketch.plane.to_3d(p.x, p.y))
+            d = math.hypot(sx - x, sy - y)
+            if d < gap:
+                best, gap = pid, d
+        return best
+
+    def eventFilter(self, watched, event) -> bool:
+        kind = event.type()
+        if (kind == QtCore.QEvent.MouseButtonPress
+                and event.button() == QtCore.Qt.LeftButton
+                and not self._closed and self.armed_picker() is None):
+            pos = event.position().toPoint()
+            pid = self._centre_at(pos.x(), pos.y())
+            if pid is not None:
+                self.toggle_centre(pid)
+                self._eaten = True
+                return True
+        if kind == QtCore.QEvent.MouseButtonRelease and self._eaten:
+            self._eaten = False
+            return True
+        return False
+
+    def _draw_centres(self) -> None:
+        vp = self.host.viewport
+        for ais in self._marks:
+            try:
+                vp.context.Remove(ais, False)
+            except Exception:
+                pass
+        self._marks = []
+        if self._closed or not vp._ready:
+            vp.redraw()
+            return
+        from OCP.Aspect import Aspect_TypeOfMarker
+        sketch, offered = self._offered()
+        drilled = set(self._drilled())
+        for pid in offered:
+            p = sketch.points[pid]
+            on = pid in drilled
+            ais = vp.draw_point(
+                sketch.plane.to_3d(p.x, p.y),
+                C.highlight if on else C.text_dim, 9.0 if on else 7.0,
+                marker=(Aspect_TypeOfMarker.Aspect_TOM_BALL if on
+                        else Aspect_TypeOfMarker.Aspect_TOM_RING1))
+            if ais in vp._overlay:
+                vp._overlay.remove(ais)
+            self._marks.append(ais)
+        n = len(drilled)
+        self.centres_label.setText(
+            "%d hole%s. Click a point in the view to drill it or not."
+            % (n, "" if n == 1 else "s"))
+        vp.redraw()
+
+    def preview(self):
+        super().preview()
+        self._draw_centres()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        if self._closed:
+            self.host.viewport.removeEventFilter(self)
+            self._marks_off()
+        super().closeEvent(event)
+
+    def _marks_off(self) -> None:
+        vp = self.host.viewport
+        for ais in self._marks:
+            try:
+                vp.context.Remove(ais, False)
+            except Exception:
+                pass
+        self._marks = []
+        vp.redraw()
+
     def load(self):
         pos = self.kind.findData(self.feature.hole_type)
         self.kind.setCurrentIndex(max(0, pos))
@@ -1249,6 +1374,8 @@ class HoleDialog(FeatureDialog):
 
     def store(self):
         self.feature.sketch_id = int(self.sketch.currentData() or 0)
+        self.feature.points = list(self._chosen)
+        self.feature.solids = self.picked_solids()
         self.feature.hole_type = self.kind.currentData()
         self.feature.diameter = self.diameter.text()
         self.feature.depth = self.depth.text()
