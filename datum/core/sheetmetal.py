@@ -1270,7 +1270,9 @@ def _unrelieved(shape, corner, u, v, edge, thickness: float, back: float):
             continue
         centre = kernel.shape_centre(face)
         rel = _sub(centre, corner)
-        if abs(_dot(rel, u) - at) > 1e-6                 or abs(abs(_dot(face_normal(face, centre), u)) - 1.0) > 1e-6                 or _dot(rel, v) > back + thickness + 1e-6:
+        if abs(_dot(rel, u) - at) > 1e-6 \
+                or abs(abs(_dot(face_normal(face, centre), u)) - 1.0) > 1e-6 \
+                or _dot(rel, v) > back + thickness + 1e-6:
             continue
         pieces.append(BRepPrimAPI_MakePrism(
             face, gp_Vec(*_mul(u, -(at - back)))).Shape())

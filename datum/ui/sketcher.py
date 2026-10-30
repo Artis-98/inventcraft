@@ -298,6 +298,9 @@ class SketchEditor(QtCore.QObject):
         # the part's other visible sketches, drawn faintly behind this one,
         # and where their dimension labels landed, so one can be clicked
         self.references: List[Sketch] = []
+        # their sketch features' ids, in the same order: what a projection
+        # of one of their lines is tied to
+        self.reference_ids: List[int] = []
         self._reference_labels: List[Tuple[str, Tuple[float, float, float],
                                            str]] = []
         # the unit a reference sketch is drawn in from outside a sketch
@@ -370,6 +373,7 @@ class SketchEditor(QtCore.QObject):
         self.viewport.fit_extra = None
         self.sketch = None
         self.references = []
+        self.reference_ids = []
         self._reference_labels = []
         self._pending = []
         self._dim_target = None
@@ -539,17 +543,24 @@ class SketchEditor(QtCore.QObject):
         self._model_snaps = None
 
     def _model_snap_points(self) -> list:
-        """The model's corners and edge midpoints, flattened onto the sketch.
+        """The model's corners and edge midpoints, and the end points,
+        middles and centres of the other sketches on show, flattened onto
+        the sketch.
 
-        (kind, (u, v), edge, 3D point): a corner with an edge that runs
-        from it, or a straight edge's middle.  Nothing is projected for
-        these; they are only places the cursor can latch onto.
+        (kind, (u, v), edge, 3D point, source): a corner with an edge that
+        runs from it, a straight edge's middle, or a circle's centre;
+        source is None for the model, or the other sketch's line or curve.
+        Nothing is projected for these until one is taken; they are only
+        places the cursor can latch onto.
         """
         if self._model_snaps is not None:
             return self._model_snaps
         self._model_snaps = []
+        if self.sketch is None:
+            return self._model_snaps
+        self._reference_snap_points()
         shape = getattr(self, "model_shape", None)
-        if shape is None or shape.IsNull() or self.sketch is None:
+        if shape is None or shape.IsNull():
             return self._model_snaps
         from OCP.BRep import BRep_Tool
         from OCP.BRepAdaptor import BRepAdaptor_Curve
@@ -588,7 +599,7 @@ class SketchEditor(QtCore.QObject):
                 continue
             p = BRep_Tool.Pnt_s(vertex)
             self._model_snaps.append(
-                ("corner", plane.to_2d(_xyz(p)), edges[0], _xyz(p)))
+                ("corner", plane.to_2d(_xyz(p)), edges[0], _xyz(p), None))
         for edge in kernel.explore(shape, TopAbs_EDGE):
             try:
                 curve = BRepAdaptor_Curve(TopoDS.Edge_s(edge))
@@ -601,8 +612,47 @@ class SketchEditor(QtCore.QObject):
             p = curve.Value(0.5 * (curve.FirstParameter()
                                    + curve.LastParameter()))
             self._model_snaps.append(
-                ("mid", plane.to_2d(_xyz(p)), edge, _xyz(p)))
+                ("mid", plane.to_2d(_xyz(p)), edge, _xyz(p), None))
         return self._model_snaps
+
+    def _reference_snap_points(self) -> None:
+        """The other sketches on show, as places to snap to: each line's
+        ends and middle, each arc's ends and centre, each circle's centre.
+        Taking one projects its line or curve, as construction tied to it,
+        as Inventor projects what a sketch is drawn onto."""
+        plane = self.sketch.plane
+        for fid, other in zip(self.reference_ids, self.references):
+            if not fid or other is self.sketch:
+                continue
+            for eid, entity in other.entities.items():
+                if entity.kind not in ("line", "arc", "circle"):
+                    continue
+                try:
+                    edge = kernel._sketch_edge(other, eid)
+                except Exception:
+                    edge = None
+                if edge is None:
+                    continue
+                cast = kernel.project_to_plane(edge, plane)
+                if len(cast) != 1 or cast[0][0] not in ("line", "arc",
+                                                        "circle"):
+                    continue          # seen end on, or bent out of shape
+                source = {"sketch": fid, "entity": eid}
+                pts = [other.points[p] for p in entity.points
+                       if p in other.points]
+                spots = []
+                if entity.kind == "line":
+                    a, b = pts[0], pts[1]
+                    spots = [("corner", (a.x, a.y)), ("corner", (b.x, b.y)),
+                             ("mid", ((a.x + b.x) / 2, (a.y + b.y) / 2))]
+                else:
+                    spots = [("centre", (pts[0].x, pts[0].y))]
+                    if entity.kind == "arc":
+                        spots += [("corner", (p.x, p.y)) for p in pts[1:3]]
+                for kind, uv in spots:
+                    p3 = other.plane.to_3d(uv[0], uv[1])
+                    self._model_snaps.append(
+                        (kind, plane.to_2d(p3), edge, p3, source))
 
     def _take_model_snap(self, index: int):
         """A model corner or midpoint was picked: project its edge, tie to it.
@@ -615,18 +665,28 @@ class SketchEditor(QtCore.QObject):
         snaps = self._model_snap_points()
         if not (0 <= index < len(snaps)) or self.sketch is None:
             return None
-        kind, uv, edge, _p = snaps[index]
+        kind, uv, edge, _p, source = snaps[index]
         s = self.sketch
-        if kind == "corner":
+        if kind in ("corner", "centre"):
             for point in s.points.values():
                 if math.hypot(point.x - uv[0], point.y - uv[1]) < 1e-7:
                     return ("point", point.id, (point.x, point.y))
         before = set(s.entities)
-        source = self._reference_for(edge, getattr(self, "model_shape", None))
-        self._project_geometry(edge, False, source)
+        if source is None:
+            # the model's edge, kept tied to the body
+            source = self._reference_for(edge,
+                                         getattr(self, "model_shape", None))
+            self._project_geometry(edge, False, source)
+        else:
+            # another sketch's line, as construction: it ties the point
+            # down without making a profile of its own
+            self._project_geometry(edge, True, source)
         made = [e for e in s.entities if e not in before]
         for eid in made:
             entity = s.entities[eid]
+            if kind == "centre" and entity.kind in ("circle", "arc"):
+                c = entity.points[0]
+                return ("point", c, (s.points[c].x, s.points[c].y))
             if kind == "corner":
                 for pid in entity.points:
                     q = s.points[pid]
@@ -689,10 +749,10 @@ class SketchEditor(QtCore.QObject):
 
         # the model's corners and edge midpoints, a touch behind the
         # sketch's own points so drawn geometry wins a tie
-        for index, (kind, uv, _edge, _p) in enumerate(
+        for index, (kind, uv, _edge, _p, _source) in enumerate(
                 self._model_snap_points()):
             d = math.hypot(uv[0] - u, uv[1] - v)
-            weight = 0.7 if kind == "corner" else 0.85
+            weight = 0.85 if kind == "mid" else 0.7
             if d <= tol and d * weight < best_score:
                 best, best_score = ("model " + kind, index, uv), d * weight
 
@@ -1309,7 +1369,7 @@ class SketchEditor(QtCore.QObject):
                 best, best_d = other, d
         if best is None:
             # a model corner or edge middle, projected when it is let go
-            for index, (kind, uv, _edge, _p) in enumerate(
+            for index, (kind, uv, _edge, _p, _source) in enumerate(
                     self._model_snap_points()):
                 d = math.hypot(uv[0] - cursor[0], uv[1] - cursor[1])
                 if d < best_d:
@@ -3647,7 +3707,7 @@ class SketchEditor(QtCore.QObject):
         self._touch()
 
     def project_one(self, sub_shape, construction: bool = False,
-                    body=None) -> int:
+                    body=None, source=None) -> int:
         """Project a single picked edge or face onto the sketch.
 
         The same flattening the whole-body version does, handed one piece
@@ -3658,7 +3718,10 @@ class SketchEditor(QtCore.QObject):
         if not self.active or sub_shape is None:
             return 0
         self.begin_change()
-        source = self._reference_for(sub_shape, body)
+        # where it came from: given for a line of another sketch, found on
+        # the body for a model edge
+        if source is None:
+            source = self._reference_for(sub_shape, body)
         made = self._project_geometry(sub_shape, construction, source)
         if made:
             self._touch()

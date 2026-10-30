@@ -532,7 +532,8 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
 
             from ..core import frames
             path = self._doc.component_path(occurrence)
-            fd = frames.read_frame(path) if path and                 path.lower().endswith(".icasm") else None
+            fd = frames.read_frame(path) if path and \
+                path.lower().endswith(".icasm") else None
             if fd is not None and fd.members:
                 # the whole frame: every member of it
                 menu.addSeparator()

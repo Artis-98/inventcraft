@@ -389,7 +389,64 @@ class Feature:
 # ==========================================================================
 
 
-def refresh_projections(sketch, shape) -> int:
+def _sketch_cast(record, sketches, plane):
+    """What a projection of another sketch's line or curve casts on
+    ``plane`` now, as the kernel's pieces, or None when it is gone."""
+    source = record.source
+    src = sketches.get(int(source.get("sketch", 0)))
+    eid = int(source.get("entity", 0))
+    if src is None or eid not in src.entities:
+        return None
+    edge = kernel._sketch_edge(src, eid)
+    if edge is None:
+        return None
+    return kernel.project_to_plane(edge, plane)
+
+
+def adopt_sketch_sources(sketch, sketches) -> int:
+    """Projections made from another sketch before they kept where they
+    came from: each one tied to the line of an earlier sketch that casts
+    exactly onto it, so it follows that from now on.  Returns how many
+    were tied."""
+    tied = 0
+    for record in getattr(sketch, "projections", None) or []:
+        if record.source or len(record.entities) != 1:
+            continue
+        entity = sketch.entities.get(record.entities[0])
+        if entity is None or entity.kind != "line":
+            continue
+        here = [(sketch.points[p].x, sketch.points[p].y)
+                for p in entity.points[:2]]
+        found = None
+        for sid, src in sketches.items():
+            if src is sketch:
+                continue
+            for eid, other in src.entities.items():
+                if other.kind != "line":
+                    continue
+                try:
+                    cast = kernel.project_to_plane(
+                        kernel._sketch_edge(src, eid), sketch.plane)
+                except Exception:
+                    continue
+                if len(cast) != 1 or cast[0][0] != "line":
+                    continue
+                a, b = cast[0][1]
+                if (math.dist(a, here[0]) < 1e-6
+                        and math.dist(b, here[1]) < 1e-6) or (
+                        math.dist(a, here[1]) < 1e-6
+                        and math.dist(b, here[0]) < 1e-6):
+                    found = {"sketch": sid, "entity": eid}
+                    break
+            if found:
+                break
+        if found:
+            record.source = found
+            tied += 1
+    return tied
+
+
+def refresh_projections(sketch, shape, sketches=None) -> int:
     """Re-cast every projected entity on a sketch from the body it came from.
 
     Projected geometry is a shadow, and a shadow has to move when the thing
@@ -409,6 +466,21 @@ def refresh_projections(sketch, shape) -> int:
 
     refreshed = 0
     for record in records:
+        if record.source.get("sketch") is not None:
+            # a shadow of another sketch: cast again from where that sketch
+            # is now, so it follows it as one of the body follows the body
+            try:
+                cast = _sketch_cast(record, sketches or {}, sketch.plane)
+            except Exception:
+                cast = None
+            if cast is None:
+                record.stale = True
+            elif _reshape(sketch, record, cast):
+                record.stale = False
+                refreshed += 1
+            else:
+                record.stale = True
+            continue
         if not record.source or not record.entities:
             continue
         if shape is None or shape.IsNull():
@@ -515,8 +587,47 @@ class SketchFeature(Feature):
     # a consumed sketch is nested under the feature that used it; sharing it
     # also keeps it visible at the top of the tree for reuse
     shared: bool = False
+    # the origin or work plane it was started on, by name: the sketch sits
+    # where that plane is now, and moves when it does.  Empty for one on a
+    # model face, which face_ref keeps, or one from before.
+    plane_ref: str = ""
+    # facing the other way from that plane
+    reverse_plane: bool = False
+
+    def _follow_plane(self, ctx: BuildContext) -> None:
+        """Sit on the plane it was started on, as that plane is now."""
+        here = self.sketch.plane
+        if not self.plane_ref and self.face_ref is None:
+            # a sketch from before sketches kept their plane: the work
+            # plane of the name it was given, if it is that plane moved
+            # along its normal (one turned or slid sideways since is left
+            # alone rather than guessed at)
+            import numpy as np
+            for key, plane in ctx.planes.items():
+                if plane.name != here.name or key in STANDARD_PLANES:
+                    continue
+                n, m = np.array(here.normal), np.array(plane.normal)
+                d = np.array(plane.origin) - np.array(here.origin)
+                if (abs(abs(float(n @ m)) - 1.0) < 1e-9
+                        and float(np.dot(here.xdir, plane.xdir)) > 1 - 1e-9
+                        and np.linalg.norm(d - (d @ n) * n) < 1e-6):
+                    self.plane_ref = key
+                    self.reverse_plane = float(n @ m) < 0
+                break
+        if not self.plane_ref:
+            return
+        plane = ctx.planes.get(self.plane_ref)
+        if plane is None:
+            ctx.log.append("%s: its plane %s is gone; it stays where it was"
+                           % (self.name, self.plane_ref))
+            return
+        if self.reverse_plane:
+            plane = reversed_plane(plane)
+        self.sketch.plane = SketchPlane(plane.origin, plane.normal,
+                                        plane.xdir, plane.name)
 
     def build(self, ctx: BuildContext) -> None:
+        self._follow_plane(ctx)
         if self.face_ref is not None and ctx.shape is not None:
             face = self.face_ref.rebind(ctx.shape)
             if face is not None:
@@ -530,7 +641,8 @@ class SketchFeature(Feature):
         # stands at this point in the tree, so it is re-cast here.  Without
         # this, widening a block leaves every sketch below it still drawn
         # around the old outline.
-        refresh_projections(self.sketch, ctx.shape)
+        adopt_sketch_sources(self.sketch, ctx.sketches)
+        refresh_projections(self.sketch, ctx.shape, ctx.sketches)
         self.sketch.solve(ctx.scope)
         ctx.sketches[self.id] = self.sketch
 
@@ -548,6 +660,10 @@ class SketchFeature(Feature):
             # written only when set, so every sketch made before it existed
             # reads, and fingerprints, exactly as it did
             d["reverse_face"] = True
+        if self.plane_ref:
+            d["plane_ref"] = self.plane_ref
+            if self.reverse_plane:
+                d["reverse_plane"] = True
         return d
 
     def load_fields(self, data: Dict[str, Any]) -> None:
@@ -556,6 +672,8 @@ class SketchFeature(Feature):
         if data.get("face_ref"):
             self.face_ref = ShapeRef.from_dict(data["face_ref"])
         self.reverse_face = bool(data.get("reverse_face", False))
+        self.plane_ref = str(data.get("plane_ref", ""))
+        self.reverse_plane = bool(data.get("reverse_plane", False))
 
 
 @dataclass
@@ -570,6 +688,21 @@ class WorkPlaneFeature(Feature):
     offset: str = "10"
     angle: str = "0"
     flip: bool = False
+    # How it is made: "offset" from a plane or face (the above), or worked
+    # out from picked geometry, Inventor's way, one Plane command for all:
+    #   "two_lines"     through two lines, parallel or crossing
+    #   "three_points"  through three points
+    #   "line_point"    square to a line, through a point
+    #   "line_plane"    through a line, at ``angle`` to a plane or face it
+    #                   runs parallel to
+    # ``refs`` are what was picked, in order; each one of
+    #   {"sketch": id, "entity": id}   a line of a sketch
+    #   {"sketch": id, "point": id}    a point of a sketch
+    #   {"edge": ShapeRef}, {"vertex": ShapeRef}, {"face": ShapeRef}
+    #   {"plane": name}                an origin or work plane
+    # so the plane follows them.  ``offset`` moves it along its normal.
+    mode: str = "offset"
+    refs: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def base_label(self) -> str:
@@ -596,6 +729,18 @@ class WorkPlaneFeature(Feature):
         return ctx.planes.get(self.base) or STANDARD_PLANES["XY"]
 
     def build(self, ctx: BuildContext) -> None:
+        if self.mode != "offset":
+            plane = self._from_picks(ctx)
+            d = ctx.evaluate(self.offset or "0", "%s offset" % self.name)
+            if self.flip:
+                d = -d
+            n = [float(c) for c in plane.normal]
+            plane = SketchPlane(tuple(float(o) + n[i] * d
+                                      for i, o in enumerate(plane.origin)),
+                                tuple(n), tuple(float(c) for c in plane.xdir),
+                                self.name)
+            ctx.planes[self.name] = plane
+            return
         base = self.base_plane(ctx)
         d = ctx.evaluate(self.offset, "%s offset" % self.name)
         ang = ctx.evaluate(self.angle, "%s angle" % self.name)
@@ -609,7 +754,135 @@ class WorkPlaneFeature(Feature):
             plane = _rotate_plane(plane, base.xdir, ang)
         ctx.planes[self.name] = plane
 
+    # -- worked out from picks --------------------------------------------
+
+    def _resolve(self, ctx: BuildContext, ref: Dict[str, Any]):
+        """One pick as it stands now: ("line", a, b), ("point", p) or
+        ("plane", SketchPlane)."""
+        if "sketch" in ref:
+            sketch = ctx.sketches.get(int(ref["sketch"]))
+            if sketch is None:
+                raise FeatureError("%s: a sketch it was made from is gone"
+                                   % self.name)
+            if "point" in ref:
+                point = sketch.points.get(int(ref["point"]))
+                if point is None:
+                    raise FeatureError("%s: a point it was made from is gone"
+                                       % self.name)
+                return ("point", sketch.plane.to_3d(point.x, point.y))
+            entity = sketch.entities.get(int(ref.get("entity", 0)))
+            if entity is None or entity.kind != "line":
+                raise FeatureError("%s: a line it was made from is gone"
+                                   % self.name)
+            a, b = (sketch.points[p] for p in entity.points[:2])
+            return ("line", sketch.plane.to_3d(a.x, a.y),
+                    sketch.plane.to_3d(b.x, b.y))
+        if "plane" in ref:
+            plane = ctx.planes.get(ref["plane"])
+            if plane is None:
+                raise FeatureError("%s: plane %s is gone"
+                                   % (self.name, ref["plane"]))
+            return ("plane", plane)
+        kind = next((k for k in ("edge", "vertex", "face") if k in ref),
+                    None)
+        if kind is None or ctx.shape is None:
+            raise FeatureError("%s: what it was made from is gone"
+                               % self.name)
+        found = ShapeRef.from_dict(ref[kind]).rebind(ctx.shape)
+        if found is None:
+            raise FeatureError("%s: the %s it was made from is gone"
+                               % (self.name, kind))
+        if kind == "face":
+            plane = plane_from_face(TopoDS.Face_s(found))
+            if plane is None:
+                raise FeatureError("%s: that face is not flat" % self.name)
+            return ("plane", plane)
+        if kind == "vertex":
+            from OCP.BRep import BRep_Tool
+            p = BRep_Tool.Pnt_s(TopoDS.Vertex_s(found))
+            return ("point", (p.X(), p.Y(), p.Z()))
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        from OCP.GeomAbs import GeomAbs_Line
+        curve = BRepAdaptor_Curve(TopoDS.Edge_s(found))
+        if curve.GetType() != GeomAbs_Line:
+            raise FeatureError("%s: that edge is not straight" % self.name)
+        a = curve.Value(curve.FirstParameter())
+        b = curve.Value(curve.LastParameter())
+        return ("line", (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z()))
+
+    def _from_picks(self, ctx: BuildContext) -> SketchPlane:
+        import numpy as np
+        got = [self._resolve(ctx, r) for r in self.refs]
+        kinds = [g[0] for g in got]
+
+        def unit(v, what):
+            v = np.asarray(v, float)
+            n = np.linalg.norm(v)
+            if n < 1e-9:
+                raise FeatureError("%s: %s" % (self.name, what))
+            return v / n
+
+        def square_to(n):
+            """Some direction square to n, for the plane's X."""
+            seed = (np.array([1.0, 0.0, 0.0]) if abs(n[0]) < 0.9
+                    else np.array([0.0, 1.0, 0.0]))
+            return unit(seed - (seed @ n) * n, "no direction")
+
+        if self.mode == "two_lines" and kinds == ["line", "line"]:
+            a0, a1 = np.array(got[0][1]), np.array(got[0][2])
+            b0, b1 = np.array(got[1][1]), np.array(got[1][2])
+            d1 = unit(a1 - a0, "a line has no length")
+            d2 = unit(b1 - b0, "a line has no length")
+            across = np.cross(d1, d2)
+            if np.linalg.norm(across) < 1e-9:
+                # parallel: the plane they both lie in
+                n = unit(np.cross(d1, b0 - a0),
+                         "the two lines are one line: pick another")
+            else:
+                n = unit(across, "")
+                if abs((b0 - a0) @ n) > 1e-6:
+                    raise FeatureError("%s: the two lines do not lie in one "
+                                       "plane" % self.name)
+            return SketchPlane(tuple(a0), tuple(n), tuple(d1), self.name)
+        if self.mode == "three_points" and kinds == ["point"] * 3:
+            p = [np.array(g[1]) for g in got]
+            x = unit(p[1] - p[0], "two of the points are the same point")
+            n = unit(np.cross(p[1] - p[0], p[2] - p[0]),
+                     "the three points are in a line")
+            return SketchPlane(tuple(p[0]), tuple(n), tuple(x), self.name)
+        if self.mode == "line_point" and sorted(kinds) == ["line", "point"]:
+            line = got[kinds.index("line")]
+            point = got[kinds.index("point")][1]
+            n = unit(np.array(line[2]) - np.array(line[1]),
+                     "the line has no length")
+            return SketchPlane(tuple(point), tuple(n),
+                               tuple(square_to(n)), self.name)
+        if self.mode == "line_plane" and sorted(kinds) == ["line", "plane"]:
+            line = got[kinds.index("line")]
+            base = got[kinds.index("plane")][1]
+            a0 = np.array(line[1])
+            d = unit(np.array(line[2]) - a0, "the line has no length")
+            m = unit(base.normal, "")
+            if abs(d @ m) > 1e-6:
+                raise FeatureError("%s: the line does not run parallel to "
+                                   "the plane, so there is no angle to it"
+                                   % self.name)
+            t = math.radians(ctx.evaluate(self.angle or "0",
+                                          "%s angle" % self.name))
+            n = unit(m * math.cos(t) + np.cross(d, m) * math.sin(t), "")
+            return SketchPlane(tuple(a0), tuple(n), tuple(d), self.name)
+        raise FeatureError("%s: those picks do not make a plane" % self.name)
+
+    @property
+    def made_from(self) -> str:
+        return {"two_lines": "two lines", "three_points": "three points",
+                "line_point": "square to a line through a point",
+                "line_plane": "a line at an angle to a plane"
+                }.get(self.mode, self.base_label)
+
     def summary(self) -> str:
+        if self.mode != "offset":
+            return "%s: %s" % (self.name, self.made_from)
         return "%s: %s offset %s" % (self.name, self.base_label, self.offset)
 
     def field_dict(self) -> Dict[str, Any]:
@@ -617,6 +890,9 @@ class WorkPlaneFeature(Feature):
                              "angle": self.angle, "flip": self.flip}
         if self.face_ref is not None:
             d["face_ref"] = self.face_ref.to_dict()
+        if self.mode != "offset":
+            d["mode"] = self.mode
+            d["refs"] = [dict(r) for r in self.refs]
         return d
 
     def load_fields(self, data: Dict[str, Any]) -> None:
@@ -626,6 +902,8 @@ class WorkPlaneFeature(Feature):
         self.flip = bool(data.get("flip", False))
         if data.get("face_ref"):
             self.face_ref = ShapeRef.from_dict(data["face_ref"])
+        self.mode = str(data.get("mode", "offset"))
+        self.refs = [dict(r) for r in data.get("refs", [])]
 
 
 @dataclass

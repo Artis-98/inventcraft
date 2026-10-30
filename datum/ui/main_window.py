@@ -3209,7 +3209,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # or goes, behind the one being edited
             editing = getattr(self, "_sketch_feature_id", None)
             if editing is not None:
-                self.editor.references = self._reference_sketches(editing)
+                self._set_references(editing)
                 self.editor.render()
             return
         self.viewport.clear_overlay()
@@ -3222,6 +3222,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.editor.draw_reference(feature.sketch, units)
         self._draw_work_axes()
         self._show_tree_pick()
+
+    def _set_references(self, feature_id: int) -> None:
+        """The sketches shown with the one being edited, and their ids, so
+        the editor can snap to them and tie what it projects to them."""
+        refs = self._reference_sketches(feature_id)
+        self.editor.references = refs
+        self.editor.reference_ids = [self._feature_id_of_sketch(s)
+                                     for s in refs]
+        self.editor._model_snaps = None
 
     def _reference_sketches(self, feature_id: int) -> list:
         """The visible sketches above the one being edited, to show with it.
@@ -3613,7 +3622,20 @@ class MainWindow(QtWidgets.QMainWindow):
         if feature is None:
             return
         self.document.push_undo()
+        old = feature.name
         feature.name = name
+        if isinstance(feature, WorkPlaneFeature) and old != name:
+            # everything that names the plane follows the new name: the
+            # planes built on it, the sketches on it, what extrudes to it
+            for other in self.document.features:
+                if isinstance(other, WorkPlaneFeature) \
+                        and other.base == old:
+                    other.base = name
+                if getattr(other, "plane_ref", None) == old:
+                    other.plane_ref = name
+                for attr in ("to_plane", "from_plane"):
+                    if getattr(other, attr, None) == old:
+                        setattr(other, attr, name)
         self.document.modified = True
         self.browser.refresh()
 
@@ -3703,6 +3725,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.close_dialogs()
 
         self._plane_base = None
+        self._plane_picks = []
         self._plane_tool_active = True
         self.viewport.plane_tool = True
         self.set_pick_mode("face")
@@ -3710,8 +3733,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                         self._picker_size())
         self.status_message.setStyleSheet("")
         self.status_message.setText(
-            "Work plane: press on a flat face or a datum plane and drag to "
-            "pull the plane off it. Release to set the offset. Esc to cancel.")
+            "Work plane: drag off a face or plane for an offset, or click "
+            "two lines, three points, a line and a point, or a line and then "
+            "a face or plane to tilt from. Esc to cancel.")
 
     def _picker_size(self) -> float:
         size = 45.0
@@ -3721,9 +3745,173 @@ class MainWindow(QtWidgets.QMainWindow):
             size = max(xmax - xmin, ymax - ymin, zmax - zmin) * 0.75 or size
         return max(size, 25.0)
 
+    PLANE_POINT_PIXELS = 9
+    PLANE_LINE_PIXELS = 7
+
+    def _plane_geometry_at(self, x: int, y: int):
+        """A point or straight line under a click, for the Work Plane tool:
+        of a sketch on show first, then of the body.  (kind, ref, shown)
+        with kind "point" or "line", ref what the plane keeps of it, and
+        shown its 3D point or ends to mark it by; None for nothing."""
+        vp = self.viewport
+
+        def along(a, b):
+            (ax, ay), (bx, by) = vp.project(a), vp.project(b)
+            dx, dy = bx - ax, by - ay
+            span = dx * dx + dy * dy
+            t = 0.0 if span == 0 else max(0.0, min(1.0, (
+                (x - ax) * dx + (y - ay) * dy) / span))
+            return math.hypot(x - (ax + t * dx), y - (ay + t * dy))
+
+        best_point, best_line = None, None
+        dp, dl = self.PLANE_POINT_PIXELS, self.PLANE_LINE_PIXELS
+        for feature in self.document.sketch_features():
+            if feature.suppressed or self.browser.is_sketch_hidden(
+                    feature.id, self.document):
+                continue
+            s = feature.sketch
+            used = {p for e in s.entities.values() for p in e.points}
+            for pid in used:
+                q = s.points.get(pid)
+                if q is None:
+                    continue
+                p3 = s.plane.to_3d(q.x, q.y)
+                sx, sy = vp.project(p3)
+                d = math.hypot(sx - x, sy - y)
+                if d < dp:
+                    dp, best_point = d, ("point", {"sketch": feature.id,
+                                                   "point": pid}, p3)
+            for eid, entity in s.entities.items():
+                if entity.kind != "line":
+                    continue
+                a, b = (s.points[p] for p in entity.points[:2])
+                a3, b3 = s.plane.to_3d(a.x, a.y), s.plane.to_3d(b.x, b.y)
+                d = along(a3, b3)
+                if d < dl:
+                    dl, best_line = d, ("line", {"sketch": feature.id,
+                                                 "entity": eid}, (a3, b3))
+        shape = self.document.shape
+        if shape is not None and best_point is None:
+            from OCP.BRep import BRep_Tool
+            from OCP.BRepAdaptor import BRepAdaptor_Curve
+            from OCP.GeomAbs import GeomAbs_Line
+            from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
+            from OCP.TopoDS import TopoDS
+            vertices = kernel.explore(shape, TopAbs_VERTEX)
+            if len(vertices) <= 5000:
+                for v in vertices:
+                    p = BRep_Tool.Pnt_s(TopoDS.Vertex_s(v))
+                    p3 = (p.X(), p.Y(), p.Z())
+                    sx, sy = vp.project(p3)
+                    d = math.hypot(sx - x, sy - y)
+                    if d < dp:
+                        dp, best_point = d, ("point", ("vertex", v), p3)
+            if best_line is None:
+                for e in kernel.explore(shape, TopAbs_EDGE):
+                    curve = BRepAdaptor_Curve(TopoDS.Edge_s(e))
+                    if curve.GetType() != GeomAbs_Line:
+                        continue
+                    a = curve.Value(curve.FirstParameter())
+                    b = curve.Value(curve.LastParameter())
+                    a3, b3 = (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z())
+                    d = along(a3, b3)
+                    if d < dl:
+                        dl, best_line = d, ("line", ("edge", e), (a3, b3))
+        found = best_point or best_line
+        if found is None:
+            return None
+        kind, ref, shown = found
+        if isinstance(ref, tuple):
+            # a piece of the body, kept by its name in the body
+            refs = RefSet()
+            refs.capture_from(shape, ref[0], [ref[1]])
+            if not refs.refs:
+                return None
+            ref = {ref[0]: refs.refs[0].to_dict()}
+        return kind, ref, shown
+
+    def _plane_mark_picks(self) -> None:
+        """The picks so far, picked out in the view."""
+        vp = self.viewport
+        vp.clear_preview()
+        for kind, _ref, shown in self._plane_picks:
+            if kind == "point":
+                vp.draw_point(shown, C.warn, 4.0, preview=True)
+            else:
+                vp.draw_edge(shown[0], shown[1], C.warn, 3.0, preview=True)
+        vp.redraw()
+
+    def _plane_from_picks(self, mode: str, refs, angle: str = "0") -> None:
+        """Make the plane the picks describe, and open it to adjust."""
+        self._end_plane_tool()
+        snapshot = self.document.snapshot()
+        self.document.push_undo()
+        feature = WorkPlaneFeature()
+        feature.mode, feature.refs = mode, list(refs)
+        feature.offset, feature.angle = "0", angle
+        self.document.add_feature(feature, self._insert_index())
+        self._open_dialog(feature, is_new=True, snapshot=snapshot)
+
+    def _plane_take_pick(self, pick) -> None:
+        """A point or line clicked in the Work Plane tool: once the picks
+        say what plane they mean, it is made."""
+        picks = self._plane_picks
+        picks.append(pick)
+        kinds = [p[0] for p in picks]
+        refs = [p[1] for p in picks]
+        if kinds == ["line", "line"]:
+            self._plane_from_picks("two_lines", refs)
+            return
+        if kinds == ["point"] * 3:
+            self._plane_from_picks("three_points", refs)
+            return
+        if sorted(kinds) == ["line", "point"]:
+            self._plane_from_picks("line_point", refs)
+            return
+        if kinds not in (["line"], ["point"], ["point", "point"]):
+            # a point, a point and then a line: start again from the line
+            del picks[:-1]
+        self._plane_mark_picks()
+        self.status_message.setStyleSheet("")
+        if [p[0] for p in picks] == ["line"]:
+            self.status_message.setText(
+                "Line picked: now another line, a point the plane goes "
+                "through square to it, or a face or plane to tilt from.")
+        else:
+            self.status_message.setText(
+                "%d point(s) picked: pick %s, or a line to make a plane "
+                "square to it." % (len(picks), "two more" if len(picks) == 1
+                                   else "one more"))
+
     def _plane_tool_pressed(self) -> None:
-        """A face or datum plane was pressed - begin the pull-off drag."""
+        """A face or datum plane was pressed - begin the pull-off drag; or
+        a point or line clicked, to work the plane out from."""
         if not self._plane_tool_active:
+            return
+
+        pos = getattr(self.viewport, "_press_pos", None)
+        pick = (self._plane_geometry_at(pos.x(), pos.y())
+                if pos is not None else None)
+        if pick is not None:
+            self.viewport.clear_selection()
+            self._plane_take_pick(pick)
+            return
+        picks = getattr(self, "_plane_picks", [])
+        if [p[0] for p in picks] == ["line"]:
+            # a line, then a face or plane it runs alongside: the plane
+            # through the line at an angle to that one
+            datum = self.viewport.picked_plane()
+            if datum is not None:
+                ref = {"plane": datum}
+            else:
+                faces = self.viewport.selected_faces()
+                refs = RefSet()
+                if faces:
+                    refs.capture_from(self.document.shape, "face", [faces[0]])
+                if not refs.refs:
+                    return
+                ref = {"face": refs.refs[0].to_dict()}
+            self._plane_from_picks("line_plane", [picks[0][1], ref], "90")
             return
 
         datum = self.viewport.picked_plane()
@@ -3801,6 +3989,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _end_plane_tool(self) -> None:
         self._plane_tool_active = False
         self._plane_base = None
+        self._plane_picks = []
         self.viewport.plane_tool = False
         self.viewport.end_axis_drag()
         self.viewport.hide_plane_picker()
@@ -3835,8 +4024,9 @@ class MainWindow(QtWidgets.QMainWindow):
         plane = STANDARD_PLANES.get(key) or self.document.planes.get(key)
         if plane is None:
             return
+        # kept by name, so the sketch moves when a work plane does
         self._begin_sketch(SketchPlane(plane.origin, plane.normal, plane.xdir,
-                                       plane.name), None)
+                                       plane.name), None, plane_ref=key)
 
     def sketch_on_face(self, face) -> bool:
         """Start a sketch on a flat face, facing the side it is seen from.
@@ -3868,7 +4058,8 @@ class MainWindow(QtWidgets.QMainWindow):
         return True
 
     def _begin_sketch(self, plane: SketchPlane, face_ref,
-                      reverse_face: bool = False) -> None:
+                      reverse_face: bool = False,
+                      plane_ref: str = "") -> None:
         self.close_dialogs()
         self._pending_plane_pick = False
         self.viewport.hide_plane_picker()
@@ -3877,6 +4068,7 @@ class MainWindow(QtWidgets.QMainWindow):
         feature.sketch = Sketch(plane, "Sketch")
         feature.face_ref = face_ref
         feature.reverse_face = reverse_face
+        feature.plane_ref = plane_ref
         self.document.add_feature(feature, self._insert_index())
         feature.sketch.name = feature.name
         self.rebuild()
@@ -3902,7 +4094,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # where the camera was, to go back to when the sketch is finished
         # rather than to a fixed view the person never chose
         self._camera_before_sketch = self.viewport.camera_state()
-        self.editor.references = self._reference_sketches(feature_id)
+        self._set_references(feature_id)
         # a first dimension sizes the sketch only while there is no body
         # yet for it to be out of proportion with
         self.editor.autoscale = self.document.shape is None
@@ -3913,8 +4105,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._draw_visible_planes()      # clears them while sketching
         # swing round to the plane rather than snapping, so it stays obvious
         # which way the model turned
+        span, middle = self._sketches_extent()
         self.viewport.look_at_plane(feature.sketch.plane, fit=True,
-                                    animate=True)
+                                    animate=True, default_span=span,
+                                    around=middle)
         self.viewport.refresh_grid()
         self.ribbon.set_tab_visible(TAB_SKETCH, True)
         self.ribbon.show_tab(TAB_SKETCH)
@@ -5900,19 +6094,21 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.editor.active or self.editor.tool != "project":
             return
         picked = self.viewport.selected_shapes()
+        source = None
         if not picked:
             # not a model edge: a line of another sketch on show, which
-            # Inventor projects the same way
+            # Inventor projects the same way, kept tied to that line
             pos = getattr(self.viewport, "_press_pos", None)
-            edge = (self._reference_edge_at(pos.x(), pos.y())
-                    if pos is not None else None)
-            if edge is None:
+            found = (self._reference_edge_at(pos.x(), pos.y(), True)
+                     if pos is not None else None)
+            if found is None:
                 return
+            edge, source = found
             picked = [edge]
         made = 0
         for shape in picked:
             made += self.editor.project_one(
-                shape, body=self.document.shape)
+                shape, body=self.document.shape, source=source)
         self.viewport.clear_selection()
         self.status_message.setStyleSheet("")
         if made:
@@ -5926,11 +6122,36 @@ class MainWindow(QtWidgets.QMainWindow):
 
     REFERENCE_PICK_PIXELS = 10
 
-    def _reference_edge_at(self, x: int, y: int):
+    def _sketches_extent(self):
+        """How big the part's sketches are, and where their middle is: what
+        a sketch started in a part with no solid yet is framed on, rather
+        than a patch round the origin the size of a coin.  (180, None)
+        when there is nothing drawn."""
+        lo, hi = [math.inf] * 3, [-math.inf] * 3
+        for sketch in self.document.all_sketches().values():
+            for p in sketch.points.values():
+                q = sketch.plane.to_3d(p.x, p.y)
+                lo = [min(a, b) for a, b in zip(lo, q)]
+                hi = [max(a, b) for a, b in zip(hi, q)]
+        if lo[0] == math.inf:
+            return 180.0, None
+        size = max(b - a for a, b in zip(lo, hi))
+        return max(180.0, size * 1.25), tuple((a + b) / 2
+                                              for a, b in zip(lo, hi))
+
+    def _feature_id_of_sketch(self, sketch) -> int:
+        """The feature a sketch object belongs to, or 0."""
+        return next((f.id for f in self.document.sketch_features()
+                     if f.sketch is sketch), 0)
+
+    def _reference_edge_at(self, x: int, y: int, with_source: bool = False):
         """The edge of a visible sketch (not the one being edited) under a
-        click in the view, within a few pixels, or None."""
+        click in the view, within a few pixels, or None; with
+        ``with_source``, (edge, {"sketch": id, "entity": id}) to tie a
+        projection of it to that line."""
         from OCP.BRepAdaptor import BRepAdaptor_Curve
         best, best_d = None, self.REFERENCE_PICK_PIXELS
+        source = None
         for sketch in getattr(self.editor, "references", None) or []:
             for eid, entity in sketch.entities.items():
                 if entity.kind == "point":
@@ -5956,7 +6177,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     d = math.hypot(x - (ax + t * dx), y - (ay + t * dy))
                     if d < best_d:
                         best, best_d = edge, d
-        return best
+                        source = {"sketch": self._feature_id_of_sketch(sketch),
+                                  "entity": eid}
+        if not with_source:
+            return best
+        return None if best is None else (best, source)
 
     def _plane_from_selected_face(self) -> None:
         """Build a work plane straight off the face that was right-clicked."""

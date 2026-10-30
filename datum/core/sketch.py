@@ -188,7 +188,9 @@ class Projection:
     """
 
     id: int = 0
-    source: Dict[str, Any] = field(default_factory=dict)   # ShapeRef.to_dict
+    # ShapeRef.to_dict for a piece of the body; {"sketch": id, "entity":
+    # id} for a line or curve of another sketch
+    source: Dict[str, Any] = field(default_factory=dict)
     entities: List[int] = field(default_factory=list)
     construction: bool = False
     # set when the source can no longer be found, so it can be shown as
@@ -1455,7 +1457,8 @@ class Sketch:
 
     def add_projection(self, source: Dict[str, Any], entities: List[int],
                        construction: bool = False) -> "Projection":
-        """Record that these entities are a shadow of that bit of model."""
+        """Record that these entities are a shadow of that bit of model, or
+        of another sketch."""
         record = Projection(id=self._new_id(), source=dict(source or {}),
                             entities=list(entities),
                             construction=construction)

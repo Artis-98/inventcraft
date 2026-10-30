@@ -2131,12 +2131,20 @@ class WorkPlaneDialog(FeatureDialog):
         QtCore.QTimer.singleShot(0, self.host.start_work_plane)
 
     def _sync_base(self):
+        picked = self.feature.mode != "offset"
         on_face = self.feature.face_ref is not None
-        self.base_label.setText("Model face" if on_face
-                                else "%s Plane" % self.feature.base)
-        self.base_label.setStyleSheet("color: %s;" % (C.ok if on_face
-                                                      else C.text))
-        self.base.setEnabled(not on_face)
+        if picked:
+            # made from picks: what from, and the angle only where there is
+            # one to set
+            self.base_label.setText("From %s" % self.feature.made_from)
+        else:
+            self.base_label.setText("Model face" if on_face
+                                    else "%s Plane" % self.feature.base)
+        self.base_label.setStyleSheet("color: %s;" % (
+            C.ok if on_face or picked else C.text))
+        self.base.setEnabled(not on_face and not picked)
+        self.angle.setEnabled(not picked
+                              or self.feature.mode == "line_plane")
 
     def load(self):
         self.offset.set_text(self.feature.offset)
@@ -2145,7 +2153,7 @@ class WorkPlaneDialog(FeatureDialog):
         self._sync_base()
 
     def store(self):
-        if self.feature.face_ref is None:
+        if self.feature.face_ref is None and self.feature.mode == "offset":
             self.feature.base = self.base.currentData()
         self.feature.offset = self.offset.text()
         self.feature.angle = self.angle.text()

@@ -1840,8 +1840,11 @@ class Viewport(QtWidgets.QWidget):
 
     def look_at_plane(self, plane: SketchPlane, fit: bool = True,
                       default_span: float = 180.0,
-                      animate: bool = False) -> None:
-        """Orient the camera square-on to a sketch plane."""
+                      animate: bool = False,
+                      around: Optional[Sequence[float]] = None) -> None:
+        """Orient the camera square-on to a sketch plane.  With no model to
+        fit, ``around`` is the middle of what there is to see (the plane's
+        origin if not given) and ``default_span`` how much of it."""
         if not self._ready:
             return
 
@@ -1856,7 +1859,9 @@ class Viewport(QtWidgets.QWidget):
                 self.fit_all()
             else:
                 # nothing to fit to yet, so frame a sensible working area
-                self.set_span(default_span)
+                # on the plane itself, wherever it is
+                self.set_span(default_span, around if around is not None
+                              else plane.origin)
             self.redraw()
 
         if animate:
@@ -2059,13 +2064,25 @@ class Viewport(QtWidgets.QWidget):
         self.redraw()
         return True
 
-    def set_span(self, millimetres: float) -> None:
-        """Frame roughly ``millimetres`` across the viewport."""
+    def set_span(self, millimetres: float,
+                 centre: Sequence[float] = (0.0, 0.0, 0.0)) -> None:
+        """Frame roughly ``millimetres`` across the viewport, about
+        ``centre``, looking the way the camera already looks.
+
+        The eye moves with the centre.  Moving the centre alone turned the
+        view: a sketch started on a plane away from the origin, in a part
+        with no solid yet, was looked at askew, from where the eye had
+        been towards the origin."""
         if not self._ready:
             return
         try:
             cam = self.view.Camera()
-            cam.SetCenter(gp_Pnt(0, 0, 0))
+            d = cam.Direction()
+            far = cam.Distance()
+            c = gp_Pnt(*[float(v) for v in centre])
+            eye = gp_Pnt(c.X() - d.X() * far, c.Y() - d.Y() * far,
+                         c.Z() - d.Z() * far)
+            cam.SetEyeAndCenter(eye, c)
             self.view.SetSize(float(millimetres))
         except Exception:
             pass
