@@ -243,6 +243,9 @@ class Viewport(QtWidgets.QWidget):
     component_drag_started = QtCore.Signal(int)             # occurrence id
     component_drag_moved = QtCore.Signal(object)            # 3 world floats
     component_drag_finished = QtCore.Signal()
+    # the width on screen changed: a zoom, a fit; what is sized to the
+    # screen, a drag arrow, draws itself again to stay that size
+    span_changed = QtCore.Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -266,6 +269,11 @@ class Viewport(QtWidgets.QWidget):
         self._model_chunks: List[AIS_Shape] = []
         # bodies on screen still to be made pickable; see ARM_NOW
         self._arming: Tuple[List[AIS_Shape], Tuple[int, ...]] = ([], ())
+        self._seen_span = 0.0
+        self._span_timer = QtCore.QTimer(self)
+        self._span_timer.setInterval(60)
+        self._span_timer.timeout.connect(self._watch_span)
+        self._span_timer.start()
         self._arm_timer = QtCore.QTimer(self)
         self._arm_timer.setSingleShot(True)
         self._arm_timer.setInterval(0)
@@ -2197,6 +2205,18 @@ class Viewport(QtWidgets.QWidget):
             except Exception:
                 pass
 
+    def over_all(self, drawn) -> None:
+        """Draw these over everything, a see-through preview too, which
+        would otherwise wash a drag arrow inside it out to a ghost."""
+        if not self._ready:
+            return
+        from OCP.Graphic3d import Graphic3d_ZLayerId_TopOSD
+        for ais in drawn:
+            try:
+                self.context.SetZLayer(ais, Graphic3d_ZLayerId_TopOSD)
+            except Exception:
+                pass
+
     def remove_drawn(self, drawn) -> None:
         """Take away what collecting() handed out."""
         if not self._ready:
@@ -2835,8 +2855,8 @@ class Viewport(QtWidgets.QWidget):
         if length <= 0.0:
             length = max(2.0, self.view_span() * 0.11)
 
-        head = length * 0.34
-        radius = head * 0.42
+        head = length * 0.26
+        radius = head * 0.3
         tip = [origin[i] + unit[i] * length for i in range(3)]
         neck = [origin[i] + unit[i] * (length - head) for i in range(3)]
 
@@ -2854,7 +2874,24 @@ class Viewport(QtWidgets.QWidget):
             # solid, or the head reads as a wireframe cone rather than as
             # the point of an arrow
             ais.SetDisplayMode(int(AIS_DisplayMode.AIS_Shaded))
+            # flat, in the arrow's own colour: lit, it washed out to a pale
+            # cone that looked see-through and was hard to find to grab
+            try:
+                from OCP.Graphic3d import Graphic3d_TypeOfShadingModel
+                drawer = ais.Attributes()
+                drawer.SetupOwnShadingAspect()
+                aspect = drawer.ShadingAspect().Aspect()
+                aspect.SetShadingModel(
+                    Graphic3d_TypeOfShadingModel.Graphic3d_TypeOfShadingModel_Unlit)
+                aspect.SetInteriorColor(_col(colour))
+                drawer.SetFaceBoundaryDraw(False)
+            except Exception:
+                pass
             out.append(self._add(ais, preview))
+            # finite, or OCCT draws the head as an outline only, the pale
+            # see-through cone it used to be
+            ais.SetInfiniteState(False)
+            self.context.Redisplay(ais, False)
         except Exception:
             # without a head it is still a line pointing the right way, which
             # is most of the information
@@ -3401,6 +3438,16 @@ class Viewport(QtWidgets.QWidget):
             return (0, 0)
         ratio = self._occt_ratio()
         return int(round(x / ratio)), int(round(y / ratio))
+
+    def _watch_span(self) -> None:
+        if not self._ready:
+            return
+        span = self.view_span()
+        if span <= 0:
+            return
+        if abs(span - self._seen_span) > self._seen_span * 0.01:
+            self._seen_span = span
+            self.span_changed.emit()
 
     def view_span(self) -> float:
         """Width of the visible area in model units."""

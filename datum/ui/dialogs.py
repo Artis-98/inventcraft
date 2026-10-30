@@ -652,6 +652,8 @@ class ExtrudeDialog(FeatureDialog):
             viewport.handle_drag_started.connect(self._handle_started)
             viewport.axis_drag_moved.connect(self._handle_moved)
             viewport.axis_drag_finished.connect(self._handle_finished)
+            # the arrow stays the same size on screen, zoomed in or out
+            viewport.span_changed.connect(self._draw_handle)
 
     # -- the arrow in the view ------------------------------------------------
     #
@@ -715,14 +717,14 @@ class ExtrudeDialog(FeatureDialog):
             return
         with viewport.collecting() as drawn:
             viewport.draw_arrow(tip, axis[1], C.annotation, preview=False,
-                                width=4.0)
+                                width=2.5)
             label = unitlib.length_text(self.distance.value(),
                                         self.distance.doc_unit)
             length = max(2.0, viewport.view_span() * 0.11)
             beside = tuple(tip[i] + axis[1][i] * length * 1.15
                            for i in range(3))
             viewport.draw_text(label, beside, C.annotation, 16.0)
-        viewport.on_top(drawn)
+        viewport.over_all(drawn)
         self._handle_drawn = drawn
         viewport.redraw()
 
@@ -807,7 +809,8 @@ class ExtrudeDialog(FeatureDialog):
                               self._handle_started),
                              (viewport.axis_drag_moved, self._handle_moved),
                              (viewport.axis_drag_finished,
-                              self._handle_finished)):
+                              self._handle_finished),
+                             (viewport.span_changed, self._draw_handle)):
             try:
                 signal.disconnect(slot)
             except (RuntimeError, TypeError):
@@ -2640,6 +2643,8 @@ class FlangeDialog(FeatureDialog):
             viewport.handle_drag_started.connect(self._handle_started)
             viewport.axis_drag_moved.connect(self._handle_moved)
             viewport.axis_drag_finished.connect(self._handle_finished)
+            # the arrow stays the same size on screen, zoomed in or out
+            viewport.span_changed.connect(self._draw_handle)
 
     def build(self):
         self.edges = self.picker("Select edges", "edge", "edge",
@@ -2754,14 +2759,14 @@ class FlangeDialog(FeatureDialog):
             return
         with viewport.collecting() as drawn:
             viewport.draw_arrow(tip, axis[1], C.annotation, preview=False,
-                                width=4.0)
+                                width=2.5)
             label = unitlib.length_text(self.height.value(),
                                         self.height.doc_unit)
             length = max(2.0, viewport.view_span() * 0.11)
             beside = tuple(tip[i] + axis[1][i] * length * 1.15
                            for i in range(3))
             viewport.draw_text(label, beside, C.annotation, 16.0)
-        viewport.on_top(drawn)
+        viewport.over_all(drawn)
         self._handle_drawn = drawn
         viewport.redraw()
 
@@ -2825,7 +2830,8 @@ class FlangeDialog(FeatureDialog):
                               self._handle_started),
                              (viewport.axis_drag_moved, self._handle_moved),
                              (viewport.axis_drag_finished,
-                              self._handle_finished)):
+                              self._handle_finished),
+                             (viewport.span_changed, self._draw_handle)):
             try:
                 signal.disconnect(slot)
             except (RuntimeError, TypeError):
