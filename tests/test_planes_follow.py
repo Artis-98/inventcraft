@@ -315,6 +315,35 @@ while it.value():
 check("a sketch made in it shows in the tree straight away",
       any(n.startswith("Sketch") for n in names), names)
 
+print("Split along a work plane")
+from datum.core.features import SplitFeature                     # noqa: E402
+
+win.finish_in_place()
+settle(400)
+cutter = WorkPlaneFeature(name="Cutter")
+cutter.base, cutter.offset = "YZ", "15"
+block.add_feature(cutter)
+block.rebuild()
+block.save(block_path)
+win.open_path(block_path)
+settle(900)
+win.new_feature(SplitFeature)
+settle(400)
+split = win._active_dialog
+split.tool_pick.set_picking(True)
+offered = sorted(getattr(win.viewport, "_plane_picker", {}) or {})
+check("its plane button offers the planes to click, the work plane too",
+      "Cutter" in offered and "XY" in offered, offered)
+fid = next(f.id for f in win.document.features if f.name == "Cutter")
+win._tree_item_clicked("feature", str(fid))
+check("the work plane clicked in the tree is the tool",
+      split.plane.currentData() == "Cutter" and not split.tool_pick.picking,
+      split.plane.currentData())
+split.cancel()
+settle(300)
+check("and the planes it offered go when it closes",
+      not getattr(win.viewport, "_plane_picker", None))
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))

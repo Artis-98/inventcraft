@@ -1893,9 +1893,9 @@ class SplitDialog(FeatureDialog):
         self.form.add_section("Input Geometry")
         self.plane = self.plane_combo(self.feature.plane)
         self.plane.setToolTip(
-            "An origin plane or a work plane to split along, or pick a flat "
-            "face of the part with the button beside it")
-        self.tool_pick = SelectionField("Select face")
+            "An origin plane or a work plane to split along, or pick one, or "
+            "a flat face of the part, with the button beside it")
+        self.tool_pick = SelectionField("Select plane")
         self.tool_pick.pick_toggled.connect(
             lambda on: self._arm(self.tool_pick if on else None))
         self.tool_pick.cleared.connect(self._clear_tool)
@@ -1935,6 +1935,48 @@ class SplitDialog(FeatureDialog):
                 candidate.set_picking(False)
                 candidate.blockSignals(False)
         self.host.set_pick_mode("face" if field is not None else None)
+        # picking the tool, the planes it can be are offered to click as
+        # well as the part's faces: the origin's and the work planes made
+        # before it, as Section View offers them
+        viewport = self.host.viewport
+        if field is self.tool_pick:
+            planes = {name: plane for name, plane in self.doc.planes.items()
+                      if self.plane.findData(name) >= 0}
+            viewport.show_plane_picker(planes, self.host._picker_size())
+        else:
+            viewport.hide_plane_picker()
+
+    def _take_plane(self, name: str) -> bool:
+        """The tool set to an origin or work plane, by name."""
+        index = self.plane.findData(name)
+        if index < 0:
+            return False
+        self.plane.setCurrentIndex(index)
+        self.feature.tool = RefSet()
+        self.tool_pick.set_count(0, "face")
+        self.tool_pick.count.setText(self.plane.currentText())
+        if self.tool_pick.picking:
+            self.tool_pick.set_picking(False)
+        self._sync_enabled()
+        self.preview()
+        return True
+
+    def on_tree_pick(self, kind: str, key: str) -> bool:
+        """An origin plane or a work plane clicked in the tree: the tool."""
+        if kind == "plane":
+            return self._take_plane(str(key))
+        if kind == "feature":
+            try:
+                made = self.doc.feature(int(key))
+            except (TypeError, ValueError):
+                made = None
+            if isinstance(made, WorkPlaneFeature):
+                return self._take_plane(made.name)
+        return False
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self.host.viewport.hide_plane_picker()
+        super().closeEvent(event)
 
     def wants_selection(self):
         return ("face" if self.tool_pick.picking or self.faces_pick.picking
@@ -1943,6 +1985,12 @@ class SplitDialog(FeatureDialog):
     def on_selection(self):
         if self._in_selection:
             return
+        if self.tool_pick.picking:
+            datum = self.host.viewport.picked_plane()
+            if datum is not None:
+                self._take_plane(datum)
+                self.host.viewport.clear_selection()
+                return
         picked = self.host.viewport.selected_faces()
         base = self.host.pick_shape()
         if not picked or base is None:
