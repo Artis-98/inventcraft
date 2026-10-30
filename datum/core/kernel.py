@@ -2030,6 +2030,23 @@ def shell(shape: TopoDS_Shape, open_faces: Sequence[TopoDS_Face],
     """
     if abs(thickness) < 1e-9:
         raise KernelError("shell thickness is zero")
+    t = abs(thickness)
+
+    # A boolean's seams first: two coplanar faces with a line between them
+    # is what the thick-solid builder trips over most, so they are merged,
+    # and the faces to open followed to what they became.
+    shape, open_faces = _unified_with(shape, list(open_faces))
+    before = volume(shape)
+
+    def hollowed(result) -> bool:
+        # OCCT says Done and hands the solid back untouched more often than
+        # it fails outright: only a solid that lost material is a shell
+        if not is_valid(result) or not explore(result, TopAbs_SOLID):
+            return False
+        if not BRepCheck_Analyzer(result).IsValid():
+            return False
+        after = volume(result)
+        return 0 < after < before * (1 - 1e-6)
 
     removed = TopTools_ListOfShape()
     for f in open_faces:
@@ -2044,26 +2061,147 @@ def shell(shape: TopoDS_Shape, open_faces: Sequence[TopoDS_Face],
     )
 
     last_error = ""
-    for tolerance, intersect, join in attempts:
+    if open_faces:
+        for tolerance, intersect, join in attempts:
+            try:
+                mk = BRepOffsetAPI_MakeThickSolid()
+                mk.MakeThickSolidByJoin(shape, removed, -t, tolerance,
+                                        BRepOffset_Mode.BRepOffset_Skin,
+                                        intersect, False, join, False)
+                mk.Build()
+                if mk.IsDone() and hollowed(mk.Shape()):
+                    return check(mk.Shape(), "Shell")
+            except Exception as exc:
+                last_error = str(exc)
+
+    # The other way, which asks less of OCCT: the solid shrunk by the wall
+    # is the cavity, reaching out through each open face, and the cavity
+    # cut from the solid is the shell. With no face open it is a closed
+    # hollow, which is the thick-solid builder's weakest case of all.
+    for join in (GeomAbs_JoinType.GeomAbs_Arc,
+                 GeomAbs_JoinType.GeomAbs_Intersection):
+        inner = _offset_solid(shape, -t, join)
+        if inner is None:
+            continue
+        cavity = inner
+        for face in open_faces:
+            mouth = _mouth(inner, face, t)
+            if mouth is not None:
+                try:
+                    cavity = BRepAlgoAPI_Fuse(cavity, mouth).Shape()
+                except Exception:
+                    pass
         try:
-            mk = BRepOffsetAPI_MakeThickSolid()
-            mk.MakeThickSolidByJoin(shape, removed, -abs(thickness), tolerance,
-                                    BRepOffset_Mode.BRepOffset_Skin,
-                                    intersect, False, join, False)
-            mk.Build()
-            if not mk.IsDone():
-                continue
-            result = mk.Shape()
-            if not is_valid(result) or not explore(result, TopAbs_SOLID):
-                continue
-            return check(result, "Shell")
+            result = unify(BRepAlgoAPI_Cut(shape, cavity).Shape())
         except Exception as exc:
             last_error = str(exc)
             continue
+        if hollowed(result):
+            return check(result, "Shell")
 
     raise KernelError(
         "shell failed - the wall is probably too thick for the smallest "
         "feature on the body%s" % (": %s" % last_error if last_error else ""))
+
+
+def _unified_with(shape: TopoDS_Shape, keep: List[TopoDS_Face]):
+    """``unify`` the shape, and the faces given as the faces they merged
+    into; the shape as it was when that cannot be followed."""
+    try:
+        tool = ShapeUpgrade_UnifySameDomain(shape, True, True, False)
+        tool.SetSafeInputMode(True)
+        tool.Build()
+        result = tool.Shape()
+        if (not is_valid(result) or not explore(result, TopAbs_SOLID)
+                or abs(volume(result) - volume(shape))
+                > max(1e-6, abs(volume(shape)) * 1e-9)):
+            return shape, keep
+        history = tool.History()
+        faces_now: List[TopoDS_Face] = []
+        for face in keep:
+            if history.IsRemoved(face):
+                return shape, keep
+            made = list(history.Modified(face))
+            for f in (made or [face]):
+                f = TopoDS.Face_s(f)
+                if not any(f.IsSame(g) for g in faces_now):
+                    faces_now.append(f)
+        return result, faces_now
+    except Exception:
+        return shape, keep
+
+
+def _offset_solid(shape: TopoDS_Shape, by: float, join) -> Optional[TopoDS_Shape]:
+    """The solid grown, or shrunk for a negative ``by``; None when OCCT
+    cannot."""
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffsetShape
+    for tolerance in (1e-4, 1e-3):
+        try:
+            mk = BRepOffsetAPI_MakeOffsetShape()
+            mk.PerformByJoin(shape, by, tolerance,
+                             BRepOffset_Mode.BRepOffset_Skin, True, False,
+                             join, False)
+            if not mk.IsDone():
+                continue
+            out = mk.Shape()
+            solids_ = explore(out, TopAbs_SOLID)
+            if not solids_:
+                # an offset of a solid's skin can come back as its shell
+                from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeSolid
+                from OCP.TopAbs import TopAbs_SHELL
+                shells = explore(out, TopAbs_SHELL)
+                if len(shells) != 1:
+                    continue
+                out = BRepBuilderAPI_MakeSolid(TopoDS.Shell_s(shells[0])).Shape()
+            if volume(out) < 0:
+                out.Reverse()
+            if is_valid(out) and volume(out) > 1e-9:
+                return out
+        except Exception:
+            continue
+    return None
+
+
+def _mouth(inner: TopoDS_Shape, face: TopoDS_Face, t: float
+           ) -> Optional[TopoDS_Shape]:
+    """What opens the cavity out through a flat face: the cavity's own face
+    a wall in from it, pushed out past it."""
+    plane = _face_plane(face)
+    if plane is None:
+        return None
+    origin, normal = plane
+    for candidate in faces(inner):
+        other = _face_plane(candidate)
+        if other is None:
+            continue
+        o2, n2 = other
+        if sum(a * b for a, b in zip(normal, n2)) < 1 - 1e-6:
+            continue
+        gap = sum((a - b) * n for a, b, n in zip(origin, o2, normal))
+        if abs(gap - t) > max(1e-4, t * 1e-4):
+            continue
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
+        reach = t * 1.5 + 1.0
+        return BRepPrimAPI_MakePrism(
+            candidate, vec([n * reach for n in normal])).Shape()
+    return None
+
+
+def _face_plane(face: TopoDS_Shape):
+    """A flat face's point and outward normal; None when it is not flat."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Plane
+    from OCP.TopAbs import TopAbs_REVERSED
+    face = TopoDS.Face_s(face)
+    surface = BRepAdaptor_Surface(face)
+    if surface.GetType() != GeomAbs_Plane:
+        return None
+    pln = surface.Plane()
+    loc, d = pln.Location(), pln.Axis().Direction()
+    n = [d.X(), d.Y(), d.Z()]
+    if face.Orientation() == TopAbs_REVERSED:
+        n = [-c for c in n]
+    return (loc.X(), loc.Y(), loc.Z()), n
 
 
 def translate(shape: TopoDS_Shape, delta: Sequence[float]) -> TopoDS_Shape:
