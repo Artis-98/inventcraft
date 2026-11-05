@@ -445,8 +445,9 @@ check("and opens both sets of endings", all(
 check("and clears DATUM's old shortcuts", r"{autodesktop}\DATUM.lnk" in iss)
 workflow = read(".github/workflows/linux.yml")
 check("the Linux archive is no longer a preview",
-      "InventCraft-${{ steps.version.outputs.version }}-linux-x86_64.tar.gz"
-      in workflow and "preview.tar.gz" not in workflow)
+      "InventCraft-${{ steps.version.outputs.version }}-linux-${{ matrix.arch }}.tar.gz"
+      in workflow and "arch: x86_64" in workflow
+      and "preview.tar.gz" not in workflow)
 check("and its name is the one the release step fetches",
       'LINUX_ARCHIVE = "InventCraft-%s-linux-x86_64.tar.gz"' in release_py)
 script = read("tools/linux/install.sh")
