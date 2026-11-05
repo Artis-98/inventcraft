@@ -309,6 +309,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # The ribbon goes in the menu-widget slot so it spans the full window
         # width above the docks, the way Inventor lays its ribbon out.
         self.ribbon = Ribbon(self)
+        self.ribbon.suggest_button.clicked.connect(self.send_feedback)
+        # anything sent while offline goes now, quietly
+        from . import feedback
+        QtCore.QTimer.singleShot(8000, feedback.flush_queue)
         self.setMenuWidget(self.ribbon)
         self.ribbon.show_window_buttons(self._custom_frame)
         self.ribbon.minimise_requested.connect(self.showMinimized)
@@ -1936,6 +1940,10 @@ class MainWindow(QtWidgets.QMainWindow):
         document = cls()
         document.units = prefs.prefs().units
         return document
+
+    def send_feedback(self) -> None:
+        from .feedback import FeedbackDialog
+        FeedbackDialog(self).exec()
 
     def _offer_resolve(self, document, broken, what: str) -> bool:
         """Ask whether to go and find files that have moved."""

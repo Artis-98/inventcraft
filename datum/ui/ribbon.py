@@ -473,6 +473,21 @@ class Ribbon(QtWidgets.QWidget):
             "color: %s; font-size: 11px;" % C.text_dim)
         strip_layout.addWidget(self.status_hint)
 
+        # under the window's own buttons, at the right of the tab strip: a
+        # suggestion or a problem, sent straight to the people building it
+        self.suggest_button = QtWidgets.QToolButton(self.strip)
+        self.suggest_button.setText("Suggest or report")
+        self.suggest_button.setToolTip(
+            "Send a suggestion or a problem straight to IITEG")
+        self.suggest_button.setCursor(QtCore.Qt.PointingHandCursor)
+        self.suggest_button.setStyleSheet(
+            "QToolButton { color: %s; border: none; padding: 3px 8px;"
+            " font-size: 11px; }"
+            "QToolButton:hover { color: %s; background: %s; }"
+            % (C.text_dim, C.text, C.accent_soft))
+        strip_layout.addSpacing(10)
+        strip_layout.addWidget(self.suggest_button)
+
         root.addWidget(self.strip)
 
         self.stack = QtWidgets.QStackedWidget(self)
