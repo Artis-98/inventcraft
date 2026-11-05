@@ -2508,6 +2508,72 @@ def axis_from_shape(shape) -> Optional[WorkAxis]:
 
 
 @dataclass
+class CombineFeature(Feature):
+    """Inventor's Combine: solids already made, joined, cut or intersected.
+
+    The base solid keeps its name and takes the result; the tool solids
+    are used up, unless Keep Toolbody says they stay as they were.
+    """
+
+    type_name: str = "combine"
+    icon: str = "combine"
+    name: str = "Combine"
+    base: str = ""
+    tools: List[str] = field(default_factory=list)
+    operation: str = JOIN            # join / cut / intersect
+    keep_tools: bool = False
+
+    def build(self, ctx: BuildContext) -> None:
+        if not self.base:
+            raise FeatureError("%s: pick the base solid" % self.name)
+        if not self.tools:
+            raise FeatureError("%s: pick the solids to combine with it"
+                               % self.name)
+        base = ctx.body(self.base)
+        if base is None or not base.valid:
+            raise FeatureError("%s: the solid %s is gone"
+                               % (self.name, self.base))
+        if self.operation not in (JOIN, CUT, INTERSECT):
+            raise FeatureError("%s: no such operation %s"
+                               % (self.name, self.operation))
+        used = []
+        for name in self.tools:
+            if name == self.base:
+                continue
+            tool = ctx.body(name)
+            if tool is None or not tool.valid:
+                raise FeatureError("%s: the solid %s is gone"
+                                   % (self.name, name))
+            try:
+                base.shape = kernel.combine(base.shape, tool.shape,
+                                            self.operation)
+            except KernelError as exc:
+                raise FeatureError("%s: %s" % (self.name, exc)) from exc
+            used.append(tool)
+        if not kernel.is_valid(base.shape):
+            raise FeatureError("%s: nothing is left of %s"
+                               % (self.name, self.base))
+        if not self.keep_tools:
+            ctx.bodies = [b for b in ctx.bodies if b not in used]
+
+    def summary(self) -> str:
+        return "%s: %s %s %s" % (self.name, self.base,
+                                 OPERATION_LABELS.get(self.operation,
+                                                      self.operation).lower(),
+                                 ", ".join(self.tools) or "nothing")
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"base": self.base, "tools": list(self.tools),
+                "operation": self.operation, "keep_tools": self.keep_tools}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.base = str(data.get("base", ""))
+        self.tools = [str(t) for t in data.get("tools") or [] if t]
+        self.operation = data.get("operation", JOIN)
+        self.keep_tools = bool(data.get("keep_tools", False))
+
+
+@dataclass
 class SplitFeature(Feature):
     """Inventor's Split: faces, or whole solids, cut along a plane.
 
@@ -3578,6 +3644,6 @@ FEATURE_TYPES: Dict[str, type] = {
         MirrorFeature, PatternFeature, MoveFeature, CodeFeature,
         SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
         HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
-        FrameMemberFeature, FrameEndsFeature,
+        FrameMemberFeature, FrameEndsFeature, CombineFeature,
     )
 }

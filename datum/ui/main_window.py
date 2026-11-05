@@ -26,7 +26,8 @@ from ..core.features import (
     ImportFeature, LoftFeature, MirrorFeature, MoveFeature, PatternFeature,
     PrimitiveFeature, RevolveFeature, ShellFeature, SketchFeature,
     SweepFeature, WorkPlaneFeature, plane_from_face, CodeFeature,
-    WorkAxisFeature, SplitFeature, EmbossFeature, SheetFaceFeature,
+    WorkAxisFeature, SplitFeature, CombineFeature, EmbossFeature,
+    SheetFaceFeature,
     FlangeFeature, HemFeature, FoldFeature, ContourFlangeFeature,
     CornerSeamFeature,
 )
@@ -515,6 +516,10 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.new_feature(SplitFeature))
         panel.add_small("move", "Move Body").clicked.connect(
             lambda: self.new_feature(MoveFeature))
+        panel.add_small("combine", "Combine",
+                        "Join, cut or intersect solids already made"
+                        ).clicked.connect(
+            lambda: self.new_feature(CombineFeature))
 
         panel = model.add_panel("Work Features")
         panel.add_big("plane", "Plane",

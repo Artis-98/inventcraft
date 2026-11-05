@@ -25,7 +25,8 @@ from ..core.features import (
     PatternFeature, PrimitiveFeature, RevolveFeature, ShellFeature,
     SketchFeature, SweepFeature, WorkPlaneFeature, CodeFeature,
     AXIS_PREFIX, WorkAxisFeature,
-    SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
+    SplitFeature, CombineFeature, EmbossFeature, SheetFaceFeature,
+    FlangeFeature,
     HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
     FrameMemberFeature,
 )
@@ -2194,6 +2195,107 @@ class MirrorDialog(FeatureDialog):
         self.feature.plane_ref = self.plane.ref
 
 
+class CombineDialog(FeatureDialog):
+    """Inventor's Combine: a base solid, the solids it is combined with,
+    Join, Cut or Intersect, and whether the tool solids are kept."""
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Combine", "combine", is_new,
+                         snapshot)
+
+    def build(self):
+        names = (self.doc.bodies_before(self.feature.id)
+                 if hasattr(self.doc, "bodies_before") else [])
+        self._names = names
+
+        def base_from_view(shapes):
+            for shape in shapes:
+                name = self.doc.solid_of(shape, self.feature.id)
+                if name is not None:
+                    self._take_base(name)
+                    return
+
+        def base_from_tree(kind, key):
+            return kind == "body" and self._take_base(str(key))
+
+        self.base_pick = self.picker("Select base", "solid", "body",
+                                     base_from_view, base_from_tree)
+        self.base_pick.setToolTip("The solid that takes the result")
+        self.base_pick.cleared.connect(lambda: self._take_base(""))
+        self.form.add("Base", self.base_pick)
+
+        self.tools = self.solids_picker(self.feature.tools)
+        self.tools.setToolTip("The solids combined with the base")
+        self.form.add("Toolbodies", self.tools)
+
+        self.operation = SegmentedControl(
+            [(op, OP_ICONS[op], "%s - %s" % (OPERATION_LABELS[op],
+                                             OPERATION_HINTS[op]))
+             for op in (JOIN, CUT, INTERSECT)])
+        self.bind(self.operation)
+        self.form.add("Operation", self.operation)
+
+        self.keep = QtWidgets.QCheckBox("Keep Toolbody")
+        self.keep.setToolTip("Leave the tool solids in the part as they "
+                             "were, instead of using them up")
+        self.bind(self.keep)
+        self.form.add("", self.keep)
+        QtCore.QTimer.singleShot(0, self._arm_first)
+
+    def _arm_first(self) -> None:
+        if self._closed:
+            return
+        if not self.feature.base:
+            self.base_pick.set_picking(True)
+        elif not self.feature.tools:
+            self.tools.set_picking(True)
+
+    def _take_base(self, name: str) -> bool:
+        if name and name not in self._names:
+            return False
+        self.feature.base = name
+        if name in self._picked_solids:
+            self._picked_solids.remove(name)
+            self.tools.set_count(len(self._picked_solids), "solid")
+        self.base_pick.set_count(1 if name else 0, "solid")
+        if name:
+            self.base_pick.count.setText(name)
+            # the base taken, the tools are what is picked next
+            self.tools.set_picking(True)
+        self.preview()
+        return True
+
+    def picked_solids(self) -> List[str]:
+        return [n for n in super().picked_solids() if n != self.feature.base]
+
+    def _mark_solids(self) -> None:
+        field = getattr(self, "_solids_field", None)
+        if field is None:
+            return
+        shapes = []
+        if not self._closed and (field.picking or self.base_pick.picking):
+            names = list(self.picked_solids())
+            if self.feature.base:
+                names.append(self.feature.base)
+            try:
+                shapes = self.doc.solid_shapes(names, self.feature.id)
+            except Exception:
+                shapes = []
+        self.host.viewport.mark_solids(shapes)
+
+    def load(self):
+        self.operation.set_value(self.feature.operation)
+        self.keep.setChecked(self.feature.keep_tools)
+        if self.feature.base:
+            self.base_pick.set_count(1, "solid")
+            self.base_pick.count.setText(self.feature.base)
+
+    def store(self):
+        self.feature.tools = self.picked_solids()
+        self.feature.operation = self.operation.value()
+        self.feature.keep_tools = self.keep.isChecked()
+
+
 class SplitDialog(FeatureDialog):
     """Inventor's Split: the tool, the method, and what it splits."""
 
@@ -3280,6 +3382,7 @@ DIALOGS = {
     WorkAxisFeature: WorkAxisDialog,
     MoveFeature: MoveDialog,
     SplitFeature: SplitDialog,
+    CombineFeature: CombineDialog,
     EmbossFeature: EmbossDialog,
     SheetFaceFeature: SheetFaceDialog,
     FlangeFeature: FlangeDialog,

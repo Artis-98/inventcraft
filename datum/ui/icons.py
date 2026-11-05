@@ -732,6 +732,13 @@ def _i_shell(p):
     p.drawPolygon(_poly((7, 9.4), (12, 6.9), (17, 9.4), (12, 11.9)))
 
 
+def _i_combine(p):
+    # two blocks overlapping, the second taken into the first
+    _block(p, 3, 10, 10, 8, 3.0)
+    _pen(p, _ACCENT, 1.6)
+    p.drawRect(QtCore.QRectF(10, 5, 10, 8))
+
+
 def _i_split(p):
     # a block, and the plane that splits it, dashed across
     _block(p, 5, 9, 12, 10, 3.5)
@@ -1302,7 +1309,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "file": _i_file, "exit": _i_exit,
     "hole": _i_hole, "fillet": _i_fillet,
     "chamfer": _i_chamfer, "shell": _i_shell, "pattern": _i_pattern_rect,
-    "split": _i_split, "split_faces": _i_split_faces,
+    "split": _i_split, "split_faces": _i_split_faces, "combine": _i_combine,
     "split_solid": _i_split_solid,
     "pattern_circ": _i_pattern_circ, "mirror": _i_mirror, "move": _i_move,
     "box": _i_box, "cylinder": _i_cylinder, "sphere": _i_sphere,
