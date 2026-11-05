@@ -1088,6 +1088,15 @@ class RevolveDialog(FeatureDialog):
                               AXIS_PREFIX + axis.name)
         self.bind(self.axis)
         self.form.add("Axis", self.axis)
+        # or a line of the profile's own sketch, clicked in the view, as
+        # Inventor takes it: a centre line drawn for the purpose
+        self.axis_pick = SelectionField("Select line")
+        self.axis_pick.setToolTip("Click a line of the profile's sketch to "
+                                  "revolve around it")
+        self.axis_pick.pick_toggled.connect(self._axis_pick_toggled)
+        self.form.add("", self.axis_pick)
+        self._axis_eaten = False
+        self.host.viewport.installEventFilter(self)
 
         self.angle = self.expression(self.feature.angle, "deg")
         self.form.add("Angle", self.angle)
@@ -1096,16 +1105,134 @@ class RevolveDialog(FeatureDialog):
         self.bind(self.flip)
         self.form.add("", self.flip)
 
+    # -- a sketch line as the axis ------------------------------------------
+
+    def _profile_sketch(self):
+        ids = self.feature.profiles.sketch_ids() or (
+            [self.feature.sketch_id] if self.feature.sketch_id else [])
+        if not ids:
+            return None, None
+        made = self.doc.feature(ids[0])
+        return ids[0], getattr(made, "sketch", None)
+
+    def _sync_axis_lines(self) -> None:
+        """The profile sketch's lines in the Axis list, construction lines
+        first; a new Revolve whose sketch has one centre line takes it."""
+        _sid, sketch = self._profile_sketch()
+        lines = []
+        if sketch is not None:
+            lines = sorted((eid for eid, e in sketch.entities.items()
+                            if e.kind == "line"),
+                           key=lambda eid: (not sketch.entities[eid]
+                                            .construction, eid))
+        wanted = ["entity:%d" % eid for eid in lines]
+        have = [self.axis.itemData(i) for i in range(self.axis.count())
+                if str(self.axis.itemData(i)).startswith("entity:")]
+        if have == wanted:
+            return
+        current = self.axis.currentData()
+        self.axis.blockSignals(True)
+        for i in reversed(range(self.axis.count())):
+            if str(self.axis.itemData(i)).startswith("entity:"):
+                self.axis.removeItem(i)
+        for n, eid in enumerate(lines, start=1):
+            construction = sketch.entities[eid].construction
+            self.axis.addItem(icons.icon("axis", 15),
+                              "Sketch line %d%s" % (n, " (construction)"
+                                                    if construction else ""),
+                              "entity:%d" % eid)
+        pos = self.axis.findData(current)
+        if pos < 0 and self.feature.axis == "entity":
+            pos = self.axis.findData("entity:%d" % self.feature.axis_entity)
+        centre_lines = [eid for eid in lines
+                        if sketch.entities[eid].construction]
+        if (self.is_new and not getattr(self, "_axis_chosen", False)
+                and len(centre_lines) == 1):
+            pos = self.axis.findData("entity:%d" % centre_lines[0])
+        self.axis.setCurrentIndex(max(0, pos))
+        self.axis.blockSignals(False)
+
+    def _axis_pick_toggled(self, on: bool) -> None:
+        if on and getattr(self, "profiles", None) is not None \
+                and self.profiles.picking:
+            self.profiles.set_picking(False)
+
+    def take_axis_line(self, eid: int) -> bool:
+        pos = self.axis.findData("entity:%d" % eid)
+        if pos < 0:
+            return False
+        self._axis_chosen = True
+        self.axis.setCurrentIndex(pos)
+        if self.axis_pick.picking:
+            self.axis_pick.set_picking(False)
+        self.preview()
+        return True
+
+    def _line_at(self, x: int, y: int):
+        _sid, sketch = self._profile_sketch()
+        if sketch is None:
+            return None
+        vp = self.host.viewport
+        best, gap = None, 10.0
+        for eid, e in sketch.entities.items():
+            if e.kind != "line":
+                continue
+            a, b = (sketch.points[p] for p in e.points[:2])
+            ax, ay = vp.project(sketch.plane.to_3d(a.x, a.y))
+            bx, by = vp.project(sketch.plane.to_3d(b.x, b.y))
+            dx, dy = bx - ax, by - ay
+            span = dx * dx + dy * dy
+            t = 0.0 if span == 0 else max(0.0, min(1.0, (
+                (x - ax) * dx + (y - ay) * dy) / span))
+            d = math.hypot(ax + t * dx - x, ay + t * dy - y)
+            if d < gap:
+                best, gap = eid, d
+        return best
+
+    def eventFilter(self, watched, event) -> bool:
+        kind = event.type()
+        if (kind == QtCore.QEvent.MouseButtonPress
+                and event.button() == QtCore.Qt.LeftButton
+                and not self._closed and self.axis_pick.picking):
+            pos = event.position().toPoint()
+            eid = self._line_at(pos.x(), pos.y())
+            if eid is not None and self.take_axis_line(eid):
+                self._axis_eaten = True
+                return True
+        if kind == QtCore.QEvent.MouseButtonRelease and self._axis_eaten:
+            self._axis_eaten = False
+            return True
+        return False
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        if self._closed:
+            self.host.viewport.removeEventFilter(self)
+        super().closeEvent(event)
+
+    def preview(self):
+        self._sync_axis_lines()
+        super().preview()
+
     def load(self):
         self.load_boolean()
-        pos = self.axis.findData(self.feature.axis)
+        self._sync_axis_lines()
+        data = ("entity:%d" % self.feature.axis_entity
+                if self.feature.axis == "entity" else self.feature.axis)
+        pos = self.axis.findData(data)
         self.axis.setCurrentIndex(max(0, pos))
         self.angle.set_text(self.feature.angle)
         self.flip.setChecked(self.feature.reversed)
+        self.axis.activated.connect(
+            lambda _i: setattr(self, "_axis_chosen", True))
 
     def store(self):
         self.store_boolean()
-        self.feature.axis = self.axis.currentData()
+        data = str(self.axis.currentData())
+        if data.startswith("entity:"):
+            self.feature.axis = "entity"
+            self.feature.axis_entity = int(data.split(":", 1)[1])
+        else:
+            self.feature.axis = data
         self.feature.angle = self.angle.text()
         self.feature.reversed = self.flip.isChecked()
 
