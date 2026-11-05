@@ -1571,11 +1571,31 @@ def properties_for(doc: "DrawingDocument", sheet: Sheet,
     return out
 
 
+def fill_properties(text: str, values: Dict[str, str]) -> str:
+    """Text with the properties standing in it filled in, as Inventor's
+    Format Text does: ``Part <Model.PartNumber>, <Model.Mass>`` reads
+    ``Part 26-011, 412.0 g``. A name that is no property stays as typed."""
+    if "<" not in text:
+        return text
+    out, rest = [], text
+    while "<" in rest:
+        head, _sep, tail = rest.partition("<")
+        key, close, after = tail.partition(">")
+        out.append(head)
+        if close and key.split(".", 1)[0] in ("Model", "Drawing", "Sheet"):
+            out.append(values.get(key, ""))
+        else:
+            out.append("<" + key + close)
+        rest = after if close else ""
+    out.append(rest)
+    return "".join(out)
+
+
 def resolve_field(item: TextField, values: Dict[str, str],
                   sheet: Optional[Sheet] = None) -> str:
     """The text a field actually shows."""
     if item.kind == STATIC:
-        return item.text
+        return fill_properties(item.text, values)
     if item.kind == PROMPTED:
         if sheet is not None and item.name in sheet.field_values:
             return sheet.field_values[item.name]

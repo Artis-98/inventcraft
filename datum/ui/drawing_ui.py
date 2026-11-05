@@ -69,6 +69,8 @@ class DrawingController(QtCore.QObject):
         # a dimension double-clicked opens its text; a leg dragged to
         # another point is tied to the model there
         canvas.annotation_activated.connect(self.edit_annotation)
+        canvas.title_block_activated.connect(self.edit_title_block)
+        canvas.border_activated.connect(self.edit_border)
         canvas.grip_snap = self._grip_snap
         canvas.grip_moved.connect(self._grip_moved)
 
@@ -905,6 +907,39 @@ class DrawingController(QtCore.QObject):
         doc.push_undo()
         doc.remove_annotation(sheet, note_id)
         self.rebuild()
+
+    def edit_title_block(self) -> None:
+        """The sheet's title block, edited; every sheet using it follows."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None or sheet.title_block not in doc.title_blocks:
+            return
+        from .titleblock_ui import TitleBlockDialog
+        dialog = TitleBlockDialog(self.host, doc, sheet.title_block)
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+        doc.push_undo()
+        dialog.apply()
+        doc.modified = True
+        self.canvas.update()
+        self.host.status_message.setText(
+            "Title block %s changed on every sheet using it."
+            % sheet.title_block)
+
+    def edit_border(self) -> None:
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None or sheet.border not in doc.borders:
+            return
+        from .titleblock_ui import BorderDialog
+        dialog = BorderDialog(self.host, doc, sheet.border)
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+        doc.push_undo()
+        dialog.apply()
+        doc.modified = True
+        self.rebuild(force=True)
+        self.canvas.update()
 
     def edit_annotation(self, note_id: int) -> None:
         doc = self.document

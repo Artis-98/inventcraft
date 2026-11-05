@@ -34,6 +34,8 @@ class SheetCanvas(QtWidgets.QWidget):
     context_requested = QtCore.Signal(QtCore.QPoint)
     placing_finished = QtCore.Signal()      # right-click or Esc while placing
     annotation_activated = QtCore.Signal(int)   # a dimension double-clicked
+    title_block_activated = QtCore.Signal()     # the title block, likewise
+    border_activated = QtCore.Signal()          # the border, likewise
     grip_moved = QtCore.Signal(int, int)        # a dimension's leg, moved
 
     def __init__(self, parent=None) -> None:
@@ -526,6 +528,26 @@ class SheetCanvas(QtWidgets.QWidget):
         view_id = self.view_at(pos.x(), pos.y())
         if view_id is not None:
             self.view_activated.emit(view_id)
+            return
+        # the title block, or the border round the sheet, opened to edit,
+        # as Inventor's are
+        sheet = self.sheet()
+        if self.doc is None or sheet is None:
+            return
+        from .titleblock_ui import block_rect
+        x, y = self.layout().to_sheet(pos.x(), pos.y())
+        rect = block_rect(self.doc, sheet)
+        if rect and rect[0] <= x <= rect[2] and rect[1] <= y <= rect[3]:
+            self.title_block_activated.emit()
+            return
+        border = self.doc.borders.get(sheet.border)
+        if border is not None:
+            w, h = sheet.extent()
+            fx0, fy0, fx1, fy1 = border.frame(w, h)
+            inside_sheet = 0 <= x <= w and 0 <= y <= h
+            inside_frame = fx0 + 3 <= x <= fx1 - 3 and fy0 + 3 <= y <= fy1 - 3
+            if inside_sheet and not inside_frame:
+                self.border_activated.emit()
 
     def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
         steps = event.angleDelta().y() / 120.0
