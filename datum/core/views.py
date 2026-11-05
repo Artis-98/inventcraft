@@ -921,7 +921,10 @@ class Generator:
             return
 
         try:
-            projection = self._project(doc, sheet, view, shape)
+            if view.flat and view.kind == BASE:
+                projection = self._flat(doc, sheet, view, document)
+            else:
+                projection = self._project(doc, sheet, view, shape)
         except Exception as exc:
             view.error = str(exc)
             report.errors.append("%s: %s" % (view.label, exc))
@@ -938,6 +941,32 @@ class Generator:
         view.projection = projection
         doc.hashes[key] = stamp
         report.generated += 1
+
+    def _flat(self, doc: DrawingDocument, sheet: Sheet, view: View,
+              document) -> hlr.Projection:
+        """A sheet metal part laid flat, seen from above, with its bend
+        centre lines, as Inventor's flat pattern view is drawn."""
+        from . import sheetmetal
+        if document is None or getattr(document, "sheet_metal", None) is None:
+            raise ValueError("the part is not sheet metal, so it has no "
+                             "flat pattern")
+        if getattr(document, "shape", None) is None:
+            document.rebuild()
+        flat = sheetmetal.flat_pattern(document)
+        body = flat.solid if flat.solid is not None else flat.outline()
+        direction, up = (0.0, 0.0, -1.0), (0.0, 1.0, 0.0)
+        projection = hlr.project(body, direction, up, hidden=False)
+        if not projection.ok:
+            return projection
+        frame = hlr.camera(direction, up)
+        top = max((p[2] for p in [kernel.bounding_box(body)[3:]]),
+                  default=0.0)
+        for a, b, _angle in flat.bends:
+            projection.lines.append(hlr.Polyline(
+                [hlr.to_paper((a[0], a[1], top), frame, projection.centre),
+                 hlr.to_paper((b[0], b[1], top), frame, projection.centre)],
+                hlr.BEND))
+        return _scaled(projection, doc.view_scale(sheet, view))
 
     def _hand_out(self, doc: DrawingDocument, base: str,
                   force: bool) -> Dict:
@@ -958,7 +987,7 @@ class Generator:
         jobs = []
         for sheet in doc.sheets:
             for view in self._in_order(sheet):
-                if view.kind in (SECTION, DETAIL):
+                if view.kind in (SECTION, DETAIL) or view.flat:
                     continue
                 if view.projection is not None and not force:
                     continue

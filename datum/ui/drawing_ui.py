@@ -1605,6 +1605,13 @@ class ViewDialog(QtWidgets.QDialog):
         form.addRow("Display", self.display)
 
         # only a section has cut faces, so only a section is asked
+        if view.kind == dwg.BASE:
+            self.flat = QtWidgets.QCheckBox(
+                "Flat pattern (sheet metal), with bend lines")
+            self.flat.setChecked(view.flat)
+            form.addRow("", self.flat)
+        else:
+            self.flat = None
         self.hatch = QtWidgets.QCheckBox("Hatch the cut faces")
         self.hatch.setChecked(view.hatch)
         self.pattern = QtWidgets.QComboBox()
@@ -1661,6 +1668,8 @@ class ViewDialog(QtWidgets.QDialog):
         if view.kind == SECTION:
             view.hatch = self.hatch.isChecked()
             view.hatch_pattern = self.pattern.currentData() or ""
+        if self.flat is not None:
+            view.flat = self.flat.isChecked()
         view.label_visible = self.show_label.isChecked()
         view.scale_visible = self.show_scale.isChecked()
         self.doc.modified = True

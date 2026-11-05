@@ -277,10 +277,11 @@ KIND_STYLES = {
     hlr.OUTLINE: ("outline", False),
     hlr.SMOOTH: ("smooth", False),
     hlr.HIDDEN: ("hidden", True),
+    hlr.BEND: ("centre", True),
 }
 
 # hidden first so a visible line drawn over one wins
-DRAW_ORDER = (hlr.HIDDEN, hlr.SMOOTH, hlr.OUTLINE, hlr.VISIBLE)
+DRAW_ORDER = (hlr.HIDDEN, hlr.SMOOTH, hlr.OUTLINE, hlr.VISIBLE, hlr.BEND)
 
 
 def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,

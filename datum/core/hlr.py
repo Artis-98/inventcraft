@@ -39,7 +39,9 @@ VISIBLE = "visible"
 # the rest because it is the only thing on a section that gets hatched, and
 # hatching the wrong face is how a section stops meaning anything.
 CUT = "cut"
-KINDS = (HIDDEN, SMOOTH, OUTLINE, VISIBLE, CUT)
+# a sheet metal flat pattern's bend centre lines, to be marked, not cut
+BEND = "bend"
+KINDS = (HIDDEN, SMOOTH, OUTLINE, VISIBLE, CUT, BEND)
 
 # how finely a curved edge is broken into straight segments, in millimetres
 # of allowed deviation.  Small enough that a 3 mm fillet still reads round.

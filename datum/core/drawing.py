@@ -625,6 +625,8 @@ class View:
     depth: float = 0.0          # how far behind the cut line to look
     hatch: bool = True          # fill the faces the cut passed through
     hatch_pattern: str = ""     # "" asks the model's material
+    # a sheet metal part's base view as its flat pattern, bend lines and all
+    flat: bool = False
 
     # filled in by a rebuild; never written to the drawing.json
     projection: Optional[hlr.Projection] = None
@@ -645,6 +647,7 @@ class View:
             "centre": list(self.centre), "radius": self.radius,
             "depth": self.depth, "hatch": self.hatch,
             "hatch_pattern": self.hatch_pattern,
+            "flat": self.flat,
         }
 
     @classmethod
@@ -667,7 +670,8 @@ class View:
             cut=[float(v) for v in d.get("cut", [])],
             centre=[float(v) for v in d.get("centre", [])],
             radius=float(d.get("radius", 25.0)),
-            depth=float(d.get("depth", 0.0)))
+            depth=float(d.get("depth", 0.0)),
+            flat=bool(d.get("flat", False)))
 
     @property
     def label(self) -> str:
