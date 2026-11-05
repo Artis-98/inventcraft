@@ -228,6 +228,18 @@ def to_dxf(doc: DrawingDocument, sheet: Sheet, path: str,
             continue
         scale = doc.view_scale(sheet, view)
         anchor = note.points[0]
+        if note.kind == dwg.CENTRELINE and len(note.points) >= 2:
+            b = note.points[1]
+            out.line((view.x + anchor[0], view.y + anchor[1]),
+                     (view.x + b[0], view.y + b[1]), "CENTRE")
+            continue
+        if note.kind == dwg.CENTRE_MARK:
+            reach = max(3.0, note.value or 6.0)
+            for dx, dy in ((reach, 0.0), (0.0, reach)):
+                out.line((view.x + anchor[0] - dx, view.y + anchor[1] - dy),
+                         (view.x + anchor[0] + dx, view.y + anchor[1] + dy),
+                         "CENTRE")
+            continue
         offset = (list(note.offset) + [0.0, 0.0])[:2]
         out.text((view.x + anchor[0] + offset[0],
                   view.y + anchor[1] + offset[1]),

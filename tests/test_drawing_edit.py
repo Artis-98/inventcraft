@@ -171,6 +171,18 @@ check("the isometric off the top right is the usual one",
       same(iso_now, [c / math.sqrt(3) for c in hlr.ORIENTATIONS["iso"][0]]),
       iso_now)
 
+# ------------------------------------------------- automated centerlines
+print()
+print("Automated Centerlines on every view of a plain block")
+ui.canvas.selected_views = []
+ui.automated_centrelines()
+pump()
+check("runs over the sheet's views, and a block has no holes to mark",
+      "4 view(s)" in win.status_message.text()
+      and not [a for a in sheet.annotations if a.text == ui.AUTO]
+      and all(v.projection is not None for v in sheet.views),
+      win.status_message.text())
+
 # ---------------------------------------------------------------- moving
 print()
 print("moving views draws nothing again unless one turned")

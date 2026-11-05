@@ -844,6 +844,12 @@ class MainWindow(QtWidgets.QMainWindow):
                       ).clicked.connect(self.drawing_ui.start_dimension)
         panel.add_small("c_coincident", "Centre Mark").clicked.connect(
             self.drawing_ui.add_centre_mark)
+        panel.add_small("c_concentric", "Automated Centerlines",
+                        "Centre marks on every hole and boss seen end on, "
+                        "centre lines down those seen from the side: the "
+                        "picked view, or every view on the sheet"
+                        ).clicked.connect(
+            self.drawing_ui.automated_centrelines)
         panel.add_small("dimension", "Text...").clicked.connect(
             self.drawing_ui.add_note)
 

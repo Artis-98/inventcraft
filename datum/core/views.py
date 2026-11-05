@@ -338,6 +338,88 @@ def snap_circle(shape, direction, up, centre, radius, middle=(0.0, 0.0),
     return None
 
 
+def centre_features(shape, direction, up, middle=(0.0, 0.0),
+                    scale: float = 1.0, overhang: float = 2.0):
+    """Inventor's Automated Centerlines for one view: a centre mark on
+    every hole and round boss seen end on, and a centre line down every
+    one seen from the side.
+
+    Returns ``(marks, lines)``: marks as ((x, y), half length) on the
+    view's paper, lines as two points on it, each run ``overhang``
+    millimetres past what it marks, as a drawing has them.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    from OCP.TopoDS import TopoDS
+
+    if shape is None:
+        return [], []
+    d = _unit(direction)
+    frame = hlr.camera(direction, up)
+    marks, lines = [], []
+
+    def paper(p):
+        x, y = hlr.to_paper(p, frame, middle)
+        return (x * scale, y * scale)
+
+    for face in kernel.faces(shape):
+        try:
+            surface = BRepAdaptor_Surface(TopoDS.Face_s(face))
+            if surface.GetType() != GeomAbs_Cylinder:
+                continue
+            cylinder = surface.Cylinder()
+        except Exception:
+            continue
+        axis = cylinder.Axis()
+        a = axis.Direction()
+        a = (a.X(), a.Y(), a.Z())
+        loc = axis.Location()
+        loc = (loc.X(), loc.Y(), loc.Z())
+        r = cylinder.Radius() * scale
+        along = sum(a[i] * d[i] for i in range(3))
+        if abs(along) > 0.999:
+            centre = paper(loc)
+            reach = r + overhang
+            if not any(math.dist(centre, m[0]) < 1e-3
+                       and abs(m[1] - reach) < 1e-3 for m in marks):
+                # the biggest of several circles round one centre, a
+                # counterbore's, is the one marked
+                same = [m for m in marks if math.dist(centre, m[0]) < 1e-3]
+                if same:
+                    if reach > same[0][1]:
+                        marks.remove(same[0])
+                        marks.append((centre, reach))
+                else:
+                    marks.append((centre, reach))
+        elif abs(along) < 1e-3:
+            v0, v1 = surface.FirstVParameter(), surface.LastVParameter()
+            p0 = [loc[i] + a[i] * v0 for i in range(3)]
+            p1 = [loc[i] + a[i] * v1 for i in range(3)]
+            s, e = paper(p0), paper(p1)
+            length = math.dist(s, e)
+            if length < 1e-6:
+                continue
+            ux, uy = (e[0] - s[0]) / length, (e[1] - s[1]) / length
+            s = (s[0] - ux * overhang, s[1] - uy * overhang)
+            e = (e[0] + ux * overhang, e[1] + uy * overhang)
+            merged = False
+            for i, (q0, q1) in enumerate(lines):
+                # one line down a shaft of several diameters, not one each
+                cross = abs((q0[0] - s[0]) * uy - (q0[1] - s[1]) * ux)
+                lx, ly = q1[0] - q0[0], q1[1] - q0[1]
+                parallel = abs(lx * uy - ly * ux) < 1e-6 * max(
+                    1.0, math.hypot(lx, ly))
+                if parallel and cross < 1e-3:
+                    ts = sorted([(p[0] * ux + p[1] * uy, p)
+                                 for p in (q0, q1, s, e)])
+                    lines[i] = (ts[0][1], ts[-1][1])
+                    merged = True
+                    break
+            if not merged:
+                lines.append((s, e))
+    return marks, lines
+
+
 # ---------------------------------------------------------------- cutting
 
 

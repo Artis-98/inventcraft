@@ -763,6 +763,56 @@ class DrawingController(QtCore.QObject):
         doc.add_annotation(sheet, note)
         self.rebuild()
 
+    AUTO = "auto"   # what Automated Centerlines put there, as its text
+
+    def automated_centrelines(self) -> None:
+        """Inventor's Automated Centerlines: a centre mark on every hole
+        and boss seen end on, a centre line down every one seen side on,
+        on the picked view or, with none picked, every view on the sheet.
+        Run again, it puts them back where the model now has them."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None:
+            return
+        picked = [sheet.view(v) for v in self.canvas.selected_views]
+        views = [v for v in picked if v is not None] or list(sheet.views)
+        views = [v for v in views if v.projection is not None]
+        if not views:
+            self._complain("Place a view first.")
+            return
+        doc.push_undo()
+        made = 0
+        for view in views:
+            shape = self.generator.model_of(doc, sheet, view)
+            if shape is None:
+                continue
+            try:
+                direction, up = self.generator.orientation(doc, sheet, view)
+            except Exception:
+                continue
+            sheet.annotations = [
+                a for a in sheet.annotations
+                if not (a.view == view.id and a.text == self.AUTO
+                        and a.kind in (dwg.CENTRE_MARK, dwg.CENTRELINE))]
+            marks, lines = viewgen.centre_features(
+                shape, direction, up, view.projection.centre,
+                doc.view_scale(sheet, view))
+            for centre, reach in marks:
+                doc.add_annotation(sheet, Annotation(
+                    kind=dwg.CENTRE_MARK, view=view.id,
+                    points=[[centre[0], centre[1]]], value=reach,
+                    text=self.AUTO))
+                made += 1
+            for start, end in lines:
+                doc.add_annotation(sheet, Annotation(
+                    kind=dwg.CENTRELINE, view=view.id,
+                    points=[[start[0], start[1]], [end[0], end[1]]],
+                    text=self.AUTO))
+                made += 1
+        self.rebuild()
+        self.host.status_message.setText(
+            "%d centre mark(s) and line(s) on %d view(s)." % (made, len(views)))
+
     # -------------------------------------------------- balloons and lists
 
     def add_balloon(self) -> None:

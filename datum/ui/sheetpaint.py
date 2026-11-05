@@ -842,6 +842,10 @@ def _centre_mark(painter, doc, note, layout, at, colour) -> None:
     pen = _pen(layout, style, colour=colour)
     pen.setDashPattern([8.0, 2.0, 1.5, 2.0])
     painter.setPen(pen)
+    if note.kind == dwg.CENTRELINE and len(note.points) >= 2:
+        painter.drawLine(QtCore.QPointF(*at(note.points[0])),
+                         QtCore.QPointF(*at(note.points[1])))
+        return
     centre = note.points[0]
     reach = max(3.0, note.value or 6.0)
     for dx, dy in ((reach, 0.0), (0.0, reach)):
