@@ -223,7 +223,7 @@ def project(shape: Optional[TopoDS_Shape],
             direction: Sequence[float] = (0.0, 1.0, 0.0),
             up: Sequence[float] = (0.0, 0.0, 1.0),
             hidden: bool = True,
-            tangents: bool = False,
+            tangents: bool = True,
             hatch: Optional[Sequence] = None) -> Projection:
     """Flatten a shape into drawing lines, seen from ``direction``.
 
