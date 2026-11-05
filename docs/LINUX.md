@@ -28,6 +28,22 @@ To run it from where you unpacked it instead, use
 To remove it, run `~/.local/share/InventCraft/install.sh --remove`. Your
 documents and settings are kept.
 
+There is an ARM64 build too, `linux-aarch64`, for ARM computers such as
+a Raspberry Pi 5 or an ARM laptop; it installs the same way.
+
+### AppImage
+
+If you would rather have one file, download the `.AppImage` for your
+machine (`x86_64` or `aarch64`), make it executable and run it:
+
+```bash
+chmod +x InventCraft-*.AppImage
+./InventCraft-*.AppImage
+```
+
+An AppImage cannot update itself, because it runs read only; download the
+new one when a version comes out. The archive above updates itself.
+
 It needs glibc 2.31 or newer (Ubuntu 20.04, Debian 11, Fedora 32 and
 anything later) and an X11 or XWayland desktop with OpenGL. On a minimal
 system Qt may ask for a few libraries; on Ubuntu and Debian these cover it:
@@ -50,7 +66,8 @@ script's copy always is. A copy unpacked somewhere owned by root has to be
 replaced by hand.
 
 Builds older than 0.3.0 do not update themselves: download this one and
-run its install script.
+run its install script. An ARM copy only ever takes the ARM build, and an
+AppImage is not offered updates, since it cannot replace itself.
 
 ## Other differences from Windows
 

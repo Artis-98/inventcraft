@@ -65,6 +65,7 @@ LEGACY_KEY = os.path.join(RELEASE, "signing-key.pem")
 # where the Linux archive is published, by .github/workflows/linux.yml
 GITHUB_REPO = "Artis-98/inventcraft"
 LINUX_ARCHIVE = "InventCraft-%s-linux-x86_64.tar.gz"
+LINUX_ARM_ARCHIVE = "InventCraft-%s-linux-aarch64.tar.gz"
 # The Windows build as one archive, for copies from 0.3.1 on to update
 # from the GitHub release rather than file by file off the server.  xz,
 # so it is about the size of the installer rather than three times it.
@@ -347,6 +348,33 @@ def windows_archive(version: str, folder: str) -> str:
     return path
 
 
+def _linux_entry(version: str, name: str, notes: str, feed,
+                 required: bool = True):
+    """One Linux archive off the tag's release, checked, as a feed entry."""
+    import tarfile
+
+    url = "https://github.com/%s/releases/download/v%s/%s" % (
+        GITHUB_REPO, version, name)
+    folder = os.path.join(ROOT, "build")
+    os.makedirs(folder, exist_ok=True)
+    archive = os.path.join(folder, name)
+    say("downloading %s" % url)
+    try:
+        sha256 = update.fetch_to(url, archive, timeout=120)
+    except update.UpdateError as exc:
+        if required:
+            fail("could not download %s: %s" % (name, exc))
+        say("  not there, left out: %s" % exc)
+        return None
+    with tarfile.open(archive, "r:gz") as tar:
+        if "InventCraft/InventCraft" not in tar.getnames():
+            fail("%s does not hold InventCraft/InventCraft" % name)
+    return {"version": version, "url": url, "sha256": sha256,
+            "size": os.path.getsize(archive),
+            "released": time.strftime("%Y-%m-%d"),
+            "notes": notes or feed.get("notes", "")}
+
+
 def add_linux(version: str, key, notes: str = "") -> None:
     """Put the Linux archive GitHub built for a tag into the feed."""
     import tarfile
@@ -360,6 +388,13 @@ def add_linux(version: str, key, notes: str = "") -> None:
              "refused by every installed copy")
     with open(feed_path, encoding="utf-8") as handle:
         feed = json.load(handle)
+
+    # the ARM build (GitHub #18) under its own entry, so an ARM copy never
+    # takes the x86_64 one; it is new, and its absence is not a failure
+    arm = _linux_entry(version, LINUX_ARM_ARCHIVE % version, notes, feed,
+                       required=False)
+    if arm is not None:
+        feed["linux_aarch64"] = arm
 
     name = LINUX_ARCHIVE % version
     url = "https://github.com/%s/releases/download/v%s/%s" % (

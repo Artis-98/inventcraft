@@ -62,7 +62,18 @@ jobs:
 
   linux:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.diagnose == '' }}
-    runs-on: ubuntu-22.04
+    # x86_64, and ARM64 (GitHub #18) on GitHub's own ARM runner; the ARM
+    # build is new, so it failing never holds the x86_64 one back
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.arch == 'aarch64' }}
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +136,9 @@ jobs:
       # system's libraries opened fine here and could not get OpenGL on
       # CachyOS (GitHub #3).  Arch is as new as any, so the window is
       # opened there too, with Arch's own Mesa.
+      # Arch Linux publishes no ARM images, so these two run on x86_64
       - name: The 3D view opens, on a current distribution (Arch)
+        if: ${{ matrix.arch == 'x86_64' }}
         run: |
           docker run --rm -v "$PWD/dist:/dist" archlinux:latest bash -c '
             pacman -Syu --noconfirm --needed xorg-server-xvfb xorg-xauth mesa \
@@ -142,6 +155,7 @@ jobs:
       # so on Fedora every update check failed (GitHub #7).  The check is
       # made for real, against the live feed, on both.
       - name: Updates can be checked, on Arch and Fedora
+        if: ${{ matrix.arch == 'x86_64' }}
         run: |
           docker run --rm -v "$PWD/dist:/dist" archlinux:latest bash -c '
             pacman -Syu --noconfirm --needed mesa libglvnd libxkbcommon-x11 \
@@ -156,7 +170,7 @@ jobs:
             grep -q PASS /tmp/u.txt'
 
       - name: The published build, on Arch (for information)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && matrix.arch == 'x86_64' }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -194,10 +208,39 @@ jobs:
       - name: Pack
         id: pack
         run: |
-          name="InventCraft-${{ steps.version.outputs.version }}-linux-x86_64.tar.gz"
+          name="InventCraft-${{ steps.version.outputs.version }}-linux-${{ matrix.arch }}.tar.gz"
           tar -czf "$name" -C dist InventCraft
           ls -l "$name"
           sha256sum "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # An AppImage too (GitHub #18): one file that runs on any
+      # distribution. It cannot update itself, as the archive does, since
+      # it is mounted read only; a new one is downloaded instead.
+      - name: AppImage
+        id: appimage
+        continue-on-error: true
+        run: |
+          arch="${{ matrix.arch }}"
+          tool="appimagetool-$arch.AppImage"
+          curl -fsSL -o "$tool" \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/$tool"
+          chmod +x "$tool"
+          app=InventCraft.AppDir
+          rm -rf "$app" && mkdir -p "$app/usr"
+          cp -a dist/InventCraft "$app/usr/InventCraft"
+          printf '%s\n' '#!/bin/sh' 'here="$(dirname "$(readlink -f "$0")")"' \
+            'exec "$here/usr/InventCraft/InventCraft" "$@"' > "$app/AppRun"
+          chmod +x "$app/AppRun"
+          printf '%s\n' '[Desktop Entry]' 'Type=Application' 'Name=InventCraft' \
+            'Exec=InventCraft %f' 'Icon=inventcraft' 'Categories=Graphics;Engineering;' \
+            > "$app/inventcraft.desktop"
+          icon=$(find dist/InventCraft -name "inventcraft*256*.png" -o -name "icon*256*.png" | head -1)
+          [ -n "$icon" ] && cp "$icon" "$app/inventcraft.png" || \
+            cp "$(find dist/InventCraft -name '*.png' | head -1)" "$app/inventcraft.png"
+          name="InventCraft-${{ steps.version.outputs.version }}-$arch.AppImage"
+          ARCH=$arch APPIMAGE_EXTRACT_AND_RUN=1 "./$tool" --no-appstream "$app" "$name"
+          ls -l "$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
@@ -217,3 +260,6 @@ jobs:
               --notes "See https://datum.iiteg.com/changelog.html"
           fi
           gh release upload "$tag" "${{ steps.pack.outputs.name }}" --clobber
+          if [ -n "${{ steps.appimage.outputs.name }}" ]; then
+            gh release upload "$tag" "${{ steps.appimage.outputs.name }}" --clobber
+          fi

@@ -80,6 +80,14 @@ TIMEOUT = 30.0
 CHUNK = 256 * 1024
 
 
+def linux_key(machine: str = "") -> str:
+    """The feed entry a Linux copy updates from: ``linux`` for x86_64,
+    ``linux_aarch64`` for ARM, which must never take the x86_64 build."""
+    import platform as _platform
+    machine = (machine or _platform.machine() or "").lower()
+    return "linux_aarch64" if machine in ("aarch64", "arm64") else "linux"
+
+
 class UpdateError(Exception):
     """Something went wrong that the person should be told about."""
 
@@ -334,8 +342,11 @@ class Release:
         system = platform or sys.platform
         entry = None
         if system.startswith("linux"):
-            entry = data.get("linux")
-            entry = entry if isinstance(entry, dict) else {}
+            # an ARM computer takes the ARM build, never the x86_64 one,
+            # and an AppImage, mounted read only, cannot replace itself
+            entry = data.get(linux_key())
+            entry = (entry if isinstance(entry, dict)
+                     and not os.environ.get("APPIMAGE") else {})
         elif system != "files" and isinstance(data.get("windows"), dict) \
                 and data["windows"].get("url"):
             entry = data["windows"]
