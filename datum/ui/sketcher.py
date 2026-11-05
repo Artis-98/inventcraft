@@ -220,6 +220,7 @@ class SketchEditor(QtCore.QObject):
     status_changed = QtCore.Signal(str)
     tool_finished = QtCore.Signal()
     constraint_armed = QtCore.Signal(str)
+    construction_mode_changed = QtCore.Signal(bool)
 
     def __init__(self, viewport, parent=None) -> None:
         super().__init__(parent)
@@ -328,6 +329,8 @@ class SketchEditor(QtCore.QObject):
         """
         self.sketch = sketch
         self.params = params
+        if self.construction:
+            self.set_construction_mode(False)
         self._model_snaps = None       # worked out again for this sketch
         sketch.name_pool = getattr(params, "taken", None)
         self._undo_stack = []
@@ -1137,6 +1140,7 @@ class SketchEditor(QtCore.QObject):
         self.changed.emit()
 
     def _touch(self) -> None:
+        self._as_construction()
         self._commit_change()
         self.solve()
         self.render()
@@ -3857,13 +3861,37 @@ class SketchEditor(QtCore.QObject):
         return len(created)
 
     def toggle_construction(self) -> None:
-        if not self.active or not self.selected_entities:
+        """Inventor's Construction: what is picked turns to construction
+        and back; with nothing picked it is a mode, and what is drawn while
+        it is on is construction, which never makes a profile."""
+        if not self.active:
+            return
+        if not self.selected_entities:
+            self.set_construction_mode(not self.construction)
             return
         self.begin_change()
         for eid in self.selected_entities:
             ent = self.sketch.entities[eid]
             ent.construction = not ent.construction
         self._touch()
+
+    def set_construction_mode(self, on: bool) -> None:
+        self.construction = bool(on)
+        self._construction_from = (self.sketch._next_id
+                                   if self.sketch is not None else 0)
+        self._construction_sketch = id(self.sketch)
+        self.construction_mode_changed.emit(self.construction)
+
+    def _as_construction(self) -> None:
+        """What was drawn since Construction went on, made construction."""
+        if (not self.construction or self.sketch is None
+                or getattr(self, "_construction_sketch", None)
+                != id(self.sketch) or self.tool == "project"):
+            return
+        start = getattr(self, "_construction_from", 0)
+        for eid, ent in self.sketch.entities.items():
+            if eid >= start:
+                ent.construction = True
 
     # -------------------------------------------------------------- render
 

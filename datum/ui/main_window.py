@@ -617,8 +617,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.export_sketch_dxf)
 
         panel = sketch.add_panel("Format")
-        self.construction_btn = panel.add_small("offset", "Construction")
-        self.construction_btn.clicked.connect(self.editor.toggle_construction)
+        self.construction_btn = panel.add_small(
+            "offset", "Construction",
+            "Turn what is picked into construction and back; with nothing "
+            "picked, draw construction until it is clicked again",
+            checkable=True)
+        self.construction_btn.clicked.connect(
+            lambda *_a: (self.editor.toggle_construction(),
+                            self._sync_construction_btn()))
+        self.editor.construction_mode_changed.connect(
+            self._sync_construction_btn)
         # Show Grid and Snap to Grid live on the status bar while sketching,
         # with the rest of Inventor's sketch toggles
         panel.add_small("delete", "Delete").clicked.connect(
@@ -4619,6 +4627,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.set_selection_mode(mode or "face")
         if mode is None:
             self.viewport.clear_selection()
+
+    def _sync_construction_btn(self, on: bool = None) -> None:
+        button = getattr(self, "construction_btn", None)
+        if button is not None:
+            button.blockSignals(True)
+            button.setChecked(bool(self.editor.construction))
+            button.blockSignals(False)
 
     def _on_viewport_selection(self) -> None:
         if self._section_picked():
