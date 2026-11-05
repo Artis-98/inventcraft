@@ -570,7 +570,8 @@ class MainWindow(QtWidgets.QMainWindow):
             btn.clicked.connect(lambda _=False, k=key: self.set_sketch_tool(k))
             self.tool_buttons[key] = btn
 
-        for key, icon_name, label in (("spline", "spline", "Spline"),
+        for key, icon_name, label in (("ellipse", "ellipse", "Ellipse"),
+                                      ("spline", "spline", "Spline"),
                                       ("point", "point", "Point"),
                                       ("text", "text", "Text")):
             btn = panel.add_small(icon_name, label, checkable=True)

@@ -453,6 +453,24 @@ def _sketch_edge(sketch: Sketch, eid: int) -> Optional[TopoDS_Edge]:
             mk = BRepBuilderAPI_MakeEdge(circ, a0, a1)
         return mk.Edge() if mk.IsDone() else None
 
+    if ent.kind == "ellipse":
+        (cx, cy), a, b, turn = sketch.ellipse_axes(eid)
+        if a < 1e-9 or b < 1e-9:
+            return None
+        major = (math.cos(turn), math.sin(turn))
+        if b > a:
+            # OCCT's ellipse is its longer axis first
+            a, b = b, a
+            major = (-major[1], major[0])
+        u = plane.xdir
+        v = plane.ydir
+        along = tuple(major[0] * u[i] + major[1] * v[i] for i in range(3))
+        ax2 = gp_Ax2(pnt(plane.to_3d(cx, cy)), direction(plane.normal),
+                     direction(along))
+        from OCP.gp import gp_Elips
+        mk = BRepBuilderAPI_MakeEdge(gp_Elips(ax2, a, b))
+        return mk.Edge() if mk.IsDone() else None
+
     if ent.kind == "spline":
         pts = [sketch.points[p] for p in ent.points]
         if len(pts) < 2:
@@ -470,14 +488,15 @@ def _sketch_edge(sketch: Sketch, eid: int) -> Optional[TopoDS_Edge]:
 def _chains(sketch: Sketch) -> Tuple[List[List[int]], List[List[int]]]:
     """Split a sketch's geometry into (closed loops, open chains)."""
     ents = {eid: e for eid, e in sketch.entities.items()
-            if not e.construction and e.kind in ("line", "arc", "circle", "spline")}
+            if not e.construction
+            and e.kind in ("line", "arc", "circle", "spline", "ellipse")}
 
     loops: List[List[int]] = []
     open_chains: List[List[int]] = []
 
-    # circles are self-closed
+    # circles and ellipses are self-closed
     for eid, e in list(ents.items()):
-        if e.kind == "circle":
+        if e.kind in ("circle", "ellipse"):
             loops.append([eid])
             del ents[eid]
 

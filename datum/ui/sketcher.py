@@ -105,7 +105,8 @@ SLOT_TOOLS = ("slot", "slot_overall", "slot_centre", "slot_arc3",
 VARIANT_PREVIEWS = ("rect3", "rect_centre", "rect3_centre", "slot_overall",
                     "slot_centre", "slot_arc3", "slot_arc_centre")
 
-TOOLS = (("select", "line", "circle", "arc", "spline", "point", "fillet2d",
+TOOLS = (("select", "line", "circle", "ellipse", "arc", "spline", "point",
+          "fillet2d",
           "trim", "offset", "dimension", "polygon", "project", "text")
          + RECT_TOOLS + SLOT_TOOLS)
 
@@ -122,6 +123,8 @@ TOOL_HINTS = {
     "rect3_centre": "Rectangle, three point centre: click the centre, then "
                     "the middle of one side, then a point setting the width.",
     "circle": "Circle: click the centre, then a point on the circumference.",
+    "ellipse": "Ellipse: click the centre, then the end of one axis, then a "
+               "point setting the other.",
     "arc": "Arc: click the centre, then the start point, then the end point.",
     "polygon": "Polygon: click the centre, then a corner. Type the "
                "number of sides in the box (Tab for the size).",
@@ -2299,6 +2302,48 @@ class SketchEditor(QtCore.QObject):
         self._start_target = None
         self._touch()
 
+    def _tool_ellipse(self, point, modifiers) -> None:
+        """Inventor's: the centre, the end of one axis, then how far the
+        other reaches, read off the third click square to the first."""
+        self._pending.append(point)
+        if len(self._pending) < 3:
+            if len(self._pending) == 1:
+                self._start_target = self._snap_target(*point)
+            return
+        centre, end, third = self._pending[:3]
+        minor = self._ellipse_minor(centre, end, third)
+        self._pending = []
+        if math.dist(centre, end) < 1e-7 or minor < 1e-7:
+            return
+        eid = self.sketch.add_ellipse(centre, end, minor)
+        self._attach(self.sketch.entities[eid].points[0], self._start_target)
+        self._start_target = None
+        self._touch()
+
+    @staticmethod
+    def _ellipse_minor(centre, end, point) -> float:
+        a = math.dist(centre, end)
+        if a < 1e-12:
+            return 0.0
+        ux, uy = (end[0] - centre[0]) / a, (end[1] - centre[1]) / a
+        return abs(-(point[0] - centre[0]) * uy + (point[1] - centre[1]) * ux)
+
+    def _preview_ellipse(self, centre, end, minor, colour) -> None:
+        a = math.dist(centre, end)
+        if a < 1e-9:
+            return
+        turn = math.atan2(end[1] - centre[1], end[0] - centre[0])
+        ct, st = math.cos(turn), math.sin(turn)
+        pts = []
+        for i in range(73):
+            w = 2 * math.pi * i / 72
+            u, v = a * math.cos(w), minor * math.sin(w)
+            pts.append((centre[0] + u * ct - v * st,
+                        centre[1] + u * st + v * ct))
+        for p, q in zip(pts, pts[1:]):
+            self.viewport.draw_edge(self._to3d(p), self._to3d(q), colour,
+                                    1.6, preview=True)
+
     def _tool_arc(self, point, modifiers) -> None:
         self._pending.append(point)
         if len(self._pending) < 3:
@@ -3945,7 +3990,7 @@ class SketchEditor(QtCore.QObject):
         # in Inventor: the centre of a circle or an arc, drawn as a cross,
         # and a point placed on its own, which is nothing but its dot.
         centres = {ent.points[0] for ent in s.entities.values()
-                   if ent.kind in ("circle", "arc") and ent.points}
+                   if ent.kind in ("circle", "arc", "ellipse") and ent.points}
         used = {pid for ent in s.entities.values() for pid in ent.points}
         for pid, p in s.points.items():
             colour, size = None, 3.2
@@ -4335,6 +4380,20 @@ class SketchEditor(QtCore.QObject):
         elif self.tool == "circle" and self._pending:
             self._preview_circle(self._pending[0], math.dist(self._pending[0], cur),
                                  colour)
+        elif self.tool == "ellipse" and self._pending:
+            centre = self._pending[0]
+            if len(self._pending) == 1:
+                vp.draw_edge(self._to3d(centre), self._to3d(cur), colour, 1.4,
+                             preview=True)
+                self._preview_ellipse(centre, cur,
+                                      math.dist(centre, cur) * 0.5, colour)
+            else:
+                end = self._pending[1]
+                vp.draw_edge(self._to3d(centre), self._to3d(end), colour, 1.2,
+                             preview=True)
+                self._preview_ellipse(centre, end,
+                                      self._ellipse_minor(centre, end, cur),
+                                      colour)
         elif self.tool == "polygon" and self._pending:
             centre = self._pending[0]
             r = math.dist(centre, cur)

@@ -424,6 +424,28 @@ class Sketch:
                                     construction=construction)
         return eid
 
+    def add_ellipse(self, center: Tuple[float, float],
+                    major_end: Tuple[float, float], minor: float,
+                    construction: bool = False) -> int:
+        """An ellipse: its centre, the end of one axis, and the half length
+        of the other, across it. Either axis may be the longer."""
+        c = self.add_point(center[0], center[1])
+        m = self.add_point(major_end[0], major_end[1])
+        eid = self._new_id()
+        self.entities[eid] = Entity(eid, "ellipse", [c, m],
+                                    radius=abs(float(minor)),
+                                    construction=construction)
+        return eid
+
+    def ellipse_axes(self, eid: int):
+        """An ellipse's centre, the half lengths of its first axis and of
+        the one across it, and the angle of the first."""
+        ent = self.entities[eid]
+        c = self.points[ent.points[0]]
+        m = self.points[ent.points[1]]
+        a = math.hypot(m.x - c.x, m.y - c.y)
+        return (c.x, c.y), a, ent.radius, math.atan2(m.y - c.y, m.x - c.x)
+
     def add_arc(self, center: Tuple[float, float], radius: float,
                 start_angle: float, end_angle: float,
                 construction: bool = False) -> int:
@@ -878,7 +900,7 @@ class Sketch:
             values.append(p.y)
         for eid in sorted(self.entities):
             ent = self.entities[eid]
-            if ent.kind in ("circle", "arc"):
+            if ent.kind in ("circle", "arc", "ellipse"):
                 layout.append(("r", eid, 0))
                 values.append(ent.radius)
         return layout, np.array(values, dtype=float)
@@ -1080,6 +1102,20 @@ class Sketch:
                             dx, dy = bx - ax, by - ay
                             n = math.hypot(dx, dy) or 1.0
                             out.append(((px - ax) * dy - (py - ay) * dx) / n)
+                        elif ent.kind == "ellipse":
+                            # in the ellipse's own frame, scaled to a
+                            # unit circle, times its size so the error
+                            # reads in millimetres
+                            cx, cy = P(x, ent.points[0])
+                            mx, my = P(x, ent.points[1])
+                            a = math.hypot(mx - cx, my - cy) or 1e-9
+                            b = abs(R(x, ent.id)) or 1e-9
+                            ux, uy = (mx - cx) / a, (my - cy) / a
+                            dx, dy = px - cx, py - cy
+                            s = (dx * ux + dy * uy) / a
+                            t = (-dx * uy + dy * ux) / b
+                            out.append((math.hypot(s, t) - 1.0)
+                                       * math.sqrt(a * b))
                         else:
                             cx, cy = P(x, ent.points[0])
                             out.append(math.hypot(px - cx, py - cy) - R(x, ent.id))
@@ -1255,7 +1291,7 @@ class Sketch:
         if J.size == 0:
             self.free_points = set(self.points)
             self.free_radii = {e.id for e in self.entities.values()
-                               if e.kind in ("circle", "arc")}
+                               if e.kind in ("circle", "arc", "ellipse")}
             null_basis = np.eye(n)
             self._free_directions(layout, null_basis)
             return
@@ -1330,7 +1366,8 @@ class Sketch:
             return False
         if any(pid in self.free_points for pid in ent.points):
             return False
-        if ent.kind in ("circle", "arc") and ent.id in self.free_radii:
+        if (ent.kind in ("circle", "arc", "ellipse")
+                and ent.id in self.free_radii):
             return False
         return True
 
@@ -1389,6 +1426,15 @@ class Sketch:
         if ent.kind == "spline":
             return _bspline_samples([self.points[p].as_tuple() for p in ent.points],
                                     segments)
+        if ent.kind == "ellipse":
+            (cx, cy), a, b, turn = self.ellipse_axes(eid)
+            ct, st = math.cos(turn), math.sin(turn)
+            out = []
+            for i in range(segments + 1):
+                w = 2 * math.pi * i / segments
+                u, v = a * math.cos(w), b * math.sin(w)
+                out.append((cx + u * ct - v * st, cy + u * st + v * ct))
+            return out
         return []
 
     def arc_angles(self, eid: int) -> Tuple[float, float]:

@@ -314,6 +314,11 @@ def sketch_to_dxf(sketch, path: str) -> str:
             a0, a1 = sketch.arc_angles(eid)
             document.arc((c.x, c.y), entity.radius,
                          math.degrees(a0), math.degrees(a1))
+        elif entity.kind == "ellipse":
+            # R12 has no ellipse; a fine closed polyline is what every
+            # cutting program reads
+            document.polyline(sketch.entity_polyline(eid, 144)[:-1],
+                              closed=True)
         else:
             document.polyline(sketch.entity_polyline(eid, 64))
     if not document.entities:

@@ -214,6 +214,13 @@ def _i_circle(p):
     p.drawEllipse(QtCore.QPointF(12, 12), 1.7, 1.7)
 
 
+def _i_ellipse(p):
+    _pen(p, _LINE, 1.9)
+    p.drawEllipse(QtCore.QPointF(12, 12), 9.0, 5.5)
+    _fill(p, _ACCENT)
+    p.drawEllipse(QtCore.QPointF(12, 12), 1.7, 1.7)
+
+
 def _i_arc(p):
     _pen(p, _LINE, 1.9)
     path = QtGui.QPainterPath(QtCore.QPointF(4, 18))
@@ -1270,7 +1277,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "new": _i_new, "open": _i_open, "save": _i_save, "undo": _i_undo,
     "redo": _i_redo, "sketch": _i_sketch, "sketch_shared": _i_sketch_shared,
     "spacemouse": _i_spacemouse, "line": _i_line, "rect": _i_rect,
-    "circle": _i_circle, "arc": _i_arc, "polygon": _i_polygon,
+    "circle": _i_circle, "ellipse": _i_ellipse, "arc": _i_arc, "polygon": _i_polygon,
     "text": _i_text, "slot": _i_slot,
     "spline": _i_spline, "point": _i_point, "fillet2d": _i_fillet2d,
     "trim": _i_trim, "offset": _i_offset, "dimension": _i_dimension,
