@@ -85,7 +85,7 @@
   <div class="wrap">
     <div class="inner">
       <div class="eyebrow"><span class="dot"></span>
-        <span id="live-version">Latest: 0.3.5</span></div>
+        <span id="live-version">Latest: 0.3.7</span></div>
       <h1 style="font-size:clamp(34px,5vw,52px)">Changelog</h1>
       <p class="lede">
         Every release, what changed in it, and why. InventCraft updates itself,
@@ -93,7 +93,7 @@
         just here so you can see what arrived.
       </p>
       <a class="btn ghost" id="get-latest"
-         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.7/InventCraft-0.3.7-setup.exe">
         Download the current version</a>
     </div>
   </div>
@@ -119,9 +119,78 @@
 
     <div class="release current">
       <div class="head">
+        <span class="ver">0.3.7</span>
+        <span class="when">5 November 2026</span>
+        <span class="badge">current</span>
+      </div>
+      <p style="color:var(--dim);margin:0 0 12px">
+        Drawings you can make your own, Inventor's Trim, ellipses, Combine
+        and Assemble, and Linux on ARM. Much of it asked for on Reddit,
+        GitHub and by email.
+      </p>
+      <ul>
+        <li><strong>Title block and border in place.</strong> Double-click
+          either on a sheet to edit it; every sheet using it follows.</li>
+        <li><strong>Properties in drawing text</strong>, picked by Type and
+          Property as in Inventor's Format Text: part number, mass,
+          material, scale, sheet number and more.</li>
+        <li><strong>Templates folder</strong> in Preferences, a shared drive
+          if you like, for every new part, assembly and drawing.</li>
+        <li><strong>Automated Centerlines</strong> and <strong>Hole
+          Notes</strong> (<code>2x &Oslash;8 THRU</code>, depths,
+          counterbores), read off the model.</li>
+        <li><strong>Flat pattern views</strong> of sheet metal parts, with
+          bend lines, on screen, in PDF and in DXF.</li>
+        <li><strong>Tangent edges</strong> drawn in views.</li>
+        <li><strong>Trim, the Inventor way</strong>: up to the nearest
+          geometry, tangent points included, constraints kept.</li>
+        <li><strong>Ellipses</strong>, <strong>Combine</strong>,
+          <strong>Assemble</strong>, Revolve around a sketch line, and
+          Construction as a mode.</li>
+        <li><strong>Emboss on a cylinder</strong> wraps every letter, the
+          right way round. Fillet and Chamfer keep picked edges lit.</li>
+        <li><strong>Suggest or report</strong>, top right, straight to us.</li>
+        <li><strong>Linux:</strong> x86_64 and now ARM64, as an archive that
+          updates itself or as an AppImage, all on
+          <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/tag/v0.3.7">the 0.3.7 release</a>.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head">
+        <span class="ver">0.3.6</span>
+        <span class="when">30 October 2026</span>
+      </div>
+      <p style="color:var(--dim);margin:0 0 12px">
+        Sketches that stay on their planes, one Plane command that works out
+        what you meant, and Shell, Split and Hole that do what they are
+        asked.
+      </p>
+      <ul>
+        <li><strong>Sketches follow their work planes</strong>, and lines
+          projected from another sketch follow it.</li>
+        <li><strong>One Plane command</strong>: two lines, three points, a
+          line and a point, or a line and a face at an angle. Right click a
+          work plane for Edit Offset and Redefine.</li>
+        <li><strong>Snapping to other sketches</strong>, and
+          <strong>Measure</strong> on sketch points and lines.</li>
+        <li><strong>Shell</strong> works on the simple shapes it used to
+          refuse, closed hollows too.</li>
+        <li><strong>Split</strong> picks work planes and single solids;
+          <strong>Hole</strong> drills at sketch points.</li>
+        <li><strong>Drag arrows</strong> keep their size when zooming; the
+          view cube's arrows fade in near it.</li>
+        <li><strong>Editing a part in place</strong> in an assembly: Pattern
+          and Mirror picks work, the tree updates at once.</li>
+        <li><strong>Linux:</strong>
+          <a class="linux-link" href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.6/InventCraft-0.3.6-linux-x86_64.tar.gz">InventCraft 0.3.6 for Linux</a>.</li>
+      </ul>
+    </div>
+
+    <div class="release">
+      <div class="head">
         <span class="ver">0.3.5</span>
         <span class="when">29 October 2026</span>
-        <span class="badge">current</span>
       </div>
       <p style="color:var(--dim);margin:0 0 12px">
         Sheet metal that bends where it should and lays out true, and a
@@ -852,12 +921,12 @@
         ask it now from File then Check for Updates.
       </p>
       <a class="btn primary" id="get-latest-2"
-         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.5/InventCraft-0.3.5-setup.exe">
+         href="https://github.com/Artis-98/inventcraft/releases/download/v0.3.7/InventCraft-0.3.7-setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
              aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
         </svg>
-        InventCraft <span id="latest-ver">0.3.5</span> for Windows
+        InventCraft <span id="latest-ver">0.3.7</span> for Windows
       </a>
     </div>
   </div>
