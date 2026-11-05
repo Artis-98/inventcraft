@@ -117,6 +117,10 @@ class Preferences:
     # keyboard shortcuts somebody changed: command -> keys ("" for none);
     # see ui.shortcuts for the commands and their defaults
     shortcuts: Dict[str, str] = field(default_factory=dict)
+    # Inventor's Templates folder (Application Options, File): one place
+    # for every new part, assembly and drawing's templates, a shared
+    # drive's folder so the whole company starts from the same title block
+    templates_folder: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
@@ -130,7 +134,8 @@ class Preferences:
                 "mouse_pan": self.mouse_pan,
                 "zoom_reversed": self.zoom_reversed,
                 "old_versions": self.old_versions,
-                "shortcuts": dict(self.shortcuts)}
+                "shortcuts": dict(self.shortcuts),
+                "templates_folder": self.templates_folder}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
@@ -161,6 +166,7 @@ class Preferences:
                        and data.get("mouse_pan") != data.get("mouse_orbit")
                        else MOUSE_MIDDLE),
             zoom_reversed=bool(data.get("zoom_reversed", False)),
+            templates_folder=str(data.get("templates_folder") or ""),
             old_versions=_count(data.get("old_versions"), 1),
             shortcuts={str(k): str(v) for k, v in
                        (data.get("shortcuts") or {}).items()

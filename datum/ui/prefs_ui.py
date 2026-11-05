@@ -152,6 +152,27 @@ class PreferencesDialog(QtWidgets.QDialog):
             "be opened if something goes wrong. This many are kept; 0 "
             "keeps none.")
         form.addRow("Old versions kept on save", self.versions_spin)
+
+        # Inventor's Templates folder: where New Part, New Assembly and
+        # New Drawing look for templates, a shared drive for a company
+        folder_row = QtWidgets.QHBoxLayout()
+        self.templates_edit = QtWidgets.QLineEdit(self.prefs.templates_folder)
+        self.templates_edit.setPlaceholderText("None: the shipped templates")
+        self.templates_edit.setToolTip(
+            "Part, assembly and drawing templates are offered from here, "
+            "as Inventor's Templates folder is. Point it at a shared drive "
+            "and every computer starts from the same title blocks.")
+        browse = QtWidgets.QPushButton("Browse...")
+
+        def pick():
+            chosen = QtWidgets.QFileDialog.getExistingDirectory(
+                self, "Templates folder", self.templates_edit.text())
+            if chosen:
+                self.templates_edit.setText(chosen)
+        browse.clicked.connect(pick)
+        folder_row.addWidget(self.templates_edit, 1)
+        folder_row.addWidget(browse)
+        form.addRow("Templates folder", folder_row)
         return page
 
     def _display_page(self) -> QtWidgets.QWidget:
@@ -390,6 +411,7 @@ class PreferencesDialog(QtWidgets.QDialog):
                                 or core_prefs.MOUSE_MIDDLE)
         self.prefs.zoom_reversed = self.zoom_reversed_box.isChecked()
         self.prefs.old_versions = self.versions_spin.value()
+        self.prefs.templates_folder = self.templates_edit.text().strip()
         from . import shortcuts
         self.prefs.shortcuts = shortcuts.changes(self.shortcut_keys())
         # only what differs from the shipped palette is written, so a

@@ -1901,11 +1901,41 @@ class MainWindow(QtWidgets.QMainWindow):
         # an example d1 = 50, which the first sketch dimension, also d1,
         # then disagreed with in the table.  Every dimension is a parameter
         # of its own now, so the table fills itself as the part is drawn.
-        document = Document()
-        document.units = prefs.prefs().units
+        document = self._from_template(fileformat.PART, Document, prompt)
+        if document is None:
+            return
         self._adopt(document, fileformat.PART)
         self.status_message.setText(
             "New part. Start a sketch on a plane, or drop in a primitive.")
+
+    def _from_template(self, kind: str, cls, prompt: bool):
+        """A new part or assembly: from a template in the Templates folder
+        when there are any, as Inventor's New dialog offers them, or
+        blank. None when the choice is cancelled."""
+        from ..core import templates
+        found = templates.of_type(kind) if prompt else []
+        chosen = None
+        if found:
+            names = ["Blank"] + [t.name for t in found]
+            name, ok = QtWidgets.QInputDialog.getItem(
+                self, "New from template", "Template", names, 1, False)
+            if not ok:
+                return None
+            chosen = next((t for t in found if t.name == name), None)
+        if chosen is not None:
+            try:
+                document = cls.load(chosen.path)
+                # a starting point, cut loose from the file it came from
+                document.path = ""
+                document.modified = False
+                return document
+            except Exception as exc:
+                QtWidgets.QMessageBox.warning(
+                    self, "Template",
+                    "Could not open the template %s: %s" % (chosen.name, exc))
+        document = cls()
+        document.units = prefs.prefs().units
+        return document
 
     def _offer_resolve(self, document, broken, what: str) -> bool:
         """Ask whether to go and find files that have moved."""
@@ -1987,8 +2017,10 @@ class MainWindow(QtWidgets.QMainWindow):
             "to cut.")
 
     def new_assembly(self, prompt: bool = True) -> None:
-        assembly = AssemblyDocument()
-        assembly.units = prefs.prefs().units
+        assembly = self._from_template(fileformat.ASSEMBLY,
+                                       AssemblyDocument, prompt)
+        if assembly is None:
+            return
         self._adopt(assembly, fileformat.ASSEMBLY)
         self.status_message.setStyleSheet("")
         self.status_message.setText(

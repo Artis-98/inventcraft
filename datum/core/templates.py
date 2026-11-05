@@ -47,6 +47,31 @@ def project_folder(project_dir: str) -> str:
     return os.path.join(project_dir, FOLDER) if project_dir else ""
 
 
+def shared_folder() -> str:
+    """The Templates folder set in Preferences, Inventor's way, or ""."""
+    try:
+        from . import prefs
+        folder = prefs.prefs().templates_folder
+    except Exception:
+        return ""
+    return folder if folder and os.path.isdir(folder) else ""
+
+
+def of_type(kind: str) -> List[Template]:
+    """Part or assembly templates in the shared Templates folder: any
+    InventCraft file of that kind there, as Inventor offers its .ipt and
+    .iam templates."""
+    folder = shared_folder()
+    out: List[Template] = []
+    if not folder:
+        return out
+    for entry in sorted(os.listdir(folder)):
+        if fileformat.is_type(entry, kind):
+            out.append(Template(name=os.path.splitext(entry)[0],
+                                path=os.path.join(folder, entry)))
+    return out
+
+
 def available(project_dir: str = "") -> List[Template]:
     """Every template on offer: the project's own first, then the shipped.
 
@@ -56,7 +81,8 @@ def available(project_dir: str = "") -> List[Template]:
     """
     out: List[Template] = []
     seen = set()
-    for folder, builtin in ((project_folder(project_dir), False),
+    for folder, builtin in ((shared_folder(), False),
+                            (project_folder(project_dir), False),
                             (builtin_folder(), True)):
         if not folder or not os.path.isdir(folder):
             continue
@@ -115,7 +141,9 @@ def save_as_template(document: "dwg.DrawingDocument", name: str,
         raise ValueError("a template needs a name")
     if any(ch in name for ch in '\\/:*?"<>|'):
         raise ValueError('a template name cannot contain \\ / : * ? " < > |')
-    folder = project_folder(project_dir)
+    # into the shared Templates folder when one is set, so the whole
+    # company gets it; the project's own otherwise
+    folder = shared_folder() or project_folder(project_dir)
     if not folder:
         raise ValueError("there is no project to save the template into")
     os.makedirs(folder, exist_ok=True)
