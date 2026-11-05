@@ -160,7 +160,7 @@ def to_image(doc: DrawingDocument, sheet: Sheet, path: str,
 
 DXF_LAYERS = {"visible": "VIEW_VISIBLE", "hidden": "VIEW_HIDDEN",
               "outline": "VIEW_OUTLINE", "smooth": "VIEW_TANGENT",
-              "cut": "VIEW_SECTION"}
+              "cut": "VIEW_SECTION", "bend": "BEND_CENTERLINE"}
 
 
 def to_dxf(doc: DrawingDocument, sheet: Sheet, path: str,
