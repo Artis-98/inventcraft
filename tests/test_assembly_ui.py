@@ -361,6 +361,29 @@ check("and the peg is where it was",
       all(abs(a - b) < 1e-6 for a, b in zip(peg.placement.position, where)),
       peg.placement.position)
 
+print("Assemble: two picks, the kind worked out, placed, and on to the next")
+before = len(doc.constraints)
+win.assembly_ui.assemble()
+pump()
+dialog = win.assembly_ui.dialog
+check("Assemble opens with the first pick armed",
+      dialog.assemble and dialog.first.picking)
+stub_pick([(peg.id, bottom)])
+dialog.on_selection()
+stub_pick([(plate.id, top)])
+dialog.on_selection()
+pump()
+clear_pick()
+check("two faces are mated and placed without OK",
+      len(doc.constraints) == before + 1
+      and doc.constraints[-1].kind == MATE,
+      [c.kind for c in doc.constraints])
+check("and the next pair can be picked straight away",
+      dialog.first.picking and not dialog.constraint.a.valid)
+dialog.cancel()
+pump()
+check("closing it keeps what was placed", len(doc.constraints) == before + 1)
+
 
 # ==========================================================================
 print("free move drags a component, free rotate spins it")
@@ -496,7 +519,8 @@ check("opening the .icasm works", win.open_path(os.path.join(WORK, "rig.icasm"))
 pump()
 check("we are in an assembly again", win.in_assembly)
 check("with both components", len(win.assembly.occurrences) == 2)
-check("and the constraint", len(win.assembly.constraints) == 1)
+check("and the constraints, the mate and the one Assemble placed", len(win.assembly.constraints) == 2,
+      len(win.assembly.constraints))
 reopened = win.assembly.occurrences[1]
 seat = reopened.placement.apply_point(win.assembly.constraints[0].b.frame.origin)
 check("still seated on the plate", abs(seat[2] - 8.0) < 1e-4, seat)

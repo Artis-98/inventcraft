@@ -677,6 +677,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(self.ground_selected_component)
 
         panel = assemble.add_panel("Relationships")
+        panel.add_big("c3d_insert", "Assemble",
+                      "Pick a face on the part to move, then where it goes: "
+                      "the constraint is worked out and placed, pair after "
+                      "pair"
+                      ).clicked.connect(lambda: self.assembly_ui.assemble())
         panel.add_big("c3d_mate", "Constrain",
                       "Place a constraint between two components (C)"
                       ).clicked.connect(lambda: self.assembly_ui.constrain(MATE))

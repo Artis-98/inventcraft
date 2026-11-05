@@ -71,7 +71,11 @@ class ConstraintDialog(QtWidgets.QDialog):
 
     def __init__(self, controller: "AssemblyController",
                  constraint: Optional[AssemblyConstraint] = None,
-                 kind: str = MATE) -> None:
+                 kind: str = MATE, assemble: bool = False) -> None:
+        # Inventor's Assemble: no type to choose; two picks, the kind
+        # worked out from what they are, placed at once, and on to the
+        # next pair
+        self.assemble = assemble
         super().__init__(controller.host)
         self.controller = controller
         self.host = controller.host
@@ -88,7 +92,7 @@ class ConstraintDialog(QtWidgets.QDialog):
         if constraint is not None:
             self._live = True
 
-        self.setWindowTitle("Place Constraint")
+        self.setWindowTitle("Assemble" if assemble else "Place Constraint")
         self.setWindowIcon(icons.icon("c_coincident", 24))
         self.setWindowFlags(QtCore.Qt.Tool | QtCore.Qt.WindowTitleHint
                             | QtCore.Qt.WindowCloseButtonHint)
@@ -339,8 +343,27 @@ class ConstraintDialog(QtWidgets.QDialog):
             self.arm(self.second)
         else:
             self.arm(None)
+        if self.assemble and self.complete:
+            self._infer_kind()
         self._changed()
+        if (self.assemble and self.complete and self._live
+                and not self.constraint.error):
+            self.apply_and_continue()
         return True
+
+    def _infer_kind(self) -> None:
+        """What two picks most likely mean, as Inventor's Assemble reads
+        them: two round edges an insert, otherwise faces mated."""
+        from ..core.constraints3d import INSERT, compatible
+        a, b = self.constraint.a.frame, self.constraint.b.frame
+        for kind in (INSERT, MATE, FLUSH):
+            if compatible(a, b, kind):
+                if kind in (MATE, FLUSH):
+                    self.kind.set_value(MATE)
+                    self.solution.set_value(kind)
+                else:
+                    self.kind.set_value(kind)
+                return
 
     def _clear(self, which: int) -> None:
         if which == 0:
@@ -1085,6 +1108,23 @@ class AssemblyController(QtCore.QObject):
         self.take_over()
         doc.push_undo()
         self._open(ConstraintDialog(self, kind=kind))
+
+    def assemble(self) -> None:
+        """Inventor's Assemble: pick a face on the part to move, then where
+        it goes; the constraint is worked out and placed, and the next
+        pair can be picked straight away."""
+        doc = self.document
+        if doc is None:
+            return
+        if len(doc.occurrences) < 2:
+            QtWidgets.QMessageBox.information(
+                self.host, "Assemble",
+                "Assemble puts one component against another. Place at "
+                "least two first.")
+            return
+        self.take_over()
+        doc.push_undo()
+        self._open(ConstraintDialog(self, assemble=True))
 
     def edit_constraint(self, constraint_id: int) -> None:
         doc = self.document
