@@ -2389,6 +2389,12 @@ def wrap_to_cylinder(profile: TopoDS_Shape, plane: SketchPlane,
     centre = shape_centre(profile)
     # where the profile's middle meets the cylinder, square to the axis
     u0, v0 = ElSLib.Parameters_s(cylinder, pnt(centre))
+    # the seam turned to the far side, so lettering that runs across where
+    # the cylinder's own seam was is not cut in two and partly lost
+    from OCP.gp import gp_Cylinder
+    cylinder = gp_Cylinder(cylinder.Position().Rotated(axis, u0 - math.pi),
+                           radius)
+    u0, v0 = ElSLib.Parameters_s(cylinder, pnt(centre))
     # across the axis on the sketch plane is round it; along it is along
     across = [axis_dir[1] * plane.normal[2] - axis_dir[2] * plane.normal[1],
               axis_dir[2] * plane.normal[0] - axis_dir[0] * plane.normal[2],
@@ -2398,17 +2404,25 @@ def wrap_to_cylinder(profile: TopoDS_Shape, plane: SketchPlane,
         raise KernelError("the sketch is square to the cylinder's axis, so "
                           "there is no way round it to wrap along")
     across = [c / length for c in across]
-    # round the cylinder the way u grows
-    tangent = cylinder.Position().XDirection().Rotated(axis, u0)
-    du = ad.Crossed(tangent)
-    if du.X() * across[0] + du.Y() * across[1] + du.Z() * across[2] < 0:
-        across = [-c for c in across]
+    # Which way round the cylinder u grows, against the way across the
+    # sketch: a point further along ``across`` goes further round the same
+    # way. Turning ``across`` itself to match u, as this once did, read the
+    # sketch backwards whenever the two disagreed, and the text came out
+    # mirrored (GitHub #17).
+    # Read off the surface itself, not worked out from the axis: a
+    # cylinder whose frame is left-handed, as an extruded circle's can
+    # be, has u running the other way round.
+    here = ElSLib.Value_s(u0, v0, cylinder)
+    ahead = ElSLib.Value_s(u0 + 1e-4, v0, cylinder)
+    du = (ahead.X() - here.X(), ahead.Y() - here.Y(), ahead.Z() - here.Z())
+    way = (1.0 if du[0] * across[0] + du[1] * across[1]
+           + du[2] * across[2] >= 0 else -1.0)
 
     def uv_of(p):
         r = [p[i] - centre[i] for i in range(3)]
         s = sum(r[i] * across[i] for i in range(3))
         h = sum((p[i] - loc.Coord(i + 1)) * axis_dir[i] for i in range(3))
-        return (u0 + s / radius, h)
+        return (u0 + way * s / radius, h)
 
     a = centre
     b = tuple(centre[i] + across[i] for i in range(3))
@@ -2426,8 +2440,12 @@ def wrap_to_cylinder(profile: TopoDS_Shape, plane: SketchPlane,
                               reader.LastParameter()))
         poles3 = spline.Poles()
         poles = TColgp_Array1OfPnt2d(1, poles3.Length())
+        # the curve is in the edge's own place; a letter of text is moved
+        # to where it stands by its location, and without it every letter
+        # landed on the first one
+        place = reader.Trsf()
         for i in range(1, poles3.Length() + 1):
-            p = poles3.Value(i)
+            p = poles3.Value(i).Transformed(place)
             u, v = mapped((p.X(), p.Y(), p.Z()))
             poles.SetValue(i, gp_Pnt2d(u, v))
         weights = TColStd_Array1OfReal(1, poles3.Length())
@@ -2443,6 +2461,13 @@ def wrap_to_cylinder(profile: TopoDS_Shape, plane: SketchPlane,
             raise KernelError("could not wrap a curve of the profile")
         out = made.Edge()
         BRepLib.BuildCurves3d_s(out)
+        # The curve is read start to end whichever way the edge runs in
+        # its loop; an edge the loop runs backwards has to be turned the
+        # same way, or the loop no longer joins up and the letter comes
+        # out an invalid face that the emboss loses (GitHub #17).
+        from OCP.TopAbs import TopAbs_REVERSED
+        if edge.Orientation() == TopAbs_REVERSED:
+            out = TopoDS.Edge_s(out.Reversed())
         return out
 
     wrapped: List[TopoDS_Face] = []
@@ -2459,15 +2484,25 @@ def wrap_to_cylinder(profile: TopoDS_Shape, plane: SketchPlane,
             if not maker.IsDone():
                 raise KernelError("could not wrap a loop of the profile")
             built.append(maker.Wire())
-        made = BRepBuilderAPI_MakeFace(surface, built[0], True)
-        for hole in built[1:]:
-            made.Add(hole)
-        if not made.IsDone():
-            raise KernelError("could not wrap the profile")
-        fixer = ShapeFix_Face(made.Face())
-        fixer.FixOrientation()
-        fixer.Perform()
-        wrapped.append(TopoDS.Face_s(fixer.Face()))
+        def face_of(loops):
+            made = BRepBuilderAPI_MakeFace(surface, loops[0], True)
+            for hole in loops[1:]:
+                made.Add(hole)
+            if not made.IsDone():
+                raise KernelError("could not wrap the profile")
+            fixer = ShapeFix_Face(made.Face())
+            fixer.FixOrientation()
+            fixer.Perform()
+            return TopoDS.Face_s(fixer.Face())
+
+        letter = face_of(built)
+        if surface_area(letter) < 0:
+            # A letter whose loops run the wrong way round makes a face
+            # turned inside out: it thickens, but every boolean after it
+            # treats it as a hole, and the letter vanished from the
+            # emboss. The loops the other way round make it right.
+            letter = face_of([TopoDS.Wire_s(w.Reversed()) for w in built])
+        wrapped.append(letter)
     return wrapped
 
 
