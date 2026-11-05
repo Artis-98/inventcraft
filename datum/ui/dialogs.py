@@ -1477,6 +1477,48 @@ class EdgeOpDialog(FeatureDialog):
         self.all_edges.setChecked(self.feature.all_edges)
         self._sync_enabled()
 
+    # The edges picked stay lit, thick and on top, for as long as the
+    # dialog is open: the preview alone shows the rounded result, where
+    # which edges were actually taken, or a neighbour clicked by mistake,
+    # could only be guessed at.
+
+    def preview(self):
+        super().preview()
+        self._mark_edges()
+
+    def _mark_edges(self) -> None:
+        vp = getattr(self.host, "viewport", None)
+        if vp is None:
+            return
+        vp.remove_drawn(getattr(self, "_edge_marks", []))
+        self._edge_marks = []
+        if self._closed or self.all_edges.isChecked():
+            vp.redraw()
+            return
+        base = self.host.pick_shape()
+        if base is None or not len(self.feature.refs):
+            vp.redraw()
+            return
+        try:
+            edges, _lost = self.feature.refs.resolve_all(base)
+        except Exception:
+            edges = []
+        with vp.collecting() as drawn:
+            for edge in edges:
+                vp.draw_shape(edge, C.highlight, 4.0)
+        vp.on_top(drawn)
+        self._edge_marks = drawn
+        vp.redraw()
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        if self._closed:
+            vp = getattr(self.host, "viewport", None)
+            if vp is not None:
+                vp.remove_drawn(getattr(self, "_edge_marks", []))
+                self._edge_marks = []
+                vp.redraw()
+        super().closeEvent(event)
+
 
 class FilletDialog(EdgeOpDialog):
     size_label = "Radius"
