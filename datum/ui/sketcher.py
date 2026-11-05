@@ -1184,8 +1184,19 @@ class SketchEditor(QtCore.QObject):
         # a point is the more specific pick, so it wins over the line it
         # sits on - the same rule the click itself follows
         entity = eid if (pid is None and self._picking()) else None
+        # Trim lights up only the piece the click would take, as Inventor
+        # does, not the whole line it belongs to
+        piece = None
+        if self.tool == "trim" and entity is not None:
+            from ..core import trim
+            try:
+                piece = trim.piece(self.sketch, entity, (u, v))
+            except Exception:
+                piece = None
+        moved = piece != getattr(self, "_trim_piece", None)
+        self._trim_piece = piece
         if (pid != self._hover_point or entity != self._hover_entity
-                or badge != self._hover_badge):
+                or badge != self._hover_badge or moved):
             self._hover_point = pid
             self._hover_entity = entity
             self._hover_badge = badge
@@ -3269,60 +3280,11 @@ class SketchEditor(QtCore.QObject):
         s._prune_points({corner_id})
 
     def _trim_entity(self, eid: int, point) -> None:
-        """Split the entity at its intersections and drop the clicked piece."""
-        s = self.sketch
-        ent = s.entities[eid]
-        if ent.kind == "line":
-            a = s.points[ent.points[0]]
-            b = s.points[ent.points[1]]
-            cuts = sorted(self._line_cuts(eid))
-            if not cuts:
-                s.remove_entity(eid)
-                return
-            dx, dy = b.x - a.x, b.y - a.y
-            length2 = dx * dx + dy * dy
-            t_click = ((point[0] - a.x) * dx + (point[1] - a.y) * dy) / length2
-            bounds = [0.0] + cuts + [1.0]
-            keep = []
-            for i in range(len(bounds) - 1):
-                lo, hi = bounds[i], bounds[i + 1]
-                if hi - lo < 1e-6:
-                    continue
-                if lo <= t_click <= hi:
-                    continue
-                keep.append((lo, hi))
-            s.remove_entity(eid)
-            for lo, hi in keep:
-                s.add_line((a.x + dx * lo, a.y + dy * lo),
-                           (a.x + dx * hi, a.y + dy * hi), weld=False)
-        else:
-            s.remove_entity(eid)
-
-    def _line_cuts(self, eid: int) -> List[float]:
-        """Parameters along a line where other sketch entities cross it."""
-        s = self.sketch
-        ent = s.entities[eid]
-        a = s.points[ent.points[0]]
-        b = s.points[ent.points[1]]
-        dx, dy = b.x - a.x, b.y - a.y
-        cuts: List[float] = []
-
-        for other_id, other in s.entities.items():
-            if other_id == eid:
-                continue
-            poly = s.entity_polyline(other_id, 64)
-            for i in range(len(poly) - 1):
-                cx, cy = poly[i]
-                ex, ey = poly[i + 1]
-                denom = dx * (cy - ey) - dy * (cx - ex)
-                if abs(denom) < 1e-12:
-                    continue
-                t = ((a.x - cx) * (cy - ey) - (a.y - cy) * (cx - ex)) / denom
-                u = (dx * (a.y - cy) - dy * (a.x - cx)) / denom
-                if 1e-6 < t < 1 - 1e-6 and -1e-6 <= u <= 1 + 1e-6:
-                    if all(abs(t - c) > 1e-6 for c in cuts):
-                        cuts.append(t)
-        return cuts
+        """The piece under the click goes, up to the nearest geometry either
+        side: crossing it, touching it or ending on it (core/trim.py)."""
+        from ..core import trim
+        trim.trim(self.sketch, eid, point)
+        self._trim_piece = None
 
     # ------------------------------------------------------- constraints
 
@@ -3936,11 +3898,17 @@ class SketchEditor(QtCore.QObject):
                 colour, width = C.sketch_picked, 2.8
             elif eid in conflicting:
                 colour, width = C.error, 2.4
-            elif eid == self._hover_entity:
+            elif (eid == self._hover_entity
+                  and not getattr(self, "_trim_piece", None)):
                 colour, width = C.sketch_hover, 2.6
             edge = kernel._sketch_edge(s, eid)
             if edge is not None:
                 vp.draw_shape(edge, colour, width, dashed=ent.construction)
+
+        piece = getattr(self, "_trim_piece", None)
+        if piece and self.tool == "trim":
+            for a, b in zip(piece, piece[1:]):
+                vp.draw_edge(self._to3d(a), self._to3d(b), C.error, 3.0)
 
         # Points are drawn only when they matter: under the cursor, picked,
         # being dragged, or grounded.  Inventor shows a bare sketch as lines
