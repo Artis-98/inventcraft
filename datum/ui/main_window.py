@@ -850,6 +850,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         "picked view, or every view on the sheet"
                         ).clicked.connect(
             self.drawing_ui.automated_centrelines)
+        panel.add_small("hole", "Hole Notes",
+                        "A note to each size of hole on the picked view: "
+                        "its diameter, THRU or depth, counterbore and count"
+                        ).clicked.connect(self.drawing_ui.hole_notes)
         panel.add_small("dimension", "Text...").clicked.connect(
             self.drawing_ui.add_note)
 

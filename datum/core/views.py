@@ -420,6 +420,92 @@ def centre_features(shape, direction, up, middle=(0.0, 0.0),
     return marks, lines
 
 
+def _mm(value: float) -> str:
+    text = ("%.2f" % value).rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def hole_notes(shape, direction, up, middle=(0.0, 0.0), scale: float = 1.0):
+    """Inventor's Hole Notes for one view, read off the model: every hole
+    seen end on, grouped by size, with its note.
+
+    Returns ``[(text, (x, y) on the circle, count)]``. A hole is THRU when
+    there is no material past either end of it, otherwise its depth is
+    given; a wider, shallower hole round the same axis is its counterbore.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    from OCP.TopoDS import TopoDS
+
+    if shape is None:
+        return []
+    d = _unit(direction)
+    frame = hlr.camera(direction, up)
+    bores = []                  # (axis point, axis, radius, v0, v1)
+    for face in kernel.faces(shape):
+        try:
+            surface = BRepAdaptor_Surface(TopoDS.Face_s(face))
+            if surface.GetType() != GeomAbs_Cylinder:
+                continue
+            cylinder = surface.Cylinder()
+        except Exception:
+            continue
+        axis = cylinder.Axis()
+        a = axis.Direction()
+        a = (a.X(), a.Y(), a.Z())
+        if abs(sum(a[i] * d[i] for i in range(3))) < 0.999:
+            continue
+        loc = axis.Location()
+        loc = (loc.X(), loc.Y(), loc.Z())
+        v0, v1 = sorted((surface.FirstVParameter(), surface.LastVParameter()))
+        mid = [loc[i] + a[i] * (v0 + v1) / 2 for i in range(3)]
+        # a hole has nothing on its axis; a boss is solid there
+        if kernel.point_inside(shape, mid):
+            continue
+        # the same bore met twice, split by a seam, counts once
+        if any(abs(b[2] - cylinder.Radius()) < 1e-6
+               and math.dist(b[0], loc) < 1e-6 and abs(b[3] - v0) < 1e-6
+               for b in bores):
+            continue
+        bores.append((loc, a, cylinder.Radius(), v0, v1))
+
+    def axis_key(b):
+        x, y = hlr.to_paper(b[0], frame, middle)
+        return (round(x, 4), round(y, 4))
+
+    holes = {}
+    for b in bores:
+        holes.setdefault(axis_key(b), []).append(b)
+
+    notes = {}
+    for key, group in holes.items():
+        group.sort(key=lambda b: b[2])
+        hole = group[0]
+        loc, a, r, v0, v1 = hole
+        span = (min(b[3] for b in group), max(b[4] for b in group))
+        step = 0.05
+        past = [[loc[i] + a[i] * (span[0] - step) for i in range(3)],
+                [loc[i] + a[i] * (span[1] + step) for i in range(3)]]
+        through = not any(kernel.point_inside(shape, p) for p in past)
+        text = "%s%s" % ("\u00d8", _mm(2 * r))
+        text += " THRU" if through else " DEPTH %s" % _mm(v1 - v0)
+        wider = [b for b in group[1:] if b[2] > r + 1e-6]
+        if wider:
+            bore = wider[-1]
+            text += "  CBORE %s%s DEPTH %s" % ("\u00d8", _mm(2 * bore[2]),
+                                               _mm(bore[4] - bore[3]))
+        centre = hlr.to_paper(loc, frame, middle)
+        widest = max(b[2] for b in group)
+        at = (centre[0] * scale + widest * scale * 0.7071,
+              centre[1] * scale + widest * scale * 0.7071)
+        if text in notes:
+            notes[text][2] += 1
+        else:
+            notes[text] = [text, at, 1]
+    return [(("%dx " % n if n > 1 else "") + text, at, n)
+            for text, at, n in notes.values()]
+
+
 # ---------------------------------------------------------------- cutting
 
 

@@ -49,6 +49,20 @@ check("down its whole length and a little past",
       lines)
 check("and no centre marks", not marks)
 
+print("Hole Notes, read off the model")
+block = BRepPrimAPI_MakeBox(80, 40, 20).Shape()
+for x in (15, 45):
+    block = BRepAlgoAPI_Cut(block, cyl(x, 20, -1, 4, 22)).Shape()
+block = BRepAlgoAPI_Cut(block, cyl(65, 20, 12, 3, 9)).Shape()
+# a counterbored hole: 6.6 through, 11 wide 6.8 deep from the top
+cb = BRepAlgoAPI_Fuse(cyl(65, 8, -1, 3.3, 22), cyl(65, 8, 13.2, 5.5, 8)).Shape()
+block = BRepAlgoAPI_Cut(block, cb).Shape()
+projection = hlr.project(block, *top)
+notes = sorted(n[0] for n in views.hole_notes(block, *top, projection.centre))
+check("two through holes counted, the blind one's depth, the counterbore",
+      notes == sorted(["2x Ø8 THRU", "Ø6 DEPTH 8",
+                       "Ø6.6 THRU  CBORE Ø11 DEPTH 6.8"]), notes)
+
 print()
 if FAILS:
     print("%d FAILED: %s" % (len(FAILS), ", ".join(FAILS)))

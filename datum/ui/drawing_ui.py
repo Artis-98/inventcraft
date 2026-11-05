@@ -813,6 +813,46 @@ class DrawingController(QtCore.QObject):
         self.host.status_message.setText(
             "%d centre mark(s) and line(s) on %d view(s)." % (made, len(views)))
 
+    @staticmethod
+    def _is_hole_note(note) -> bool:
+        """A leader Hole Notes wrote: a diameter, THRU or a depth."""
+        import re
+        return (note.kind == dwg.LEADER and bool(re.match(
+            r"^(\d+x )?Ø[0-9.]+ (THRU|DEPTH [0-9.]+)", note.text or "")))
+
+    def hole_notes(self) -> None:
+        """Inventor's Hole Notes: a leader to one hole of each size on the
+        picked view, saying its size, THRU or its depth, its counterbore,
+        and how many there are, read off the model."""
+        doc, sheet, view = self._selected_view()
+        if view is None or view.projection is None:
+            self._complain("Select a view that has been drawn.")
+            return
+        shape = self.generator.model_of(doc, sheet, view)
+        try:
+            direction, up = self.generator.orientation(doc, sheet, view)
+        except Exception:
+            return
+        found = viewgen.hole_notes(shape, direction, up,
+                                   view.projection.centre,
+                                   doc.view_scale(sheet, view))
+        if not found:
+            self._complain("No holes are seen end on in %s." % view.label)
+            return
+        doc.push_undo()
+        # run again, the notes are put back as the model now is
+        sheet.annotations = [a for a in sheet.annotations
+                             if not (a.view == view.id
+                                     and self._is_hole_note(a))]
+        for text, at, _count in found:
+            doc.add_annotation(sheet, Annotation(
+                kind=dwg.LEADER, view=view.id, points=[[at[0], at[1]]],
+                offset=[10.0, 8.0], text=text))
+        self.rebuild()
+        self.host.status_message.setText(
+            "%d hole note(s) on %s - drag them where they read best."
+            % (len(found), view.label))
+
     # -------------------------------------------------- balloons and lists
 
     def add_balloon(self) -> None:
