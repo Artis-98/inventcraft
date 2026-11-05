@@ -518,8 +518,11 @@ class Ribbon(QtWidgets.QWidget):
             btn.setVisible(False)
         btn.clicked.connect(lambda _=False, t=title: self.show_tab(t))
         self._group.addButton(btn)
-        # insert before the stretch + hint
-        self._strip_layout.insertWidget(self._strip_layout.count() - 2, btn)
+        # insert before the stretch, which stands just before the hint: found
+        # by the hint, not counted from the end, which put every tab out at
+        # the right once the Suggest button was added after the hint
+        self._strip_layout.insertWidget(
+            self._strip_layout.indexOf(self.status_hint) - 1, btn)
         self._buttons[title] = btn
 
         if len(self._tabs) == 1:
