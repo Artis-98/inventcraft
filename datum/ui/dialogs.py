@@ -3467,7 +3467,8 @@ class SketchTextDialog(QtWidgets.QDialog):
     """The text of a sketch Text, and how it looks."""
 
     def __init__(self, current: Optional[Dict[str, Any]] = None,
-                 units: str = "mm", parent=None) -> None:
+                 units: str = "mm", parent=None,
+                 properties: bool = False) -> None:
         super().__init__(parent)
         current = dict(current or {})
         self.setWindowTitle("Edit Text" if current else "Text")
@@ -3508,6 +3509,31 @@ class SketchTextDialog(QtWidgets.QDialog):
         self.text = QtWidgets.QPlainTextEdit(self)
         self.text.setPlainText(current.get("text", ""))
         self.text.setMinimumSize(360, 110)
+        if properties:
+            # a title block's text, as Inventor's Format Text there: Type,
+            # Property, and Add puts it where the cursor is
+            from .titleblock_ui import PROPERTY_GROUPS
+            props = QtWidgets.QHBoxLayout()
+            group = QtWidgets.QComboBox(self)
+            prop = QtWidgets.QComboBox(self)
+
+            def fill(index):
+                prop.clear()
+                for label, key in PROPERTY_GROUPS[max(0, index)][1]:
+                    prop.addItem(label, key)
+            for title, _items in PROPERTY_GROUPS:
+                group.addItem(title)
+            group.currentIndexChanged.connect(fill)
+            fill(0)
+            add = QtWidgets.QPushButton("Add", self)
+            add.clicked.connect(lambda: (self.text.insertPlainText(
+                "<%s>" % prop.currentData()), self.text.setFocus()))
+            props.addWidget(QtWidgets.QLabel("Type"))
+            props.addWidget(group)
+            props.addWidget(QtWidgets.QLabel("Property"))
+            props.addWidget(prop, 1)
+            props.addWidget(add)
+            layout.addLayout(props)
         layout.addWidget(self.text)
 
         buttons = QtWidgets.QDialogButtonBox(

@@ -80,6 +80,9 @@ class OpenDocument:
         """What the tab says: a real file name, or the placeholder title."""
         if self.path:
             return os.path.basename(self.path)
+        shown = getattr(self.document, "display_title", "")
+        if shown:
+            return shown
         return "%s%s" % (self.title,
                          fileformat.extension_for(self.doc_type))
 

@@ -73,6 +73,7 @@ class DrawingController(QtCore.QObject):
         # another point is tied to the model there
         canvas.annotation_activated.connect(self.edit_annotation)
         canvas.title_block_activated.connect(self.edit_title_block)
+        canvas.sketch_activated.connect(self.edit_drawing_sketch)
         canvas.border_activated.connect(self.edit_border)
         canvas.grip_snap = self._grip_snap
         canvas.grip_moved.connect(self._grip_moved)
@@ -999,18 +1000,160 @@ class DrawingController(QtCore.QObject):
         sheet = doc.active() if doc else None
         if sheet is None or sheet.title_block not in doc.title_blocks:
             return
-        # Inventor's way: the title block opened as a sketch to draw in
-        from .titleblock_editor import TitleBlockEditor
-        dialog = TitleBlockEditor(self.host, self, doc, sheet.title_block)
-        if dialog.exec() != QtWidgets.QDialog.Accepted:
+        # Inventor's way: the title block opened as a sketch, in place on
+        # the sheet, with the whole Sketch tab; Finish Sketch puts it back
+        # on every sheet using it
+        from . import sheetpaint
+        from .titleblock_ui import block_rect
+        name = sheet.title_block
+        block = doc.title_blocks[name]
+        lettering = sheetpaint.drawing_font()
+        sketch = block.as_sketch(lettering, sheetpaint.cap_ratio(lettering))
+        origin = block_rect(doc, sheet)[:2]
+
+        def done(finished) -> None:
+            doc.push_undo()
+            block.take_sketch(finished)
+            self.host.status_message.setText(
+                "Title block %s changed on every sheet using it." % name)
+        self._begin_sheet_sketch(sheet, sketch, origin, done,
+                                 hide_title_block=True,
+                                 what="title block %s" % name)
+
+    # -- sketches on the drawing ---------------------------------------------
+
+    def start_sketch(self) -> None:
+        """Inventor's Start Sketch: then a click says where, on a view to
+        sketch on it and move with it, or anywhere on the sheet."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None:
             return
-        doc.push_undo()
-        dialog.apply()
-        doc.modified = True
+        from .sheet_sketch import SketchPicker
+        self.end_placement()
+        self._start_placer(SketchPicker(self, sheet))
+
+    def begin_drawing_sketch(self, sheet, view) -> None:
+        """A new sketch on a view, or on the sheet when ``view`` is None."""
+        from .sheet_sketch import new_sketch
+        doc = self.document
+        taken = {s.name for s in sheet.sketches}
+        n = 1
+        while "Sketch%d" % n in taken:
+            n += 1
+        drawn = dwg.DrawingSketch(name="Sketch%d" % n,
+                                  view=view.id if view is not None else 0)
+
+        def done(finished) -> None:
+            doc.push_undo()
+            drawn.id = doc.new_id()
+            drawn.sketch = finished.to_dict()
+            sheet.sketches.append(drawn)
+            self.browser.refresh()
+        self._begin_sheet_sketch(sheet, new_sketch(),
+                                 sheet.sketch_origin(drawn), done,
+                                 view=view, what=drawn.name)
+
+    def edit_drawing_sketch(self, sketch_id: int) -> None:
+        """A drawing sketch opened again, where it is."""
+        from ..core.sketch import Sketch
+        doc = self.document
+        sheet = doc.active() if doc else None
+        drawn = next((s for s in sheet.sketches if s.id == sketch_id),
+                     None) if sheet else None
+        if drawn is None:
+            return
+        view = sheet.view(drawn.view) if drawn.view else None
+
+        def done(finished) -> None:
+            doc.push_undo()
+            drawn.sketch = finished.to_dict()
+        self._begin_sheet_sketch(sheet, Sketch.from_dict(drawn.sketch),
+                                 sheet.sketch_origin(drawn), done, view=view,
+                                 what=drawn.name, editing=drawn.id)
+
+    def _begin_sheet_sketch(self, sheet, sketch, origin, done, view=None,
+                            hide_title_block=False, what="sketch",
+                            editing=None) -> None:
+        """The part sketcher, run on the sheet: the same editor, tools and
+        Sketch tab, its clicks and drawing through the sheet."""
+        from ..core.params import ParameterTable
+        from . import sheet_sketch
+        from .main_window import TAB_SKETCH
+        self.end_placement()
+        host = self.host
+        editor = host.editor
+        surface = sheet_sketch.SheetSketchSurface(self.canvas, origin)
+        if view is not None:
+            # Project Geometry takes this view's lines, and no other's
+            def project(uv) -> bool:
+                if editor.tool != "project":
+                    return False
+                editor.begin_change()
+                taken = sheet_sketch.project_from_view(
+                    sheet, view, editor.sketch, uv,
+                    8.0 / max(self.canvas.layout().scale, 1e-9))
+                editor._touch()
+                return True
+            surface.project_hook = project
+        for signal, slot in sheet_sketch.signal_pairs(surface, editor):
+            signal.connect(slot)
+        self._sheet_sketch = {"surface": surface, "done": done,
+                              "viewport": editor.viewport}
+        editor.viewport = surface
+        editor.property_fields = True
+        editor.autoscale = False
+        editor.set_model_shape(None)
+        self.canvas.sketch_surface = surface
+        self.canvas.hide_title_block = hide_title_block
+        self.canvas.editing_ids = (editing,) if editing else ()
+        editor.begin(sketch, ParameterTable())
+        host.ribbon.set_tab_visible(TAB_SKETCH, True)
+        host.ribbon.show_tab(TAB_SKETCH)
+        host._sync_tool_buttons()
+        self.canvas.setFocus()
         self.canvas.update()
-        self.host.status_message.setText(
-            "Title block %s changed on every sheet using it."
-            % sheet.title_block)
+        host.status_message.setStyleSheet("")
+        host.status_message.setText(
+            "Sketching %s: the Sketch tab's tools, Finish Sketch when done."
+            % what)
+
+    @property
+    def sheet_sketch_active(self) -> bool:
+        return getattr(self, "_sheet_sketch", None) is not None
+
+    def finish_drawing_sketch(self) -> None:
+        """Finish Sketch on the drawing: what was sketched goes where it
+        belongs, and the drawing's own tabs come back."""
+        from . import sheet_sketch
+        from .main_window import TAB_DRAWING, TAB_SKETCH
+        held = getattr(self, "_sheet_sketch", None)
+        if held is None:
+            return
+        self._sheet_sketch = None
+        editor = self.host.editor
+        sketch = editor.sketch
+        editor.end()
+        for signal, slot in sheet_sketch.signal_pairs(held["surface"],
+                                                      editor):
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        editor.viewport = held["viewport"]
+        editor.property_fields = False
+        self.canvas.sketch_surface = None
+        self.canvas.hide_title_block = False
+        self.canvas.editing_ids = ()
+        if sketch is not None and (sketch.entities or sketch.texts):
+            held["done"](sketch)
+            self.document.modified = True
+        host = self.host
+        host.ribbon.set_tab_visible(TAB_SKETCH, False)
+        host.ribbon.show_tab(TAB_DRAWING)
+        self.browser.refresh()
+        self.canvas.update()
+        host.update_title()
 
     def edit_border(self) -> None:
         doc = self.document
@@ -1249,6 +1392,10 @@ class DrawingController(QtCore.QObject):
 
     def context_menu(self, menu: QtWidgets.QMenu) -> None:
         """What the sheet offers on a right-click."""
+        if self.sheet_sketch_active:
+            # the sketch's own menu, as in a part's sketch
+            self.host.build_sketch_menu(menu)
+            return
         doc, sheet, view = self._selected_view()
         notes = self.canvas.selected_annotations
         table = sheet.parts_list(notes[-1]) if (notes and sheet) else None

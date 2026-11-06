@@ -115,6 +115,13 @@ class DrawingBrowser(QtWidgets.QTreeWidget):
         for view in remaining:          # a broken parent link: show it anyway
             placed[view.id] = self._view(item, doc, sheet, view)
 
+        for drawn in sheet.sketches:
+            parent_item = placed.get(drawn.view, item) if drawn.view else item
+            child = QtWidgets.QTreeWidgetItem(parent_item, [drawn.name])
+            child.setData(0, ROLE_KIND, "sketch")
+            child.setData(0, ROLE_ID, drawn.id)
+            child.setIcon(0, icons.icon("sketch", 16))
+
         for table in sheet.parts_lists:
             child = QtWidgets.QTreeWidgetItem(
                 item, ["Parts List   %d item(s)" % len(table.rows)])

@@ -3525,9 +3525,18 @@ class SketchEditor(QtCore.QObject):
     def _ask_text(self, current: Optional[Dict[str, Any]]):
         if self.text_prompt is not None:
             return self.text_prompt(current)
+        if current is None and getattr(self, "property_fields", False):
+            # a title block's new text: the drawing's lettering, 3.5 tall
+            from . import sheetpaint
+            lettering = sheetpaint.drawing_font()
+            current = {"font": lettering,
+                       "size": round(3.5 / sheetpaint.cap_ratio(lettering),
+                                     2)}
         from .dialogs import SketchTextDialog
         dialog = SketchTextDialog(current, self.units,
-                                  self.viewport.window())
+                                  self.viewport.window(),
+                                  properties=getattr(self, "property_fields",
+                                                     False))
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return None
         return dialog.values()

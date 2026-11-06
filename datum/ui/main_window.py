@@ -628,6 +628,11 @@ class MainWindow(QtWidgets.QMainWindow):
                       ).clicked.connect(self.project_geometry)
         panel.add_small("export", "Export DXF").clicked.connect(
             self.export_sketch_dxf)
+        panel.add_small("import", "Import DXF",
+                        "Bring the lines, arcs, circles and text of a DXF "
+                        "into this sketch, as Inventor's Insert ACAD: a "
+                        "title block drawn in AutoCAD, say"
+                        ).clicked.connect(self.import_sketch_dxf)
 
         panel = sketch.add_panel("Format")
         self.construction_btn = panel.add_small(
@@ -831,6 +836,11 @@ class MainWindow(QtWidgets.QMainWindow):
                       "Enlarge part of the selected view"
                       ).clicked.connect(ui.add_detail)
 
+        panel = place.add_panel("Sketch")
+        panel.add_big("sketch", "Start\nSketch",
+                      "Then click a view to sketch on it, or the sheet"
+                      ).clicked.connect(ui.start_sketch)
+
         panel = place.add_panel("Sheets")
         panel.add_big("new_sheet", "New Sheet").clicked.connect(ui.new_sheet)
         panel.add_small("export", "Sheet Setup",
@@ -871,6 +881,11 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("an_bisector", "Centerline Bisector",
                         "Click two lines for the centre line between them"
                         ).clicked.connect(ui.add_bisector)
+
+        panel = annotate.add_panel("Sketch")
+        panel.add_big("sketch", "Start\nSketch",
+                      "Then click a view to sketch on it, or the sheet"
+                      ).clicked.connect(ui.start_sketch)
 
         panel = annotate.add_panel("Table")
         panel.add_big("material", "Parts\nList",
@@ -4360,6 +4375,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def finish_sketch(self) -> None:
         if not self.editor.active:
             return
+        if getattr(self.drawing_ui, "sheet_sketch_active", False):
+            # a sketch on a drawing: it goes back into the drawing
+            self.drawing_ui.finish_drawing_sketch()
+            self.ribbon.set_hint("")
+            self.status_sketch.setText("")
+            return
         self.editor.end()
         self._sketch_feature_id = None
         self.document.rollback_index = getattr(self, "_saved_rollback", None)
@@ -6168,6 +6189,38 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.status_message.setStyleSheet("")
         self.status_message.setText("Exported %s" % os.path.basename(written))
+
+    def import_sketch_dxf(self, path: str = "") -> int:
+        """A DXF's lines and text into the sketch being edited."""
+        from ..core import dxfread
+        if not self.editor.active:
+            return 0
+        if not path:
+            path, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self, "Import DXF", self.project_folder(),
+                "DXF (*.dxf);;All files (*)")
+        if not path:
+            return 0
+        try:
+            found = dxfread.read(path)
+        except OSError as exc:
+            QtWidgets.QMessageBox.warning(self, "Import DXF", str(exc))
+            return 0
+        sketch = self.editor.sketch
+        self.editor.begin_change()
+        for x1, y1, x2, y2 in found["lines"]:
+            if math.hypot(x2 - x1, y2 - y1) > 1e-9:
+                sketch.add_line((x1, y1), (x2, y2))
+        for x, y, height, words in found["texts"]:
+            # a DXF text's height is its capitals'; a sketch text's size
+            # is its font's, of which the capitals are about seven tenths
+            sketch.add_text(x, y, words, size=height / 0.7)
+        self.editor._touch()
+        made = len(found["lines"]) + len(found["texts"])
+        self.status_message.setText("Imported %d line(s) and %d text(s)."
+                                    % (len(found["lines"]),
+                                       len(found["texts"])))
+        return made
 
     def export_sketch_dxf(self) -> None:
         from ..core import dxf

@@ -92,7 +92,8 @@ _VALUES: Dict[str, str] = {}
 def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
           layout: Layout, model_properties: Optional[Dict[str, str]] = None,
           with_paper: bool = True, selection: Sequence[int] = (),
-          on_screen: bool = False, hidden: Sequence[int] = ()) -> None:
+          on_screen: bool = False, hidden: Sequence[int] = (),
+          title_block: bool = True) -> None:
     """Draw one sheet, whole.
 
     ``hidden`` views are left out, with whatever is pinned to them: the
@@ -105,6 +106,10 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     """
     painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
     painter.setRenderHint(QtGui.QPainter.TextAntialiasing, True)
+    # one lettering for the whole sheet, on screen and in PDF alike
+    lettering = painter.font()
+    lettering.setFamily(drawing_font())
+    painter.setFont(lettering)
     if callable(model_properties):
         model_properties = model_properties(sheet)
     width, height = sheet.extent()
@@ -118,7 +123,9 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     if with_paper:
         _paper(painter, layout, width, height)
     _border(painter, doc, sheet, layout, width, height)
-    _title_block(painter, doc, sheet, layout, width, height, model_properties)
+    if title_block:
+        _title_block(painter, doc, sheet, layout, width, height,
+                     model_properties)
 
     for view in sheet.views:
         if view.id in hidden:
@@ -130,6 +137,10 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
             continue
         _annotation(painter, doc, sheet, note, layout,
                     selected=note.id in selection)
+    for item in sheet.sketches:
+        if item.view in hidden or item.id in hidden:
+            continue
+        _sketch(painter, doc, sheet, item, layout)
     for table in sheet.parts_lists:
         _parts_list(painter, doc, sheet, table, layout,
                     selected=table.id in selection)
@@ -193,6 +204,32 @@ def _border(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
             _text(painter, layout, letter, cx, cy, 2.5, align="centre")
 
 
+def _sketch(painter, doc, sheet, item, layout) -> None:
+    """A sketch drawn on the sheet or on a view: its lines and text."""
+    if not item.sketch:
+        return
+    ox, oy = sheet.sketch_origin(item)
+    pieces, texts = item.drawn()
+    painter.setPen(_pen(layout, doc.styles.get("visible", dwg.Style())))
+    for x1, y1, x2, y2 in pieces:
+        painter.drawLine(QtCore.QPointF(*layout.to_device(ox + x1, oy + y1)),
+                         QtCore.QPointF(*layout.to_device(ox + x2, oy + y2)))
+    for x, y, size, words, bold, italic, family in texts:
+        font = painter.font()
+        font.setFamily(family or drawing_font())
+        font.setItalic(italic)
+        painter.setFont(font)
+        cap = size * cap_ratio(family or drawing_font())
+        for index, line in enumerate(
+                dwg.fill_properties(words, _VALUES).split(chr(10))):
+            _text(painter, layout, line, ox + x,
+                  oy + y - index * size * 1.2, cap, bold=bold)
+    font = painter.font()
+    font.setFamily(drawing_font())
+    font.setItalic(False)
+    painter.setFont(font)
+
+
 def _title_block(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
                  layout: Layout, width: float, height: float,
                  model_properties: Optional[Dict[str, str]]) -> None:
@@ -206,6 +243,36 @@ def _title_block(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
 
     style = doc.styles.get("border", dwg.Style())
     painter.setPen(_pen(layout, style))
+    if block.sketch is not None:
+        # a block edited as a sketch: its lines, arcs, circles and text,
+        # the text's properties filled in
+        pieces, texts = block.drawn()
+        for x1, y1, x2, y2 in pieces:
+            painter.drawLine(
+                QtCore.QPointF(*layout.to_device(origin[0] + x1,
+                                                 origin[1] + y1)),
+                QtCore.QPointF(*layout.to_device(origin[0] + x2,
+                                                 origin[1] + y2)))
+        values = dwg.properties_for(doc, sheet, model_properties)
+        text_style = doc.styles.get("text", dwg.Style())
+        painter.setPen(QtGui.QPen(QtGui.QColor(text_style.colour)))
+        for x, y, size, words, bold, italic, family in texts:
+            font = painter.font()
+            font.setFamily(family or drawing_font())
+            font.setItalic(italic)
+            painter.setFont(font)
+            # a sketch text's size is its font's, so drawn as big as the
+            # sketch showed it: its capitals that share of it
+            cap = size * cap_ratio(family or drawing_font())
+            for index, line in enumerate(
+                    dwg.fill_properties(words, values).split(chr(10))):
+                _text(painter, layout, line, origin[0] + x,
+                      origin[1] + y - index * size * 1.2, cap, bold=bold)
+        font = painter.font()
+        font.setFamily(drawing_font())
+        font.setItalic(False)
+        painter.setFont(font)
+        return
     for line in block.lines:
         a = layout.to_device(origin[0] + line[0], origin[1] + line[1])
         b = layout.to_device(origin[0] + line[2], origin[1] + line[3])
@@ -221,6 +288,28 @@ def _title_block(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
         _text(painter, layout, content,
               origin[0] + item.x, origin[1] + item.y,
               item.height, bold=item.bold, align=item.align)
+
+
+# the lettering of a drawing, as Inventor's DIN standard letters it:
+# ISOCPEUR where the computer has it (Autodesk installs it), else Arial
+DRAWING_FONTS = ("ISOCPEUR", "osifont", "Arial")
+_FONT: Optional[str] = None
+
+
+def drawing_font() -> str:
+    global _FONT
+    if _FONT is None:
+        have = set(QtGui.QFontDatabase.families())
+        _FONT = next((f for f in DRAWING_FONTS if f in have), "Arial")
+    return _FONT
+
+
+def cap_ratio(family: str) -> float:
+    """How tall a font's capitals are, against its size."""
+    probe = QtGui.QFont(family or drawing_font())
+    probe.setPixelSize(100)
+    measured = QtGui.QFontMetricsF(probe).capHeight()
+    return measured / 100.0 if measured > 1e-6 else 0.7
 
 
 def _em_for(font: QtGui.QFont, cap_height: float) -> float:

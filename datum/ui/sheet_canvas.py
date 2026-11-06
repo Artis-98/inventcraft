@@ -34,6 +34,7 @@ class SheetCanvas(QtWidgets.QWidget):
     context_requested = QtCore.Signal(QtCore.QPoint)
     placing_finished = QtCore.Signal()      # right-click or Esc while placing
     annotation_activated = QtCore.Signal(int)   # a dimension double-clicked
+    sketch_activated = QtCore.Signal(int)       # a drawing sketch, likewise
     title_block_activated = QtCore.Signal()     # the title block, likewise
     border_activated = QtCore.Signal()          # the border, likewise
     grip_moved = QtCore.Signal(int, int)        # a dimension's leg, moved
@@ -46,6 +47,11 @@ class SheetCanvas(QtWidgets.QWidget):
         self.setAutoFillBackground(True)
 
         self.doc: Optional[DrawingDocument] = None
+        # a sketch being drawn on the sheet: it has the mouse and the keys
+        self.sketch_surface = None
+        # what is not drawn while it is being edited as a sketch
+        self.editing_ids: Sequence[int] = ()
+        self.hide_title_block = False
         self.model_properties = None
         self.selected_views: List[int] = []
         self.selected_annotations: List[int] = []
@@ -176,8 +182,12 @@ class SheetCanvas(QtWidgets.QWidget):
                          selection=self.selected_views
                          + self.selected_annotations,
                          on_screen=True,
-                         hidden=getattr(self.placer, "hidden", ()) or ())
-        if self.placer is not None:
+                         hidden=list(getattr(self.placer, "hidden", ()) or ())
+                         + list(self.editing_ids),
+                         title_block=not self.hide_title_block)
+        if self.sketch_surface is not None:
+            self.sketch_surface.paint(painter, self.layout())
+        elif self.placer is not None:
             self.placer.paint(painter, self.layout())
         else:
             self._paint_grips(painter)
@@ -339,6 +349,12 @@ class SheetCanvas(QtWidgets.QWidget):
         if event.button() in (QtCore.Qt.MiddleButton,):
             self._panning = True
             return
+        if self.sketch_surface is not None:
+            if event.button() == QtCore.Qt.LeftButton:
+                self.sketch_surface.press(event)
+            elif event.button() == QtCore.Qt.RightButton:
+                self.context_requested.emit(pos)
+            return
         if self.placer is not None:
             # placing views: the placer has the mouse
             placer = self.placer
@@ -407,6 +423,9 @@ class SheetCanvas(QtWidgets.QWidget):
             self.update()
             return
         self._last_pos = pos
+        if self.sketch_surface is not None:
+            self.sketch_surface.move(event)
+            return
 
         if self._drag_grip is not None:
             self._move_grip(pos)
@@ -482,6 +501,10 @@ class SheetCanvas(QtWidgets.QWidget):
         if event.button() == QtCore.Qt.MiddleButton:
             self._panning = False
             return
+        if self.sketch_surface is not None:
+            if event.button() == QtCore.Qt.LeftButton:
+                self.sketch_surface.release(event)
+            return
         if self.placer is not None:
             if event.button() == QtCore.Qt.LeftButton:
                 pos = event.position().toPoint()
@@ -511,6 +534,9 @@ class SheetCanvas(QtWidgets.QWidget):
         if event.button() == QtCore.Qt.MiddleButton:
             self.fit(animate=True)
             return
+        if self.sketch_surface is not None:
+            self.sketch_surface.double_click(event)
+            return
         if self.placer is not None:
             # the second of two quick clicks is still a click: the cube's
             # arrow pressed four times turns the view four times
@@ -524,6 +550,11 @@ class SheetCanvas(QtWidgets.QWidget):
         note_id = self.annotation_at(pos.x(), pos.y())
         if note_id is not None:
             self.annotation_activated.emit(note_id)
+            return
+        # a drawing sketch's line, double-clicked, opens it again
+        sketch_id = self.sketch_at(pos.x(), pos.y())
+        if sketch_id is not None:
+            self.sketch_activated.emit(sketch_id)
             return
         view_id = self.view_at(pos.x(), pos.y())
         if view_id is not None:
@@ -555,7 +586,42 @@ class SheetCanvas(QtWidgets.QWidget):
             return
         self.zoom(ZOOM_STEP ** steps, event.position().toPoint())
 
+    def sketch_at(self, x: int, y: int) -> Optional[int]:
+        """The drawing sketch with a line under a point of the widget."""
+        sheet = self.sheet()
+        if sheet is None:
+            return None
+        layout = self.layout()
+        px, py = layout.to_sheet(x, y)
+        reach = 6.0 / max(layout.scale, 1e-9)
+        for drawn in reversed(sheet.sketches):
+            ox, oy = sheet.sketch_origin(drawn)
+            pieces, _texts = drawn.drawn()
+            for x1, y1, x2, y2 in pieces:
+                ax, ay, bx, by = ox + x1, oy + y1, ox + x2, oy + y2
+                dx, dy = bx - ax, by - ay
+                span = dx * dx + dy * dy
+                t = 0.0 if span < 1e-18 else max(0.0, min(1.0, (
+                    (px - ax) * dx + (py - ay) * dy) / span))
+                if math.hypot(ax + dx * t - px, ay + dy * t - py) < reach:
+                    return drawn.id
+        return None
+
+    def event(self, event: QtCore.QEvent) -> bool:
+        # Tab moves between a sketch's heads-up fields, before Qt spends it
+        if (getattr(self, "sketch_surface", None) is not None
+                and event.type() == QtCore.QEvent.KeyPress
+                and event.key() in (QtCore.Qt.Key_Tab,
+                                    QtCore.Qt.Key_Backtab)):
+            self.sketch_surface.plane_key_pressed.emit(QtCore.Qt.Key_Tab,
+                                                       "\t")
+            return True
+        return super().event(event)
+
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
+        if self.sketch_surface is not None:
+            self.sketch_surface.key(event)
+            return
         if event.key() == QtCore.Qt.Key_Escape and self.placer is not None:
             self.placing_finished.emit()
             return

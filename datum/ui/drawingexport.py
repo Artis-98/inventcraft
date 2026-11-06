@@ -206,6 +206,18 @@ def to_dxf(doc: DrawingDocument, sheet: Sheet, path: str,
     if block is not None and border is not None:
         frame = border.frame(width, height)
         origin = (frame[2] - block.width, frame[1])
+        if block.sketch is not None:
+            pieces, texts = block.drawn()
+            for x1, y1, x2, y2 in pieces:
+                out.line((origin[0] + x1, origin[1] + y1),
+                         (origin[0] + x2, origin[1] + y2), "BORDER")
+            from .sheetpaint import cap_ratio
+            for x, y, size, words, _b, _i, family in texts:
+                content = dwg.fill_properties(words, values)
+                if content:
+                    out.text((origin[0] + x, origin[1] + y),
+                             size * cap_ratio(family), content,
+                             "ANNOTATION")
         for line in block.lines:
             out.line((origin[0] + line[0], origin[1] + line[1]),
                      (origin[0] + line[2], origin[1] + line[3]), "BORDER")

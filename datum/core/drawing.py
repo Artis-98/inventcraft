@@ -468,11 +468,88 @@ class TitleBlock:
     # lines within the block, in its own millimetres from the bottom left
     lines: List[List[float]] = field(default_factory=list)
     fields: List[TextField] = field(default_factory=list)
+    # A title block edited as a sketch, as Inventor's is: the sketch
+    # itself, laid with its bottom left on 0, 0, lines, arcs, circles and
+    # text and all. When there is one it is what is drawn; the lines and
+    # fields above are the older form, kept for blocks never edited so.
+    sketch: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"name": self.name, "width": self.width, "height": self.height,
-                "lines": [list(v) for v in self.lines],
-                "fields": [f.to_dict() for f in self.fields]}
+        out = {"name": self.name, "width": self.width, "height": self.height,
+               "lines": [list(v) for v in self.lines],
+               "fields": [f.to_dict() for f in self.fields]}
+        if self.sketch is not None:
+            out["sketch"] = self.sketch
+        return out
+
+    def as_sketch(self, font: str = "Arial", cap_ratio: float = 0.7):
+        """The block as a sketch on the XY plane, to edit in the sketcher:
+        its own sketch, or one made from its lines and fields, their text
+        in the drawing's ``font``. A field is as tall as its capitals and
+        a sketch text as big as its font, of which the capitals are
+        ``cap_ratio``."""
+        from .sketch import Sketch, SketchPlane
+        if self.sketch is not None:
+            return Sketch.from_dict(self.sketch)
+        out = Sketch(SketchPlane(), "Title Block")
+        for x1, y1, x2, y2 in [line[:4] for line in self.lines]:
+            out.add_line((x1, y1), (x2, y2))
+        for item in self.fields:
+            text = ("<%s>" % item.text if item.kind == PROPERTY
+                    else item.value or item.text)
+            if text:
+                out.add_text(item.x, item.y, text,
+                             size=item.height / max(cap_ratio, 0.1),
+                             font=font, bold=item.bold)
+        return out
+
+    def take_sketch(self, sketch) -> None:
+        """A sketch edited in the sketcher, made the block: moved so its
+        bottom left is on 0, 0, which puts its bottom right corner on the
+        border's when it is drawn, and measured."""
+        xs, ys = [], []
+        for eid, entity in sketch.entities.items():
+            if entity.construction:
+                continue
+            for x, y in sketch.entity_polyline(eid, 32):
+                xs.append(x)
+                ys.append(y)
+        for record in sketch.texts.values():
+            point = sketch.points.get(record.point)
+            if point is not None:
+                xs.append(point.x)
+                ys.append(point.y)
+        if not xs:
+            self.sketch, self.width, self.height = sketch.to_dict(), 0.0, 0.0
+            return
+        x0, y0 = min(xs), min(ys)
+        for point in sketch.points.values():
+            point.x -= x0
+            point.y -= y0
+        self.width, self.height = max(xs) - x0, max(ys) - y0
+        self.sketch = sketch.to_dict()
+        self.lines, self.fields = [], []
+
+    def drawn(self):
+        """What a sketch block draws, in its own millimetres: the pieces of
+        every line and curve, and every text as (x, y, size, text, bold,
+        italic, font)."""
+        from .sketch import Sketch
+        sketch = Sketch.from_dict(self.sketch)
+        pieces = []
+        for eid, entity in sketch.entities.items():
+            if entity.construction:
+                continue
+            points = sketch.entity_polyline(eid, 48)
+            pieces.extend((a[0], a[1], b[0], b[1])
+                          for a, b in zip(points, points[1:]))
+        texts = []
+        for record in sketch.texts.values():
+            point = sketch.points.get(record.point)
+            if point is not None:
+                texts.append((point.x, point.y, record.size, record.text,
+                               record.bold, record.italic, record.font))
+        return pieces, texts
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "TitleBlock":
@@ -482,7 +559,9 @@ class TitleBlock:
                    lines=[[float(v) for v in line]
                           for line in d.get("lines", []) if len(line) >= 4],
                    fields=[TextField.from_dict(f)
-                           for f in d.get("fields", [])])
+                           for f in d.get("fields", [])],
+                   sketch=(d.get("sketch")
+                           if isinstance(d.get("sketch"), dict) else None))
 
 
 def standard_title_block() -> TitleBlock:
@@ -1010,6 +1089,35 @@ class PartsList:
 
 
 @dataclass
+class DrawingSketch:
+    """A sketch drawn on a drawing, as Inventor's: lines, arcs, text and the
+    rest, on the sheet, or on a view, with which it then moves. A view's
+    sketch is measured from the view's middle, a sheet's from the sheet's
+    bottom left."""
+
+    id: int = 0
+    name: str = "Sketch1"
+    view: int = 0                   # 0: on the sheet itself
+    sketch: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"id": self.id, "name": self.name, "view": self.view,
+                "sketch": self.sketch}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "DrawingSketch":
+        return cls(id=int(d.get("id", 0)), name=str(d.get("name", "Sketch")),
+                   view=int(d.get("view", 0)),
+                   sketch=dict(d.get("sketch") or {}))
+
+    def drawn(self):
+        """Its pieces and texts in its own millimetres, as a title block
+        sketch gives them."""
+        holder = TitleBlock(sketch=self.sketch)
+        return holder.drawn()
+
+
+@dataclass
 class Sheet:
     """One page, with everything on it."""
 
@@ -1024,6 +1132,13 @@ class Sheet:
     views: List[View] = field(default_factory=list)
     annotations: List[Annotation] = field(default_factory=list)
     parts_lists: List[PartsList] = field(default_factory=list)
+    sketches: List[DrawingSketch] = field(default_factory=list)
+
+    def sketch_origin(self, item: DrawingSketch) -> Tuple[float, float]:
+        """Where a sketch's 0, 0 is on the sheet: its view's middle, or
+        the sheet's corner."""
+        view = self.view(item.view) if item.view else None
+        return (view.x, view.y) if view is not None else (0.0, 0.0)
 
     def extent(self) -> Tuple[float, float]:
         return sheet_extent(self.size, self.orientation, self.custom)
@@ -1051,7 +1166,8 @@ class Sheet:
                 "field_values": dict(self.field_values),
                 "views": [v.to_dict() for v in self.views],
                 "annotations": [a.to_dict() for a in self.annotations],
-                "parts_lists": [p.to_dict() for p in self.parts_lists]}
+                "parts_lists": [p.to_dict() for p in self.parts_lists],
+                "sketches": [s.to_dict() for s in self.sketches]}
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Sheet":
@@ -1067,7 +1183,9 @@ class Sheet:
                    annotations=[Annotation.from_dict(a)
                                 for a in d.get("annotations", [])],
                    parts_lists=[PartsList.from_dict(p)
-                                for p in d.get("parts_lists", [])])
+                                for p in d.get("parts_lists", [])],
+                   sketches=[DrawingSketch.from_dict(s)
+                             for s in d.get("sketches", [])])
 
 
 # ------------------------------------------------------------- the document
