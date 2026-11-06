@@ -29,7 +29,9 @@ To remove it, run `~/.local/share/InventCraft/install.sh --remove`. Your
 documents and settings are kept.
 
 There is an ARM64 build too, `linux-aarch64`, for ARM computers such as
-a Raspberry Pi 5 or an ARM laptop; it installs the same way.
+a Raspberry Pi 5 or an ARM laptop; it installs the same way. It needs
+a newer system than the x86_64 one, glibc 2.39 or later: Ubuntu 24.04,
+Debian 13, Raspberry Pi OS based on Debian 13, or newer.
 
 ### AppImage
 

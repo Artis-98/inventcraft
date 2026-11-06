@@ -21,6 +21,14 @@ on:
         description: "Only run this test, with a native traceback on a crash (e.g. test_point_states)"
         required: false
         default: ""
+      arch:
+        description: "Build only this one: x86_64 or aarch64 (empty: both)"
+        required: false
+        default: ""
+      attach:
+        description: "Build this tag (e.g. v0.3.7) and attach to its release"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -63,20 +71,21 @@ jobs:
   linux:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.diagnose == '' }}
     # x86_64, and ARM64 (GitHub #18) on GitHub's own ARM runner; the ARM
-    # build is new, so it failing never holds the x86_64 one back
+    # build is new, so it failing never holds the x86_64 one back. Qt's
+    # ARM64 wheels need glibc 2.39, so that one builds on Ubuntu 24.04.
+    # Run by hand with arch and attach, one build is made from a tag and
+    # added to its release, leaving the other, already signed, alone.
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: x86_64
-            runner: ubuntu-22.04
-          - arch: aarch64
-            runner: ubuntu-22.04-arm
+        include: ${{ fromJSON(inputs.arch == 'aarch64' && '[{"arch":"aarch64","runner":"ubuntu-24.04-arm"}]' || inputs.arch == 'x86_64' && '[{"arch":"x86_64","runner":"ubuntu-22.04"}]' || '[{"arch":"x86_64","runner":"ubuntu-22.04"},{"arch":"aarch64","runner":"ubuntu-24.04-arm"}]') }}
     runs-on: ${{ matrix.runner }}
     continue-on-error: ${{ matrix.arch == 'aarch64' }}
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.attach || github.ref }}
 
       - uses: actions/setup-python@v5
         with:
@@ -250,11 +259,11 @@ jobs:
           retention-days: 14
 
       - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.attach != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${GITHUB_REF_NAME}"
+          tag="${{ inputs.attach || github.ref_name }}"
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --title "InventCraft ${tag#v}" \
               --notes "See https://datum.iiteg.com/changelog.html"
