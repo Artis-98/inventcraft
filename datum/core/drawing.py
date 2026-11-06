@@ -627,6 +627,8 @@ class View:
     hatch_pattern: str = ""     # "" asks the model's material
     # a sheet metal part's base view as its flat pattern, bend lines and all
     flat: bool = False
+    # where a fillet meets a face, a thin line, as Inventor's Tangent Edges
+    tangents: bool = True
 
     # filled in by a rebuild; never written to the drawing.json
     projection: Optional[hlr.Projection] = None
@@ -648,6 +650,7 @@ class View:
             "depth": self.depth, "hatch": self.hatch,
             "hatch_pattern": self.hatch_pattern,
             "flat": self.flat,
+            "tangents": self.tangents,
         }
 
     @classmethod
@@ -671,7 +674,8 @@ class View:
             centre=[float(v) for v in d.get("centre", [])],
             radius=float(d.get("radius", 25.0)),
             depth=float(d.get("depth", 0.0)),
-            flat=bool(d.get("flat", False)))
+            flat=bool(d.get("flat", False)),
+            tangents=bool(d.get("tangents", True)))
 
     @property
     def label(self) -> str:
@@ -740,9 +744,18 @@ class Annotation:
     # a linear dimension: "x" reads across the page, "y" up it, and "" lets
     # the points decide, as every dimension did before it could be chosen
     axis: str = ""
+    # text and leader text, as Format Text set them: "" and 0 are the
+    # drawing's text style
+    font: str = ""
+    size: float = 0.0
+    bold: bool = False
+    italic: bool = False
+    align: str = "left"
 
     def to_dict(self) -> Dict[str, Any]:
         return {"id": self.id, "kind": self.kind, "view": self.view,
+                "font": self.font, "size": self.size, "bold": self.bold,
+                "italic": self.italic, "align": self.align,
                 "points": [[float(c) for c in p] for p in self.points],
                 "anchors": [a.to_dict() if a else None
                             for a in self.anchors],
@@ -768,7 +781,12 @@ class Annotation:
                    component=str(d.get("component", "")),
                    item=int(d.get("item", 0)),
                    shape=str(d.get("shape", "")),
-                   axis=str(d.get("axis", "")))
+                   axis=str(d.get("axis", "")),
+                   font=str(d.get("font", "")),
+                   size=float(d.get("size", 0.0) or 0.0),
+                   bold=bool(d.get("bold", False)),
+                   italic=bool(d.get("italic", False)),
+                   align=str(d.get("align", "left") or "left"))
 
     @property
     def anchored(self) -> bool:

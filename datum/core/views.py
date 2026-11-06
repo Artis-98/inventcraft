@@ -425,7 +425,8 @@ def _mm(value: float) -> str:
     return text or "0"
 
 
-def hole_notes(shape, direction, up, middle=(0.0, 0.0), scale: float = 1.0):
+def hole_notes(shape, direction, up, middle=(0.0, 0.0), scale: float = 1.0,
+               centres_out=None):
     """Inventor's Hole Notes for one view, read off the model: every hole
     seen end on, grouped by size, with its note.
 
@@ -498,12 +499,31 @@ def hole_notes(shape, direction, up, middle=(0.0, 0.0), scale: float = 1.0):
         widest = max(b[2] for b in group)
         at = (centre[0] * scale + widest * scale * 0.7071,
               centre[1] * scale + widest * scale * 0.7071)
+        spot = (centre[0] * scale, centre[1] * scale)
         if text in notes:
             notes[text][2] += 1
+            notes[text][3].append(spot)
         else:
-            notes[text] = [text, at, 1]
+            notes[text] = [text, at, 1, [spot]]
+    if centres_out is not None:
+        for text, _at, n, spots in notes.values():
+            label = ("%dx " % n if n > 1 else "") + text
+            centres_out.extend((spot, label) for spot in spots)
     return [(("%dx " % n if n > 1 else "") + text, at, n)
-            for text, at, n in notes.values()]
+            for text, at, n, _spots in notes.values()]
+
+
+def hole_note_at(shape, direction, up, middle, scale, point,
+                 tolerance: float = 0.05) -> str:
+    """Inventor's Hole and Thread note for the hole whose centre is at
+    ``point`` on the view, counted with the holes the same: ``4x Ø8
+    THRU``. Empty when no hole is seen end on there."""
+    centres = []
+    hole_notes(shape, direction, up, middle, scale, centres_out=centres)
+    for spot, label in centres:
+        if math.dist(spot, point) <= tolerance:
+            return label
+    return ""
 
 
 # ---------------------------------------------------------------- cutting
@@ -942,6 +962,12 @@ class Generator:
         doc.hashes[key] = stamp
         report.generated += 1
 
+    @staticmethod
+    def _tangents(doc: DrawingDocument, sheet: Sheet, view: View) -> bool:
+        """Tangent edges as the base view a view comes from says."""
+        base = doc.view_model(sheet, view)
+        return getattr(base if base is not None else view, "tangents", True)
+
     def _flat(self, doc: DrawingDocument, sheet: Sheet, view: View,
               document) -> hlr.Projection:
         """A sheet metal part laid flat, seen from above, with its bend
@@ -1017,7 +1043,8 @@ class Generator:
                 jobs.append(((id(sheet), view.id), {
                     "path": os.path.abspath(path),
                     "direction": list(direction), "up": list(up),
-                    "hidden": doc.view_display(sheet, view) == WITH_HIDDEN}))
+                    "hidden": doc.view_display(sheet, view) == WITH_HIDDEN,
+                    "tangents": self._tangents(doc, sheet, view)}))
         # one view is quicker drawn here than posted anywhere, and workers
         # not yet running cost more to start than a few views take
         if len(jobs) < 2 or (helpers.running == 0 and len(jobs) < 4):
@@ -1097,7 +1124,8 @@ class Generator:
         else:
             direction, up = orientation_of(view)
 
-        projection = hlr.project(shape, direction, up, hidden=show_hidden)
+        projection = hlr.project(shape, direction, up, hidden=show_hidden,
+                                 tangents=self._tangents(doc, sheet, view))
         return _scaled(projection, scale)
 
     def orientation(self, doc: DrawingDocument, sheet: Sheet,
@@ -1176,7 +1204,8 @@ class Generator:
         # a hollow part makes several of them and misses others entirely.
         faces = hlr.cut_faces(cut, point, normal) if view.hatch else []
         projection = hlr.project(cut, direction, up, hidden=show_hidden,
-                                 hatch=faces)
+                                 hatch=faces,
+                                 tangents=self._tangents(doc, sheet, view))
         return _scaled(projection, scale)
 
     def _detail(self, doc: DrawingDocument, sheet: Sheet, view: View,

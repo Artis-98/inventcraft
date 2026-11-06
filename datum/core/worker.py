@@ -54,7 +54,7 @@ _LIBRARY = None
 
 
 def _project(path: str, direction, up, hidden: bool = True,
-             trusted=()) -> Dict[str, Any]:
+             trusted=(), tangents: bool = True) -> Dict[str, Any]:
     """One drawing view: the model at ``path``, seen along ``direction``.
 
     The library is kept between requests, so the second view of the same
@@ -71,7 +71,7 @@ def _project(path: str, direction, up, hidden: bool = True,
         _LIBRARY = PartLibrary()
     shape = _LIBRARY.shape(path)
     projection = hlr.project(shape, tuple(direction), tuple(up),
-                             hidden=hidden)
+                             hidden=hidden, tangents=tangents)
     return {"box": list(projection.box), "centre": list(projection.centre),
             "error": projection.error, "hatch": projection.hatch,
             "lines": [{"k": line.kind, "p": [list(p) for p in line.points]}

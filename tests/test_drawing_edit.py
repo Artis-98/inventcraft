@@ -173,14 +173,12 @@ check("the isometric off the top right is the usual one",
 
 # ------------------------------------------------- automated centerlines
 print()
-print("Automated Centerlines on every view of a plain block")
-ui.canvas.selected_views = []
-ui.automated_centrelines()
+print("Automated Centerlines on the view right-clicked, a plain block")
+ui.automated_centrelines(sheet.views[0].id)
 pump()
-check("runs over the sheet's views, and a block has no holes to mark",
-      "4 view(s)" in win.status_message.text()
-      and not [a for a in sheet.annotations if a.text == ui.AUTO]
-      and all(v.projection is not None for v in sheet.views),
+check("runs on that view only, and a block has nothing to centre",
+      "0 centre line(s)" in win.status_message.text()
+      and not [a for a in sheet.annotations if a.text == ui.AUTO],
       win.status_message.text())
 
 # ---------------------------------------------------------------- moving

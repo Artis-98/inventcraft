@@ -732,6 +732,133 @@ def _i_shell(p):
     p.drawPolygon(_poly((7, 9.4), (12, 6.9), (17, 9.4), (12, 11.9)))
 
 
+def _paper_sheet(p):
+    _fill(p, "#ffffff")
+    p.drawRect(QtCore.QRectF(3, 4, 18, 16))
+    _pen(p, _LINE, 1.3)
+    p.drawRect(QtCore.QRectF(3, 4, 18, 16))
+
+
+def _i_view_hidden(p):
+    # a block with its hidden edge dashed: Hidden Line
+    _pen(p, _LINE, 1.6)
+    p.drawRect(QtCore.QRectF(5, 6, 14, 12))
+    _pen(p, _LINE, 1.2, dashed=True)
+    p.drawLine(QtCore.QPointF(5, 12), QtCore.QPointF(19, 12))
+
+
+def _i_view_visible(p):
+    _pen(p, _LINE, 1.6)
+    p.drawRect(QtCore.QRectF(5, 6, 14, 12))
+
+
+def _i_bulb(p):
+    _pen(p, _ACCENT, 1.5)
+    p.drawEllipse(QtCore.QPointF(12, 10), 5.5, 5.5)
+    _pen(p, _LINE, 1.5)
+    p.drawLine(QtCore.QPointF(9.5, 17), QtCore.QPointF(14.5, 17))
+    p.drawLine(QtCore.QPointF(10, 19.5), QtCore.QPointF(14, 19.5))
+
+
+def _i_dv_base(p):
+    _paper_sheet(p)
+    _block(p, 7, 9, 9, 7, 2.5)
+
+
+def _i_dv_projected(p):
+    _paper_sheet(p)
+    _pen(p, _LINE, 1.4)
+    p.drawRect(QtCore.QRectF(5, 7, 6, 5))
+    _pen(p, _ACCENT, 1.4)
+    p.drawRect(QtCore.QRectF(13, 7, 6, 5))
+    p.drawRect(QtCore.QRectF(5, 14, 6, 4))
+
+
+def _i_dv_auxiliary(p):
+    _paper_sheet(p)
+    _pen(p, _LINE, 1.4)
+    p.drawRect(QtCore.QRectF(5, 12, 6, 6))
+    _pen(p, _ACCENT, 1.4)
+    p.drawPolygon(_poly((12, 10), (17, 6), (20, 9), (15, 13)))
+
+
+def _i_dv_section(p):
+    _paper_sheet(p)
+    _pen(p, _LINE, 1.4)
+    p.drawRect(QtCore.QRectF(6, 7, 12, 10))
+    _pen(p, _ACCENT, 1.6, dashed=True)
+    p.drawLine(QtCore.QPointF(12, 5), QtCore.QPointF(12, 19))
+
+
+def _i_dv_detail(p):
+    _paper_sheet(p)
+    _pen(p, _LINE, 1.4)
+    p.drawRect(QtCore.QRectF(5, 8, 9, 8))
+    _pen(p, _ACCENT, 1.6)
+    p.drawEllipse(QtCore.QPointF(14, 14), 4.5, 4.5)
+
+
+def _i_new_sheet(p):
+    _paper_sheet(p)
+    _pen(p, _GREEN, 2.0)
+    p.drawLine(QtCore.QPointF(16, 13), QtCore.QPointF(16, 21))
+    p.drawLine(QtCore.QPointF(12, 17), QtCore.QPointF(20, 17))
+
+
+def _i_an_text(p):
+    font = QtGui.QFont("Arial")
+    font.setPixelSize(18)
+    font.setBold(True)
+    p.setFont(font)
+    p.setPen(QtGui.QColor(_LINE))
+    p.drawText(QtCore.QRectF(2, 1, 20, 22), QtCore.Qt.AlignCenter, "A")
+
+
+def _i_an_leader(p):
+    font = QtGui.QFont("Arial")
+    font.setPixelSize(13)
+    font.setBold(True)
+    p.setFont(font)
+    p.setPen(QtGui.QColor(_LINE))
+    p.drawText(QtCore.QRectF(10, 1, 13, 13), QtCore.Qt.AlignCenter, "A")
+    _pen(p, _ACCENT, 1.5)
+    p.drawLine(QtCore.QPointF(4, 20), QtCore.QPointF(12, 11))
+    _fill(p, _ACCENT)
+    p.drawPolygon(_poly((3, 21), (4, 16), (8, 19)))
+
+
+def _i_an_centremark(p):
+    _pen(p, _LINE, 1.4)
+    p.drawEllipse(QtCore.QPointF(12, 12), 6, 6)
+    _pen(p, _ACCENT, 1.3)
+    p.drawLine(QtCore.QPointF(3, 12), QtCore.QPointF(21, 12))
+    p.drawLine(QtCore.QPointF(12, 3), QtCore.QPointF(12, 21))
+
+
+def _i_an_centreline(p):
+    _fill(p, _LINE)
+    p.drawEllipse(QtCore.QPointF(5, 18), 1.8, 1.8)
+    p.drawEllipse(QtCore.QPointF(19, 6), 1.8, 1.8)
+    _pen(p, _ACCENT, 1.4, dashed=True)
+    p.drawLine(QtCore.QPointF(3, 20), QtCore.QPointF(21, 4))
+
+
+def _i_an_bisector(p):
+    _pen(p, _LINE, 1.6)
+    p.drawLine(QtCore.QPointF(3, 6), QtCore.QPointF(21, 6))
+    p.drawLine(QtCore.QPointF(3, 18), QtCore.QPointF(21, 18))
+    _pen(p, _ACCENT, 1.4, dashed=True)
+    p.drawLine(QtCore.QPointF(2, 12), QtCore.QPointF(22, 12))
+
+
+def _i_an_hole(p):
+    _pen(p, _LINE, 1.5)
+    p.drawEllipse(QtCore.QPointF(8, 15), 4.5, 4.5)
+    _pen(p, _ACCENT, 1.3)
+    p.drawLine(QtCore.QPointF(11, 12), QtCore.QPointF(16, 6))
+    p.drawLine(QtCore.QPointF(16, 6), QtCore.QPointF(22, 6))
+
+
 def _i_combine(p):
     # two blocks overlapping, the second taken into the first
     _block(p, 3, 10, 10, 8, 3.0)
@@ -1310,6 +1437,13 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "hole": _i_hole, "fillet": _i_fillet,
     "chamfer": _i_chamfer, "shell": _i_shell, "pattern": _i_pattern_rect,
     "split": _i_split, "split_faces": _i_split_faces, "combine": _i_combine,
+    "view_hidden": _i_view_hidden, "view_visible": _i_view_visible,
+    "bulb": _i_bulb, "dv_base": _i_dv_base, "dv_projected": _i_dv_projected,
+    "dv_auxiliary": _i_dv_auxiliary, "dv_section": _i_dv_section,
+    "dv_detail": _i_dv_detail, "new_sheet": _i_new_sheet,
+    "an_text": _i_an_text, "an_leader": _i_an_leader,
+    "an_centremark": _i_an_centremark, "an_centreline": _i_an_centreline,
+    "an_bisector": _i_an_bisector, "an_hole": _i_an_hole,
     "split_solid": _i_split_solid,
     "pattern_circ": _i_pattern_circ, "mirror": _i_mirror, "move": _i_move,
     "box": _i_box, "cylinder": _i_cylinder, "sphere": _i_sphere,

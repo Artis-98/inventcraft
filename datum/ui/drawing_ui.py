@@ -291,6 +291,10 @@ class DrawingController(QtCore.QObject):
         view.display = settings.get("display") or WITH_HIDDEN
         view.scale = float(settings.get("scale") or view.scale)
         view.name = settings.get("name") or view.name
+        view.label_visible = bool(settings.get("label_visible", False))
+        view.flat = bool(settings.get("flat", False))
+        view.tangents = bool(settings.get("tangents", True))
+        view.projection = None
         view.direction = [float(c) for c in direction]
         view.up = [float(c) for c in up]
         view.orientation = viewgen.named_orientation(
@@ -321,7 +325,8 @@ class DrawingController(QtCore.QObject):
                 diagonal = abs(cx - x) > 1e-6 and abs(cy - y) > 1e-6
                 made.add(doc.add_view(sheet, View(
                     kind=PROJECTED, parent=view.id, x=float(cx),
-                    y=float(cy), display="visible" if diagonal else "")).id)
+                    y=float(cy), display="visible" if diagonal else "",
+                    label_visible=False)).id)
         # sections and details of it, and anything else not in the box,
         # go where it went
         for below in _descendants(sheet, view.id):
@@ -367,6 +372,21 @@ class DrawingController(QtCore.QObject):
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
             "Placed %d view(s)." % placed if placed else "No view placed.")
+
+    def is_sheet_metal(self, path: str) -> bool:
+        """Whether a file is a sheet metal part, which can be drawn flat."""
+        session = getattr(self.host, "session", None)
+        entry = session.by_path(path) if session is not None else None
+        document = getattr(entry, "document", None) if entry else None
+        if document is None:
+            try:
+                if fileformat.peek(path).type != fileformat.PART:
+                    return False
+                from ..core.document import Document
+                document = Document.load(path)
+            except Exception:
+                return False
+        return getattr(document, "sheet_metal", None) is not None
 
     def _open_part_shape(self, path: str):
         """The body of a part open in a tab, as it is now; None when the
@@ -472,7 +492,10 @@ class DrawingController(QtCore.QObject):
                     up=[float(c) for c in up],
                     scale=float(settings.get("scale") or 1.0), x=x, y=y,
                     display=settings.get("display") or WITH_HIDDEN,
-                    name=settings.get("name", ""))
+                    name=settings.get("name", ""),
+                    label_visible=bool(settings.get("label_visible", False)),
+                    flat=bool(settings.get("flat", False)),
+                    tangents=bool(settings.get("tangents", True)))
         base.ref = fileformat.ComponentRef(
             path=fileformat.relative_path(path, doc.base_dir),
             name=os.path.basename(path),
@@ -483,7 +506,9 @@ class DrawingController(QtCore.QObject):
             doc.add_view(sheet, View(
                 kind=PROJECTED, parent=base.id, x=float(cx), y=float(cy),
                 # an isometric with its hidden lines is a tangle
-                display="visible" if diagonal else ""))
+                display="visible" if diagonal else "",
+                # Inventor names a view without writing its name on it
+                label_visible=False))
         self.rebuild()
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
@@ -503,7 +528,8 @@ class DrawingController(QtCore.QObject):
         diagonal = abs(x - parent.x) > 1e-6 and abs(y - parent.y) > 1e-6
         child = View(kind=PROJECTED, parent=parent.id, x=x, y=y,
                      # an isometric with its hidden lines is a tangle
-                     display="visible" if diagonal else "")
+                     display="visible" if diagonal else "",
+                     label_visible=False)
         doc.add_view(sheet, child)
         self.rebuild()
         return child
@@ -753,120 +779,74 @@ class DrawingController(QtCore.QObject):
             note.points = points
             note.anchors = anchors
 
-    def add_note(self) -> None:
-        doc, sheet, view = self._selected_view()
-        if view is None:
-            self._complain("Select a view to attach the text to.")
-            return
-        text, ok = QtWidgets.QInputDialog.getText(
-            self.host, "Text", "Text:", QtWidgets.QLineEdit.Normal, "")
-        if not ok or not text.strip():
-            return
-        doc.push_undo()
-        note = Annotation(kind=dwg.NOTE, view=view.id, points=[[0.0, 0.0]],
-                          offset=[10.0, 10.0], text=text.strip())
-        doc.add_annotation(sheet, note)
-        self.rebuild()
+    # -- Annotate tools: each picks, places, and stays on for the next ------
 
-    def add_centre_mark(self) -> None:
-        doc, sheet, view = self._selected_view()
-        if view is None:
-            return
-        doc.push_undo()
-        note = Annotation(kind=dwg.CENTRE_MARK, view=view.id,
-                          points=[[0.0, 0.0]], value=6.0)
-        doc.add_annotation(sheet, note)
-        self.rebuild()
-
-    AUTO = "auto"   # what Automated Centerlines put there, as its text
-
-    def automated_centrelines(self) -> None:
-        """Inventor's Automated Centerlines: a centre mark on every hole
-        and boss seen end on, a centre line down every one seen side on,
-        on the picked view or, with none picked, every view on the sheet.
-        Run again, it puts them back where the model now has them."""
+    def _start_tool(self, cls) -> None:
+        from . import drawing_tools
         doc = self.document
         sheet = doc.active() if doc else None
         if sheet is None:
             return
-        picked = [sheet.view(v) for v in self.canvas.selected_views]
-        views = [v for v in picked if v is not None] or list(sheet.views)
-        views = [v for v in views if v.projection is not None]
-        if not views:
-            self._complain("Place a view first.")
-            return
-        doc.push_undo()
-        made = 0
-        for view in views:
-            shape = self.generator.model_of(doc, sheet, view)
-            if shape is None:
-                continue
-            try:
-                direction, up = self.generator.orientation(doc, sheet, view)
-            except Exception:
-                continue
-            sheet.annotations = [
-                a for a in sheet.annotations
-                if not (a.view == view.id and a.text == self.AUTO
-                        and a.kind in (dwg.CENTRE_MARK, dwg.CENTRELINE))]
-            marks, lines = viewgen.centre_features(
-                shape, direction, up, view.projection.centre,
-                doc.view_scale(sheet, view))
-            for centre, reach in marks:
-                doc.add_annotation(sheet, Annotation(
-                    kind=dwg.CENTRE_MARK, view=view.id,
-                    points=[[centre[0], centre[1]]], value=reach,
-                    text=self.AUTO))
-                made += 1
-            for start, end in lines:
-                doc.add_annotation(sheet, Annotation(
-                    kind=dwg.CENTRELINE, view=view.id,
-                    points=[[start[0], start[1]], [end[0], end[1]]],
-                    text=self.AUTO))
-                made += 1
-        self.rebuild()
-        self.host.status_message.setText(
-            "%d centre mark(s) and line(s) on %d view(s)." % (made, len(views)))
+        self.end_placement()
+        self._start_placer(getattr(drawing_tools, cls)(self, sheet))
 
-    @staticmethod
-    def _is_hole_note(note) -> bool:
-        """A leader Hole Notes wrote: a diameter, THRU or a depth."""
-        import re
-        return (note.kind == dwg.LEADER and bool(re.match(
-            r"^(\d+x )?Ø[0-9.]+ (THRU|DEPTH [0-9.]+)", note.text or "")))
+    def add_note(self) -> None:
+        """Inventor's Text: click where it goes, then Format Text."""
+        self._start_tool("TextTool")
 
-    def hole_notes(self) -> None:
-        """Inventor's Hole Notes: a leader to one hole of each size on the
-        picked view, saying its size, THRU or its depth, its counterbore,
-        and how many there are, read off the model."""
-        doc, sheet, view = self._selected_view()
+    def add_leader_text(self) -> None:
+        """Inventor's Leader Text: what it points at, where the text goes."""
+        self._start_tool("LeaderTextTool")
+
+    def add_centre_mark(self) -> None:
+        """Inventor's Center Mark: click a circle or an arc."""
+        self._start_tool("CentreMarkTool")
+
+    def add_centreline(self) -> None:
+        """Inventor's Centerline: two points, a centre line between."""
+        self._start_tool("CentrelineTool")
+
+    def add_bisector(self) -> None:
+        """Inventor's Centerline Bisector: two lines, the line between."""
+        self._start_tool("BisectorTool")
+
+    def add_hole_note(self) -> None:
+        """Inventor's Hole and Thread: click a hole, then place its note."""
+        self._start_tool("HoleNoteTool")
+
+    AUTO = "auto"   # what Automated Centerlines put there, as its text
+
+    def automated_centrelines(self, view_id: Optional[int] = None) -> None:
+        """Inventor's Automated Centerlines, on the view right-clicked: a
+        centre line down every hole and round feature seen from the side,
+        so a hole through a bar shows where it goes and can be dimensioned
+        to. Holes seen end on are left alone; Center Mark marks one.
+        Run again, the lines follow the model."""
+        doc, sheet, view = self._selected_view(view_id)
         if view is None or view.projection is None:
-            self._complain("Select a view that has been drawn.")
+            self._complain("Right-click a view that has been drawn.")
             return
         shape = self.generator.model_of(doc, sheet, view)
         try:
             direction, up = self.generator.orientation(doc, sheet, view)
         except Exception:
             return
-        found = viewgen.hole_notes(shape, direction, up,
-                                   view.projection.centre,
-                                   doc.view_scale(sheet, view))
-        if not found:
-            self._complain("No holes are seen end on in %s." % view.label)
-            return
         doc.push_undo()
-        # run again, the notes are put back as the model now is
-        sheet.annotations = [a for a in sheet.annotations
-                             if not (a.view == view.id
-                                     and self._is_hole_note(a))]
-        for text, at, _count in found:
+        sheet.annotations = [
+            a for a in sheet.annotations
+            if not (a.view == view.id and a.text == self.AUTO
+                    and a.kind in (dwg.CENTRE_MARK, dwg.CENTRELINE))]
+        _marks, lines = viewgen.centre_features(
+            shape, direction, up, view.projection.centre,
+            doc.view_scale(sheet, view))
+        for start, end in lines:
             doc.add_annotation(sheet, Annotation(
-                kind=dwg.LEADER, view=view.id, points=[[at[0], at[1]]],
-                offset=[10.0, 8.0], text=text))
-        self.rebuild()
+                kind=dwg.CENTRELINE, view=view.id,
+                points=[[start[0], start[1]], [end[0], end[1]]],
+                text=self.AUTO))
+        self.canvas.update()
         self.host.status_message.setText(
-            "%d hole note(s) on %s - drag them where they read best."
-            % (len(found), view.label))
+            "%d centre line(s) on %s." % (len(lines), view.name))
 
     # -------------------------------------------------- balloons and lists
 
@@ -1054,6 +1034,16 @@ class DrawingController(QtCore.QObject):
         if note is None:
             return
         view = sheet.view(note.view)
+        if note.kind in (dwg.NOTE, dwg.LEADER):
+            from .drawing_tools import FormatTextDialog
+            dialog = FormatTextDialog(self.host, self, sheet, note)
+            if dialog.exec() == QtWidgets.QDialog.Accepted:
+                doc.push_undo()
+                note.text = dialog.text()
+                dialog.style_into(note)
+                doc.modified = True
+                self.canvas.update()
+            return
         current = note.text or note.caption(doc.view_scale(sheet, view)
                                             if view else 1.0)
         text, ok = QtWidgets.QInputDialog.getText(
@@ -1278,9 +1268,9 @@ class DrawingController(QtCore.QObject):
             menu.addAction("Section View", self.add_section)
             menu.addAction("Detail View", self.add_detail)
             menu.addSeparator()
+            menu.addAction("Automated Centerlines",
+                           lambda: self.automated_centrelines(view.id))
             menu.addAction("Dimension", self.start_dimension)
-            menu.addAction("Centre Mark", self.add_centre_mark)
-            menu.addAction("Text...", self.add_note)
             menu.addSeparator()
             menu.addAction("Balloon", self.add_balloon)
             menu.addAction("Auto Balloon", self.auto_balloon)
@@ -1712,15 +1702,25 @@ class BaseViewDialog(QtWidgets.QDialog):
         self.setWindowTitle("Drawing View (%s)" % editing.name
                             if editing is not None else "Drawing View")
         self.setModal(False)
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(520)
         # a scale picked or typed is the user's; until then it follows the
         # model, the way Inventor's does.  A view being edited has one.
         self._scale_chosen = editing is not None
 
-        form = QtWidgets.QFormLayout(self)
-        row = QtWidgets.QHBoxLayout()
+        # Laid out as Inventor's Drawing View box: a Component tab with the
+        # file, the sheet metal view, the style and the label, and a
+        # Display Options tab
+        root = QtWidgets.QVBoxLayout(self)
+        tabs = QtWidgets.QTabWidget()
+        root.addWidget(tabs)
+        component = QtWidgets.QWidget()
+        tabs.addTab(component, "Component")
+        grid = QtWidgets.QVBoxLayout(component)
+
+        files = QtWidgets.QGroupBox("File")
+        row = QtWidgets.QHBoxLayout(files)
         self.file = QtWidgets.QComboBox()
-        self.file.setMinimumWidth(240)
+        self.file.setMinimumWidth(300)
         for entry in controller.open_models():
             self.file.addItem(entry.label, os.path.abspath(entry.path))
         self.browse = QtWidgets.QToolButton()
@@ -1728,23 +1728,75 @@ class BaseViewDialog(QtWidgets.QDialog):
         self.browse.setToolTip("Pick a part or assembly from a folder")
         row.addWidget(self.file, 1)
         row.addWidget(self.browse)
-        form.addRow("File", row)
+        grid.addWidget(files)
 
-        self.style = QtWidgets.QComboBox()
-        for key, label in dwg.DISPLAY_LABELS.items():
-            self.style.addItem(label, key)
-        self.style.setCurrentIndex(max(0, self.style.findData(WITH_HIDDEN)))
-        form.addRow("Style", self.style)
+        columns = QtWidgets.QHBoxLayout()
+        grid.addLayout(columns)
+        left = QtWidgets.QVBoxLayout()
+        right = QtWidgets.QVBoxLayout()
+        columns.addLayout(left, 1)
+        columns.addLayout(right, 1)
 
+        # Inventor's Sheet Metal View: there, and greyed out, for a part
+        # that is not sheet metal
+        self.sheet_metal = QtWidgets.QGroupBox("Sheet Metal View")
+        sm = QtWidgets.QVBoxLayout(self.sheet_metal)
+        self.folded = QtWidgets.QRadioButton("Folded Model")
+        self.flat = QtWidgets.QRadioButton("Flat Pattern")
+        self.folded.setChecked(True)
+        sm.addWidget(self.folded)
+        sm.addWidget(self.flat)
+        left.addWidget(self.sheet_metal)
+        left.addStretch(1)
+
+        style_box = QtWidgets.QGroupBox("Style")
+        style_row = QtWidgets.QHBoxLayout(style_box)
+        self.style_buttons = QtWidgets.QButtonGroup(self)
+        for key, tip in ((WITH_HIDDEN, "Hidden Line"),
+                         (dwg.VISIBLE_ONLY, "Hidden Line Removed")):
+            button = QtWidgets.QToolButton()
+            button.setCheckable(True)
+            button.setIcon(icons.icon(
+                "view_hidden" if key == WITH_HIDDEN else "view_visible", 22))
+            button.setIconSize(QtCore.QSize(22, 22))
+            button.setToolTip(tip)
+            button.setProperty("style_key", key)
+            self.style_buttons.addButton(button)
+            style_row.addWidget(button)
+        style_row.addStretch(1)
+        self._set_style(WITH_HIDDEN)
+        right.addWidget(style_box)
+
+        label_box = QtWidgets.QGroupBox("Label")
+        form = QtWidgets.QFormLayout(label_box)
+        self.name = QtWidgets.QLineEdit(doc.unique_view_name(sheet, BASE))
+        self.name.setMinimumWidth(120)
+        self.show_label = QtWidgets.QToolButton()
+        self.show_label.setCheckable(True)
+        self.show_label.setChecked(False)
+        self.show_label.setIcon(icons.icon("bulb", 18))
+        self.show_label.setToolTip("Show the view identifier on the sheet; "
+                                   "off, as Inventor has a base view")
+        name_row = QtWidgets.QHBoxLayout()
+        name_row.addWidget(self.name, 1)
+        name_row.addWidget(self.show_label)
+        form.addRow("View Identifier", name_row)
         self.scale = QtWidgets.QComboBox()
         self.scale.setEditable(True)
         for value in dwg.SCALES:
             self.scale.addItem(dwg.scale_text(value), value)
         self._set_scale(1.0)
         form.addRow("Scale", self.scale)
+        right.addWidget(label_box)
+        right.addStretch(1)
 
-        self.name = QtWidgets.QLineEdit(doc.unique_view_name(sheet, BASE))
-        form.addRow("View identifier", self.name)
+        options = QtWidgets.QWidget()
+        tabs.addTab(options, "Display Options")
+        opts = QtWidgets.QVBoxLayout(options)
+        self.tangents = QtWidgets.QCheckBox("Tangent Edges")
+        self.tangents.setChecked(True)
+        opts.addWidget(self.tangents)
+        opts.addStretch(1)
 
         hint = QtWidgets.QLabel(
             "Point the view with the cube beside it, and drag it where it "
@@ -1753,22 +1805,35 @@ class BaseViewDialog(QtWidgets.QDialog):
             "drop it.")
         hint.setWordWrap(True)
         hint.setProperty("hint", True)
-        form.addRow(hint)
+        root.addWidget(hint)
 
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.place_requested)
         buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
+        root.addWidget(buttons)
 
         self.browse.clicked.connect(self._browse)
         self.file.currentIndexChanged.connect(lambda _i: self._model_changed())
-        self.style.currentIndexChanged.connect(lambda _i: self.changed.emit())
+        self.style_buttons.buttonClicked.connect(
+            lambda _b: self.changed.emit())
         self.scale.editTextChanged.connect(self._scale_edited)
         self.name.textChanged.connect(lambda _t: self.changed.emit())
+        self.flat.toggled.connect(lambda _on: self.changed.emit())
+        self.tangents.toggled.connect(lambda _on: self.changed.emit())
         if editing is not None:
             self._show_view(editing)
         self._model_changed()
+
+    def _set_style(self, key: str) -> None:
+        for button in self.style_buttons.buttons():
+            button.setChecked(button.property("style_key") == key)
+
+    def _style(self) -> str:
+        for button in self.style_buttons.buttons():
+            if button.isChecked():
+                return button.property("style_key")
+        return WITH_HIDDEN
 
     def _show_view(self, view: View) -> None:
         """Fill the box in from a view on the sheet, to change it."""
@@ -1777,10 +1842,13 @@ class BaseViewDialog(QtWidgets.QDialog):
                     if model is not None and model.ref.path else None)
         if resolved:
             self.choose_file(resolved)
-        self.style.setCurrentIndex(max(0, self.style.findData(
-            self.doc.view_display(self.sheet, view))))
+        self._set_style(self.doc.view_display(self.sheet, view))
         self._set_scale(self.doc.view_scale(self.sheet, view))
         self.name.setText(view.name)
+        self.show_label.setChecked(view.label_visible)
+        self.flat.setChecked(view.flat)
+        self.folded.setChecked(not view.flat)
+        self.tangents.setChecked(view.tangents)
 
     # -- reading it -----------------------------------------------------------
 
@@ -1792,9 +1860,13 @@ class BaseViewDialog(QtWidgets.QDialog):
 
     def settings(self) -> Dict[str, Any]:
         return {"path": self.path(),
-                "display": self.style.currentData() or WITH_HIDDEN,
+                "display": self._style(),
                 "scale": self.scale_value(),
-                "name": self.name.text().strip()}
+                "name": self.name.text().strip(),
+                "label_visible": self.show_label.isChecked(),
+                "flat": (self.flat.isChecked()
+                         and self.sheet_metal.isEnabled()),
+                "tangents": self.tangents.isChecked()}
 
     # -- keeping up -----------------------------------------------------------
 
@@ -1822,6 +1894,11 @@ class BaseViewDialog(QtWidgets.QDialog):
         path = self.path()
         if path and not self._scale_chosen:
             self._set_scale(self.controller.fit_scale(path, self.sheet))
+        # Flat Pattern only for a sheet metal part, as Inventor greys it
+        sheet_metal = bool(path) and self.controller.is_sheet_metal(path)
+        self.sheet_metal.setEnabled(sheet_metal)
+        if not sheet_metal:
+            self.folded.setChecked(True)
         self.changed.emit()
 
     def _set_scale(self, value: float) -> None:

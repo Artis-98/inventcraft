@@ -86,6 +86,9 @@ def exact(sheet_height: float, scale: float = 1.0) -> Layout:
 # --------------------------------------------------------------- the painting
 
 
+_VALUES: Dict[str, str] = {}
+
+
 def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
           layout: Layout, model_properties: Optional[Dict[str, str]] = None,
           with_paper: bool = True, selection: Sequence[int] = (),
@@ -105,6 +108,12 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     if callable(model_properties):
         model_properties = model_properties(sheet)
     width, height = sheet.extent()
+    # what properties in text read, for the sheet being drawn
+    global _VALUES
+    try:
+        _VALUES = dwg.properties_for(doc, sheet, model_properties)
+    except Exception:
+        _VALUES = {}
 
     if with_paper:
         _paper(painter, layout, width, height)
@@ -868,6 +877,26 @@ def _note(painter, doc, view, note, layout, at, colour) -> None:
         tail = at((anchor[0] + ox, anchor[1] + oy))
         _arrow_head(painter, tip, tip[0] - tail[0], tip[1] - tail[1],
                     layout.pen_width(style.arrow_size) * 1.4)
-    _text(painter, layout, note.text or "", view.x + anchor[0] + ox,
-          view.y + anchor[1] + oy + 1.2, style.text_height, align="left",
-          colour=colour)
+    # Format Text's font, size and look; the properties in it filled in
+    height = note.size or style.text_height
+    text = dwg.fill_properties(note.text or "", _VALUES)
+    font = painter.font()
+    if note.font:
+        font.setFamily(note.font)
+    font.setItalic(note.italic)
+    painter.setFont(font)
+    x = view.x + anchor[0] + ox
+    y = view.y + anchor[1] + oy + 1.2
+    if note.kind == LEADER:
+        # the landing: a short line under the text, as Inventor's leader
+        land = at((anchor[0] + ox, anchor[1] + oy))
+        painter.drawLine(QtCore.QPointF(*land),
+                         QtCore.QPointF(land[0] + 3.0 * layout.scale,
+                                        land[1]))
+        x += 4.0
+        y -= 1.2 + height * 0.3
+    for index, line in enumerate(text.split(chr(10))):
+        _text(painter, layout, line, x, y - index * height * 1.5, height,
+              bold=note.bold, align=note.align or "left", colour=colour)
+    font.setItalic(False)
+    painter.setFont(font)

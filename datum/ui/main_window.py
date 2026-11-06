@@ -106,7 +106,9 @@ TAB_FLAT = "Flat Pattern"
 TAB_ASSEMBLE = "Assemble"
 TAB_DESIGN = "Design"
 TAB_CAM = "CAM"
-TAB_DRAWING = "Drawing"
+TAB_DRAWING = "Place Views"
+TAB_ANNOTATE = "Annotate"
+TAB_DRAWING_TOOLS = "Tools"
 TAB_INSPECT = "Inspect"
 TAB_MANAGE = "Manage"
 TAB_VIEW = "View"
@@ -115,8 +117,9 @@ TAB_VIEW = "View"
 PART_TABS = (TAB_MODEL, TAB_INSPECT, TAB_MANAGE, TAB_VIEW)
 ASSEMBLY_TABS = (TAB_ASSEMBLE, TAB_DESIGN, TAB_INSPECT, TAB_VIEW)
 CAM_TABS = (TAB_CAM, TAB_INSPECT, TAB_VIEW)
-DRAWING_TABS = (TAB_DRAWING,)
+DRAWING_TABS = (TAB_DRAWING, TAB_ANNOTATE, TAB_DRAWING_TOOLS)
 ALL_TABS = (TAB_MODEL, TAB_ASSEMBLE, TAB_DESIGN, TAB_CAM, TAB_DRAWING,
+            TAB_ANNOTATE, TAB_DRAWING_TOOLS,
             TAB_INSPECT,
             TAB_MANAGE,
             TAB_VIEW)
@@ -810,86 +813,98 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.viewport.set_view("top"))
 
         # ----------------------------------------------------------- Drawing
-        drawing_tab = r.add_tab(TAB_DRAWING)
-
-        panel = drawing_tab.add_panel("Sheet")
-        panel.add_big("export", "Sheet\nSetup", "Size, border and title block"
-                      ).clicked.connect(self.drawing_ui.sheet_setup)
-        panel.add_small("new", "New Sheet").clicked.connect(
-            self.drawing_ui.new_sheet)
-        panel.add_small("pattern", "Duplicate").clicked.connect(
-            self.drawing_ui.duplicate_sheet)
-        panel.add_small("delete", "Delete Sheet").clicked.connect(
-            self.drawing_ui.delete_sheet)
-
-        panel = drawing_tab.add_panel("Views")
-        panel.add_big("box", "Base\nView",
+        # Inventor's two drawing tabs: Place Views, then Annotate, laid out
+        # panel for panel as Inventor's are, with Tools after them
+        ui = self.drawing_ui
+        place = r.add_tab(TAB_DRAWING)
+        panel = place.add_panel("Create")
+        panel.add_big("dv_base", "Base",
                       "Put a part or assembly on the sheet"
-                      ).clicked.connect(self.drawing_ui.place_base_view)
-        panel.add_small("pattern", "Projected",
-                        "A view turned from the selected one"
-                        ).clicked.connect(self.drawing_ui.add_projected)
-        panel.add_small("section", "Section",
-                        "Cut the selected view open"
-                        ).clicked.connect(self.drawing_ui.add_section)
-        panel.add_small("measure", "Detail",
-                        "Enlarge part of the selected view"
-                        ).clicked.connect(self.drawing_ui.add_detail)
-        panel.add_small("edit", "Properties...").clicked.connect(
-            self.drawing_ui.view_properties)
+                      ).clicked.connect(ui.place_base_view)
+        panel.add_big("dv_projected", "Projected",
+                      "A view turned from the selected one"
+                      ).clicked.connect(ui.add_projected)
+        panel.add_big("dv_section", "Section",
+                      "Cut the selected view open"
+                      ).clicked.connect(ui.add_section)
+        panel.add_big("dv_detail", "Detail",
+                      "Enlarge part of the selected view"
+                      ).clicked.connect(ui.add_detail)
 
-        panel = drawing_tab.add_panel("Annotate")
+        panel = place.add_panel("Sheets")
+        panel.add_big("new_sheet", "New Sheet").clicked.connect(ui.new_sheet)
+        panel.add_small("export", "Sheet Setup",
+                        "Size, border and title block"
+                        ).clicked.connect(ui.sheet_setup)
+        panel.add_small("pattern", "Duplicate").clicked.connect(
+            ui.duplicate_sheet)
+        panel.add_small("delete", "Delete Sheet").clicked.connect(
+            ui.delete_sheet)
+
+        annotate = r.add_tab(TAB_ANNOTATE)
+        panel = annotate.add_panel("Dimension")
         panel.add_big("dimension", "Dimension",
                       "Pick a line, circle or points on a view, then place"
-                      ).clicked.connect(self.drawing_ui.start_dimension)
-        panel.add_small("c_coincident", "Centre Mark").clicked.connect(
-            self.drawing_ui.add_centre_mark)
-        panel.add_small("c_concentric", "Automated Centerlines",
-                        "Centre marks on every hole and boss seen end on, "
-                        "centre lines down those seen from the side: the "
-                        "picked view, or every view on the sheet"
-                        ).clicked.connect(
-            self.drawing_ui.automated_centrelines)
-        panel.add_small("hole", "Hole Notes",
-                        "A note to each size of hole on the picked view: "
-                        "its diameter, THRU or depth, counterbore and count"
-                        ).clicked.connect(self.drawing_ui.hole_notes)
-        panel.add_small("dimension", "Text...").clicked.connect(
-            self.drawing_ui.add_note)
+                      ).clicked.connect(ui.start_dimension)
 
-        panel = drawing_tab.add_panel("Parts")
+        panel = annotate.add_panel("Feature Notes")
+        panel.add_big("an_hole", "Hole and\nThread",
+                      "Click a hole, then where its note goes: its size, "
+                      "THRU or depth, counterbore and how many"
+                      ).clicked.connect(ui.add_hole_note)
+
+        panel = annotate.add_panel("Text")
+        panel.add_big("an_text", "Text",
+                      "Click where it goes, then write it, with properties "
+                      "from the model if wanted").clicked.connect(ui.add_note)
+        panel.add_big("an_leader", "Leader\nText",
+                      "Click what the arrow points at, then where the text "
+                      "goes").clicked.connect(ui.add_leader_text)
+
+        panel = annotate.add_panel("Symbols")
+        panel.add_small("an_centremark", "Center Mark",
+                        "Click a circle or an arc to mark its centre"
+                        ).clicked.connect(ui.add_centre_mark)
+        panel.add_small("an_centreline", "Centerline",
+                        "Click two points for a centre line between them"
+                        ).clicked.connect(ui.add_centreline)
+        panel.add_small("an_bisector", "Centerline Bisector",
+                        "Click two lines for the centre line between them"
+                        ).clicked.connect(ui.add_bisector)
+
+        panel = annotate.add_panel("Table")
         panel.add_big("material", "Parts\nList",
                       "List what the assembly on this sheet is made of"
-                      ).clicked.connect(self.drawing_ui.add_parts_list)
-        panel.add_small("c_coincident", "Balloon",
-                        "One item number on the selected view"
-                        ).clicked.connect(self.drawing_ui.add_balloon)
+                      ).clicked.connect(ui.add_parts_list)
+
+        panel = annotate.add_panel("Balloon")
+        panel.add_big("c_coincident", "Balloon",
+                      "One item number on the selected view"
+                      ).clicked.connect(ui.add_balloon)
         panel.add_small("pattern", "Auto Balloon",
                         "A balloon on every component of the selected view"
-                        ).clicked.connect(self.drawing_ui.auto_balloon)
+                        ).clicked.connect(ui.auto_balloon)
 
-        panel = drawing_tab.add_panel("Manage")
-        self.drawing_update_button = panel.add_small(
+        tools = r.add_tab(TAB_DRAWING_TOOLS)
+        panel = tools.add_panel("Update")
+        self.drawing_update_button = panel.add_big(
             "rollback", "Update",
             "Redraw every view from the models as they are now")
         self.drawing_update_button.clicked.connect(
-            lambda: self.drawing_ui.rebuild(force=True))
+            lambda: ui.rebuild(force=True))
+        panel = tools.add_panel("Manage")
         panel.add_small("material", "dProperties",
                         "Title, part number, units, mass and bounding box"
-                        ).clicked.connect(
-            self.show_properties)
+                        ).clicked.connect(self.show_properties)
         panel.add_small("auto", "cLogic", "Rules that drive this drawing"
                         ).clicked.connect(self.show_rules)
-
-        panel = drawing_tab.add_panel("Output")
+        panel = tools.add_panel("Output")
         panel.add_big("export", "Export\nPDF", "Every sheet, at true size"
-                      ).clicked.connect(self.drawing_ui.export_pdf)
-        panel.add_small("export", "DXF...").clicked.connect(
-            self.drawing_ui.export_dxf)
-        panel.add_small("export", "SVG...").clicked.connect(
-            self.drawing_ui.export_svg)
+                      ).clicked.connect(ui.export_pdf)
+        panel.add_small("export", "DXF...").clicked.connect(ui.export_dxf)
+        panel.add_small("export", "SVG...").clicked.connect(ui.export_svg)
         panel.add_small("export", "Print...").clicked.connect(
-            self.drawing_ui.print_drawing)
+            ui.print_drawing)
 
         # ----------------------------------------------------------- Inspect
         inspect = r.add_tab(TAB_INSPECT)
