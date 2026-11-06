@@ -36,6 +36,9 @@ class DrawingController(QtCore.QObject):
         self.host = host
         self.browser = DrawingBrowser(host)
         self.generator = viewgen.Generator()
+        # a part open in a tab is drawn as it is there, saved or not, as
+        # Inventor's drawings follow the part in memory
+        self.generator.library.provider = self._open_part_shape
         self._properties: Dict[int, Dict[str, str]] = {}
         # views being placed with the cursor, and the model boxes their
         # previews are sized from
@@ -96,8 +99,10 @@ class DrawingController(QtCore.QObject):
             host.status_build.setStyleSheet("color: %s;" % C.warn)
         else:
             host.status_build.setStyleSheet("color: %s;" % C.text_dim)
+        # Update is always there to press: a part open in a tab can have
+        # changed without being saved, which no file stamp shows
         if hasattr(host, "drawing_update_button"):
-            host.drawing_update_button.setEnabled(bool(report.stale))
+            host.drawing_update_button.setEnabled(True)
         return report
 
     def _refresh_properties(self) -> None:
@@ -362,6 +367,16 @@ class DrawingController(QtCore.QObject):
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
             "Placed %d view(s)." % placed if placed else "No view placed.")
+
+    def _open_part_shape(self, path: str):
+        """The body of a part open in a tab, as it is now; None when the
+        file is not open, and the saved file is read instead."""
+        session = getattr(self.host, "session", None)
+        entry = session.by_path(path) if session is not None else None
+        if entry is None or not getattr(entry, "is_part", False):
+            return None
+        shape = getattr(entry.document, "shape", None)
+        return shape if shape is not None and not shape.IsNull() else None
 
     def end_placement(self) -> None:
         """Stop placing views, keeping whatever has been made."""

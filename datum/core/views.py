@@ -999,6 +999,17 @@ class Generator:
                     else None)
                 if not path or not os.path.exists(path):
                     continue
+                # A model open in a tab is drawn here, from the part as it
+                # is in the tab: a worker reads the file, which does not
+                # have what was changed since it was saved, and Update
+                # showed the old part while opening the view showed the new
+                provider = getattr(self.library, "provider", None)
+                if provider is not None:
+                    try:
+                        if provider(path) is not None:
+                            continue
+                    except Exception:
+                        pass
                 try:
                     direction, up = self._plain_direction(doc, sheet, view)
                 except Exception:
