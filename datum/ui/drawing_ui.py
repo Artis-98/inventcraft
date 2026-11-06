@@ -999,8 +999,9 @@ class DrawingController(QtCore.QObject):
         sheet = doc.active() if doc else None
         if sheet is None or sheet.title_block not in doc.title_blocks:
             return
-        from .titleblock_ui import TitleBlockDialog
-        dialog = TitleBlockDialog(self.host, doc, sheet.title_block)
+        # Inventor's way: the title block opened as a sketch to draw in
+        from .titleblock_editor import TitleBlockEditor
+        dialog = TitleBlockEditor(self.host, self, doc, sheet.title_block)
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return
         doc.push_undo()
