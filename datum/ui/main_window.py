@@ -34,7 +34,7 @@ from ..core.features import (
 from ..core.naming import RefSet, ShapeRef
 from ..core.sketch import STANDARD_PLANES, Sketch, SketchPlane
 from . import dialogs, icons
-from . import doctabs, session, updater
+from . import doctabs, i18n, session, updater
 from .assembly_browser import AssemblyBrowserPanel
 from ..core import rules as core_rules
 from ..core import document as core_document
@@ -250,6 +250,8 @@ class _HoldInput(QtCore.QObject):
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self) -> None:
         super().__init__()
+        # the window's language, put on everything as it comes on screen
+        i18n.install()
         self.document = Document()
         # set while an assembly or a CAM sheet is the open document; the part
         # document stays around untouched so nothing that reaches for it has
@@ -1313,6 +1315,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _build_status_bar(self) -> None:
         bar = self.statusBar()
         self.status_message = QtWidgets.QLabel("Ready")
+        i18n.translated_label(self.status_message)
         bar.addWidget(self.status_message, 0)
 
         self._build_sketch_toggles(bar)
@@ -2483,7 +2486,7 @@ class MainWindow(QtWidgets.QMainWindow):
                           "Parameters...", "dProperties...",
                           "Save as Template...")
         for action in self.file_menu.actions():
-            label = action.text().split("\t")[0]
+            label = i18n.english(action.text()).split("\t")[0]
             if label in needs_document:
                 action.setEnabled(has)
 

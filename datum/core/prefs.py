@@ -121,6 +121,8 @@ class Preferences:
     # for every new part, assembly and drawing's templates, a shared
     # drive's folder so the whole company starts from the same title block
     templates_folder: str = ""
+    # the window's language, a code with a table in ui/assets/lang
+    language: str = "en"
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
@@ -135,7 +137,8 @@ class Preferences:
                 "zoom_reversed": self.zoom_reversed,
                 "old_versions": self.old_versions,
                 "shortcuts": dict(self.shortcuts),
-                "templates_folder": self.templates_folder}
+                "templates_folder": self.templates_folder,
+                "language": self.language}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
@@ -167,6 +170,7 @@ class Preferences:
                        else MOUSE_MIDDLE),
             zoom_reversed=bool(data.get("zoom_reversed", False)),
             templates_folder=str(data.get("templates_folder") or ""),
+            language=str(data.get("language") or "en"),
             old_versions=_count(data.get("old_versions"), 1),
             shortcuts={str(k): str(v) for k, v in
                        (data.get("shortcuts") or {}).items()

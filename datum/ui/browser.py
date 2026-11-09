@@ -9,7 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..core import kernel
 from ..core.document import Document
 from ..core.features import Feature, SketchFeature
-from . import icons
+from . import i18n, icons
 from .theme import C
 
 ROLE_ID = QtCore.Qt.UserRole + 1
@@ -145,7 +145,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         bodies = [b for b in getattr(doc, "bodies", []) if b.valid]
         if bodies:
             folder = QtWidgets.QTreeWidgetItem(
-                root, ["Solid Bodies(%d)" % len(bodies)])
+                root, [i18n.tr("Solid Bodies") + "(%d)" % len(bodies)])
             folder.setIcon(0, icons.icon("box", 16))
             folder.setData(0, ROLE_KIND, "bodies")
             folder.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
@@ -172,11 +172,12 @@ class ModelBrowser(QtWidgets.QTreeWidget):
 
         self._add_model_states(root, doc)
 
-        origin = QtWidgets.QTreeWidgetItem(root, ["Origin"])
+        origin = QtWidgets.QTreeWidgetItem(root, [i18n.tr("Origin")])
         origin.setIcon(0, icons.icon("plane", 16))
         origin.setData(0, ROLE_KIND, "origin")
         origin.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
         for label, key in ORIGIN_PLANES:
+            label = i18n.tr(label)
             item = QtWidgets.QTreeWidgetItem(origin, [label])
             item.setIcon(0, icons.icon("plane", 16))
             item.setData(0, ROLE_KIND, "plane")
@@ -185,6 +186,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             item.setToolTip(0, "Double-click to start a sketch on %s\n"
                                "Right-click to show or hide it" % label)
         for label, key in ORIGIN_AXES:
+            label = i18n.tr(label)
             item = QtWidgets.QTreeWidgetItem(origin, [label])
             item.setIcon(0, icons.icon("axis", 16))
             item.setData(0, ROLE_KIND, "axis")
@@ -192,7 +194,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             item.setToolTip(0, "While sketching, Project Geometry and a "
                                "click here bring the %s onto the sketch"
                                % label)
-        centre = QtWidgets.QTreeWidgetItem(origin, ["Center Point"])
+        centre = QtWidgets.QTreeWidgetItem(origin, [i18n.tr("Center Point")])
         centre.setIcon(0, icons.icon("point", 16))
         centre.setData(0, ROLE_KIND, "origin_point")
         centre.setData(0, ROLE_ID, "O")
@@ -201,7 +203,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         end: Optional[QtWidgets.QTreeWidgetItem] = None
 
         def add_end_marker() -> QtWidgets.QTreeWidgetItem:
-            marker = QtWidgets.QTreeWidgetItem(root, ["End of Part"])
+            marker = QtWidgets.QTreeWidgetItem(root, [i18n.tr("End of Part")])
             marker.setIcon(0, icons.icon("rollback", 16))
             marker.setData(0, ROLE_KIND, "end")
             marker.setForeground(0, QtGui.QBrush(QtGui.QColor(C.accent)))
@@ -286,7 +288,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         # with the features of its own under it
         sheet = getattr(doc, "sheet_metal", None)
         if sheet is not None:
-            flat = QtWidgets.QTreeWidgetItem(root, ["Flat Pattern"])
+            flat = QtWidgets.QTreeWidgetItem(root, [i18n.tr("Flat Pattern")])
             flat.setIcon(0, icons.icon("sm_flat", 16))
             flat.setData(0, ROLE_KIND, "flat")
             flat.setToolTip(0, "Double-click to lay the part flat and add "
@@ -520,7 +522,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         if states is None:
             return
         folder = QtWidgets.QTreeWidgetItem(
-            root, ["Model States: %s" % states.active])
+            root, [i18n.tr("Model States") + ": %s" % states.active])
         folder.setIcon(0, icons.icon("params", 16))
         folder.setData(0, ROLE_KIND, "states")
         folder.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))

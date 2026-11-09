@@ -8,7 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..core import drawing as dwg
 from ..core.drawing import DrawingDocument, Sheet, View
-from . import icons
+from . import i18n, icons
 from .theme import C
 
 ROLE_KIND = QtCore.Qt.UserRole + 1      # sheet, view, note, resource, group
@@ -61,12 +61,12 @@ class DrawingBrowser(QtWidgets.QTreeWidget):
         self._restore(expanded, selected)
 
     def _resources(self, doc: DrawingDocument) -> None:
-        root = QtWidgets.QTreeWidgetItem(self, ["Drawing Resources"])
+        root = QtWidgets.QTreeWidgetItem(self, [i18n.tr("Drawing Resources")])
         root.setData(0, ROLE_KIND, "group")
         root.setIcon(0, icons.icon("params", 16))
         for title, names in (("Borders", sorted(doc.borders)),
                              ("Title Blocks", sorted(doc.title_blocks))):
-            group = QtWidgets.QTreeWidgetItem(root, [title])
+            group = QtWidgets.QTreeWidgetItem(root, [i18n.tr(title)])
             group.setData(0, ROLE_KIND, "group")
             for name in names:
                 item = QtWidgets.QTreeWidgetItem(group, [name])

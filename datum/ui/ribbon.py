@@ -469,6 +469,8 @@ class Ribbon(QtWidgets.QWidget):
         strip_layout.addStretch(1)
 
         self.status_hint = QtWidgets.QLabel("")
+        from . import i18n
+        i18n.translated_label(self.status_hint)
         self.status_hint.setStyleSheet(
             "color: %s; font-size: 11px;" % C.text_dim)
         strip_layout.addWidget(self.status_hint)

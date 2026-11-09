@@ -173,6 +173,17 @@ class PreferencesDialog(QtWidgets.QDialog):
         folder_row.addWidget(self.templates_edit, 1)
         folder_row.addWidget(browse)
         form.addRow("Templates folder", folder_row)
+
+        from . import i18n
+        self.language_combo = QtWidgets.QComboBox()
+        for code, name in i18n.languages().items():
+            self.language_combo.addItem(name, code)
+        self.language_combo.setCurrentIndex(
+            max(0, self.language_combo.findData(self.prefs.language)))
+        self.language_combo.setToolTip(
+            "The language of the window. It changes when InventCraft is "
+            "started again; anything not yet translated stays in English.")
+        form.addRow("Language", self.language_combo)
         return page
 
     def _display_page(self) -> QtWidgets.QWidget:
@@ -412,6 +423,7 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.prefs.zoom_reversed = self.zoom_reversed_box.isChecked()
         self.prefs.old_versions = self.versions_spin.value()
         self.prefs.templates_folder = self.templates_edit.text().strip()
+        self.prefs.language = self.language_combo.currentData() or "en"
         from . import shortcuts
         self.prefs.shortcuts = shortcuts.changes(self.shortcut_keys())
         # only what differs from the shipped palette is written, so a

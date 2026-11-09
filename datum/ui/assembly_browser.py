@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..core.assembly import AssemblyDocument
-from . import icons
+from . import i18n, icons
 from .theme import C
 
 ROLE_ID = QtCore.Qt.UserRole + 1
@@ -154,11 +154,12 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         font.setBold(True)
         root.setFont(0, font)
 
-        origin = QtWidgets.QTreeWidgetItem(root, ["Origin"])
+        origin = QtWidgets.QTreeWidgetItem(root, [i18n.tr("Origin")])
         origin.setIcon(0, icons.icon("plane", 16))
         origin.setData(0, ROLE_KIND, "origin")
         origin.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
         for label, key in ORIGIN_PLANES:
+            label = i18n.tr(label)
             item = QtWidgets.QTreeWidgetItem(origin, [label])
             item.setIcon(0, icons.icon("plane", 16))
             item.setData(0, ROLE_KIND, "plane")
