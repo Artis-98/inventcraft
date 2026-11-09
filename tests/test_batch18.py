@@ -118,7 +118,8 @@ with open(os.path.join(TOTE, "Tote.adat"), "rb") as handle:
 # ----------------------------------------------------------------- themes
 print("colour schemes")
 theme.set_theme("light")
-check("light is the default", prefs.Preferences().theme == "light")
+check("Midnight Navy Light is the default",
+      prefs.Preferences().theme == "midnight_light")
 check("the light window is near white", theme.C.window == "#f4f4f2")
 check("the accent is the beaver's amber", theme.C.accent == "#d5a129")
 light_css = theme.stylesheet()
@@ -140,8 +141,9 @@ check("what a scheme shipped with follows it",
 check("the dark stylesheet still has its own greys",
       "#5b636c" in theme.stylesheet())
 theme.set_theme("nonsense")
-check("an unknown scheme falls back to light",
-      theme.current_theme() == "light" and theme.C.window == "#f4f4f2")
+check("an unknown scheme falls back to Midnight Navy Light",
+      theme.current_theme() == "midnight_light"
+      and theme.C.window == "#f2f3f6")
 
 theme.set_theme("dark")
 theme.apply_colours({"bg_top": "#1e2530"})
@@ -155,18 +157,44 @@ check("and does not follow them into the light one",
 data = {"theme": "dark", "colours": {"bg_top": "#1e2530"},
         "light_colours": {"sketch_free": "#00ff00", "window": "#000000"}}
 loaded = prefs.Preferences.from_dict(data)
-check("the scheme is remembered", loaded.theme == "dark")
+check("a dark one chosen before is Charcoal now", loaded.theme == "charcoal")
 check("each scheme keeps its own colours",
-      loaded.colours_for("dark") == {"bg_top": "#1e2530"}
+      loaded.colours_for("charcoal") == {"bg_top": "#1e2530"}
       and loaded.colours_for("light") == {"sketch_free": "#00ff00"},
       (loaded.colours, loaded.light_colours))
 check("and round trips", prefs.Preferences.from_dict(
     loaded.to_dict()).to_dict() == loaded.to_dict())
-check("a 0.2.x file, with no scheme in it, opens light",
+check("a 0.2.x file, with no scheme in it, opens Midnight Navy Light",
       prefs.Preferences.from_dict({"colours": {"bg_top": "#1e2530"}}).theme
-      == "light")
-check("a scheme it does not know opens light",
-      prefs.Preferences.from_dict({"theme": "purple"}).theme == "light")
+      == "midnight_light")
+check("a scheme it does not know opens Midnight Navy",
+      prefs.Preferences.from_dict({"theme": "purple"}).theme == "midnight_light")
+check("the old amber light one opens Midnight Navy Light",
+      prefs.Preferences.from_dict({"theme": "light"}).theme == "midnight_light")
+check("the four, each light and dark, Midnight Navy Light first",
+      prefs.THEMES == ("midnight_light", "midnight", "copper_light",
+                       "copper", "charcoal_light", "charcoal",
+                       "olive_light", "olive"))
+check("the beaver follows the colour", theme.THEME_BRAND["copper_light"]
+      == "copper" and theme.THEME_BRAND["midnight_light"] == "")
+check("each of the four stays chosen", all(
+    prefs.Preferences.from_dict({"theme": t}).theme == t
+    for t in prefs.THEMES))
+p = prefs.Preferences()
+p.set_colours_for("midnight", {"bg_top": "#101010"})
+p.set_colours_for("olive", {"bg_top": "#202020"})
+again = prefs.Preferences.from_dict(p.to_dict())
+check("every scheme keeps its own colours, saved",
+      again.colours_for("midnight") == {"bg_top": "#101010"}
+      and again.colours_for("olive") == {"bg_top": "#202020"}
+      and again.colours_for("light") == {})
+for name in theme.THEMES:
+    theme.set_theme(name)
+    css = theme.stylesheet()
+    check("%s: a whole stylesheet, its own accent in it" % name,
+          theme.C.accent in css and name in theme.THEME_NAMES
+          and name in theme.ICON_TONES)
+theme.set_theme("light")
 
 # ------------------------------------------------------------------ icons
 print("icons in each scheme")
@@ -202,13 +230,15 @@ theme.set_theme("light")
 icons.use_theme("light")
 before = dict(prefs.prefs().colours)
 dialog = PreferencesDialog()
-check("it offers the scheme", dialog.theme_combo.count() == 2
-      and dialog.theme_combo.currentData() == "light")
+check("it offers every scheme, Midnight Navy first",
+      dialog.theme_combo.count() == len(prefs.THEMES)
+      and dialog.theme_combo.itemData(0) == "midnight_light"
+      and dialog.theme_combo.currentData() == "midnight_light")
 dialog.colour_buttons["sketch_free"].set_colour("#00aa00")
-dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("dark"))
+dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("olive"))
 dialog.apply()
 saved_prefs = prefs.load()
-check("the choice of scheme is saved", saved_prefs.theme == "dark")
+check("the choice of scheme is saved", saved_prefs.theme == "olive")
 check("a colour lands in the scheme in use now",
       saved_prefs.light_colours.get("sketch_free") == "#00aa00",
       saved_prefs.light_colours)
@@ -216,7 +246,7 @@ check("and not in the other", saved_prefs.colours == before,
       saved_prefs.colours)
 check("the window keeps its scheme until the next start",
       theme.current_theme() == "light")
-dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("light"))
+dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData("midnight"))
 dialog.reset_colours()
 dialog.deleteLater()
 prefs.reset()

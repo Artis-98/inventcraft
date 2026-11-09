@@ -1500,7 +1500,9 @@ def use_theme(name: str) -> None:
     """Draw icons in a colour scheme's tones from now on."""
     from .theme import ICON_TONES
     global _LINE, _ACCENT, _SOLID
-    _LINE, _ACCENT, _SOLID = ICON_TONES.get(name, ICON_TONES["light"])
+    from .theme import THEME_BASE
+    _LINE, _ACCENT, _SOLID = ICON_TONES.get(
+        name, ICON_TONES[THEME_BASE.get(name, "light")])
     _cache.clear()
 
 
@@ -1641,17 +1643,29 @@ def window_icon(kind: str, size: int = 12,
 BRAND_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "brand")
 BRAND_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
-_brand_cache: Dict[Tuple[int, float], QtGui.QPixmap] = {}
+_brand_cache: Dict[Tuple[int, float, str], QtGui.QPixmap] = {}
+
+
+def _brand_file(size: int) -> str:
+    """The beaver tile in the colour scheme's colour, or the navy one."""
+    from .theme import brand_folder_name
+    name = "inventcraft-%d.png" % size
+    sub = brand_folder_name()
+    if sub:
+        path = os.path.join(BRAND_FOLDER, sub, name)
+        if os.path.exists(path):
+            return path
+    return os.path.join(BRAND_FOLDER, name)
 
 
 def brand_pixmap(size: int, ratio: float = 1.0) -> QtGui.QPixmap:
     """The beaver tile at a size, sharp on a scaled display too."""
-    key = (size, ratio)
+    from .theme import brand_folder_name
+    key = (size, ratio, brand_folder_name())
     if key not in _brand_cache:
         want = int(round(size * ratio))
         pick = next((s for s in BRAND_SIZES if s >= want), BRAND_SIZES[-1])
-        source = QtGui.QPixmap(os.path.join(
-            BRAND_FOLDER, "inventcraft-%d.png" % pick))
+        source = QtGui.QPixmap(_brand_file(pick))
         if source.isNull():
             # the pictures missing: the old drawn mark rather than nothing
             return mark_pixmap(size, ratio=ratio)
@@ -1663,11 +1677,11 @@ def brand_pixmap(size: int, ratio: float = 1.0) -> QtGui.QPixmap:
 
 
 def app_icon() -> QtGui.QIcon:
-    """Window and taskbar icon: the InventCraft beaver."""
+    """Window and taskbar icon: the InventCraft beaver, in the colour
+    scheme's colour."""
     ic = QtGui.QIcon()
     for size in BRAND_SIZES:
-        px = QtGui.QPixmap(os.path.join(BRAND_FOLDER,
-                                        "inventcraft-%d.png" % size))
+        px = QtGui.QPixmap(_brand_file(size))
         if not px.isNull():
             ic.addPixmap(px)
     if ic.isNull():

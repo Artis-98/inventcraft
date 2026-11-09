@@ -202,8 +202,9 @@ class PreferencesDialog(QtWidgets.QDialog):
         form = QtWidgets.QFormLayout()
         form.setSpacing(8)
         self.theme_combo = QtWidgets.QComboBox()
-        self.theme_combo.addItem("Light", core_prefs.THEME_LIGHT)
-        self.theme_combo.addItem("Dark", core_prefs.THEME_DARK)
+        from .theme import THEME_NAMES
+        for key in core_prefs.THEMES:
+            self.theme_combo.addItem(THEME_NAMES.get(key, key), key)
         self.theme_combo.setCurrentIndex(
             max(0, self.theme_combo.findData(self.prefs.theme)))
         self.theme_combo.setToolTip(
@@ -432,7 +433,7 @@ class PreferencesDialog(QtWidgets.QDialog):
             key: button.colour() for key, button in self.colour_buttons.items()
             if button.colour().lower() != as_hex(shipped(key)).lower()})
         self.prefs.theme = (self.theme_combo.currentData()
-                            or core_prefs.THEME_LIGHT)
+                            or core_prefs.DEFAULT_THEME)
 
     def apply(self) -> None:
         self.gather()

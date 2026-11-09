@@ -148,14 +148,209 @@ DARK = {
     "paper_selected": "#5b6b7d",
 }
 
-THEMES = {"light": LIGHT, "dark": DARK}
+# Midnight Navy, the logo's #263A64: navy chrome with a steel blue accent,
+# and a navy wash behind the model. The default since 0.3.8.
+MIDNIGHT = dict(DARK, **{
+    "window": "#121a2b",
+    "ribbon": "#1a2540",
+    "ribbon_tab": "#141d31",
+    "ribbon_tab_active": "#1a2540",
+    "panel": "#161f35",
+    "panel_alt": "#1f2b48",
+    "border": "#2b3a5c",
+    "border_light": "#3b4c72",
+    "text": "#e2e8f3",
+    "text_dim": "#93a1bb",
+    "text_disabled": "#56637d",
+    "field_disabled": "#172036",
+    "button_disabled": "#18213a",
+    "hover_overlay": "rgba(255, 255, 255, 0.09)",
+    "tree_hidden": "#5a6782",
+    "tree_faint": "#65728d",
+    "accent": "#7fa6ec",
+    "accent_dark": "#5b84d0",
+    "accent_soft": "#2b4373",
+    "on_accent": "#0d1426",
+    "axis_label": "#c9d3e6",
+    "cube_box": "#2c3c60",
+    "wordmark": "#dbe4f2",
+    "bg_top": _linear("#33497a"),
+    "bg_bottom": _linear("#0c1322"),
+    "paper_selected": "#4d6290",
+})
+
+# Copper Rust, #A8563C: warm dark chrome, a copper accent.
+COPPER = dict(DARK, **{
+    "window": "#1c1512",
+    "ribbon": "#291d18",
+    "ribbon_tab": "#211814",
+    "ribbon_tab_active": "#291d18",
+    "panel": "#241a16",
+    "panel_alt": "#33241e",
+    "border": "#46322a",
+    "border_light": "#5b4236",
+    "text": "#f0e6e1",
+    "text_dim": "#b49c91",
+    "text_disabled": "#6d5a52",
+    "field_disabled": "#221814",
+    "button_disabled": "#241a16",
+    "tree_hidden": "#76625a",
+    "tree_faint": "#806b62",
+    "accent": "#e08c6a",
+    "accent_dark": "#c0694a",
+    "accent_soft": "#5a3427",
+    "on_accent": "#1c100b",
+    "axis_label": "#e6d2c8",
+    "cube_box": "#4c3329",
+    "wordmark": "#f0dcd2",
+    "bg_top": _linear("#6a3b2c"),
+    "bg_bottom": _linear("#140d0b"),
+    "paper_selected": "#8a5a48",
+})
+
+# Charcoal, #424A50: neutral dark grey with a cool silver accent. It takes
+# the place of the dark scheme DATUM had, and whoever chose that gets it.
+CHARCOAL = dict(DARK, **{
+    "window": "#1b1e20",
+    "ribbon": "#262b2e",
+    "ribbon_tab": "#1f2326",
+    "ribbon_tab_active": "#262b2e",
+    "panel": "#212528",
+    "panel_alt": "#2d3236",
+    "border": "#3a4146",
+    "border_light": "#4b5359",
+    "accent": "#a6b6c2",
+    "accent_dark": "#84949f",
+    "accent_soft": "#3c454b",
+    "on_accent": "#14181b",
+    "cube_box": "#3d464c",
+    "bg_top": _linear("#4a5359"),
+    "bg_bottom": _linear("#111315"),
+})
+
+# Olive Moss, #6C773E: dark green-brown chrome, a moss accent.
+OLIVE = dict(DARK, **{
+    "window": "#171a10",
+    "ribbon": "#222617",
+    "ribbon_tab": "#1b1e12",
+    "ribbon_tab_active": "#222617",
+    "panel": "#1d2114",
+    "panel_alt": "#2a2f1d",
+    "border": "#3a4128",
+    "border_light": "#4c5534",
+    "text": "#e9ecdf",
+    "text_dim": "#a4ab8e",
+    "text_disabled": "#5f6650",
+    "field_disabled": "#1b1e12",
+    "button_disabled": "#1d2114",
+    "tree_hidden": "#6a7158",
+    "tree_faint": "#747b62",
+    "accent": "#b6c574",
+    "accent_dark": "#8e9c51",
+    "accent_soft": "#414a26",
+    "on_accent": "#141708",
+    "axis_label": "#d9dec8",
+    "cube_box": "#3e4628",
+    "wordmark": "#e3e8d2",
+    "bg_top": _linear("#4a532f"),
+    "bg_bottom": _linear("#0e100a"),
+    "paper_selected": "#6f7a48",
+})
+
+# Every scheme, by the name kept in the preferences. The four offered are
+# the logo's colours; "light" and "dark" are the two the earlier versions
+# had, kept underneath as what the others are made from.
+THEMES = {"midnight": MIDNIGHT, "copper": COPPER, "charcoal": CHARCOAL,
+          "olive": OLIVE, "light": LIGHT, "dark": DARK}
+# as the Preferences list shows them
+THEME_NAMES = {"midnight": "Midnight Navy", "copper": "Copper Rust",
+               "charcoal": "Charcoal", "olive": "Olive Moss",
+               "light": "Light", "dark": "Dark"}
+# light or dark underneath: what the 3D view's sketch colours, the
+# selection colours and anything drawn on the chrome are tuned for
+THEME_BASE = {"midnight": "dark", "copper": "dark", "charcoal": "dark",
+              "olive": "dark", "light": "light", "dark": "dark"}
+# Midnight Navy Light, made below with the other super light ones
+DEFAULT_THEME = "midnight_light"
 
 # The tones the toolbar icons are drawn in: an outline, an accent and a
 # solid, a clear step apart so a 16 pixel icon does not turn to a smudge.
 ICON_TONES = {
     "light": ("#2b3540", "#b9820f", "#7a8693"),
     "dark": ("#d5dee8", "#93a6bb", "#67737f"),
+    "midnight": ("#d8e1f0", "#86a8e6", "#66758f"),
+    "copper": ("#efe0d9", "#e2916f", "#7d6a62"),
+    "charcoal": ("#d5dde3", "#a3b3bf", "#69737a"),
+    "olive": ("#e4e8d6", "#b9c77b", "#6f765c"),
 }
+
+
+def _mix(a: str, b: str, t: float) -> str:
+    """Two "#rrggbb" colours mixed, t of the way from a to b."""
+    pa = [int(a[i:i + 2], 16) for i in (1, 3, 5)]
+    pb = [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#%02x%02x%02x" % tuple(
+        int(round(x + (y - x) * t)) for x, y in zip(pa, pb))
+
+
+def _super_light(colour: str) -> Dict[str, Any]:
+    """A scheme nearly white, only a tone of the colour in it: the chrome
+    and the backdrop barely tinted, the colour itself for what is picked."""
+    white, ink = "#ffffff", "#0b0d10"
+    return dict(LIGHT, **{
+        "window": _mix(white, colour, 0.06),
+        "ribbon": _mix(white, colour, 0.025),
+        "ribbon_tab": _mix(white, colour, 0.10),
+        "ribbon_tab_active": _mix(white, colour, 0.025),
+        "panel": _mix(white, colour, 0.04),
+        "panel_alt": _mix(white, colour, 0.12),
+        "border": _mix(white, colour, 0.22),
+        "border_light": _mix(white, colour, 0.34),
+        "text": _mix(ink, colour, 0.22),
+        "text_dim": _mix(_mix(ink, colour, 0.45), white, 0.25),
+        "text_disabled": _mix(white, colour, 0.40),
+        "field_disabled": _mix(white, colour, 0.08),
+        "button_disabled": _mix(white, colour, 0.07),
+        "tree_hidden": _mix(white, colour, 0.45),
+        "tree_faint": _mix(white, colour, 0.52),
+        "accent": colour,
+        "accent_dark": _mix(colour, ink, 0.18),
+        "accent_soft": _mix(white, colour, 0.18),
+        "on_accent": "#ffffff",
+        "wordmark": _mix(ink, colour, 0.5),
+        "cube_box": _mix(white, colour, 0.22),
+        "bg_top": _linear(_mix(white, colour, 0.02)),
+        "bg_bottom": _linear(_mix(white, colour, 0.24)),
+        "paper_selected": _mix(white, colour, 0.6),
+    })
+
+
+# The super light one of each: the same four colours, nearly white
+for _key, _colour, _name in (("midnight", "#263a64", "Midnight Navy"),
+                             ("copper", "#a8563c", "Copper Rust"),
+                             ("charcoal", "#424a50", "Charcoal"),
+                             ("olive", "#6c773e", "Olive Moss")):
+    _light_key = _key + "_light"
+    THEMES[_light_key] = _super_light(_colour)
+    THEME_NAMES[_light_key] = _name + " Light"
+    THEME_BASE[_light_key] = "light"
+    ICON_TONES[_light_key] = (_mix("#0b0d10", _colour, 0.30), _colour,
+                              _mix(_mix("#0b0d10", _colour, 0.5), "#ffffff",
+                                   0.35))
+
+# which beaver goes on the window and the taskbar: the tile in the
+# scheme's own colour, from datum/ui/brand/<folder> ("" is the navy one)
+THEME_BRAND = {"midnight": "", "copper": "copper", "charcoal": "charcoal",
+               "olive": "olive", "light": "", "dark": "charcoal"}
+for _key in list(THEME_BRAND):
+    if _key + "_light" in THEMES:
+        THEME_BRAND[_key + "_light"] = THEME_BRAND[_key]
+
+
+def brand_folder_name() -> str:
+    """The brand folder of the scheme in use."""
+    return THEME_BRAND.get(_current, "")
+
 
 _current = "light"
 
@@ -175,10 +370,15 @@ def current_theme() -> str:
     return _current
 
 
+def is_dark() -> bool:
+    """Whether the scheme in use is a dark one underneath."""
+    return THEME_BASE.get(_current) == "dark"
+
+
 def set_theme(name: str) -> None:
     """Use a colour scheme: every named colour taken from it."""
     global _current
-    _current = name if name in THEMES else "light"
+    _current = name if name in THEMES else DEFAULT_THEME
     for key, value in THEMES[_current].items():
         setattr(C, key, value)
 

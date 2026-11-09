@@ -41,10 +41,25 @@ ORBIT_FREE = "free"
 ORBIT_TURNTABLE = "turntable"
 ORBITS = (ORBIT_FREE, ORBIT_TURNTABLE)
 
-# the colour schemes: InventCraft's light one, and the dark one DATUM had
+# the colour schemes, by the names ui.theme knows them by: the logo's four,
+# Midnight Navy the default
+THEME_MIDNIGHT = "midnight"
+THEME_COPPER = "copper"
+THEME_CHARCOAL = "charcoal"
+THEME_OLIVE = "olive"
+# each also in a super light version, "<name>_light"
+THEMES = (THEME_MIDNIGHT + "_light", THEME_MIDNIGHT,
+          THEME_COPPER + "_light", THEME_COPPER,
+          THEME_CHARCOAL + "_light", THEME_CHARCOAL,
+          THEME_OLIVE + "_light", THEME_OLIVE)
+# Midnight Navy Light, for everybody who has not chosen otherwise
+DEFAULT_THEME = THEME_MIDNIGHT + "_light"
+# the two schemes before 0.3.8, and where a file that chose one goes now:
+# the amber light one was only ever the default, the dark one is Charcoal
 THEME_LIGHT = "light"
 THEME_DARK = "dark"
-THEMES = (THEME_LIGHT, THEME_DARK)
+FORMER_THEMES = {THEME_LIGHT: DEFAULT_THEME, THEME_DARK: THEME_CHARCOAL}
+THEMES_VERSION = 2
 
 # Which mouse button turns the view and which slides it; the wheel always
 # zooms.  "shift_middle" is the wheel held down with Shift, Inventor's
@@ -94,9 +109,11 @@ class Preferences:
     # which colour scheme, and the colours they have changed in each:
     # theme colour name -> "#rrggbb".  Kept apart, so a dark backdrop
     # chosen for the dark scheme does not end up behind the light one.
-    theme: str = THEME_LIGHT
+    theme: str = DEFAULT_THEME
     colours: Dict[str, str] = field(default_factory=dict)        # dark
     light_colours: Dict[str, str] = field(default_factory=dict)
+    # the other schemes' colours, by scheme
+    theme_colours: Dict[str, Dict[str, str]] = field(default_factory=dict)
     # folders whose documents may run their cLogic without asking.  Kept
     # here, on this machine, because a file must never vouch for itself.
     trusted_folders: List[str] = field(default_factory=list)
@@ -129,6 +146,9 @@ class Preferences:
                 "company": self.company, "theme": self.theme,
                 "colours": dict(self.colours),
                 "light_colours": dict(self.light_colours),
+                "theme_colours": {k: dict(v) for k, v in
+                                  self.theme_colours.items()},
+                "themes_version": THEMES_VERSION,
                 "trusted_folders": list(self.trusted_folders),
                 "orbit": self.orbit, "units": self.units,
                 "spacemouse": dict(self.spacemouse),
@@ -144,12 +164,22 @@ class Preferences:
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
         colours = data.get("colours") or {}
         light = data.get("light_colours") or {}
+        others = data.get("theme_colours")
+        others = others if isinstance(others, dict) else {}
+        theme = str(data.get("theme") or "")
+        theme = FORMER_THEMES.get(theme, theme)
+        if theme not in THEMES:
+            theme = DEFAULT_THEME
         return cls(
             name=str(data.get("name", "")),
             initials=str(data.get("initials", "")),
             company=str(data.get("company", "")),
-            theme=(str(data.get("theme")) if data.get("theme") in THEMES
-                   else THEME_LIGHT),
+            theme=theme,
+            theme_colours={
+                str(name): {str(k): str(v) for k, v in values.items()
+                            if k in COLOUR_KEYS and _is_colour(v)}
+                for name, values in others.items()
+                if name in THEMES and isinstance(values, dict)},
             colours={str(k): str(v) for k, v in colours.items()
                      if k in COLOUR_KEYS and _is_colour(v)},
             light_colours={str(k): str(v) for k, v in light.items()
@@ -179,13 +209,20 @@ class Preferences:
 
     def colours_for(self, theme: str) -> Dict[str, str]:
         """The colours changed in one scheme."""
-        return self.light_colours if theme == THEME_LIGHT else self.colours
+        # Charcoal is the dark scheme's successor, so it has its colours
+        if theme == THEME_LIGHT:
+            return self.light_colours
+        if theme in (THEME_DARK, THEME_CHARCOAL):
+            return self.colours
+        return self.theme_colours.get(theme, {})
 
     def set_colours_for(self, theme: str, colours: Dict[str, str]) -> None:
         if theme == THEME_LIGHT:
             self.light_colours = dict(colours)
-        else:
+        elif theme in (THEME_DARK, THEME_CHARCOAL):
             self.colours = dict(colours)
+        else:
+            self.theme_colours[theme] = dict(colours)
 
     def stamp(self, properties: Dict[str, str],
               key: str = "Designer") -> Dict[str, str]:
