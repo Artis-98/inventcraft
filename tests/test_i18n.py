@@ -120,6 +120,52 @@ dialog.gather()
 check("and keeps the choice", dialog.prefs.language == "de")
 prefs.prefs().language = "en"
 
+print("five languages, every table the same size")
+langs = i18n.languages()
+check("German, French, Spanish and Polish offered",
+      all(c in langs for c in ("de", "fr", "es", "pl")), langs)
+sizes = {}
+for code in ("de", "fr", "es", "pl"):
+    i18n.load(code)
+    sizes[code] = len(i18n._table)
+check("each has as many entries as German",
+      len(set(sizes.values())) == 1, sizes)
+
+print("messages with numbers and names in them")
+i18n.load("de")
+check("the numbers go into the translation",
+      i18n.tr("Rebuilt 3 feature(s) in 12 ms")
+      == "3 Element(e) in 12 ms neu erstellt", i18n.tr(
+          "Rebuilt 3 feature(s) in 12 ms"))
+check("a name before the colon is kept",
+      i18n.tr("Extrusion1: distance must be positive")
+      == "Extrusion1: der Abstand muss positiv sein")
+check("an English plural s is dropped, empty or not",
+      i18n.tr("Deleted 2 features.") == "2 Element(e) gelöscht."
+      and i18n.tr("Deleted 1 feature.") == "2 Element(e) gelöscht."
+      .replace("2", "1"))
+check("a value that is in the table is translated too",
+      i18n.tr("Home is this view, fitted to the part when you go there.")
+      .startswith("Die Ausgangsansicht"))
+check("a text no format string fits stays English",
+      i18n.tr("Nothing like it 5") == "Nothing like it 5")
+i18n.load("pl")
+check("Polish puts the number where it reads",
+      i18n.tr("Projected 4 edge(s). Keep clicking, or Esc to finish.")
+      .startswith("Zrzutowano krawędzie: 4."))
+
+print("a long caption on a big ribbon button")
+from datum.ui import ribbon                                      # noqa: E402
+button = ribbon.RibbonButton("extrude", "Extrude")
+button.setText("Wyciągnięcie proste")
+check("goes onto two lines", button.text() == "Wyciągnięcie\nproste",
+      repr(button.text()))
+check("and then fits", QtWidgets.QToolButton.sizeHint(button).width()
+      <= button.maximumWidth())
+button.setText("Extrude")
+check("a short one stays on one", button.text() == "Extrude")
+
+i18n.load("en")
 i18n._table, i18n._reverse = {}, {}
 print()
 if FAILS:

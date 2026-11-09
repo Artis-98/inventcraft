@@ -42,25 +42,22 @@
       before, and your parts, assemblies and drawings open just as they
       did.</p>
     <h3>Why the change</h3>
-    <p>A CAD program grows with the people around it: the person who
-      reports a bug, sends a fix, asks for a feature or shows it to a
-      friend. A project built by one person can only reach so far on its
-      own. To give InventCraft a real chance to succeed, it is joining the
-      family of Craft apps around ArtCraft, the open source creative studio
-      at getartcraft.com.</p>
-    <p>Being part of a bigger family puts InventCraft in front of a much
-      larger community of people who make things. More people using it
-      means more feedback, more eyes on the code and more contributions,
-      and that is what keeps an open source project alive and moving
-      forward.</p>
+    <p>InventCraft is the new name for DATUM. The application and your files
+      continue as before. The name connects the project with the family of
+      creative tools around <a href="https://getartcraft.com/apps" target="_blank"
+      rel="noopener">ArtCraft</a>.</p>
+    <p>InventCraft now has a dedicated home at
+      <a href="https://ic.iiteg.com/">ic.iiteg.com</a>. Visit the new website
+      for the current download, a clearer look at the tools, and future
+      updates. This DATUM address remains available.</p>
     <ul class="notice-points">
       <li>Free and open source under the MIT licence, as it always was</li>
       <li>The source stays on GitHub, open to anyone who wants to help</li>
       <li>Installed copies update to the new name on their own</li>
     </ul>
     <div class="notice-actions">
-      <a class="btn primary" id="notice-artcraft" href="https://getartcraft.com"
-         target="_blank" rel="noopener">Check out getartcraft.com</a>
+      <a class="btn primary" id="notice-new-site" href="https://ic.iiteg.com/">Visit the new InventCraft site</a>
+      <a class="btn ghost" href="https://getartcraft.com/apps" target="_blank" rel="noopener">Explore ArtCraft</a>
       <button class="btn ghost" type="button" data-close>Continue to
         InventCraft</button>
     </div>
@@ -1058,7 +1055,7 @@
   var box = document.getElementById("notice");
   if (!box) return;
   try {
-    if (sessionStorage.getItem("inventcraft-notice")) return;
+    if (sessionStorage.getItem("inventcraft-notice-new-site")) return;
   } catch (e) {}
   var before = document.activeElement;
   function key(event) {
@@ -1068,7 +1065,7 @@
     box.hidden = true;
     document.documentElement.classList.remove("notice-open");
     document.removeEventListener("keydown", key);
-    try { sessionStorage.setItem("inventcraft-notice", "1"); } catch (e) {}
+    try { sessionStorage.setItem("inventcraft-notice-new-site", "1"); } catch (e) {}
     if (before && before.focus) before.focus();
   }
   box.hidden = false;
@@ -1086,7 +1083,7 @@
         || event.target.closest("[data-close], .notice-close")) close();
   });
   // the link opens in a tab of its own, and this page is ready behind it
-  document.getElementById("notice-artcraft")
+  document.getElementById("notice-new-site")
           .addEventListener("click", close);
   // the button has the focus, but the box opens at its top
   box.querySelector(".btn.primary").focus({ preventScroll: true });

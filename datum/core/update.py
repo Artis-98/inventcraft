@@ -144,7 +144,7 @@ def can_update() -> Tuple[bool, str]:
         return (False, "InventCraft is running from source; use git instead")
     if sys.platform != "win32" and not sys.platform.startswith("linux"):
         return (False, "there is no update feed for this system; download "
-                       "the new build from datum.iiteg.com")
+                       "the new build from ic.iiteg.com")
     target = install_dir()
     if not os.access(target, os.W_OK):
         return (False, "%s is not writable by this account" % target)

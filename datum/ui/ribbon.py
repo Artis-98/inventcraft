@@ -62,10 +62,31 @@ class RibbonButton(_Squeezable, QtWidgets.QToolButton):
         self.setCheckable(checkable)
         self.setAutoRaise(False)
         self.setMinimumWidth(54)
-        self.setMaximumWidth(88)
+        # room for the longest single word a translation puts on one line
+        self.setMaximumWidth(96)
         self.setFixedHeight(68)
         self.setStyleSheet("font-size: 11px;")
         self.setCursor(QtCore.Qt.PointingHandCursor)
+
+    def setText(self, text: str) -> None:
+        """A caption too wide for one line goes onto two, broken at the
+        space that leaves the lines most even: a translation is often
+        longer than the English it replaces."""
+        QtWidgets.QToolButton.setText(self, text)
+        if ("\n" not in text and " " in text.strip()
+                and QtWidgets.QToolButton.sizeHint(self).width()
+                > self.maximumWidth()):
+            self.ensurePolished()
+            QtWidgets.QToolButton.setText(
+                self, _two_lines(text, QtGui.QFontMetrics(self.font())))
+
+
+def _two_lines(text: str, metrics: QtGui.QFontMetrics) -> str:
+    words = text.split(" ")
+    best = min(range(1, len(words)), key=lambda i: max(
+        metrics.horizontalAdvance(" ".join(words[:i])),
+        metrics.horizontalAdvance(" ".join(words[i:]))))
+    return " ".join(words[:best]) + "\n" + " ".join(words[best:])
 
 
 class RibbonSmallButton(_Squeezable, QtWidgets.QToolButton):
@@ -156,7 +177,7 @@ class RibbonSplitButton(RibbonButton):
         self.setMenu(menu)
         self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
         # room for the arrow without squeezing the caption
-        self.setMaximumWidth(100)
+        self.setMaximumWidth(108)
         self.set_current(first[0])
         self.clicked.connect(lambda _=False: self.chosen.emit(self.current))
 

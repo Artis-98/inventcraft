@@ -12,7 +12,7 @@ makes a real difference.
   feel at home, so "Inventor does X here and InventCraft does Y" is a perfectly
   good issue on its own.
 - **Pull requests** for anything on the
-  [Coming next](https://datum.iiteg.com/changelog.html) list, or anything
+  [Coming next](https://ic.iiteg.com/changelog.html) list, or anything
   you have opened an issue for first. Ask before starting something large,
   so nobody builds the same thing twice.
 

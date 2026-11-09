@@ -8,9 +8,9 @@ InventCraft was called DATUM until 0.3.0. Everything DATUM made still
 opens, its settings carry over, and a DATUM install updates itself into
 InventCraft.
 
-[**Download for Windows and Linux**](https://datum.iiteg.com) &nbsp;·&nbsp;
-[datum.iiteg.com](https://datum.iiteg.com) &nbsp;·&nbsp;
-[Changelog](https://datum.iiteg.com/changelog.html) &nbsp;·&nbsp;
+[**Download for Windows and Linux**](https://ic.iiteg.com) &nbsp;·&nbsp;
+[ic.iiteg.com](https://ic.iiteg.com) &nbsp;·&nbsp;
+[Changelog](https://ic.iiteg.com/changelog.html) &nbsp;·&nbsp;
 [Contributors](CONTRIBUTORS.md) &nbsp;·&nbsp;
 MIT licensed
 

@@ -16,6 +16,13 @@ accelerator (``&``), its shortcut (after a tab) and a trailing ``...``,
 ``:`` or ``…``, which are put back on the translation. A tooltip of
 several paragraphs is looked up whole and then paragraph by paragraph.
 
+A message with a number or a name in it is matched by its format string,
+the way the code writes it: ``"Rebuilt %d feature(s) in %.0f ms"`` in the
+table matches "Rebuilt 3 feature(s) in 12 ms" on screen, and the values
+go into the translation's own ``%d`` and ``%.0f`` in the same order. A
+value that is itself in the table, such as a feature type, is translated
+too.
+
 Qt's own words (OK, Cancel, the file dialogs) come from Qt's translation
 for the language when Qt ships one.
 
@@ -29,7 +36,7 @@ import atexit
 import json
 import os
 import re
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Pattern, Set, Tuple
 
 from PySide6 import QtCore, QtWidgets
 
@@ -40,12 +47,75 @@ _FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 _code = ENGLISH
 _table: Dict[str, str] = {}
 _reverse: Dict[str, str] = {}
+# the table's format strings, as (pattern, translation), most specific
+# first, and what each text that needed them came to
+_templates: List[Tuple[Pattern, str]] = []
+_filled: Dict[str, Optional[str]] = {}
 _misses: Optional[Set[str]] = None
 _filter = None
 _qt_translator = None
 
 # the end of a menu entry or a label that is not part of the words
 _TAIL = re.compile(r"(\s*(?:\.\.\.|…|:)?\s*)$")
+# a value in a format string: %s, %r, %d, %.2f, %04d, %g
+_SPEC = re.compile(r"%%|%[-+ 0#]*\d*(?:\.\d+)?([sdfgir])")
+_NUMBER = r"(-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?|-?inf|nan)"
+
+
+def _pattern(template: str) -> Optional[Pattern]:
+    """A format string as a pattern that matches what it prints."""
+    out, at, values = [], 0, 0
+    for m in _SPEC.finditer(template):
+        out.append(re.escape(template[at:m.start()]))
+        at = m.end()
+        kind = m.group(1)
+        if kind is None:
+            out.append("%")
+        elif kind in "di":
+            out.append(r"(-?\d+)")
+            values += 1
+        elif kind in "fg":
+            out.append(_NUMBER)
+            values += 1
+        else:
+            # may be empty: an English plural "s" often is
+            out.append(r"(.*?)")
+            values += 1
+    out.append(re.escape(template[at:]))
+    if not values:
+        return None
+    return re.compile("".join(out), re.S)
+
+
+def _fill(translation: str, values) -> str:
+    """The values into the translation's own markers, in order.  A
+    ``%.0s`` takes its value and shows nothing: for an English plural
+    "s" or "has"/"have" that the language says another way."""
+    values = iter(values)
+
+    def put(m):
+        if m.group(1) is None:
+            return "%"
+        value = next(values, "")
+        return "" if m.group(0) == "%.0s" else value
+    return _SPEC.sub(put, translation)
+
+
+def _template(text: str) -> Optional[str]:
+    """The text through the table's format strings, its values kept."""
+    if text in _filled:
+        return _filled[text]
+    hit = None
+    for pattern, translation in _templates:
+        m = pattern.fullmatch(text)
+        if m:
+            hit = _fill(translation, [tr(v, record=False)
+                                      for v in m.groups()])
+            break
+    if len(_filled) > 5000:
+        _filled.clear()
+    _filled[text] = hit
+    return hit
 
 
 def languages() -> Dict[str, str]:
@@ -73,9 +143,10 @@ def current() -> str:
 
 def load(code: str) -> None:
     """Use this language's table from now on; English needs none."""
-    global _code, _table, _reverse
+    global _code, _table, _reverse, _templates
     _code = code or ENGLISH
-    _table, _reverse = {}, {}
+    _table, _reverse, _templates = {}, {}, []
+    _filled.clear()
     if _code == ENGLISH:
         return
     try:
@@ -86,6 +157,17 @@ def load(code: str) -> None:
         strings = {}
     _table = {str(k): str(v) for k, v in strings.items() if v}
     _reverse = {v: k for k, v in _table.items()}
+    found = []
+    for key, value in _table.items():
+        if "%" not in key:
+            continue
+        pattern = _pattern(key)
+        if pattern is not None:
+            # the most words of its own first, so "%s: its sketch is gone"
+            # is tried before anything as loose as "%s: %s"
+            found.append((len(_SPEC.sub("", key)), pattern, value))
+    found.sort(key=lambda f: -f[0])
+    _templates = [(p, v) for _, p, v in found]
 
 
 def _word(text: str) -> Optional[str]:
@@ -94,6 +176,10 @@ def _word(text: str) -> Optional[str]:
     hit = _table.get(text)
     if hit is not None:
         return hit
+    if _templates:
+        hit = _template(text)
+        if hit is not None:
+            return hit
     plain = text.replace("&&", "\0").replace("&", "").replace("\0", "&")
     tail = _TAIL.search(plain).group(1)
     core = plain[:len(plain) - len(tail)] if tail else plain
@@ -102,18 +188,24 @@ def _word(text: str) -> Optional[str]:
     if not core:
         return None
     hit = _table.get(core)
+    if hit is None and _templates and core != text:
+        hit = _template(core)
     if hit is None:
         return None
     return lead + hit + tail
 
 
-def tr(text: str) -> str:
+def tr(text: str, record: bool = True) -> str:
     """The text in the language in use, or as it is when there is no
-    translation for it."""
+    translation for it.  ``record`` False leaves a miss off the record:
+    for the values put into a message, most of which are names."""
     if not text or (not _table and _misses is None):
         return text
     if text in _reverse:
         return text
+    if not record:
+        hit = _word(text)
+        return hit if hit is not None else text
     words, tab, keys = text.partition("\t")
     hit = _word(words)
     if hit is None and "\n" in words:
@@ -161,6 +253,11 @@ def _swap(obj, key: str, get, put) -> None:
     new = tr(text)
     if new != text:
         put(new)
+        # what the widget shows, which a ribbon button may have wrapped
+        try:
+            new = get()
+        except RuntimeError:
+            return
     obj.setProperty(key, new)
 
 

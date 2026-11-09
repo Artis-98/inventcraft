@@ -4862,7 +4862,7 @@ class MainWindow(QtWidgets.QMainWindow):
         about = QtWidgets.QLabel(
             "Parametric 3D CAD, free and open source under the MIT "
             "licence.<br><br>"
-            "<a href='https://datum.iiteg.com'>datum.iiteg.com</a><br>"
+            "<a href='https://ic.iiteg.com'>ic.iiteg.com</a><br>"
             "<a href='https://github.com/Artis-98/inventcraft'>"
             "github.com/Artis-98/inventcraft</a>", dialog)
         about.setOpenExternalLinks(True)

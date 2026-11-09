@@ -123,6 +123,6 @@ jobs:
           tag="${GITHUB_REF_NAME}"
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --title "InventCraft ${tag#v}" \
-              --notes "See https://datum.iiteg.com/changelog.html"
+              --notes "See https://ic.iiteg.com/changelog.html"
           fi
           gh release upload "$tag" "${{ steps.pack.outputs.name }}" --clobber
