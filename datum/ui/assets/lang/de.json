@@ -1592,6 +1592,9 @@
 "Material removal required": "Materialabtrag gefordert",
 "Material removal prohibited": "Materialabtrag unzulässig",
 "Characteristic": "Eigenschaft",
-"Datum": "Bezug"
+"Datum": "Bezug",
+"Auxiliary": "Hilfsansicht",
+"Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Eine Kante einer Ansicht anklicken, dann den Ort der Ansicht: sie blickt senkrecht auf die Fläche dieser Kante",
+"Auxiliary View": "Hilfsansicht"
 }
 }

@@ -1592,6 +1592,9 @@
 "Material removal required": "Arranque de material obligatorio",
 "Material removal prohibited": "Arranque de material prohibido",
 "Characteristic": "Característica",
-"Datum": "Referencia"
+"Datum": "Referencia",
+"Auxiliary": "Auxiliar",
+"Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Haga clic en una arista de una vista y luego donde va la vista: mira perpendicular a la cara de esa arista",
+"Auxiliary View": "Vista auxiliar"
 }
 }

@@ -17,8 +17,8 @@ from ..core import bom, drawing as dwg, fileformat, hlr, kernel
 from ..core import templates, viewsetup
 from ..core import views as viewgen
 from ..core.drawing import (
-    ANGULAR, Annotation, BASE, DETAIL, DIAMETER, DrawingDocument, LINEAR,
-    PROJECTED,
+    ANGULAR, AUXILIARY, Annotation, BASE, DETAIL, DIAMETER, DrawingDocument,
+    LINEAR, PROJECTED,
     RADIUS, SECTION, Sheet, View, WITH_HIDDEN,
 )
 from . import drawingexport, icons
@@ -531,6 +531,27 @@ class DrawingController(QtCore.QObject):
                      # an isometric with its hidden lines is a tangle
                      display="visible" if diagonal else "",
                      label_visible=False)
+        doc.add_view(sheet, child)
+        self.rebuild()
+        return child
+
+    def add_auxiliary(self) -> None:
+        """Inventor's Auxiliary: an edge of a view, then where it goes."""
+        self._start_tool("AuxiliaryTool")
+
+    def create_auxiliary(self, parent_id: int, x: float, y: float,
+                         angle: float) -> Optional[View]:
+        """A view looking square onto the face an edge of its parent is
+        the side of; ``angle`` is that edge's direction on the parent, in
+        degrees, turned round when the view is on the other side of it."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        parent = sheet.view(parent_id) if sheet else None
+        if parent is None:
+            return None
+        doc.push_undo()
+        child = View(kind=AUXILIARY, parent=parent.id, x=x, y=y,
+                     radius=float(angle), label_visible=False)
         doc.add_view(sheet, child)
         self.rebuild()
         return child

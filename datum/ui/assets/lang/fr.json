@@ -1592,6 +1592,9 @@
 "Material removal required": "Enlèvement de matière exigé",
 "Material removal prohibited": "Enlèvement de matière interdit",
 "Characteristic": "Caractéristique",
-"Datum": "Référence"
+"Datum": "Référence",
+"Auxiliary": "Auxiliaire",
+"Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Cliquez une arête d'une vue, puis l'emplacement de la vue : elle regarde perpendiculairement la face de cette arête",
+"Auxiliary View": "Vue auxiliaire"
 }
 }

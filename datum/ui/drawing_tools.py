@@ -607,6 +607,77 @@ class SymbolDialog(QtWidgets.QDialog):
         return {"text": self.letter.text().strip().upper() or "A"}
 
 
+class AuxiliaryTool(PickTool):
+    """Inventor's Auxiliary: click an edge of a view, then where the new
+    view goes, out square from that edge.  The view looks straight at the
+    face the edge is the side of, so a sloping face shows its true shape.
+    """
+
+    name = "Auxiliary View"
+    kinds = (drawpick.LINE,)
+    wanted = 2          # the edge, then the click that places the view
+    prompts = ("click the edge the view looks square onto.",
+               "click where the view goes.")
+
+    def press(self, point, device) -> None:
+        self._scale = self.controller.canvas.layout().scale
+        if not self.picks:
+            item = self._under(point)
+            if item is None:
+                return
+            self.picks.append(item)
+            self.say()
+            self.controller.canvas.update()
+            return
+        self.make(point)
+        self.picks = []
+        self.say()
+
+    def spot(self, point):
+        """Where the view goes for a cursor here: on the line out square
+        from the edge, through the middle of the view it was picked on."""
+        edge = self.picks[0]
+        parent = self.sheet.view(edge.view)
+        if parent is None:
+            return None
+        dx, dy = edge.b[0] - edge.a[0], edge.b[1] - edge.a[1]
+        length = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / length, dx / length
+        reach = (point[0] - parent.x) * nx + (point[1] - parent.y) * ny
+        angle = math.degrees(math.atan2(dy, dx))
+        if reach < 0:
+            # the other side: looking the other way
+            angle += 180.0
+        return parent, (parent.x + nx * reach, parent.y + ny * reach), angle
+
+    def make(self, point) -> None:
+        found = self.spot(point)
+        if found is None:
+            return
+        parent, (x, y), angle = found
+        self.controller.create_auxiliary(parent.id, x, y, angle)
+
+    def paint(self, painter, layout) -> None:
+        super().paint(painter, layout)
+        if not self.picks or self.cursor is None:
+            return
+        found = self.spot(self.cursor)
+        if found is None:
+            return
+        parent, (x, y), _angle = found
+        painter.save()
+        painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.2,
+                                  QtCore.Qt.DashLine))
+        painter.drawLine(QtCore.QPointF(*layout.to_device(parent.x,
+                                                          parent.y)),
+                         QtCore.QPointF(*layout.to_device(x, y)))
+        r = 6.0
+        painter.drawRect(QtCore.QRectF(
+            QtCore.QPointF(*layout.to_device(x - r, y + r)),
+            QtCore.QPointF(*layout.to_device(x + r, y - r))))
+        painter.restore()
+
+
 class HoleNoteTool(PickTool):
     """Inventor's Hole and Thread: click a hole, then where its note goes.
 

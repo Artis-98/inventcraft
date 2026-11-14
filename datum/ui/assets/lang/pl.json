@@ -1592,6 +1592,9 @@
 "Material removal required": "Wymagane usunięcie materiału",
 "Material removal prohibited": "Usuwanie materiału niedozwolone",
 "Characteristic": "Cecha",
-"Datum": "Baza"
+"Datum": "Baza",
+"Auxiliary": "Pomocniczy",
+"Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Kliknij krawędź widoku, potem miejsce widoku: patrzy prostopadle na ścianę tej krawędzi",
+"Auxiliary View": "Widok pomocniczy"
 }
 }

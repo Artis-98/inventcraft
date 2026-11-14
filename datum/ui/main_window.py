@@ -847,6 +847,10 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("dv_projected", "Projected",
                       "A view turned from the selected one"
                       ).clicked.connect(ui.add_projected)
+        panel.add_big("dv_auxiliary", "Auxiliary",
+                      "Click an edge of a view, then where the view goes: "
+                      "it looks square onto the face that edge belongs to"
+                      ).clicked.connect(ui.add_auxiliary)
         panel.add_big("dv_section", "Section",
                       "Cut the selected view open"
                       ).clicked.connect(ui.add_section)
