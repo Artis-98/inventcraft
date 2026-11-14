@@ -1009,6 +1009,35 @@ class DrawingController(QtCore.QObject):
             "%d balloon(s) added." % added if added
             else "Every component already has a balloon.")
 
+    def revision_table(self) -> None:
+        """Inventor's Revision table: placed in the top right of the sheet
+        the first time, and from then on the history edited, a row added
+        for each new revision."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None:
+            return
+        pushed = False
+        if not sheet.revision_tables:
+            doc.push_undo()
+            pushed = True
+            doc.add_revision_table(sheet)
+        dialog = RevisionsDialog(self.host, doc)
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            # cancelled: the edits go, a table just placed stays
+            self.canvas.update()
+            self.host.update_title()
+            return
+        if not pushed:
+            doc.push_undo()
+        dialog.apply()
+        self.canvas.update()
+        self.browser.refresh()
+        self.host.update_title()
+        self.host.status_message.setText(
+            "Revision %s. The title block's REV reads it."
+            % (doc.properties.get("Revision", "") or "-"))
+
     def add_parts_list(self) -> None:
         """A parts list for the sheet's assembly, above the title block."""
         doc = self.document
@@ -3000,3 +3029,84 @@ def _descendants(sheet: Sheet, view_id: int) -> List[View]:
             out.append(child)
             queue.append(child.id)
     return out
+
+
+class RevisionsDialog(QtWidgets.QDialog):
+    """The drawing's revision history, as a table to edit, with Add
+    Revision for the next one: dated today, and the drawing's REV with
+    it."""
+
+    COLUMNS = dwg.REVISION_COLUMNS
+
+    def __init__(self, parent, doc) -> None:
+        super().__init__(parent)
+        self.doc = doc
+        self.changed = False
+        self.setWindowTitle("Revision Table")
+        self.resize(640, 320)
+        layout = QtWidgets.QVBoxLayout(self)
+        self.table = QtWidgets.QTableWidget(0, len(self.COLUMNS), self)
+        self.table.setHorizontalHeaderLabels([h for _k, h, _w
+                                              in self.COLUMNS])
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.horizontalHeader().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.Stretch)
+        for row in doc.revisions:
+            self._append(row)
+        layout.addWidget(self.table)
+        buttons = QtWidgets.QHBoxLayout()
+        add = QtWidgets.QPushButton("Add Revision", self)
+        add.clicked.connect(self.add_revision)
+        remove = QtWidgets.QPushButton("Delete Row", self)
+        remove.clicked.connect(self.delete_row)
+        buttons.addWidget(add)
+        buttons.addWidget(remove)
+        buttons.addStretch(1)
+        box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        buttons.addWidget(box)
+        layout.addLayout(buttons)
+
+    def _append(self, row) -> None:
+        index = self.table.rowCount()
+        self.table.insertRow(index)
+        for column, (key, _head, _w) in enumerate(self.COLUMNS):
+            self.table.setItem(index, column, QtWidgets.QTableWidgetItem(
+                str(getattr(row, key, ""))))
+
+    def add_revision(self) -> None:
+        last = ""
+        if self.table.rowCount():
+            item = self.table.item(self.table.rowCount() - 1, 0)
+            last = item.text() if item is not None else ""
+        import time
+        self._append(dwg.RevisionRow(rev=dwg.next_revision(last),
+                                     date=time.strftime("%Y-%m-%d")))
+        self.changed = True
+        self.table.setCurrentCell(self.table.rowCount() - 1, 1)
+
+    def delete_row(self) -> None:
+        row = self.table.currentRow()
+        if row >= 0:
+            self.table.removeRow(row)
+            self.changed = True
+
+    def rows(self):
+        out = []
+        for index in range(self.table.rowCount()):
+            values = {}
+            for column, (key, _head, _w) in enumerate(self.COLUMNS):
+                item = self.table.item(index, column)
+                values[key] = item.text().strip() if item is not None else ""
+            out.append(dwg.RevisionRow(**values))
+        return out
+
+    def apply(self) -> None:
+        """Write the table back: the drawing's history, and its REV the
+        newest row's."""
+        self.doc.revisions = self.rows()
+        if self.doc.revisions:
+            self.doc.properties["Revision"] = self.doc.revisions[-1].rev
+        self.doc.modified = True

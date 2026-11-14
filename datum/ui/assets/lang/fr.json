@@ -1574,6 +1574,11 @@
 "Retrieve": "Récupérer",
 "Retrieve Model Annotations": "Récupérer les annotations du modèle",
 "Bring the part's own model dimensions and notes onto a view: click the view, then tick which": "Amener les cotes et notes du modèle sur une vue : cliquez la vue, puis cochez lesquelles",
-"The part's own dimensions and notes this view shows at their true size:": "Les cotes et notes de la pièce que cette vue montre en vraie grandeur :"
+"The part's own dimensions and notes this view shows at their true size:": "Les cotes et notes de la pièce que cette vue montre en vraie grandeur :",
+"Revision Table": "Tableau des révisions",
+"Add Revision": "Ajouter une révision",
+"Delete Row": "Supprimer la ligne",
+"The revision table, in the top right of the sheet: its history, and Add Revision for the next one": "Le tableau des révisions, en haut à droite de la feuille : son historique, et Ajouter une révision pour la suivante",
+"Revision %s. The title block's REV reads it.": "Révision %s. Le cartouche l'affiche sous REV."
 }
 }

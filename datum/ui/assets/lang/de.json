@@ -1574,6 +1574,11 @@
 "Retrieve": "Abrufen",
 "Retrieve Model Annotations": "Modellanmerkungen abrufen",
 "Bring the part's own model dimensions and notes onto a view: click the view, then tick which": "Die Modellbemaßungen und Notizen des Bauteils in eine Ansicht holen: Ansicht anklicken, dann auswählen",
-"The part's own dimensions and notes this view shows at their true size:": "Die Bemaßungen und Notizen des Bauteils, die diese Ansicht in wahrer Größe zeigt:"
+"The part's own dimensions and notes this view shows at their true size:": "Die Bemaßungen und Notizen des Bauteils, die diese Ansicht in wahrer Größe zeigt:",
+"Revision Table": "Revisionstabelle",
+"Add Revision": "Revision hinzufügen",
+"Delete Row": "Zeile löschen",
+"The revision table, in the top right of the sheet: its history, and Add Revision for the next one": "Die Revisionstabelle oben rechts auf dem Blatt: ihre Historie, und Revision hinzufügen für die nächste",
+"Revision %s. The title block's REV reads it.": "Revision %s. Das Schriftfeld zeigt sie unter REV."
 }
 }

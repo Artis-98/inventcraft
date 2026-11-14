@@ -1104,6 +1104,85 @@ class PartsList:
 
 
 @dataclass
+class RevisionRow:
+    """One line of a revision table: what changed, when, and who said so."""
+
+    rev: str = "A"
+    description: str = ""
+    date: str = ""
+    approved: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"rev": self.rev, "description": self.description,
+                "date": self.date, "approved": self.approved}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "RevisionRow":
+        return cls(rev=str(d.get("rev", "A")),
+                   description=str(d.get("description", "")),
+                   date=str(d.get("date", "")),
+                   approved=str(d.get("approved", "")))
+
+
+REVISION_COLUMNS = (("rev", "REV", 12.0), ("description", "DESCRIPTION", 70.0),
+                    ("date", "DATE", 24.0), ("approved", "APPROVED", 24.0))
+
+
+def next_revision(rev: str) -> str:
+    """The revision after this one: A, B ... Z, AA; 1, 2, 3 for numbers."""
+    rev = (rev or "").strip()
+    if not rev:
+        return "A"
+    if rev.isdigit():
+        return str(int(rev) + 1)
+    letters = list(rev.upper())
+    i = len(letters) - 1
+    while i >= 0:
+        if letters[i] != "Z":
+            letters[i] = chr(ord(letters[i]) + 1)
+            return "".join(letters)
+        letters[i] = "A"
+        i -= 1
+    return "A" + "".join(letters)
+
+
+@dataclass
+class RevisionTable:
+    """Inventor's Revision Table: where the table sits on a sheet.
+
+    The rows belong to the drawing, not the sheet, as Inventor's do with
+    the table scoped to the entire drawing: every sheet that shows a
+    table shows the same history.  It hangs from its top right corner,
+    in the top right of the sheet, and grows down as revisions are added.
+    """
+
+    id: int = 0
+    x: float = 0.0
+    y: float = 0.0
+    row_height: float = 7.0
+    text_height: float = 2.5
+
+    def width(self) -> float:
+        return sum(w for _k, _h, w in REVISION_COLUMNS)
+
+    def box(self, rows: int) -> Tuple[float, float, float, float]:
+        height = (rows + 1) * self.row_height
+        return (self.x - self.width(), self.y - height, self.x, self.y)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"id": self.id, "x": self.x, "y": self.y,
+                "row_height": self.row_height,
+                "text_height": self.text_height}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "RevisionTable":
+        return cls(id=int(d.get("id", 0)), x=float(d.get("x", 0.0)),
+                   y=float(d.get("y", 0.0)),
+                   row_height=float(d.get("row_height", 7.0)),
+                   text_height=float(d.get("text_height", 2.5)))
+
+
+@dataclass
 class DrawingSketch:
     """A sketch drawn on a drawing, as Inventor's: lines, arcs, text and the
     rest, on the sheet, or on a view, with which it then moves. A view's
@@ -1148,6 +1227,7 @@ class Sheet:
     annotations: List[Annotation] = field(default_factory=list)
     parts_lists: List[PartsList] = field(default_factory=list)
     sketches: List[DrawingSketch] = field(default_factory=list)
+    revision_tables: List[RevisionTable] = field(default_factory=list)
 
     def sketch_origin(self, item: DrawingSketch) -> Tuple[float, float]:
         """Where a sketch's 0, 0 is on the sheet: its view's middle, or
@@ -1182,7 +1262,10 @@ class Sheet:
                 "views": [v.to_dict() for v in self.views],
                 "annotations": [a.to_dict() for a in self.annotations],
                 "parts_lists": [p.to_dict() for p in self.parts_lists],
-                "sketches": [s.to_dict() for s in self.sketches]}
+                "sketches": [s.to_dict() for s in self.sketches],
+                **({"revision_tables": [t.to_dict()
+                                        for t in self.revision_tables]}
+                   if self.revision_tables else {})}
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Sheet":
@@ -1200,7 +1283,9 @@ class Sheet:
                    parts_lists=[PartsList.from_dict(p)
                                 for p in d.get("parts_lists", [])],
                    sketches=[DrawingSketch.from_dict(s)
-                             for s in d.get("sketches", [])])
+                             for s in d.get("sketches", [])],
+                   revision_tables=[RevisionTable.from_dict(t)
+                                    for t in d.get("revision_tables") or []])
 
 
 # ------------------------------------------------------------- the document
@@ -1228,6 +1313,8 @@ class DrawingDocument:
         self.title_blocks: Dict[str, TitleBlock] = {
             "Standard": standard_title_block()}
         self.sheets: List[Sheet] = []
+        # the revision history, shown by any sheet's revision table
+        self.revisions: List[RevisionRow] = []
         self.active_sheet: int = 0
 
         self.path = ""
@@ -1429,6 +1516,39 @@ class DrawingDocument:
 
     # ----------------------------------------------------------- parts lists
 
+    def add_revision_table(self, sheet: Sheet) -> RevisionTable:
+        """Inventor's Revision table, hung in the top right of the sheet,
+        inside the border.  A drawing with no history yet starts it with
+        the revision it already says it is, as its first row."""
+        table = RevisionTable(id=self.new_id())
+        width, height = sheet.extent()
+        border = self.borders.get(sheet.border)
+        if border is not None:
+            frame = border.frame(width, height)
+            table.x, table.y = frame[2], frame[3]
+        else:
+            table.x, table.y = width - 10.0, height - 10.0
+        sheet.revision_tables.append(table)
+        if not self.revisions:
+            self.revisions.append(RevisionRow(
+                rev=self.properties.get("Revision", "") or "A",
+                description="Initial release",
+                date=time.strftime("%Y-%m-%d")))
+        self.modified = True
+        return table
+
+    def add_revision(self, description: str = "",
+                     approved: str = "") -> RevisionRow:
+        """The next revision, today, and the drawing's own revision with
+        it, so the title block's REV reads the newest row."""
+        last = self.revisions[-1].rev if self.revisions else ""
+        row = RevisionRow(rev=next_revision(last), description=description,
+                          date=time.strftime("%Y-%m-%d"), approved=approved)
+        self.revisions.append(row)
+        self.properties["Revision"] = row.rev
+        self.modified = True
+        return row
+
     def add_parts_list(self, sheet: Sheet, table: PartsList) -> PartsList:
         table.id = self.new_id()
         if not table.view:
@@ -1511,6 +1631,8 @@ class DrawingDocument:
             "material": self.material,
             "hashes": dict(self.hashes),
             "components": [r.to_dict() for r in self.components],
+            **({"revisions": [r.to_dict() for r in self.revisions]}
+               if self.revisions else {}),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1546,12 +1668,15 @@ class DrawingDocument:
         self.material = str(data.get("material", "Generic"))
         self.hashes = {str(k): str(v) for k, v
                        in (data.get("hashes") or {}).items()}
+        self.revisions = [RevisionRow.from_dict(r)
+                          for r in data.get("revisions") or []]
 
         known = [0]
         for sheet in self.sheets:
             known.append(sheet.id)
             known.extend(v.id for v in sheet.views)
             known.extend(a.id for a in sheet.annotations)
+            known.extend(t.id for t in sheet.revision_tables)
         self._next_id = max(int(data.get("next_id", 1)), max(known) + 1)
 
     def mass_properties(self) -> Dict[str, Any]:

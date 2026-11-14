@@ -144,6 +144,56 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     for table in sheet.parts_lists:
         _parts_list(painter, doc, sheet, table, layout,
                     selected=table.id in selection)
+    for table in getattr(sheet, "revision_tables", []):
+        _revision_table(painter, doc, table, layout,
+                        selected=table.id in selection)
+
+
+def _revision_table(painter, doc, table, layout,
+                    selected: bool = False) -> None:
+    """Inventor's revision table: hung from its top right corner, the
+    heading on top and the history down from it, oldest first."""
+    rows = list(getattr(doc, "revisions", []))
+    style = doc.styles.get("border", dwg.Style())
+    thin = doc.styles.get("dimension", dwg.Style())
+    text_style = doc.styles.get("text", dwg.Style())
+    colour = SELECTED if selected else style.colour
+    x0, y0, x1, y1 = table.box(len(rows))
+    painter.setBrush(QtCore.Qt.NoBrush)
+    painter.setPen(_pen(layout, style, colour=colour))
+    a, b = layout.to_device(x0, y1), layout.to_device(x1, y0)
+    painter.drawRect(QtCore.QRectF(a[0], a[1], b[0] - a[0], b[1] - a[1]))
+    painter.setPen(_pen(layout, thin, colour=colour))
+    for i in range(1, len(rows) + 1):
+        y = y1 - i * table.row_height
+        painter.drawLine(QtCore.QPointF(*layout.to_device(x0, y)),
+                         QtCore.QPointF(*layout.to_device(x1, y)))
+    x = x0
+    for _key, _head, width in dwg.REVISION_COLUMNS[:-1]:
+        x += width
+        painter.drawLine(QtCore.QPointF(*layout.to_device(x, y0)),
+                         QtCore.QPointF(*layout.to_device(x, y1)))
+    lines = [None] + rows
+    for index, row in enumerate(lines):
+        top = y1 - index * table.row_height
+        gap = (table.row_height - table.text_height) / 2.0
+        baseline = top - table.row_height + gap + table.text_height * 0.15
+        x = x0
+        for key, head, width in dwg.REVISION_COLUMNS:
+            text = head if row is None else getattr(row, key, "")
+            if key in ("rev", "date", "approved"):
+                _text(painter, layout, _elide(text, width - 2.0,
+                                              table.text_height),
+                      x + width / 2.0, baseline, table.text_height,
+                      bold=row is None, align="centre",
+                      colour=text_style.colour)
+            else:
+                _text(painter, layout, _elide(text, width - 3.0,
+                                              table.text_height),
+                      x + 1.6, baseline, table.text_height,
+                      bold=row is None, align="left",
+                      colour=text_style.colour)
+            x += width
 
 
 def _pen(layout: Layout, style: dwg.Style, dashed: bool = False,

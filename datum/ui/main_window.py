@@ -925,6 +925,10 @@ class MainWindow(QtWidgets.QMainWindow):
                       ).clicked.connect(ui.start_sketch)
 
         panel = annotate.add_panel("Table")
+        panel.add_big("params", "Revision",
+                      "The revision table, in the top right of the sheet: "
+                      "its history, and Add Revision for the next one"
+                      ).clicked.connect(ui.revision_table)
         panel.add_big("material", "Parts\nList",
                       "List what the assembly on this sheet is made of"
                       ).clicked.connect(ui.add_parts_list)
