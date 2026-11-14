@@ -791,6 +791,17 @@ class DrawingController(QtCore.QObject):
         self.end_placement()
         self._start_placer(getattr(drawing_tools, cls)(self, sheet))
 
+    def start_dimension_set(self, kind: str) -> None:
+        """Inventor's Baseline, Chain or Ordinate: the corners in turn,
+        right-click Continue, then where the set goes."""
+        from .drawing_tools import DimensionSetTool
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None:
+            return
+        self.end_placement()
+        self._start_placer(DimensionSetTool(self, sheet, kind))
+
     def add_note(self) -> None:
         """Inventor's Text: click where it goes, then Format Text."""
         self._start_tool("TextTool")

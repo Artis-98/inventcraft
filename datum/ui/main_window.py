@@ -874,6 +874,21 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("dimension", "Dimension",
                       "Pick a line, circle or points on a view, then place"
                       ).clicked.connect(ui.start_dimension)
+        panel.add_small("dimension", "Baseline",
+                        "Every pick measured from the first: click them in "
+                        "turn, right-click Continue, then place the set"
+                        ).clicked.connect(
+            lambda: ui.start_dimension_set("baseline"))
+        panel.add_small("dimension", "Ordinate",
+                        "Distances from an origin: click it, then the rest, "
+                        "right-click Continue, then place the set"
+                        ).clicked.connect(
+            lambda: ui.start_dimension_set("ordinate"))
+        panel.add_small("dimension", "Chain",
+                        "Each pick to the next, in a row: click them, "
+                        "right-click Continue, then place the set"
+                        ).clicked.connect(
+            lambda: ui.start_dimension_set("chain"))
 
         panel = annotate.add_panel("Feature Notes")
         panel.add_big("an_hole", "Hole and\nThread",
@@ -5371,6 +5386,13 @@ class MainWindow(QtWidgets.QMainWindow):
     # ============================================================ edit stack
 
     def undo(self) -> None:
+        if self.in_drawing:
+            if self.drawing_ui._placer is not None:
+                self.drawing_ui.end_placement()
+            if self.drawing.undo():
+                self.drawing_ui.rebuild()
+                self.status_message.setText("Undo")
+            return
         if self.in_cam:
             if self.cam.undo():
                 self.cam_ui.rebuild()
@@ -5396,6 +5418,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_message.setText("Undo")
 
     def redo(self) -> None:
+        if self.in_drawing:
+            if self.drawing.redo():
+                self.drawing_ui.rebuild()
+                self.status_message.setText("Redo")
+            return
         if self.in_cam:
             if self.cam.redo():
                 self.cam_ui.rebuild()

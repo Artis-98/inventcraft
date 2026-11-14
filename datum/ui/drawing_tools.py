@@ -228,6 +228,179 @@ class BisectorTool(PickTool):
                                  points=[found[0], found[1]]))
 
 
+SET_SPACING = 7.0     # between the lines of a baseline set, mm on the sheet
+
+
+def set_point(item) -> Tuple[float, float]:
+    """Where one pick of a dimension set stands: a corner where it is, a
+    circle at its centre, a line at its middle."""
+    if item.kind == drawpick.LINE:
+        return ((item.a[0] + item.b[0]) / 2.0, (item.a[1] + item.b[1]) / 2.0)
+    return (item.a[0], item.a[1])
+
+
+def dimension_set(kind: str, points, place) -> List[Annotation]:
+    """Inventor's Baseline Set, Chain Set and Ordinate Set, worked out.
+
+    ``points`` are the picks in the view's own millimetres, the first one
+    the datum for a baseline or an ordinate set; ``place`` is where the
+    set was dropped.  Dropped above or below the picks, the set measures
+    across the page; beside them, up it.  Returns the dimensions, each a
+    plain linear or ordinate one that can be moved and edited on its own.
+    """
+    if len(points) < 2 and kind != dwg.ORDINATE:
+        return []
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    over = not (min(ys) <= place[1] <= max(ys))      # above or below
+    aside = not (min(xs) <= place[0] <= max(xs))     # left or right
+    if over != aside:
+        axis = "x" if over else "y"
+    else:
+        # dropped in a corner, or among them: the way they spread most
+        axis = ("x" if max(xs) - min(xs) >= max(ys) - min(ys) else "y")
+    k = 0 if axis == "x" else 1
+    other = 1 - k
+    datum = points[0]
+    rest = sorted(points[1:], key=lambda p: abs(p[k] - datum[k]))
+    out: List[Annotation] = []
+    if kind == "baseline":
+        sign = 1.0 if place[other] >= datum[other] else -1.0
+        for index, p in enumerate(rest):
+            if abs(p[k] - datum[k]) < 1e-6:
+                continue
+            reach = place[other] - datum[other] + sign * SET_SPACING * index
+            offset = [0.0, reach] if axis == "x" else [reach, 0.0]
+            out.append(Annotation(kind=dwg.LINEAR, points=[list(datum),
+                                                           list(p)],
+                                  offset=offset, axis=axis))
+    elif kind == "chain":
+        ordered = sorted(points, key=lambda p: p[k])
+        for p, q in zip(ordered, ordered[1:]):
+            if abs(q[k] - p[k]) < 1e-6:
+                continue
+            reach = place[other] - p[other]
+            offset = [0.0, reach] if axis == "x" else [reach, 0.0]
+            out.append(Annotation(kind=dwg.LINEAR, points=[list(p), list(q)],
+                                  offset=offset, axis=axis))
+    elif kind == dwg.ORDINATE:
+        for p in [datum] + rest:
+            reach = place[other] - p[other]
+            offset = [0.0, reach] if axis == "x" else [reach, 0.0]
+            out.append(Annotation(kind=dwg.ORDINATE,
+                                  points=[list(datum), list(p)],
+                                  offset=offset, axis=axis))
+    return out
+
+
+class DimensionSetTool(PickTool):
+    """Inventor's Baseline, Chain and Ordinate: click the corners, holes
+    or edges in order, the first one the datum, right-click Continue, then
+    click where the set goes.  Stays on for the next set until Esc."""
+
+    kinds = (drawpick.POINT, drawpick.CIRCLE, drawpick.LINE)
+    wanted = 10 ** 6
+    titles = {"baseline": "Baseline", "chain": "Chain",
+              dwg.ORDINATE: "Ordinate"}
+
+    def __init__(self, controller, sheet, kind: str) -> None:
+        self.kind = kind
+        self.name = self.titles.get(kind, "Dimension Set")
+        self.placing = False
+        super().__init__(controller, sheet)
+
+    def say(self) -> None:
+        host = self.controller.host
+        host.status_message.setStyleSheet("")
+        if self.placing:
+            text = "click where the set goes."
+        elif not self.picks:
+            text = ("click the %s, then the rest in turn."
+                    % ("origin" if self.kind == dwg.ORDINATE else
+                       "first corner, hole or edge"))
+        else:
+            text = ("%d picked. Click more, or right-click to Continue."
+                    % len(self.picks))
+        host.status_message.setText("%s: %s Esc when done." % (self.name,
+                                                               text))
+
+    def press(self, point, device) -> None:
+        self._scale = self.controller.canvas.layout().scale
+        if self.placing:
+            self._place(point)
+            return
+        super().press(point, device)
+
+    def right_click(self, point, device) -> bool:
+        # Inventor's Continue: the picks are done, place the set
+        if self.picks and not self.placing:
+            needed = 1 if self.kind == dwg.ORDINATE else 2
+            if len(self.picks) >= needed:
+                self.placing = True
+                self.say()
+                return True
+        return super().right_click(point, device)
+
+    def escape(self) -> bool:
+        if self.placing:
+            self.placing = False
+            self.say()
+            return True
+        return super().escape()
+
+    def _place(self, point) -> None:
+        view = self.sheet.view(self.picks[0].view)
+        if view is None:
+            return
+        local = (point[0] - view.x, point[1] - view.y)
+        made = dimension_set(self.kind,
+                             [set_point(p) for p in self.picks], local)
+        self.picks = []
+        self.placing = False
+        if made:
+            doc = self.controller.document
+            doc.push_undo()
+            for note in made:
+                note.view = view.id
+                self.controller._anchor_exact(doc, self.sheet, view, note)
+                note.value = note.measure()
+                doc.add_annotation(self.sheet, note)
+            doc.modified = True
+            self.controller.canvas.update()
+            self.controller.browser.refresh()
+            self.controller.host.update_title()
+        self.say()
+
+    def paint(self, painter, layout) -> None:
+        super().paint(painter, layout)
+        if not self.placing or self.cursor is None or not self.picks:
+            return
+        view = self.sheet.view(self.picks[0].view)
+        if view is None:
+            return
+        local = (self.cursor[0] - view.x, self.cursor[1] - view.y)
+        preview = dimension_set(self.kind,
+                                [set_point(p) for p in self.picks], local)
+        painter.save()
+        painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.2,
+                                  QtCore.Qt.DashLine))
+        for note in preview:
+            if note.kind == dwg.ORDINATE:
+                p = note.points[1]
+                end = ((p[0], p[1] + note.offset[1]) if note.axis == "x"
+                       else (p[0] + note.offset[0], p[1]))
+                ends = (p, end)
+            else:
+                a, b, _label = dwg.dimension_line(note)
+                ends = (a, b)
+            painter.drawLine(
+                QtCore.QPointF(*layout.to_device(view.x + ends[0][0],
+                                                 view.y + ends[0][1])),
+                QtCore.QPointF(*layout.to_device(view.x + ends[1][0],
+                                                 view.y + ends[1][1])))
+        painter.restore()
+
+
 class HoleNoteTool(PickTool):
     """Inventor's Hole and Thread: click a hole, then where its note goes.
 

@@ -780,7 +780,43 @@ def _annotation(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     if note.kind == ANGULAR:
         _angular(painter, doc, sheet, view, note, layout, at, colour)
         return
+    if note.kind == dwg.ORDINATE and note.axis:
+        _ordinate(painter, doc, sheet, view, note, layout, at, colour)
+        return
     _linear(painter, doc, sheet, view, note, layout, at, colour)
+
+
+def _ordinate(painter, doc, sheet, view, note, layout, at, colour) -> None:
+    """One ordinate: a leader from the point out to where the set lines
+    up, and its distance from the datum at the end, as Inventor draws
+    them: up the page for one measured across it, across for one up it."""
+    if len(note.points) < 2:
+        return
+    style = doc.styles.get("dimension", dwg.Style())
+    p = note.points[1]
+    ox, oy = (list(note.offset) + [0.0, 0.0])[:2]
+    if note.axis == "x":
+        end = (p[0], p[1] + oy)
+        way = (0.0, 1.0 if oy >= 0 else -1.0)
+    else:
+        end = (p[0] + ox, p[1])
+        way = (1.0 if ox >= 0 else -1.0, 0.0)
+    gap = 1.0
+    if math.dist(p, end) > gap:
+        painter.drawLine(
+            QtCore.QPointF(*at((p[0] + way[0] * gap, p[1] + way[1] * gap))),
+            QtCore.QPointF(*at(end)))
+    scale = doc.view_scale(sheet, view)
+    text = note.caption(scale)
+    reach = len(text) * style.text_height * 0.32 + 1.0
+    if note.axis == "x":
+        _text(painter, layout, text, view.x + end[0] - 0.4,
+              view.y + end[1] + way[1] * reach, style.text_height,
+              align="centre", colour=colour, turn=90.0)
+    else:
+        _text(painter, layout, text, view.x + end[0] + way[0] * reach,
+              view.y + end[1] - style.text_height * 0.4,
+              style.text_height, align="centre", colour=colour)
 
 
 def _linear(painter, doc, sheet, view, note, layout, at, colour) -> None:

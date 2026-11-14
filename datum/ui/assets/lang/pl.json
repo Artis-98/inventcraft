@@ -1565,6 +1565,11 @@
 "That is not the bore of a hole. Click its round face.": "To nie jest otwór. Kliknij jego okrągłą ścianę.",
 "Annotations go on a body: model something first.": "Adnotacje trafiają na bryłę: najpierw coś wymodeluj.",
 "This part has no annotations.": "Ta część nie ma adnotacji.",
-"%s: %s. Keep clicking for more, or Esc when done.": "%s: %s. Klikaj dalej albo Esc, aby zakończyć."
+"%s: %s. Keep clicking for more, or Esc when done.": "%s: %s. Klikaj dalej albo Esc, aby zakończyć.",
+"Baseline": "Od bazy",
+"Chain": "Łańcuch",
+"Every pick measured from the first: click them in turn, right-click Continue, then place the set": "Każdy wybór mierzony od pierwszego: klikaj po kolei, prawy klik Kontynuuj, potem umieść zestaw",
+"Distances from an origin: click it, then the rest, right-click Continue, then place the set": "Odległości od początku: kliknij go, potem resztę, prawy klik Kontynuuj, potem umieść zestaw",
+"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Każdy wybór do następnego, w rzędzie: klikaj, prawy klik Kontynuuj, potem umieść zestaw"
 }
 }

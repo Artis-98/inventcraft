@@ -887,9 +887,14 @@ class Annotation:
             # which is what the person placing it meant by dragging that way
             return abs(dx) if abs(dx) >= abs(dy) else abs(dy)
         if self.kind == ORDINATE and len(p) >= 2:
-            # measured from the datum point, along whichever axis the pair
-            # is spread on - the same rule a linear dimension follows
+            # measured from the datum point: along the axis an ordinate set
+            # chose, or else whichever the pair is spread on, the same rule
+            # a linear dimension follows
             dx, dy = p[1][0] - p[0][0], p[1][1] - p[0][1]
+            if self.axis == "x":
+                return abs(dx)
+            if self.axis == "y":
+                return abs(dy)
             return abs(dx) if abs(dx) >= abs(dy) else abs(dy)
         if self.kind in (RADIUS, DIAMETER) and len(p) >= 2:
             r = math.hypot(p[1][0] - p[0][0], p[1][1] - p[0][1])
@@ -1001,6 +1006,11 @@ def label_at(note: "Annotation") -> Tuple[float, float]:
                     vertex[1] + math.sin(middle) * (radius + 3.5))
     if note.kind in (RADIUS, DIAMETER) and len(p) >= 2:
         return (p[1][0] + off[0], p[1][1] + off[1])
+    if note.kind == ORDINATE and note.axis and len(p) >= 2:
+        # the end of its leader, where its value is written
+        if note.axis == "x":
+            return (p[1][0], p[1][1] + off[1])
+        return (p[1][0] + off[0], p[1][1])
     if not p:
         return (off[0], off[1])
     return (p[0][0] + off[0], p[0][1] + off[1])
@@ -1588,17 +1598,35 @@ class DrawingDocument:
         if not self._undo:
             return False
         self._redo.append(self.snapshot())
-        self.load_dict(json.loads(self._undo.pop()))
-        self.modified = True
+        self._restore(self._undo.pop())
         return True
 
     def redo(self) -> bool:
         if not self._redo:
             return False
         self._undo.append(self.snapshot())
-        self.load_dict(json.loads(self._redo.pop()))
-        self.modified = True
+        self._restore(self._redo.pop())
         return True
+
+    def _restore(self, snapshot: str) -> None:
+        """Go back to a snapshot, keeping every view's drawn lines that it
+        did not change: undoing a dimension should not mean projecting the
+        whole sheet again."""
+        kept = {}
+        for sheet in self.sheets:
+            for view in sheet.views:
+                if view.projection is not None:
+                    kept[view.id] = (json.dumps(view.to_dict(),
+                                                sort_keys=True),
+                                     view.projection)
+        self.load_dict(json.loads(snapshot))
+        for sheet in self.sheets:
+            for view in sheet.views:
+                held = kept.get(view.id)
+                if held is not None and held[0] == json.dumps(
+                        view.to_dict(), sort_keys=True):
+                    view.projection = held[1]
+        self.modified = True
 
     # -------------------------------------------------------------- files
 
