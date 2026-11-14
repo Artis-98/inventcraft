@@ -505,6 +505,108 @@ class RetrieveDialog(QtWidgets.QDialog):
                 if self.list.item(i).checkState() == QtCore.Qt.Checked]
 
 
+class SymbolTool(PickTool):
+    """Inventor's Surface Texture, Feature Control Frame and Datum
+    Identifier: click the edge, corner or hole it belongs to, set what it
+    says, and it stands there.  Stays on for the next until Esc."""
+
+    kinds = (drawpick.LINE, drawpick.POINT, drawpick.CIRCLE)
+    titles = {dwg.SURFACE: "Surface Texture",
+              dwg.FCF: "Feature Control Frame",
+              dwg.DATUM_ID: "Datum Identifier"}
+
+    def __init__(self, controller, sheet, kind: str) -> None:
+        self.kind = kind
+        self.name = self.titles.get(kind, "Symbol")
+        self.prompts = ("click the edge it is about.",)
+        super().__init__(controller, sheet)
+
+    def make(self, point) -> None:
+        item = self.picks[0]
+        view = self.sheet.view(item.view)
+        if view is None:
+            return
+        local = (point[0] - view.x, point[1] - view.y)
+        if item.kind == drawpick.LINE:
+            on = drawpick.foot(local, item.a, item.b)
+        elif item.kind == drawpick.CIRCLE:
+            dx, dy = local[0] - item.a[0], local[1] - item.a[1]
+            d = math.hypot(dx, dy) or 1.0
+            on = (item.a[0] + dx / d * item.radius,
+                  item.a[1] + dy / d * item.radius)
+        else:
+            on = item.a
+        values = self.controller.symbol_values(self.kind, self.sheet)
+        if values is None:
+            return
+        self.controller.add_symbol(self.sheet, view, self.kind, on, **values)
+
+
+class SymbolDialog(QtWidgets.QDialog):
+    """What a symbol says: a surface's roughness and process, a frame's
+    characteristic, tolerance and datums, or a datum's letter."""
+
+    def __init__(self, parent, kind: str, letter: str = "A") -> None:
+        super().__init__(parent)
+        self.kind = kind
+        self.setWindowTitle(SymbolTool.titles.get(kind, "Symbol"))
+        form = QtWidgets.QFormLayout(self)
+        if kind == dwg.SURFACE:
+            self.process = QtWidgets.QComboBox(self)
+            for key, label in ((dwg.SURFACE_ANY, "Basic"),
+                               (dwg.SURFACE_REMOVAL,
+                                "Material removal required"),
+                               (dwg.SURFACE_NO_REMOVAL,
+                                "Material removal prohibited")):
+                self.process.addItem(label, key)
+            self.process.setCurrentIndex(1)
+            self.value = QtWidgets.QLineEdit("Ra 3.2", self)
+            form.addRow("Surface type", self.process)
+            form.addRow("Roughness", self.value)
+        elif kind == dwg.FCF:
+            self.characteristic = QtWidgets.QComboBox(self)
+            for key, label, glyph in dwg.GDT:
+                self.characteristic.addItem("%s  %s" % (glyph, label), key)
+            self.characteristic.setCurrentIndex(
+                [k for k, _l, _g in dwg.GDT].index("position"))
+            self.diameter = QtWidgets.QCheckBox("\u00d8 zone", self)
+            self.diameter.setChecked(True)
+            self.tolerance = QtWidgets.QLineEdit("0.1", self)
+            self.datums = [QtWidgets.QLineEdit(t, self)
+                           for t in ("A", "B", "")]
+            form.addRow("Characteristic", self.characteristic)
+            row = QtWidgets.QHBoxLayout()
+            row.addWidget(self.diameter)
+            row.addWidget(self.tolerance)
+            form.addRow("Tolerance", row)
+            for name, edit in zip(("Primary", "Secondary", "Tertiary"),
+                                  self.datums):
+                edit.setMaxLength(4)
+                form.addRow("%s datum" % name, edit)
+        else:
+            self.letter = QtWidgets.QLineEdit(letter, self)
+            self.letter.setMaxLength(3)
+            form.addRow("Datum", self.letter)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+
+    def values(self) -> dict:
+        if self.kind == dwg.SURFACE:
+            return {"text": self.value.text().strip(),
+                    "shape": self.process.currentData()}
+        if self.kind == dwg.FCF:
+            zone = ("\u00d8" if self.diameter.isChecked() else "") + \
+                self.tolerance.text().strip()
+            cells = [self.characteristic.currentData(), zone]
+            cells += [d.text().strip().upper() for d in self.datums
+                      if d.text().strip()]
+            return {"text": "|".join(cells)}
+        return {"text": self.letter.text().strip().upper() or "A"}
+
+
 class HoleNoteTool(PickTool):
     """Inventor's Hole and Thread: click a hole, then where its note goes.
 

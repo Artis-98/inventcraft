@@ -918,6 +918,19 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("an_bisector", "Centerline Bisector",
                         "Click two lines for the centre line between them"
                         ).clicked.connect(ui.add_bisector)
+        panel.add_small("an_surface", "Surface",
+                        "Surface texture: click the edge, then its "
+                        "roughness and how it is made"
+                        ).clicked.connect(
+            lambda: ui.add_symbol_tool("surface"))
+        panel.add_small("an_fcf", "Feature Control Frame",
+                        "GD&T: click the feature, then its tolerance and "
+                        "datums").clicked.connect(
+            lambda: ui.add_symbol_tool("fcf"))
+        panel.add_small("an_datum", "Datum Identifier",
+                        "Click the edge or face that is the datum, then "
+                        "its letter").clicked.connect(
+            lambda: ui.add_symbol_tool("datum"))
 
         panel = annotate.add_panel("Sketch")
         panel.add_big("sketch", "Start\nSketch",

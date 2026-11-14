@@ -859,6 +859,71 @@ class DrawingController(QtCore.QObject):
         self.host.update_title()
         return len(found)
 
+    def add_symbol_tool(self, kind: str) -> None:
+        """Surface Texture, Feature Control Frame or Datum Identifier."""
+        from .drawing_tools import SymbolTool
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None:
+            return
+        self.end_placement()
+        self._start_placer(SymbolTool(self, sheet, kind))
+
+    def symbol_values(self, kind: str, sheet):
+        """What the symbol about to be placed says, asked for; None when
+        the box is cancelled."""
+        from .drawing_tools import SymbolDialog
+        used = {n.text for s in self.document.sheets for n in s.annotations
+                if n.kind == dwg.DATUM_ID}
+        letter = next((c for c in "ABCDEFGHJKLMNPRSTUVWXYZ"
+                       if c not in used), "A")
+        dialog = SymbolDialog(self.host, kind, letter)
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return None
+        return dialog.values()
+
+    def add_symbol(self, sheet, view, kind: str, on, text: str = "",
+                   shape: str = ""):
+        """A symbol standing on a point of a view's edge."""
+        doc = self.document
+        # out from the view, never into it: off the side of the part the
+        # edge is on, the way the symbol would be drawn by hand
+        sx, sy = 0.0, 1.0
+        if view.projection is not None:
+            box = view.projection.box
+            cx, cy = (box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0
+            dx = (on[0] - cx) / max(box[2] - box[0], 1e-6)
+            dy = (on[1] - cy) / max(box[3] - box[1], 1e-6)
+            if abs(dx) > abs(dy):
+                sx, sy = (1.0 if dx >= 0 else -1.0), 0.0
+            else:
+                sx, sy = 0.0, (1.0 if dy >= 0 else -1.0)
+        if kind == dwg.SURFACE:
+            # upright on a top edge; anywhere else on a leader out, far
+            # enough that the whole tick stands clear of the part
+            tall = 2.0 * 1.6 * doc.styles.get("text", dwg.Style()).text_height
+            if (sx, sy) == (0.0, 1.0):
+                offset = [0.0, 0.0]
+            elif sy < 0:
+                offset = [6.0, -(6.0 + tall)]
+            else:
+                offset = [sx * (8.0 + tall * 0.6), 4.0]
+        elif kind == dwg.DATUM_ID:
+            offset = [sx * 6.0, sy * 6.0]
+        else:
+            offset = [sx * 10.0 + (8.0 if sy else 0.0),
+                      sy * 10.0 + (8.0 if sx else 0.0)]
+        note = Annotation(kind=kind, view=view.id, points=[list(on)],
+                          offset=offset, text=text, shape=shape)
+        doc.push_undo()
+        self._anchor_exact(doc, sheet, view, note)
+        doc.add_annotation(sheet, note)
+        doc.modified = True
+        self.canvas.update()
+        self.browser.refresh()
+        self.host.update_title()
+        return note
+
     def start_dimension_set(self, kind: str) -> None:
         """Inventor's Baseline, Chain or Ordinate: the corners in turn,
         right-click Continue, then where the set goes."""

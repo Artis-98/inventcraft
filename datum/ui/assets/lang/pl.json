@@ -1579,6 +1579,19 @@
 "Add Revision": "Dodaj rewizję",
 "Delete Row": "Usuń wiersz",
 "The revision table, in the top right of the sheet: its history, and Add Revision for the next one": "Tabela rewizji w prawym górnym rogu arkusza: jej historia oraz Dodaj rewizję dla następnej",
-"Revision %s. The title block's REV reads it.": "Rewizja %s. Tabliczka pokazuje ją w polu REV."
+"Revision %s. The title block's REV reads it.": "Rewizja %s. Tabliczka pokazuje ją w polu REV.",
+"Surface": "Chropowatość",
+"Feature Control Frame": "Ramka tolerancji",
+"Datum Identifier": "Oznaczenie bazy",
+"Surface Texture": "Struktura powierzchni",
+"Surface texture: click the edge, then its roughness and how it is made": "Chropowatość: kliknij krawędź, potem chropowatość i sposób wykonania",
+"GD&T: click the feature, then its tolerance and datums": "GD&T: kliknij element, potem tolerancję i bazy",
+"Click the edge or face that is the datum, then its letter": "Kliknij krawędź lub ścianę bazy, potem jej literę",
+"Surface type": "Rodzaj powierzchni",
+"Basic": "Podstawowy",
+"Material removal required": "Wymagane usunięcie materiału",
+"Material removal prohibited": "Usuwanie materiału niedozwolone",
+"Characteristic": "Cecha",
+"Datum": "Baza"
 }
 }

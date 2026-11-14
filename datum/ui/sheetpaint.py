@@ -824,6 +824,9 @@ def _annotation(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     if note.kind == BALLOON:
         _balloon(painter, doc, sheet, view, note, layout, at, colour)
         return
+    if note.kind in (dwg.SURFACE, dwg.FCF, dwg.DATUM_ID):
+        _symbol(painter, doc, view, note, layout, at, colour)
+        return
     if note.kind in (RADIUS, DIAMETER):
         _radial(painter, doc, sheet, view, note, layout, at, colour)
         return
@@ -1018,6 +1021,102 @@ def _between_lines(painter, doc, view, note, layout, at, colour) -> None:
           view.x + vertex[0] + math.cos(middle) * (radius + 3.5),
           view.y + vertex[1] + math.sin(middle) * (radius + 3.5),
           style.text_height, align="centre", colour=colour)
+
+
+def _symbol(painter, doc, view, note, layout, at, colour) -> None:
+    """Surface texture, a feature control frame or a datum identifier,
+    drawn the ISO way, standing on the edge it was put on or at the end
+    of a leader from it."""
+    if not note.points:
+        return
+    style = doc.styles.get("dimension", dwg.Style())
+    text_style = doc.styles.get("text", dwg.Style())
+    h = text_style.text_height
+    pen = _pen(layout, style, colour=colour)
+    p = note.points[0]
+    ox, oy = (list(note.offset) + [0.0, 0.0])[:2]
+    base = (p[0] + ox, p[1] + oy)
+
+    def line(a, b):
+        painter.setPen(pen)
+        painter.drawLine(QtCore.QPointF(*at(a)), QtCore.QPointF(*at(b)))
+
+    if note.kind == dwg.SURFACE:
+        if math.hypot(ox, oy) > 1e-6:
+            line(p, base)
+            tip, tail = at(p), at(base)
+            _arrow_head(painter, tip, tip[0] - tail[0], tip[1] - tail[1],
+                        layout.pen_width(style.arrow_size) * 1.4)
+        size = h * 1.6
+        left = (base[0] - size * 0.58, base[1] + size)
+        right = (base[0] + size * 1.15, base[1] + size * 2.0)
+        line(base, left)
+        line(base, right)
+        if note.shape == dwg.SURFACE_REMOVAL:
+            # the bar that closes the triangle: machined
+            line(left, (base[0] + size * 0.58, base[1] + size))
+        elif note.shape == dwg.SURFACE_NO_REMOVAL:
+            centre = at((base[0], base[1] + size * 0.62))
+            r = size * 0.36 * layout.scale
+            painter.setPen(pen)
+            painter.drawEllipse(QtCore.QPointF(*centre), r, r)
+        if note.text:
+            reach = len(note.text) * h * 0.62 + 1.0
+            line(right, (right[0] + reach, right[1]))
+            _text(painter, layout, note.text, view.x + right[0] + 0.6,
+                  view.y + right[1] + 0.8, h, colour=colour)
+        return
+
+    if note.kind == dwg.DATUM_ID:
+        box = h * 2.4
+        # the filled triangle standing on the edge, and the box out from it
+        tri = h * 0.9
+        way = (ox, oy) if math.hypot(ox, oy) > 1e-6 else (0.0, 1.0)
+        n = math.hypot(*way)
+        ux, uy = way[0] / n, way[1] / n
+        sx, sy = -uy, ux
+        apex = (p[0] + ux * tri, p[1] + uy * tri)
+        corners = [at((p[0] + sx * tri * 0.6, p[1] + sy * tri * 0.6)),
+                   at((p[0] - sx * tri * 0.6, p[1] - sy * tri * 0.6)),
+                   at(apex)]
+        painter.setPen(pen)
+        painter.setBrush(QtGui.QColor(colour))
+        painter.drawPolygon(QtGui.QPolygonF(
+            [QtCore.QPointF(*c) for c in corners]))
+        painter.setBrush(QtCore.Qt.NoBrush)
+        centre = (p[0] + ux * (max(n, tri) + box / 2.0),
+                  p[1] + uy * (max(n, tri) + box / 2.0))
+        line(apex, (centre[0] - ux * box / 2.0, centre[1] - uy * box / 2.0))
+        a = at((centre[0] - box / 2.0, centre[1] + box / 2.0))
+        b = at((centre[0] + box / 2.0, centre[1] - box / 2.0))
+        painter.setPen(pen)
+        painter.drawRect(QtCore.QRectF(a[0], a[1], b[0] - a[0], b[1] - a[1]))
+        _text(painter, layout, note.text or "A", view.x + centre[0],
+              view.y + centre[1] - h * 0.5, h, align="centre", colour=colour)
+        return
+
+    # a feature control frame: a leader to the feature, then its boxes
+    cells = dwg.fcf_cells(note.text)
+    if not cells:
+        return
+    if math.hypot(ox, oy) > 1e-6:
+        line(p, base)
+        tip, tail = at(p), at(base)
+        _arrow_head(painter, tip, tip[0] - tail[0], tip[1] - tail[1],
+                    layout.pen_width(style.arrow_size) * 1.4)
+    tall = h * 2.4
+    x = base[0]
+    top, bottom = base[1] + tall / 2.0, base[1] - tall / 2.0
+    for index, cell in enumerate(cells):
+        width = tall if index == 0 else max(tall, len(cell) * h * 0.78
+                                            + 2.0)
+        a, b = at((x, top)), at((x + width, bottom))
+        painter.setPen(pen)
+        painter.drawRect(QtCore.QRectF(a[0], a[1], b[0] - a[0], b[1] - a[1]))
+        _text(painter, layout, cell, view.x + x + width / 2.0,
+              view.y + base[1] - h * 0.5, h * (1.15 if index == 0 else 1.0),
+              align="centre", colour=colour)
+        x += width
 
 
 def _centre_mark(painter, doc, note, layout, at, colour) -> None:

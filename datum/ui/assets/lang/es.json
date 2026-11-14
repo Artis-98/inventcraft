@@ -1579,6 +1579,19 @@
 "Add Revision": "Añadir revisión",
 "Delete Row": "Eliminar fila",
 "The revision table, in the top right of the sheet: its history, and Add Revision for the next one": "La tabla de revisiones, arriba a la derecha de la hoja: su historial, y Añadir revisión para la siguiente",
-"Revision %s. The title block's REV reads it.": "Revisión %s. El cajetín la muestra en REV."
+"Revision %s. The title block's REV reads it.": "Revisión %s. El cajetín la muestra en REV.",
+"Surface": "Acabado",
+"Feature Control Frame": "Marco de control",
+"Datum Identifier": "Identificador de referencia",
+"Surface Texture": "Textura superficial",
+"Surface texture: click the edge, then its roughness and how it is made": "Acabado superficial: haga clic en la arista, luego su rugosidad y proceso",
+"GD&T: click the feature, then its tolerance and datums": "GD&T: haga clic en el elemento, luego su tolerancia y referencias",
+"Click the edge or face that is the datum, then its letter": "Haga clic en la arista o cara de referencia, luego su letra",
+"Surface type": "Tipo de superficie",
+"Basic": "Básico",
+"Material removal required": "Arranque de material obligatorio",
+"Material removal prohibited": "Arranque de material prohibido",
+"Characteristic": "Característica",
+"Datum": "Referencia"
 }
 }

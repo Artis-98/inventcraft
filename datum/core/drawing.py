@@ -778,12 +778,57 @@ NOTE = "note"
 LEADER = "leader"
 CENTRE_MARK = "centre_mark"
 CENTRELINE = "centreline"
+# symbols, as Inventor's Annotate tab has them
+SURFACE = "surface"         # surface texture: the tick, and Ra above it
+FCF = "fcf"                 # feature control frame, GD&T
+DATUM_ID = "datum"          # datum identifier: a letter in a box
+
+# surface texture, by what the symbol's shape says
+SURFACE_ANY = ""            # the plain tick: any process
+SURFACE_REMOVAL = "removal"     # a bar across: material must be removed
+SURFACE_NO_REMOVAL = "no_removal"   # a circle in it: must not be
+
+# the geometric characteristics a feature control frame can hold, in
+# Inventor's order, each with the symbol drawn in its first box
+GDT = (
+    ("straightness", "Straightness", "⏤"),
+    ("flatness", "Flatness", "⏥"),
+    ("circularity", "Circularity", "○"),
+    ("cylindricity", "Cylindricity", "⌭"),
+    ("profile_line", "Profile of a line", "⌒"),
+    ("profile_surface", "Profile of a surface", "⌓"),
+    ("parallelism", "Parallelism", "∥"),
+    ("perpendicularity", "Perpendicularity", "⊥"),
+    ("angularity", "Angularity", "∠"),
+    ("position", "Position", "⌖"),
+    ("concentricity", "Concentricity", "◎"),
+    ("symmetry", "Symmetry", "⌯"),
+    ("runout", "Circular runout", "↗"),
+    ("total_runout", "Total runout", "⌰"),
+)
+
+
+def gdt_symbol(key: str) -> str:
+    return next((glyph for k, _name, glyph in GDT if k == key), "?")
+
+
+def fcf_cells(text: str) -> List[str]:
+    """A feature control frame's boxes, from how it is stored: the
+    characteristic, then the tolerance, then any datums, split by |."""
+    parts = [p.strip() for p in (text or "").split("|")]
+    if not parts or not parts[0]:
+        return []
+    cells = [gdt_symbol(parts[0])]
+    cells += [p for p in parts[1:] if p]
+    return cells
 
 ANNOTATION_LABELS = {
     LINEAR: "Linear", ALIGNED: "Aligned", ANGULAR: "Angular",
     RADIUS: "Radius", DIAMETER: "Diameter", ORDINATE: "Ordinate",
     BALLOON: "Balloon", NOTE: "Text", LEADER: "Leader",
     CENTRE_MARK: "Centre Mark", CENTRELINE: "Centreline",
+    SURFACE: "Surface Texture", FCF: "Feature Control Frame",
+    DATUM_ID: "Datum Identifier",
 }
 
 DIMENSIONS = (LINEAR, ALIGNED, ANGULAR, RADIUS, DIAMETER, ORDINATE)

@@ -1579,6 +1579,19 @@
 "Add Revision": "Ajouter une révision",
 "Delete Row": "Supprimer la ligne",
 "The revision table, in the top right of the sheet: its history, and Add Revision for the next one": "Le tableau des révisions, en haut à droite de la feuille : son historique, et Ajouter une révision pour la suivante",
-"Revision %s. The title block's REV reads it.": "Révision %s. Le cartouche l'affiche sous REV."
+"Revision %s. The title block's REV reads it.": "Révision %s. Le cartouche l'affiche sous REV.",
+"Surface": "État de surface",
+"Feature Control Frame": "Cadre de tolérance",
+"Datum Identifier": "Repère de référence",
+"Surface Texture": "État de surface",
+"Surface texture: click the edge, then its roughness and how it is made": "État de surface : cliquez l'arête, puis sa rugosité et son procédé",
+"GD&T: click the feature, then its tolerance and datums": "GD&T : cliquez l'élément, puis sa tolérance et ses références",
+"Click the edge or face that is the datum, then its letter": "Cliquez l'arête ou la face de référence, puis sa lettre",
+"Surface type": "Type de surface",
+"Basic": "Symbole de base",
+"Material removal required": "Enlèvement de matière exigé",
+"Material removal prohibited": "Enlèvement de matière interdit",
+"Characteristic": "Caractéristique",
+"Datum": "Référence"
 }
 }

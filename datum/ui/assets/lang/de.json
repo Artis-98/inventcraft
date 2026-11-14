@@ -1579,6 +1579,19 @@
 "Add Revision": "Revision hinzufügen",
 "Delete Row": "Zeile löschen",
 "The revision table, in the top right of the sheet: its history, and Add Revision for the next one": "Die Revisionstabelle oben rechts auf dem Blatt: ihre Historie, und Revision hinzufügen für die nächste",
-"Revision %s. The title block's REV reads it.": "Revision %s. Das Schriftfeld zeigt sie unter REV."
+"Revision %s. The title block's REV reads it.": "Revision %s. Das Schriftfeld zeigt sie unter REV.",
+"Surface": "Oberfläche",
+"Feature Control Frame": "Form- und Lagetoleranz",
+"Datum Identifier": "Bezugskennzeichen",
+"Surface Texture": "Oberflächenbeschaffenheit",
+"Surface texture: click the edge, then its roughness and how it is made": "Oberfläche: Kante anklicken, dann Rauheit und Herstellung",
+"GD&T: click the feature, then its tolerance and datums": "Form und Lage: Element anklicken, dann Toleranz und Bezüge",
+"Click the edge or face that is the datum, then its letter": "Kante oder Fläche des Bezugs anklicken, dann den Buchstaben",
+"Surface type": "Oberflächenart",
+"Basic": "Grundsymbol",
+"Material removal required": "Materialabtrag gefordert",
+"Material removal prohibited": "Materialabtrag unzulässig",
+"Characteristic": "Eigenschaft",
+"Datum": "Bezug"
 }
 }

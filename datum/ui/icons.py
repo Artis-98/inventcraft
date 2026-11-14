@@ -851,6 +851,37 @@ def _i_an_bisector(p):
     p.drawLine(QtCore.QPointF(2, 12), QtCore.QPointF(22, 12))
 
 
+def _i_an_surface(p):
+    """Surface texture: the tick, a bar across it, a line for Ra."""
+    _pen(p, _LINE, 1.5)
+    p.drawLine(QtCore.QPointF(4, 13), QtCore.QPointF(8, 20))
+    p.drawLine(QtCore.QPointF(8, 20), QtCore.QPointF(15, 5))
+    p.drawLine(QtCore.QPointF(15, 5), QtCore.QPointF(22, 5))
+    _pen(p, _ACCENT, 1.4)
+    p.drawLine(QtCore.QPointF(4, 13), QtCore.QPointF(11.5, 13))
+
+
+def _i_an_fcf(p):
+    """A feature control frame: three boxes, a symbol in the first."""
+    _pen(p, _LINE, 1.3)
+    p.drawRect(QtCore.QRectF(2, 8, 20, 8))
+    p.drawLine(QtCore.QPointF(9, 8), QtCore.QPointF(9, 16))
+    p.drawLine(QtCore.QPointF(16, 8), QtCore.QPointF(16, 16))
+    _pen(p, _ACCENT, 1.3)
+    p.drawEllipse(QtCore.QPointF(5.5, 12), 2.2, 2.2)
+
+
+def _i_an_datum(p):
+    """A datum identifier: a letter box on a filled triangle."""
+    _pen(p, _LINE, 1.3)
+    p.drawRect(QtCore.QRectF(7, 3, 10, 10))
+    p.drawLine(QtCore.QPointF(12, 13), QtCore.QPointF(12, 16))
+    _fill(p, _ACCENT)
+    p.drawPolygon(QtGui.QPolygonF([QtCore.QPointF(7, 21),
+                                   QtCore.QPointF(17, 21),
+                                   QtCore.QPointF(12, 16)]))
+
+
 def _i_an_hole(p):
     _pen(p, _LINE, 1.5)
     p.drawEllipse(QtCore.QPointF(8, 15), 4.5, 4.5)
@@ -1454,6 +1485,8 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "an_text": _i_an_text, "an_leader": _i_an_leader,
     "an_centremark": _i_an_centremark, "an_centreline": _i_an_centreline,
     "an_bisector": _i_an_bisector, "an_hole": _i_an_hole,
+    "an_surface": _i_an_surface, "an_fcf": _i_an_fcf,
+    "an_datum": _i_an_datum,
     "split_solid": _i_split_solid,
     "pattern_circ": _i_pattern_circ, "mirror": _i_mirror, "move": _i_move,
     "box": _i_box, "cylinder": _i_cylinder, "sphere": _i_sphere,
