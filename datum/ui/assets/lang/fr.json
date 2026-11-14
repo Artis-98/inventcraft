@@ -1570,6 +1570,10 @@
 "Chain": "Chaîne",
 "Every pick measured from the first: click them in turn, right-click Continue, then place the set": "Chaque sélection mesurée depuis la première : cliquez-les dans l'ordre, clic droit Continuer, puis placez le jeu",
 "Distances from an origin: click it, then the rest, right-click Continue, then place the set": "Distances depuis une origine : cliquez-la, puis le reste, clic droit Continuer, puis placez le jeu",
-"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Chaque sélection à la suivante, en ligne : cliquez-les, clic droit Continuer, puis placez le jeu"
+"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Chaque sélection à la suivante, en ligne : cliquez-les, clic droit Continuer, puis placez le jeu",
+"Retrieve": "Récupérer",
+"Retrieve Model Annotations": "Récupérer les annotations du modèle",
+"Bring the part's own model dimensions and notes onto a view: click the view, then tick which": "Amener les cotes et notes du modèle sur une vue : cliquez la vue, puis cochez lesquelles",
+"The part's own dimensions and notes this view shows at their true size:": "Les cotes et notes de la pièce que cette vue montre en vraie grandeur :"
 }
 }

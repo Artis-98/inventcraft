@@ -1570,6 +1570,10 @@
 "Chain": "Łańcuch",
 "Every pick measured from the first: click them in turn, right-click Continue, then place the set": "Każdy wybór mierzony od pierwszego: klikaj po kolei, prawy klik Kontynuuj, potem umieść zestaw",
 "Distances from an origin: click it, then the rest, right-click Continue, then place the set": "Odległości od początku: kliknij go, potem resztę, prawy klik Kontynuuj, potem umieść zestaw",
-"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Każdy wybór do następnego, w rzędzie: klikaj, prawy klik Kontynuuj, potem umieść zestaw"
+"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Każdy wybór do następnego, w rzędzie: klikaj, prawy klik Kontynuuj, potem umieść zestaw",
+"Retrieve": "Pobierz",
+"Retrieve Model Annotations": "Pobierz adnotacje modelu",
+"Bring the part's own model dimensions and notes onto a view: click the view, then tick which": "Przenieś wymiary i opisy modelu na widok: kliknij widok, potem zaznacz które",
+"The part's own dimensions and notes this view shows at their true size:": "Wymiary i opisy części, które ten widok pokazuje w rzeczywistej wielkości:"
 }
 }

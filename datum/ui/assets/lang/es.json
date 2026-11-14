@@ -1570,6 +1570,10 @@
 "Chain": "Cadena",
 "Every pick measured from the first: click them in turn, right-click Continue, then place the set": "Cada selección medida desde la primera: haga clic en orden, clic derecho Continuar, luego coloque el conjunto",
 "Distances from an origin: click it, then the rest, right-click Continue, then place the set": "Distancias desde un origen: haga clic en él, luego en el resto, clic derecho Continuar, luego coloque el conjunto",
-"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Cada selección a la siguiente, en fila: haga clic, clic derecho Continuar, luego coloque el conjunto"
+"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Cada selección a la siguiente, en fila: haga clic, clic derecho Continuar, luego coloque el conjunto",
+"Retrieve": "Recuperar",
+"Retrieve Model Annotations": "Recuperar anotaciones del modelo",
+"Bring the part's own model dimensions and notes onto a view: click the view, then tick which": "Traer las cotas y notas del modelo a una vista: haga clic en la vista y marque cuáles",
+"The part's own dimensions and notes this view shows at their true size:": "Las cotas y notas de la pieza que esta vista muestra a tamaño real:"
 }
 }

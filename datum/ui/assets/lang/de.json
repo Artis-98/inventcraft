@@ -1570,6 +1570,10 @@
 "Chain": "Kette",
 "Every pick measured from the first: click them in turn, right-click Continue, then place the set": "Jede Auswahl von der ersten aus gemessen: der Reihe nach klicken, Rechtsklick Weiter, dann den Satz platzieren",
 "Distances from an origin: click it, then the rest, right-click Continue, then place the set": "Abstände von einem Ursprung: ihn anklicken, dann die übrigen, Rechtsklick Weiter, dann den Satz platzieren",
-"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Jede Auswahl zur nächsten, in einer Reihe: anklicken, Rechtsklick Weiter, dann den Satz platzieren"
+"Each pick to the next, in a row: click them, right-click Continue, then place the set": "Jede Auswahl zur nächsten, in einer Reihe: anklicken, Rechtsklick Weiter, dann den Satz platzieren",
+"Retrieve": "Abrufen",
+"Retrieve Model Annotations": "Modellanmerkungen abrufen",
+"Bring the part's own model dimensions and notes onto a view: click the view, then tick which": "Die Modellbemaßungen und Notizen des Bauteils in eine Ansicht holen: Ansicht anklicken, dann auswählen",
+"The part's own dimensions and notes this view shows at their true size:": "Die Bemaßungen und Notizen des Bauteils, die diese Ansicht in wahrer Größe zeigt:"
 }
 }

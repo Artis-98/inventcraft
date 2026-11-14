@@ -401,6 +401,110 @@ class DimensionSetTool(PickTool):
         painter.restore()
 
 
+class RetrieveTool:
+    """Inventor's Retrieve Model Annotations: click a view, then tick
+    which of the part's own dimensions and notes come onto it."""
+
+    name = "Retrieve"
+
+    def __init__(self, controller, sheet) -> None:
+        self.controller = controller
+        self.sheet = sheet
+        self.say()
+
+    def say(self) -> None:
+        host = self.controller.host
+        host.status_message.setStyleSheet("")
+        host.status_message.setText(
+            "Retrieve: click a view to bring the part's model dimensions "
+            "and notes onto it. Esc when done.")
+
+    def view_at(self, point):
+        for view in reversed(self.sheet.views):
+            projection = view.projection
+            if projection is None:
+                continue
+            box = projection.box
+            local = (point[0] - view.x, point[1] - view.y)
+            if box[0] - 2 <= local[0] <= box[2] + 2 and \
+                    box[1] - 2 <= local[1] <= box[3] + 2:
+                return view
+        return None
+
+    def press(self, point, device) -> None:
+        view = self.view_at(point)
+        if view is None:
+            return
+        found = self.controller.retrieve_candidates(self.sheet, view)
+        host = self.controller.host
+        if not found:
+            host.status_message.setText(
+                "Retrieve: this view shows none of the part's model "
+                "annotations at their true size. Try a view that looks at "
+                "them square on.")
+            return
+        dialog = RetrieveDialog(host, found)
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+        made = self.controller.retrieve_into(self.sheet, view,
+                                             dialog.chosen())
+        host.status_message.setText(
+            "Retrieve: %d brought onto %s. Click another view, or Esc."
+            % (made, view.label))
+
+    def move(self, point, device, held: bool) -> None:
+        pass
+
+    def release(self, point, device) -> None:
+        pass
+
+    def right_click(self, point, device) -> bool:
+        return False
+
+    def escape(self) -> bool:
+        return False
+
+    def cursor_shape(self, point, device):
+        return QtCore.Qt.PointingHandCursor
+
+    def paint(self, painter, layout) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+class RetrieveDialog(QtWidgets.QDialog):
+    """Which model annotations to bring onto the view, all ticked."""
+
+    def __init__(self, parent, found) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Retrieve Model Annotations")
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addWidget(QtWidgets.QLabel(
+            "The part's own dimensions and notes this view shows at their "
+            "true size:", self))
+        self.list = QtWidgets.QListWidget(self)
+        for model_note, note in found:
+            item = QtWidgets.QListWidgetItem(
+                "%s   %s" % (model_note.label(), model_note.display))
+            item.setData(QtCore.Qt.UserRole, model_note.id)
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.Checked)
+            self.list.addItem(item)
+        layout.addWidget(self.list)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def chosen(self):
+        return [self.list.item(i).data(QtCore.Qt.UserRole)
+                for i in range(self.list.count())
+                if self.list.item(i).checkState() == QtCore.Qt.Checked]
+
+
 class HoleNoteTool(PickTool):
     """Inventor's Hole and Thread: click a hole, then where its note goes.
 

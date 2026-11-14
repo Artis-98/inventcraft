@@ -830,9 +830,13 @@ class Annotation:
     bold: bool = False
     italic: bool = False
     align: str = "left"
+    # brought in by Retrieve Model Annotations: the id of the part's own
+    # annotation it came from, so retrieving again does not repeat it
+    retrieved: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"id": self.id, "kind": self.kind, "view": self.view,
+        extra = {"retrieved": self.retrieved} if self.retrieved else {}
+        return {**extra, "id": self.id, "kind": self.kind, "view": self.view,
                 "font": self.font, "size": self.size, "bold": self.bold,
                 "italic": self.italic, "align": self.align,
                 "points": [[float(c) for c in p] for p in self.points],
@@ -865,7 +869,8 @@ class Annotation:
                    size=float(d.get("size", 0.0) or 0.0),
                    bold=bool(d.get("bold", False)),
                    italic=bool(d.get("italic", False)),
-                   align=str(d.get("align", "left") or "left"))
+                   align=str(d.get("align", "left") or "left"),
+                   retrieved=int(d.get("retrieved", 0) or 0))
 
     @property
     def anchored(self) -> bool:

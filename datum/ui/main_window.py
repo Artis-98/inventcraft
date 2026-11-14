@@ -889,6 +889,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         "right-click Continue, then place the set"
                         ).clicked.connect(
             lambda: ui.start_dimension_set("chain"))
+        panel.add_big("rollback", "Retrieve",
+                      "Bring the part's own model dimensions and notes onto "
+                      "a view: click the view, then tick which"
+                      ).clicked.connect(ui.retrieve_model_annotations)
 
         panel = annotate.add_panel("Feature Notes")
         panel.add_big("an_hole", "Hole and\nThread",

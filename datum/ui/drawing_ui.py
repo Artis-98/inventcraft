@@ -791,6 +791,74 @@ class DrawingController(QtCore.QObject):
         self.end_placement()
         self._start_placer(getattr(drawing_tools, cls)(self, sheet))
 
+    def retrieve_model_annotations(self) -> None:
+        """Inventor's Retrieve: a view, then the part's own dimensions."""
+        self._start_tool("RetrieveTool")
+
+    def _view_part(self, sheet, view):
+        """The part document a view is drawn from, read from its file, or
+        None for an assembly or a file that cannot be found."""
+        from ..core import fileformat
+        from ..core.document import Document
+
+        doc = self.document
+        origin = doc.view_model(sheet, view)
+        if origin is None or not origin.ref.path:
+            return None
+        path = origin.ref.resolve(doc.base_dir) if doc.base_dir else None
+        if not path or not fileformat.is_part(path):
+            return None
+        live = getattr(self.host, "_live_document", None)
+        held = live(path) if live is not None else None
+        if held is not None and hasattr(held, "annotations"):
+            return held
+        try:
+            return Document.load(path)
+        except Exception:
+            return None
+
+    def retrieve_candidates(self, sheet, view):
+        """[(model annotation, drawing annotation)] a view can show."""
+        from ..core import retrieve
+
+        doc = self.document
+        part = self._view_part(sheet, view)
+        shape = self.generator.model_of(doc, sheet, view)
+        if part is None or shape is None or view.projection is None:
+            return []
+        try:
+            direction, up = self.generator.orientation(doc, sheet, view)
+        except Exception:
+            return []
+        scale = doc.view_scale(sheet, view)
+        found = retrieve.candidates(part, shape, direction, up,
+                                    view.projection.centre, scale)
+        there = retrieve.already(sheet, view.id)
+        return [(m, n) for m, n in found if m.id not in there]
+
+    def retrieve_into(self, sheet, view, chosen=None) -> int:
+        """Bring the chosen model annotations onto a view, tied to the
+        model.  ``chosen`` is their ids; None brings every one."""
+        found = self.retrieve_candidates(sheet, view)
+        if chosen is not None:
+            found = [(m, n) for m, n in found if m.id in set(chosen)]
+        if not found:
+            return 0
+        doc = self.document
+        doc.push_undo()
+        for model_note, note in found:
+            note.view = view.id
+            note.retrieved = model_note.id
+            if note.kind != "leader":
+                self._anchor_exact(doc, sheet, view, note)
+            note.value = note.measure()
+            doc.add_annotation(sheet, note)
+        doc.modified = True
+        self.canvas.update()
+        self.browser.refresh()
+        self.host.update_title()
+        return len(found)
+
     def start_dimension_set(self, kind: str) -> None:
         """Inventor's Baseline, Chain or Ordinate: the corners in turn,
         right-click Continue, then where the set goes."""
