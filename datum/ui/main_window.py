@@ -128,6 +128,11 @@ ALL_TABS = (TAB_MODEL, TAB_ASSEMBLE, TAB_DESIGN, TAB_CAM, TAB_DRAWING,
 
 # What sits behind the Rectangle button: the same list Inventor shows, in
 # the same order, titles and all.
+PLACE_OPTIONS = [
+    ("place", "import", "Place", "Component (P)"),
+    ("library", "library", "Place from", "Library"),
+]
+
 RECT_OPTIONS = [
     ("rect", "rect", "Rectangle", "Two Point"),
     ("rect3", "rect3", "Rectangle", "Three Point"),
@@ -660,8 +665,12 @@ class MainWindow(QtWidgets.QMainWindow):
         assemble = r.add_tab(TAB_ASSEMBLE)
 
         panel = assemble.add_panel("Component")
-        panel.add_big("import", "Place", "Bring a part or sub-assembly in (P)"
-                      ).clicked.connect(self.assembly_ui.place_component)
+        # Place and Place from Library share a button, as Inventor's Place
+        # and Place from Content Center do
+        self.place_button = panel.add_split(PLACE_OPTIONS,
+                                            "Bring a part or sub-assembly in")
+        self.place_button.setCheckable(False)
+        self.place_button.chosen.connect(self._place_chosen)
         panel.add_small("box", "Create Part", "Start a new part for this "
                         "assembly").clicked.connect(self.new_part_for_assembly)
         panel.add_small("delete", "Delete").clicked.connect(
@@ -2086,6 +2095,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status_message.setText(
             "New assembly. Place a component to begin - the first one is "
             "grounded automatically.")
+
+    def _place_chosen(self, key: str) -> None:
+        """The Place button, or one of the variants under its arrow."""
+        if key == "library":
+            self.place_from_library()
+        else:
+            self.assembly_ui.place_component()
+
+    def place_from_library(self) -> None:
+        """Standard parts by category, as Place from Content Center."""
+        from .library_dialog import LibraryDialog
+
+        dialog = LibraryDialog(self)
+        self._library_dialog = dialog
+        dialog.exec()
+        self._library_dialog = None
+        if dialog.place_file:
+            self.assembly_ui.place_component()
 
     def new_part_for_assembly(self) -> None:
         """Start a part in its own tab, to be placed in this assembly."""

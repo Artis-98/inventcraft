@@ -963,6 +963,16 @@ def _i_import(p):
     _arrow(p, 21, 12, 14.5, 12, _GREEN, 3.4, 1.8)
 
 
+def _i_library(p):
+    """Place from Library: a bolt standing in a part bin."""
+    _face(p, [(3, 14), (21, 14), (19, 21), (5, 21)], _SOLID, 70)
+    _face(p, [(8, 3), (16, 3), (17.5, 6.5), (6.5, 6.5)], _WARM, 170)
+    _face(p, [(10, 6.5), (14, 6.5), (14, 15), (10, 15)], _WARM, 130)
+    _pen(p, _LINE, 1.0)
+    for y in (9, 11, 13):
+        p.drawLine(QtCore.QPointF(10, y), QtCore.QPointF(14, y - 1))
+
+
 def _i_export(p):
     _face(p, [(4, 5), (13, 5), (13, 19), (4, 19)], _SOLID, 70)
     _arrow(p, 14.5, 12, 21, 12, _ACCENT, 3.4, 1.8)
@@ -1448,6 +1458,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "pattern_circ": _i_pattern_circ, "mirror": _i_mirror, "move": _i_move,
     "box": _i_box, "cylinder": _i_cylinder, "sphere": _i_sphere,
     "plane": _i_plane, "axis": _i_axis, "import": _i_import, "export": _i_export,
+    "library": _i_library,
     "delete": _i_delete, "edit": _i_edit, "suppress": _i_suppress,
     "rollback": _i_rollback, "update": _i_update, "fit": _i_fit,
     "rect3": _i_rect3, "rect_centre": _i_rect_centre,
