@@ -446,6 +446,41 @@ def adopt_sketch_sources(sketch, sketches) -> int:
     return tied
 
 
+def cast_onto(sketch, shape, construction: bool = False, source=None):
+    """Flatten an edge or face onto a sketch as projected geometry.
+
+    The lines, circles and arcs it casts are added and pinned, since a
+    projection is reference geometry, and a record of where they came from
+    is kept so a rebuild can cast them again.  Returns the record, or None
+    when it casts nothing, as an edge square to the sketch does.
+    """
+    created = []
+    for kind, data in kernel.project_to_plane(shape, sketch.plane):
+        if kind == "line":
+            a, b = data
+            created.append(sketch.add_line(a, b, construction=construction))
+        elif kind == "circle":
+            centre, radius = data
+            created.append(sketch.add_circle(centre, radius,
+                                             construction=construction))
+        elif kind == "arc":
+            centre, radius, a0, a1 = data
+            created.append(sketch.add_arc(centre, radius, a0, a1,
+                                          construction=construction))
+        elif kind == "polyline":
+            points = data
+            for i in range(len(points) - 1):
+                if math.dist(points[i], points[i + 1]) > 1e-7:
+                    created.append(sketch.add_line(
+                        points[i], points[i + 1], construction=construction))
+    if not created:
+        return None
+    for eid in created:
+        for pid in sketch.entities[eid].points:
+            sketch.points[pid].fixed = True
+    return sketch.add_projection(source or {}, created, construction)
+
+
 def refresh_projections(sketch, shape, sketches=None) -> int:
     """Re-cast every projected entity on a sketch from the body it came from.
 
@@ -466,6 +501,10 @@ def refresh_projections(sketch, shape, sketches=None) -> int:
 
     refreshed = 0
     for record in records:
+        if "adaptive" in (record.source or {}):
+            # another part's edge: the assembly moves it, since only it
+            # knows where both parts are; on its own the part keeps it
+            continue
         if record.source.get("sketch") is not None:
             # a shadow of another sketch: cast again from where that sketch
             # is now, so it follows it as one of the body follows the body

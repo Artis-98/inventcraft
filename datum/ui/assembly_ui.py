@@ -638,6 +638,7 @@ class AssemblyController(QtCore.QObject):
         b.occurrence_delete_requested.connect(self.delete_occurrence)
         b.occurrence_rename_requested.connect(self.rename_occurrence)
         b.ground_toggled.connect(self.toggle_ground)
+        b.adaptive_toggled.connect(self.toggle_adaptive)
         b.visibility_toggled.connect(self.toggle_visibility)
         b.suppress_toggled.connect(self.toggle_suppress)
         b.isolate_requested.connect(self.isolate)
@@ -1256,6 +1257,31 @@ class AssemblyController(QtCore.QObject):
                                "grounded" if occurrence.grounded
                                else "free to move",
                                report.solver))
+
+    def toggle_adaptive(self, occurrence_id: int) -> None:
+        """Inventor's Adaptive: a component's sketches follow what they
+        were projected from, or, turned off, stay where they are."""
+        from ..core.adaptive import links_for
+
+        doc = self.document
+        occurrence = doc.occurrence(occurrence_id) if doc else None
+        if occurrence is None:
+            return
+        links = [link for link in links_for(doc, occurrence_id)
+                 if link.target == occurrence_id]
+        if not links:
+            return
+        doc.push_undo()
+        on = not any(link.adaptive for link in links)
+        for link in links:
+            link.adaptive = on
+        doc.modified = True
+        self.rebuild(keep_camera=True)
+        self.host.status_message.setStyleSheet("")
+        self.host.status_message.setText(
+            "%s is %s." % (occurrence.label,
+                           "adaptive again: its sketches follow" if on
+                           else "no longer adaptive: its sketches stay put"))
 
     def toggle_visibility(self, occurrence_id: int) -> None:
         doc = self.document

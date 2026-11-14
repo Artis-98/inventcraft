@@ -40,6 +40,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     occurrence_delete_requested = QtCore.Signal(int)
     occurrence_rename_requested = QtCore.Signal(int, str)
     ground_toggled = QtCore.Signal(int)
+    adaptive_toggled = QtCore.Signal(int)
     visibility_toggled = QtCore.Signal(int)
     suppress_toggled = QtCore.Signal(int)
     isolate_requested = QtCore.Signal(int)
@@ -600,6 +601,19 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             ground.setToolTip("A grounded component never moves when the "
                               "constraints are solved")
             ground.triggered.connect(lambda: self.ground_toggled.emit(oid))
+
+            from ..core.adaptive import links_for
+            links = [link for link in links_for(self._doc, oid)
+                     if link.target == oid]
+            if links:
+                adaptive = menu.addAction("Adaptive")
+                adaptive.setCheckable(True)
+                adaptive.setChecked(any(link.adaptive for link in links))
+                adaptive.setToolTip(
+                    "Its sketches follow the edges they were projected from "
+                    "on other components. Off, they stay where they are.")
+                adaptive.triggered.connect(
+                    lambda: self.adaptive_toggled.emit(oid))
 
             visible = menu.addAction("Visible")
             visible.setCheckable(True)

@@ -3877,42 +3877,17 @@ class SketchEditor(QtCore.QObject):
         if not self.active or shape is None:
             return 0
 
-        s = self.sketch
-        created: List[int] = []
-        for kind, data in kernel.project_to_plane(shape, s.plane):
-            if kind == "line":
-                a, b = data
-                created.append(s.add_line(a, b, construction=construction))
-            elif kind == "circle":
-                centre, radius = data
-                created.append(s.add_circle(centre, radius,
-                                            construction=construction))
-            elif kind == "arc":
-                centre, radius, a0, a1 = data
-                created.append(s.add_arc(centre, radius, a0, a1,
-                                         construction=construction))
-            elif kind == "polyline":
-                points = data
-                for i in range(len(points) - 1):
-                    if math.dist(points[i], points[i + 1]) > 1e-7:
-                        created.append(s.add_line(
-                            points[i], points[i + 1],
-                            construction=construction))
-
-        if created:
-            # projected geometry is reference geometry: pin it so the solver
-            # treats it as given rather than something it may move
-            for eid in created:
-                for pid in s.entities[eid].points:
-                    s.points[pid].fixed = True
-            # Remember where it was cast from, so every later rebuild can
-            # cast it again instead of leaving a shadow of a shape that has
-            # since changed. Recorded even with no source to cast from: the
-            # record is also what tells the solver this is a projection,
-            # whose circles keep their radius.
-            s.add_projection(source or {}, created, construction)
-            self._touch()
-        return len(created)
+        # pinned, because projected geometry is reference geometry, and
+        # recorded with where it was cast from, so every later rebuild can
+        # cast it again; recorded even with no source, since the record is
+        # also what tells the solver its circles keep their radius
+        from ..core.features import cast_onto
+        record = cast_onto(self.sketch, shape, construction, source)
+        if record is None:
+            return 0
+        self.last_projection = record
+        self._touch()
+        return len(record.entities)
 
     def toggle_construction(self) -> None:
         """Inventor's Construction: what is picked turns to construction

@@ -376,6 +376,14 @@ class AssemblyDocument:
         # None reads the file without building it.
         self.component_reader = None
         self._part_reads: Dict[str, Tuple[float, Any]] = {}
+        # sketches in one part that follow edges of another (adaptive);
+        # see adaptive.py.  part_opener is how a part is got at to change
+        # it, path -> document: the window hands the one that holds parts
+        # edited in place.  None opens the file and writes it back.
+        self.adaptive: List[Any] = []
+        self.part_opener = None
+        self._adapting = False
+        self._adaptive_docs: Dict[str, Any] = {}
         self.params = ParameterTable()
         self.params.bind(self._resolve_parameters)
         self.units = "mm"
@@ -580,7 +588,22 @@ class AssemblyDocument:
                             if o.id != occurrence_id]
         self.constraints = [c for c in self.constraints
                             if not c.uses(occurrence_id)]
+        # an adaptive sketch whose source goes stays where it last was,
+        # the way Inventor's does: the link goes, the lines stay
+        self.adaptive = [link for link in self.adaptive
+                         if occurrence_id not in (link.target, link.source)]
         self.modified = True
+
+    def add_adaptive(self, target: int, feature: int, record: int,
+                     source: int, ref: Dict[str, Any]):
+        """Tie a projection in one part's sketch to an edge of another."""
+        from .adaptive import AdaptiveLink
+
+        link = AdaptiveLink(id=self.new_id(), target=target, feature=feature,
+                            record=record, source=source, ref=dict(ref))
+        self.adaptive.append(link)
+        self.modified = True
+        return link
 
     def add_constraint(self, constraint: AssemblyConstraint
                        ) -> AssemblyConstraint:
@@ -700,7 +723,52 @@ class AssemblyDocument:
 
         # the parts may have changed since their parameters were last read
         self.refresh_component_values()
-        return self._solve_and_place(report, base, started)
+        report = self._solve_and_place(report, base, started)
+        if self.adaptive and depth == 0 and not self._adapting:
+            report = self._follow_adaptive(report, base_dir)
+        return report
+
+    def _open_for_adaptive(self, path: str):
+        """A part to move projected lines in, when no window holds it."""
+        if self.part_opener is not None:
+            return self.part_opener(path)
+        from .document import Document
+
+        key = os.path.normcase(os.path.abspath(path))
+        held = self._adaptive_docs.get(key)
+        if held is None:
+            held = Document.load(path)
+            held.rebuild()
+            self._adaptive_docs[key] = held
+        return held
+
+    def _follow_adaptive(self, report: "AssemblyReport",
+                         base_dir: Optional[str]) -> "AssemblyReport":
+        """Move each adaptive sketch onto the edge it follows, and place
+        the parts that changed again."""
+        from . import adaptive
+
+        self._adapting = True
+        try:
+            changed = adaptive.update(self, self._open_for_adaptive)
+            if changed:
+                if self.part_opener is None:
+                    # nothing else holds them: written back, which is how
+                    # the library below sees what they became
+                    for document in changed:
+                        if document.path:
+                            document.save(document.path)
+                            self.library.forget(document.path)
+                report = self.rebuild(base_dir)
+        finally:
+            self._adapting = False
+        for link in self.adaptive:
+            if link.error:
+                target = self.occurrence(link.target)
+                report.warnings.append("%s: %s" % (
+                    target.label if target else "adaptive sketch",
+                    link.error))
+        return report
 
     def resolve(self, base_dir: Optional[str] = None) -> AssemblyReport:
         """Solve again with the bodies already loaded.
@@ -723,7 +791,12 @@ class AssemblyDocument:
                 report.missing.append(occurrence.label)
             else:
                 report.errors.append(occurrence.error)
-        return self._solve_and_place(report, base, started)
+        report = self._solve_and_place(report, base, started)
+        if self.adaptive and not self._adapting:
+            # a component dragged or constrained somewhere new: what
+            # follows it is moved now, not at the next full rebuild
+            report = self._follow_adaptive(report, base_dir)
+        return report
 
     def _solve_and_place(self, report: AssemblyReport, base: Optional[str],
                          started: float) -> AssemblyReport:
@@ -1108,6 +1181,8 @@ class AssemblyDocument:
             "view": self.view.to_dict(),
             "frame": self.frame.to_dict() if getattr(self, "frame", None)
             else None,
+            **({"adaptive": [link.to_dict() for link in self.adaptive]}
+               if self.adaptive else {}),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1144,6 +1219,9 @@ class AssemblyDocument:
         self.occurrences = [Occurrence.from_dict(o) for o in raw]
         self.constraints = [AssemblyConstraint.from_dict(c)
                             for c in data.get("constraints", [])]
+        from .adaptive import AdaptiveLink
+        self.adaptive = [AdaptiveLink.from_dict(a)
+                         for a in data.get("adaptive") or []]
 
         for occurrence in self.occurrences:
             if not occurrence.name:
@@ -1152,7 +1230,8 @@ class AssemblyDocument:
                     or os.path.splitext(occurrence.ref.name)[0] or "Component")
 
         known = ([o.id for o in self.occurrences]
-                 + [c.id for c in self.constraints])
+                 + [c.id for c in self.constraints]
+                 + [link.id for link in self.adaptive])
         self._next_id = max(int(data.get("next_id", 1)),
                             (max(known) + 1) if known else 1)
         for occurrence in self.occurrences:

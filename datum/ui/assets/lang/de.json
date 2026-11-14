@@ -1542,6 +1542,13 @@
 "Flat bar": "Flachstahl",
 "Online libraries": "Online-Bibliotheken",
 "GrabCAD and others": "GrabCAD und andere",
-"This shelf is being built. Standard parts are generated to size first: bolts, nuts and washers lead. Online libraries such as GrabCAD follow.": "Dieses Fach wird gerade aufgebaut. Normteile werden zuerst in der passenden Größe erzeugt, angefangen mit Schrauben, Muttern und Scheiben. Online-Bibliotheken wie GrabCAD folgen."
+"This shelf is being built. Standard parts are generated to size first: bolts, nuts and washers lead. Online libraries such as GrabCAD follow.": "Dieses Fach wird gerade aufgebaut. Normteile werden zuerst in der passenden Größe erzeugt, angefangen mit Schrauben, Muttern und Scheiben. Online-Bibliotheken wie GrabCAD folgen.",
+"Adaptive": "Adaptiv",
+"Its sketches follow the edges they were projected from on other components. Off, they stay where they are.": "Seine Skizzen folgen den Kanten anderer Komponenten, von denen sie projiziert wurden. Aus, bleiben sie, wo sie sind.",
+"Projected from %s, adaptive: it follows %s when that moves or changes. Keep clicking, or Esc to finish.": "Von %s projiziert, adaptiv: folgt %s, wenn es sich bewegt oder ändert. Weiter klicken oder Esc zum Beenden.",
+"That edge is square to the sketch, so it projects to nothing. Pick another.": "Diese Kante steht senkrecht zur Skizze und ergibt keine Projektion. Bitte eine andere wählen.",
+"%s is %s.": "%s ist %s.",
+"adaptive again: its sketches follow": "wieder adaptiv: seine Skizzen folgen",
+"no longer adaptive: its sketches stay put": "nicht mehr adaptiv: seine Skizzen bleiben stehen"
 }
 }

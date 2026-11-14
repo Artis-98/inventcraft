@@ -1807,6 +1807,9 @@ class MainWindow(QtWidgets.QMainWindow):
             # a part being edited in another tab is what this should place,
             # once Local Update has let it through
             document.library.provider = self._shape_provider
+        if hasattr(document, "part_opener"):
+            # adaptive sketches move lines in the parts edited in place
+            document.part_opener = self._in_place_document
         if hasattr(document, "component_reader"):
             # its parts' parameters as the window has them: what is open
             # in place or in a tab, else read from the file
@@ -5602,8 +5605,10 @@ class MainWindow(QtWidgets.QMainWindow):
             document = assembly_core.open_any(path)
             if hasattr(document, "library"):
                 document.library.provider = self._shape_provider
-        document.rebuild()
+            if hasattr(document, "part_opener"):
+                document.part_opener = self._in_place_document
         self._in_place_docs[key] = document
+        document.rebuild()
         return document
 
     def component_document(self, path: str):
@@ -5663,6 +5668,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 "shape": shape,
                 "appearance": ghost,
                 "pickable": False,
+                # which component it is, and of which assembly: what
+                # Project Geometry needs to tie a sketch to it
+                "occurrence": oid,
+                "owner": id(doc),
             })
         return out
 
@@ -6505,6 +6514,11 @@ class MainWindow(QtWidgets.QMainWindow):
             found = (self._reference_edge_at(pos.x(), pos.y(), True)
                      if pos is not None else None)
             if found is None:
+                # editing in place: an edge of a part beside this one,
+                # projected adaptively, so it follows that part
+                if pos is not None and self._project_neighbour_edge(
+                        pos.x(), pos.y()):
+                    return
                 return
             edge, source = found
             picked = [edge]
@@ -6524,6 +6538,86 @@ class MainWindow(QtWidgets.QMainWindow):
                 "Pick another.")
 
     REFERENCE_PICK_PIXELS = 10
+
+    def _neighbour_edge_at(self, x: int, y: int):
+        """The edge of another component, ghosted round the part being
+        edited in place, under a click: (edge as drawn here, the ghost's
+        occurrence id), or None."""
+        if not self.in_place:
+            return None
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        from OCP.GeomAbs import GeomAbs_Line
+
+        owner = id(self.in_place[-1]["document"])
+        best, best_d, which = None, self.REFERENCE_PICK_PIXELS, None
+        for ghost in self._ghosts:
+            if ghost.get("owner") != owner or "occurrence" not in ghost:
+                continue
+            for edge in kernel.edges(ghost["shape"]):
+                try:
+                    curve = BRepAdaptor_Curve(edge)
+                except Exception:
+                    continue
+                u0, u1 = curve.FirstParameter(), curve.LastParameter()
+                steps = 1 if curve.GetType() == GeomAbs_Line else 32
+                screen = []
+                for i in range(steps + 1):
+                    p = curve.Value(u0 + (u1 - u0) * i / steps)
+                    screen.append(self.viewport.project(
+                        (p.X(), p.Y(), p.Z())))
+                for (ax, ay), (bx, by) in zip(screen, screen[1:]):
+                    dx, dy = bx - ax, by - ay
+                    span = dx * dx + dy * dy
+                    t = 0.0 if span == 0 else max(0.0, min(1.0, (
+                        (x - ax) * dx + (y - ay) * dy) / span))
+                    d = math.hypot(x - (ax + t * dx), y - (ay + t * dy))
+                    if d < best_d:
+                        best, best_d, which = edge, d, ghost["occurrence"]
+        return None if best is None else (best, which)
+
+    def _project_neighbour_edge(self, x: int, y: int) -> bool:
+        """Project another component's edge onto the sketch being drawn in
+        a part edited in place, tied to that component through the
+        assembly so it follows it (Inventor's adaptive projection)."""
+        found = self._neighbour_edge_at(x, y)
+        if found is None or self._sketch_feature_id is None:
+            return False
+        edge, source_id = found
+        level = self.in_place[-1]
+        parent = level["document"]
+        target = parent.occurrence(level["occurrence"])
+        source = parent.occurrence(source_id)
+        if target is None or source is None or source.shape is None:
+            return False
+        from ..core.adaptive import to_part_frame
+        from ..core.naming import RefSet
+
+        refs = RefSet()
+        try:
+            refs.capture_from(source.shape, "edge", [to_part_frame(
+                edge, source.placement, target.placement)])
+        except Exception:
+            refs = RefSet()
+        if not refs.refs:
+            return False
+        self.editor.last_projection = None
+        made = self.editor.project_one(edge, source={"adaptive": 0})
+        record = getattr(self.editor, "last_projection", None)
+        if not made or record is None:
+            self.status_message.setText(
+                "That edge is square to the sketch, so it projects to "
+                "nothing. Pick another.")
+            return True
+        link = parent.add_adaptive(target.id, self._sketch_feature_id,
+                                   record.id, source.id,
+                                   refs.refs[0].to_dict())
+        record.source = {"adaptive": link.id}
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Projected from %s, adaptive: it follows %s when that moves or "
+            "changes. Keep clicking, or Esc to finish."
+            % (source.label, source.label))
+        return True
 
     def _sketches_extent(self):
         """How big the part's sketches are, and where their middle is: what
