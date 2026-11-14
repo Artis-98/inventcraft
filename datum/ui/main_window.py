@@ -1798,6 +1798,10 @@ class MainWindow(QtWidgets.QMainWindow):
             # a part being edited in another tab is what this should place,
             # once Local Update has let it through
             document.library.provider = self._shape_provider
+        if hasattr(document, "component_reader"):
+            # its parts' parameters as the window has them: what is open
+            # in place or in a tab, else read from the file
+            document.component_reader = self._component_for_reading
         self.refresh_tabs()
         self.activate(entry, keep_camera=False)
         # Opening a part is not editing it: publish straight away so nothing

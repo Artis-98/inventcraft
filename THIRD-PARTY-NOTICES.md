@@ -35,7 +35,7 @@ requirement is met by the layout rather than by a promise.
 
 The exact versions are recorded in the `*.dist-info` folders under
 `_internal/`. Each project publishes its own source; if you would rather
-have it from us, write to <datum@iiteg.com>.
+have it from us, write to <ic@iiteg.com>.
 
 ## Trademarks
 

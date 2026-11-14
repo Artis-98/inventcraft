@@ -371,6 +371,11 @@ class AssemblyDocument:
         # the parts open, never saved.
         self.drivers: Dict[str, str] = {}
         self.component_values: Dict[str, float] = {}
+        # how a part is got at to read its parameters, path -> document;
+        # the window hands its own, which knows what is open in place.
+        # None reads the file without building it.
+        self.component_reader = None
+        self._part_reads: Dict[str, Tuple[float, Any]] = {}
         self.params = ParameterTable()
         self.params.bind(self._resolve_parameters)
         self.units = "mm"
@@ -405,6 +410,64 @@ class AssemblyDocument:
         self._redo: List[str] = []
 
     # ---------------------------------------------------------- parameters
+
+    def _foreign_names(self) -> set:
+        """Names the offsets and parameters use that are not the assembly's.
+
+        These can only be parts' parameters, box_d2, so when there are none
+        no part needs to be read at all.
+        """
+        from .params import CONSTANTS, FUNCTIONS, referenced_names
+
+        own = set(self.params.names())
+        texts = [c.offset for c in self.constraints if c.offset]
+        texts += [p.expression for p in self.params]
+        out = set()
+        for text in texts:
+            try:
+                names = referenced_names(text)
+            except Exception:
+                continue
+            out.update(n for n in names
+                       if n not in own and n not in FUNCTIONS
+                       and n not in CONSTANTS)
+        return out
+
+    def _read_part(self, path: str):
+        """A part for its parameters: the window's way, or from its file."""
+        if self.component_reader is not None:
+            return self.component_reader(path)
+        from .assembly_params import load_unbuilt
+
+        key = os.path.normcase(os.path.abspath(path))
+        try:
+            stamp = os.path.getmtime(path)
+        except OSError:
+            return None
+        hit = self._part_reads.get(key)
+        if hit is not None and hit[0] == stamp:
+            return hit[1]
+        document = load_unbuilt(path)
+        self._part_reads[key] = (stamp, document)
+        return document
+
+    def refresh_component_values(self, force: bool = False) -> None:
+        """Read the parts' parameters, when anything here uses one.
+
+        An offset written as plate_d3 needs the plate's d3 from the moment
+        the assembly opens, not from the first time somebody looks at the
+        Parameters table.
+        """
+        if not force and not self._foreign_names():
+            return
+        from .assembly_params import AssemblyParameters
+
+        try:
+            values = AssemblyParameters(self, self._read_part).part_scope()
+        except Exception:
+            return
+        self.component_values = values
+        self.params.evaluate_all()
 
     def _resolve_parameters(self) -> None:
         """The assembly's own parameters, able to read its parts' as well.
@@ -635,6 +698,8 @@ class AssemblyDocument:
                     os.path.basename(path), exc)
                 report.errors.append(occurrence.error)
 
+        # the parts may have changed since their parameters were last read
+        self.refresh_component_values()
         return self._solve_and_place(report, base, started)
 
     def resolve(self, base_dir: Optional[str] = None) -> AssemblyReport:
@@ -663,6 +728,8 @@ class AssemblyDocument:
     def _solve_and_place(self, report: AssemblyReport, base: Optional[str],
                          started: float) -> AssemblyReport:
         """Find the constrained geometry, solve, and put everything there."""
+        if self._foreign_names() - set(self.component_values or {}):
+            self.refresh_component_values()
         resolved = self._resolve_constraints(report)
 
         placements = {o.id: o.placement.copy() for o in self.active()
@@ -763,11 +830,19 @@ class AssemblyDocument:
                                                  constraint.error))
                 continue
 
+            try:
+                offset = evaluate(constraint.offset or "0", scope)
+            except ExpressionError as exc:
+                # placed at no offset rather than dropped, and said why
+                offset = 0.0
+                constraint.error = "offset %s: %s" % (constraint.offset, exc)
+                report.warnings.append("%s: %s" % (constraint.name,
+                                                   constraint.error))
             out.append(ResolvedConstraint(
                 id=constraint.id, kind=constraint.kind,
                 occ_a=constraint.a.occurrence, occ_b=constraint.b.occurrence,
                 frame_a=frames[0], frame_b=frames[1],
-                offset=constraint.value(scope), flip=constraint.flip))
+                offset=offset, flip=constraint.flip))
         return out
 
     def follow_name(self, attachment: Attachment,
