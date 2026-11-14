@@ -682,6 +682,14 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                     "other features can use it too.")
                 share.triggered.connect(lambda: self.share_toggled.emit(fid))
 
+                redefine = menu.addAction(icons.icon("plane", 16),
+                                          "Redefine")
+                redefine.setToolTip("Move the sketch to another plane or "
+                                    "face; what is built on it follows")
+                redefine.triggered.connect(
+                    lambda: self.plane_action_requested.emit(
+                        "redefine_sketch", fid))
+
             rename = menu.addAction("Rename...")
             rename.triggered.connect(lambda: self._rename(fid, feature.name))
 

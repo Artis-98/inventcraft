@@ -1513,6 +1513,9 @@
 "the update check failed: %s": "die Update-Prüfung ist fehlgeschlagen: %s",
 "Updates are not available here: %s.": "Updates sind hier nicht verfügbar: %s.",
 "InventCraft %s is the newest version.": "InventCraft %s ist die neueste Version.",
-"The 3D view could not get an OpenGL window from the desktop (%s).\n\nQt is running on '%s' and the session is '%s'. InventCraft needs X11 or XWayland with working OpenGL: 'glxinfo -B' should name your graphics card. Please report what it prints, and your graphics card, at https://github.com/Artis-98/inventcraft/issues.": "Die 3D-Ansicht bekam vom Desktop kein OpenGL-Fenster (%s).\n\nQt läuft auf '%s' und die Sitzung ist '%s'. InventCraft braucht X11 oder XWayland mit funktionierendem OpenGL: 'glxinfo -B' sollte Ihre Grafikkarte nennen. Bitte melden Sie, was es ausgibt, und Ihre Grafikkarte unter https://github.com/Artis-98/inventcraft/issues."
+"The 3D view could not get an OpenGL window from the desktop (%s).\n\nQt is running on '%s' and the session is '%s'. InventCraft needs X11 or XWayland with working OpenGL: 'glxinfo -B' should name your graphics card. Please report what it prints, and your graphics card, at https://github.com/Artis-98/inventcraft/issues.": "Die 3D-Ansicht bekam vom Desktop kein OpenGL-Fenster (%s).\n\nQt läuft auf '%s' und die Sitzung ist '%s'. InventCraft braucht X11 oder XWayland mit funktionierendem OpenGL: 'glxinfo -B' sollte Ihre Grafikkarte nennen. Bitte melden Sie, was es ausgibt, und Ihre Grafikkarte unter https://github.com/Artis-98/inventcraft/issues.",
+"Move the sketch to another plane or face; what is built on it follows": "Skizze auf eine andere Ebene oder Fläche verschieben; was darauf aufbaut, folgt",
+"Redefine %s: pick the plane or flat face to move it to. Esc keeps it where it is.": "%s neu definieren: Ebene oder ebene Fläche wählen, auf die sie soll. Esc lässt sie, wo sie ist.",
+"%s is now on %s.": "%s liegt jetzt auf %s."
 }
 }

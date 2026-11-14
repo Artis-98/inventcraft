@@ -4038,6 +4038,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def plane_action(self, what: str, feature_id: int):
         """A work plane's own right-click actions: a new offset typed in,
         what it is made from picked again, or a sketch on it."""
+        if what == "redefine_sketch":
+            return self.redefine_sketch(feature_id)
         feature = self.document.feature(feature_id) \
             if hasattr(self.document, "feature") else None
         if not isinstance(feature, WorkPlaneFeature):
@@ -4316,9 +4318,78 @@ class MainWindow(QtWidgets.QMainWindow):
         self._begin_sketch(plane, ref, reverse_face=behind)
         return True
 
+    def redefine_sketch(self, feature_id: int):
+        """Move a sketch to another plane or face, as Inventor's Redefine.
+
+        The model is rolled back to just before the sketch, so only what
+        existed when it was made can be picked: a face of something built
+        after it, or from it, would be the sketch standing on itself.  What
+        is drawn keeps its place on the sketch, and the features built from
+        it follow it to the new plane.
+        """
+        feature = self.document.feature(feature_id) \
+            if hasattr(self.document, "feature") else None
+        if not isinstance(feature, SketchFeature):
+            return None
+        if self.editor.active:
+            self.finish_sketch()
+        self.close_dialogs()
+        self._sketch_redefine = (feature.id, self.document.rollback_index)
+        self.document.rollback_index = self.document.index_of(feature.id)
+        self.document.rebuild()
+        self.viewport.set_shape(
+            self.document.visible_shape(), keep_camera=True,
+            appearance=self.document.material_appearance)
+        self._refresh_trees()
+        self._pending_plane_pick = True
+        self.set_pick_mode("face")
+        self.viewport.show_plane_picker(self.document.planes,
+                                        self._picker_size())
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Redefine %s: pick the plane or flat face to move it to. Esc "
+            "keeps it where it is." % feature.name)
+        return feature
+
+    def _end_sketch_redefine(self):
+        """The sketch Redefine is moving, with the model rolled forward
+        again to where it was."""
+        held = getattr(self, "_sketch_redefine", None)
+        self._sketch_redefine = None
+        if held is None:
+            return None
+        fid, saved = held
+        self.document.rollback_index = saved
+        feature = self.document.feature(fid)
+        return feature if isinstance(feature, SketchFeature) else None
+
+    def _cancel_sketch_redefine(self) -> None:
+        if getattr(self, "_sketch_redefine", None) is None:
+            return
+        self._end_sketch_redefine()
+        self.rebuild()
+
     def _begin_sketch(self, plane: SketchPlane, face_ref,
                       reverse_face: bool = False,
                       plane_ref: str = "") -> None:
+        if getattr(self, "_sketch_redefine", None) is not None:
+            target = self._end_sketch_redefine()
+            self._pending_plane_pick = False
+            self.viewport.hide_plane_picker()
+            if target is None:
+                self.rebuild()
+                return
+            self.document.push_undo()
+            target.face_ref = face_ref
+            target.reverse_face = reverse_face
+            target.plane_ref = plane_ref
+            target.reverse_plane = False
+            target.sketch.plane = plane
+            self.document.modified = True
+            self.rebuild()
+            self.status_message.setText("%s is now on %s."
+                                        % (target.name, plane.name))
+            return
         self.close_dialogs()
         self._pending_plane_pick = False
         self.viewport.hide_plane_picker()
@@ -5315,6 +5386,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._pending_plane_pick = False
             self.viewport.hide_plane_picker()
             self.set_pick_mode(None)
+            self._cancel_sketch_redefine()
             self.status_message.setText("Cancelled.")
             return
         if self.editor.active:
