@@ -279,6 +279,9 @@ class Document:
         # Rules read them by name, and assembly constraints follow a name
         # into the part rather than a face that may since have moved.
         self.named_entities: Dict[str, Any] = {}
+        # dimensions and hole notes on the model itself (annotations.py)
+        self.annotations: List[Any] = []
+        self.annotations_visible = True
         # once a body exists the origin planes have done their job, so they
         # are put away automatically - but only ever once, so a user who
         # turns them back on keeps them
@@ -1311,6 +1314,11 @@ class Document:
             "view": self.view.to_dict(),
             "sheet_metal": (self.sheet_metal.to_dict()
                             if self.sheet_metal is not None else None),
+            # written only when there are some, so every part made before
+            # them reads, and fingerprints, exactly as it did
+            **({"annotations": [a.to_dict() for a in self.annotations],
+                "annotations_visible": self.annotations_visible}
+               if self.annotations else {}),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1353,13 +1361,18 @@ class Document:
         self.sheet_metal = SheetMetalDefaults.from_dict(
             data.get("sheet_metal"))
         self.params.load(data.get("parameters", []))
+        from .annotations import ModelAnnotation
+        self.annotations = [ModelAnnotation.from_dict(a)
+                            for a in data.get("annotations") or []]
+        self.annotations_visible = bool(data.get("annotations_visible", True))
         self.features = []
         for entry in data.get("features", []):
             try:
                 self.features.append(Feature.from_dict(entry))
             except FeatureError:
                 continue
-        highest = max([f.id for f in self.features] + [0])
+        highest = max([f.id for f in self.features]
+                      + [a.id for a in self.annotations] + [0])
         self._next_id = max(self._next_id, highest + 1)
         self.model_states.load(data.get("model_states"))
         # a part saved when every sketch counted from d1 is given names

@@ -108,18 +108,23 @@ TAB_DESIGN = "Design"
 TAB_CAM = "CAM"
 TAB_DRAWING = "Place Views"
 TAB_ANNOTATE = "Annotate"
+# the part's own Annotate tab, dimensions and notes on the model: a key of
+# its own, since the drawing's tab is called Annotate as well
+TAB_MODEL_ANNOTATE = "Annotate Model"
 TAB_DRAWING_TOOLS = "Tools"
 TAB_INSPECT = "Inspect"
 TAB_MANAGE = "Manage"
 TAB_VIEW = "View"
 
 # which ribbon tabs belong to which kind of document
-PART_TABS = (TAB_MODEL, TAB_INSPECT, TAB_MANAGE, TAB_VIEW)
+PART_TABS = (TAB_MODEL, TAB_MODEL_ANNOTATE, TAB_INSPECT, TAB_MANAGE,
+             TAB_VIEW)
 ASSEMBLY_TABS = (TAB_ASSEMBLE, TAB_DESIGN, TAB_INSPECT, TAB_VIEW)
 CAM_TABS = (TAB_CAM, TAB_INSPECT, TAB_VIEW)
 DRAWING_TABS = (TAB_DRAWING, TAB_ANNOTATE, TAB_DRAWING_TOOLS)
 ALL_TABS = (TAB_MODEL, TAB_ASSEMBLE, TAB_DESIGN, TAB_CAM, TAB_DRAWING,
             TAB_ANNOTATE, TAB_DRAWING_TOOLS,
+            TAB_MODEL_ANNOTATE,
             TAB_INSPECT,
             TAB_MANAGE,
             TAB_VIEW)
@@ -295,6 +300,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.spacemouse = SpaceMouse(puck, self)
         self.spacemouse_dialog: Optional[SpaceMouseDialog] = None
         self.assembly_ui = AssemblyController(self)
+        from .annotate3d import ModelAnnotateTool
+        self.model_annotate = ModelAnnotateTool(self)
         self.cam_ui = CamController(self)
         # a sheet is paper, not a scene, so it gets its own canvas
         # beside the 3D viewport rather than being drawn through it
@@ -931,6 +938,26 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("export", "SVG...").clicked.connect(ui.export_svg)
         panel.add_small("export", "Print...").clicked.connect(
             ui.print_drawing)
+
+        # ------------------------------------------------ Annotate (the part)
+        annotate = r.add_tab(TAB_MODEL_ANNOTATE, label="Annotate")
+        panel = annotate.add_panel("Dimension")
+        panel.add_big("dimension", "Dimension",
+                      "A dimension on the model: a round edge or face for "
+                      "its diameter, a straight edge for its length, or two "
+                      "picks for the distance between them"
+                      ).clicked.connect(
+            lambda: self.model_annotate.start("dim"))
+        panel = annotate.add_panel("Feature Notes")
+        panel.add_big("an_hole", "Hole / Thread\nNote",
+                      "The note a drawing gives a hole, on the model: click "
+                      "its bore").clicked.connect(
+            lambda: self.model_annotate.start("hole"))
+        panel = annotate.add_panel("Visibility")
+        panel.add_small("view_visible", "Show / Hide",
+                        "Show or hide every annotation on this part"
+                        ).clicked.connect(
+            lambda: self.model_annotate.toggle_all())
 
         # ----------------------------------------------------------- Inspect
         inspect = r.add_tab(TAB_INSPECT)
@@ -1627,6 +1654,7 @@ class MainWindow(QtWidgets.QMainWindow):
         b.hovered_changed.connect(self._tree_hovered)
         b.sketch_on_plane_requested.connect(self.start_sketch_on_plane)
         b.plane_action_requested.connect(self.plane_action)
+        b.annotation_requested.connect(self.model_annotate.action)
         b.move_requested.connect(self.move_feature)
         b.reorder_requested.connect(self.reorder_feature)
         b.rollback_requested.connect(self.set_rollback)
@@ -1643,6 +1671,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.axis_drag_moved.connect(self._section_drag_moved)
         self.viewport.axis_drag_finished.connect(self._section_drag_finished)
         self.viewport.escape_pressed.connect(self._on_escape)
+        self.viewport.enter_pressed.connect(
+            lambda: self.model_annotate.accept_single())
         self.viewport.context_menu_requested.connect(self._viewport_menu)
         self.viewport.view_setup_of = self._view_setup
         self.viewport.home_clicked.connect(lambda: self.go_home())
@@ -3367,6 +3397,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 continue
             self.editor.draw_reference(feature.sketch, units)
         self._draw_work_axes()
+        self.model_annotate.draw()
         self._show_tree_pick()
 
     def _set_references(self, feature_id: int) -> None:
@@ -4860,6 +4891,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.in_assembly:
             self.assembly_ui.on_selection()
             return
+        if self.model_annotate.on_selection():
+            return
         if self._on_profile_selection():
             return
         if self._pending_plane_pick:
@@ -5407,6 +5440,9 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if self._active_dialog is not None:
             self._active_dialog.cancel()
+            return
+        if self.model_annotate.active:
+            self.model_annotate.cancel()
             return
         if self._plane_tool_active:
             self._end_plane_tool()

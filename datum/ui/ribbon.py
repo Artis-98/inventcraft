@@ -524,14 +524,17 @@ class Ribbon(QtWidgets.QWidget):
 
     # -- construction -------------------------------------------------------
 
-    def add_tab(self, title: str, contextual: bool = False) -> RibbonTab:
+    def add_tab(self, title: str, contextual: bool = False,
+                label: str = "") -> RibbonTab:
+        """``label`` is what the tab reads when two tabs share a name, as
+        the drawing's Annotate and the part's do; ``title`` is its key."""
         tab = RibbonTab(title, self)
         self._tabs[title] = tab
         self.stack.addWidget(tab)
 
         btn = QtWidgets.QToolButton(self.strip)
         btn.setObjectName("RibbonTabButton")
-        btn.setText(title)
+        btn.setText(label or title)
         btn.setCheckable(True)
         btn.setCursor(QtCore.Qt.PointingHandCursor)
         if contextual:

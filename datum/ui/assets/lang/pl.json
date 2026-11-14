@@ -474,7 +474,7 @@
 "Edit in Place": "Edytuj w miejscu",
 "Editing Floor": "Edycja podłogi",
 "Export failed": "Eksport nie powiódł się",
-"Feature Notes": "Notatki elementu",
+"Feature Notes": "Opisy elementów",
 "Finish Sketch": "Zakończ szkic",
 "Finish\nSketch": "Zakończ\nszkic",
 "Flip solution": "Odwróć rozwiązanie",
@@ -1549,6 +1549,22 @@
 "That edge is square to the sketch, so it projects to nothing. Pick another.": "Ta krawędź jest prostopadła do szkicu, więc nic nie rzutuje. Wybierz inną.",
 "%s is %s.": "%s jest %s.",
 "adaptive again: its sketches follow": "znów adaptacyjny: jego szkice podążają",
-"no longer adaptive: its sketches stay put": "już nie adaptacyjny: jego szkice zostają na miejscu"
+"no longer adaptive: its sketches stay put": "już nie adaptacyjny: jego szkice zostają na miejscu",
+"Annotations": "Adnotacje",
+"Hole / Thread\nNote": "Opis otworu/\ngwintu",
+"Show / Hide": "Pokaż / Ukryj",
+"Edit Text...": "Edytuj tekst...",
+"Tolerance...": "Tolerancja...",
+"What it measured is gone from the model": "To, co mierzono, zniknęło z modelu",
+"A dimension on the model: a round edge or face for its diameter, a straight edge for its length, or two picks for the distance between them": "Wymiar na modelu: okrągła krawędź lub ściana dla średnicy, prosta krawędź dla długości, albo dwa wybory dla odległości",
+"The note a drawing gives a hole, on the model: click its bore": "Opis otworu jak na rysunku, na modelu: kliknij jego otwór",
+"Show or hide every annotation on this part": "Pokaż lub ukryj wszystkie adnotacje tej części",
+"Hole Note: click the bore of a hole. Esc when done.": "Opis otworu: kliknij otwór. Esc, aby zakończyć.",
+"Dimension: click a round edge or face for its diameter, a straight edge and Enter for its length, or two faces, edges or corners for the distance between them. Esc when done.": "Wymiar: okrągła krawędź lub ściana dla średnicy, prosta krawędź i Enter dla długości, albo dwie ściany, krawędzie lub wierzchołki dla odległości. Esc, aby zakończyć.",
+"Now the second face, edge or corner, or Enter for this edge's own length.": "Teraz druga ściana, krawędź lub wierzchołek, albo Enter dla długości tej krawędzi.",
+"That is not the bore of a hole. Click its round face.": "To nie jest otwór. Kliknij jego okrągłą ścianę.",
+"Annotations go on a body: model something first.": "Adnotacje trafiają na bryłę: najpierw coś wymodeluj.",
+"This part has no annotations.": "Ta część nie ma adnotacji.",
+"%s: %s. Keep clicking for more, or Esc when done.": "%s: %s. Klikaj dalej albo Esc, aby zakończyć."
 }
 }

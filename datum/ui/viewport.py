@@ -95,6 +95,8 @@ SELECTION_MODES = {
     # Project Geometry takes an edge, or a whole face's outline: an edge
     # wins where the cursor is on one, the face everywhere else on it
     "project": (SEL_EDGE, SEL_FACE),
+    # a model dimension: corners, edges or faces, whichever is nearest
+    "annotate": (SEL_VERTEX, SEL_EDGE, SEL_FACE),
     # Measure takes a point, an edge or a face, whichever is nearest
     "measure": (SEL_VERTEX, SEL_EDGE, SEL_FACE),
     # where an extrude stops: a face, or a corner of the part
@@ -231,6 +233,7 @@ class Viewport(QtWidgets.QWidget):
     plane_drag_moved = QtCore.Signal(float, float)
     plane_drag_finished = QtCore.Signal()
     escape_pressed = QtCore.Signal()
+    enter_pressed = QtCore.Signal()
     delete_pressed = QtCore.Signal()
     ready = QtCore.Signal()
     plane_tool_pressed = QtCore.Signal()
@@ -1902,6 +1905,14 @@ class Viewport(QtWidgets.QWidget):
         except Exception:
             return False
         return True
+
+    def view_direction(self):
+        """The unit vector from what is looked at towards the camera."""
+        camera = self.view.Camera()
+        eye, centre = camera.Eye(), camera.Center()
+        d = (eye.X() - centre.X(), eye.Y() - centre.Y(), eye.Z() - centre.Z())
+        n = math.sqrt(sum(c * c for c in d)) or 1.0
+        return tuple(c / n for c in d)
 
     def eye_side(self, plane: SketchPlane) -> float:
         """1.0 when the camera sees a plane from the side its normal points
@@ -4192,6 +4203,9 @@ class Viewport(QtWidgets.QWidget):
             self.escape_pressed.emit()
         elif key in (QtCore.Qt.Key_Delete, QtCore.Qt.Key_Backspace):
             self.delete_pressed.emit()
+        elif key in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter):
+            self.enter_pressed.emit()
+            super().keyPressEvent(event)
         elif key == QtCore.Qt.Key_F6:
             self.home_clicked.emit()
         elif key == QtCore.Qt.Key_Home:

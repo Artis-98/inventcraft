@@ -1549,6 +1549,22 @@
 "That edge is square to the sketch, so it projects to nothing. Pick another.": "Cette arête est perpendiculaire à l'esquisse et ne projette rien. Choisissez-en une autre.",
 "%s is %s.": "%s est %s.",
 "adaptive again: its sketches follow": "de nouveau adaptatif : ses esquisses suivent",
-"no longer adaptive: its sketches stay put": "plus adaptatif : ses esquisses restent en place"
+"no longer adaptive: its sketches stay put": "plus adaptatif : ses esquisses restent en place",
+"Annotations": "Annotations",
+"Hole / Thread\nNote": "Note de\nperçage",
+"Show / Hide": "Afficher / Masquer",
+"Edit Text...": "Modifier le texte...",
+"Tolerance...": "Tolérance...",
+"What it measured is gone from the model": "Ce qui était mesuré n'existe plus dans le modèle",
+"A dimension on the model: a round edge or face for its diameter, a straight edge for its length, or two picks for the distance between them": "Une cote sur le modèle : arête ou face ronde pour le diamètre, arête droite pour la longueur, ou deux sélections pour la distance",
+"The note a drawing gives a hole, on the model: click its bore": "La note qu'un dessin donne à un perçage, sur le modèle : cliquez son alésage",
+"Show or hide every annotation on this part": "Afficher ou masquer toutes les annotations de cette pièce",
+"Hole Note: click the bore of a hole. Esc when done.": "Note de perçage : cliquez l'alésage d'un trou. Échap pour terminer.",
+"Dimension: click a round edge or face for its diameter, a straight edge and Enter for its length, or two faces, edges or corners for the distance between them. Esc when done.": "Cote : arête ou face ronde pour le diamètre, arête droite puis Entrée pour la longueur, ou deux faces, arêtes ou sommets pour la distance. Échap pour terminer.",
+"Now the second face, edge or corner, or Enter for this edge's own length.": "Maintenant la deuxième face, arête ou sommet, ou Entrée pour la longueur de cette arête.",
+"That is not the bore of a hole. Click its round face.": "Ce n'est pas l'alésage d'un trou. Cliquez sa face ronde.",
+"Annotations go on a body: model something first.": "Les annotations vont sur un corps : modélisez d'abord quelque chose.",
+"This part has no annotations.": "Cette pièce n'a pas d'annotations.",
+"%s: %s. Keep clicking for more, or Esc when done.": "%s : %s. Continuez à cliquer, ou Échap pour terminer."
 }
 }

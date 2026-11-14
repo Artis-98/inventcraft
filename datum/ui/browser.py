@@ -69,6 +69,9 @@ class ModelBrowser(QtWidgets.QTreeWidget):
     sketch_on_plane_requested = QtCore.Signal(str)
     # a work plane's own actions: ("offset" or "redefine", its feature id)
     plane_action_requested = QtCore.Signal(str, int)
+    # a model annotation's actions: ("text", "tolerance", "toggle" or
+    # "delete", its id)
+    annotation_requested = QtCore.Signal(str, int)
     move_requested = QtCore.Signal(int, int)
     reorder_requested = QtCore.Signal(int, int)     # feature id, new index
     rollback_requested = QtCore.Signal(object)      # index or None
@@ -171,6 +174,29 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             folder.setExpanded(True)
 
         self._add_model_states(root, doc)
+
+        notes = getattr(doc, "annotations", None) or []
+        if notes:
+            folder = QtWidgets.QTreeWidgetItem(
+                root, [i18n.tr("Annotations") + " (%d)" % len(notes)])
+            folder.setIcon(0, icons.icon("dimension", 16))
+            folder.setData(0, ROLE_KIND, "annotations")
+            folder.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
+            for note in notes:
+                shown = note.display or ""
+                item = QtWidgets.QTreeWidgetItem(
+                    folder, ["%s  %s" % (note.label(), shown)])
+                item.setIcon(0, icons.icon(
+                    "an_hole" if note.kind == "hole" else "dimension", 16))
+                item.setData(0, ROLE_KIND, "annotation")
+                item.setData(0, ROLE_ID, note.id)
+                if note.lost:
+                    item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.error)))
+                    item.setToolTip(0, i18n.tr(
+                        "What it measured is gone from the model"))
+                self._mark_plane_visibility(
+                    item, not note.hidden and doc.annotations_visible)
+            folder.setExpanded(False)
 
         origin = QtWidgets.QTreeWidgetItem(root, [i18n.tr("Origin")])
         origin.setIcon(0, icons.icon("plane", 16))
@@ -506,6 +532,8 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                 self.feature_activated.emit(fid)
         elif kind == "plane":
             self.plane_activated.emit(str(item.data(0, ROLE_ID)))
+        elif kind == "annotation":
+            self.annotation_requested.emit("text", int(item.data(0, ROLE_ID)))
         elif kind == "end":
             self.rollback_requested.emit(None)
         elif kind == "flat":
@@ -580,6 +608,22 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                 new = menu.addAction("New Model State")
                 new.triggered.connect(lambda: self.model_state_requested.emit(
                     "new", "", ""))
+            return menu
+
+        if kind == "annotation":
+            aid = int(item.data(0, ROLE_ID))
+            menu.addAction("Edit Text...").triggered.connect(
+                lambda: self.annotation_requested.emit("text", aid))
+            menu.addAction("Tolerance...").triggered.connect(
+                lambda: self.annotation_requested.emit("tolerance", aid))
+            note = next((a for a in getattr(self._doc, "annotations", [])
+                         if a.id == aid), None)
+            menu.addAction("Show" if note is not None and note.hidden
+                           else "Hide").triggered.connect(
+                lambda: self.annotation_requested.emit("toggle", aid))
+            menu.addSeparator()
+            menu.addAction(icons.icon("delete", 16), "Delete").triggered.connect(
+                lambda: self.annotation_requested.emit("delete", aid))
             return menu
 
         if kind == "flat":
