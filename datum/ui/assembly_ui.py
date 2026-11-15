@@ -1113,6 +1113,51 @@ class AssemblyController(QtCore.QObject):
             % standard_parts.description(chosen))
         return arrival
 
+    def place_library_file(self, path: str) -> Optional[Occurrence]:
+        """A file from one of your own library folders: a part or an
+        assembly placed as it is, a STEP or IGES file as a part holding
+        its body, kept in the Library folder beside the assembly."""
+        from ..core import standard_parts
+
+        doc = self.document
+        if doc is None:
+            return None
+        foreign = os.path.splitext(path)[1].lower() in standard_parts.FOREIGN
+        folder = self.library_folder()
+        if foreign and not folder:
+            QtWidgets.QMessageBox.information(
+                self.host, "Place from Library",
+                "Save the assembly first: a STEP file is kept as a part in "
+                "a Library folder beside it.")
+            return None
+        if doc.path and os.path.normcase(os.path.abspath(path)) \
+                == os.path.normcase(os.path.abspath(doc.path)):
+            QtWidgets.QMessageBox.warning(self.host, "Place from Library",
+                                          "An assembly cannot place itself.")
+            return None
+        self.take_over()
+        try:
+            target = standard_parts.part_for_file(path, folder)
+        except Exception as exc:                        # noqa: BLE001
+            QtWidgets.QMessageBox.warning(
+                self.host, "Place from Library",
+                "%s could not be brought in: %s" % (os.path.basename(path),
+                                                    exc))
+            return None
+        doc.push_undo()
+        arrival = doc.place(target)
+        doc.rebuild()
+        self._spread([arrival])
+        report = self.rebuild(keep_camera=False)
+        self.host.status_message.setStyleSheet("")
+        self.host.status_message.setText(
+            "Placed %s%s." % (os.path.basename(path),
+                              ", as a part" if foreign else ""))
+        if report.missing:
+            QtWidgets.QMessageBox.warning(self.host, "Place from Library",
+                                          report.message)
+        return arrival
+
     def change_size(self, occurrence_id: int, chosen=None) -> bool:
         """Inventor's Change Size: the library's size window again, on a
         placed standard part, and the part swapped for the new size."""

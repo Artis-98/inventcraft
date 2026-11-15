@@ -1667,6 +1667,15 @@
 "Place from Library...": "Aus Bibliothek platzieren...",
 "Up": "Nach oben",
 "The folder this one is in": "Der übergeordnete Ordner",
-"Pick its size and length, then place it": "Größe und Länge wählen, dann platzieren"
+"Pick its size and length, then place it": "Größe und Länge wählen, dann platzieren",
+"My Folders": "Eigene Ordner",
+"Add Folder...": "Ordner hinzufügen...",
+"Remove Folder": "Ordner entfernen",
+"Browse for File...": "Datei suchen...",
+"Add a Folder to the Library": "Ordner zur Bibliothek hinzufügen",
+"Take this folder out of the library; nothing on disk is touched": "Diesen Ordner aus der Bibliothek nehmen; auf der Festplatte ändert sich nichts",
+"One of your own folders of parts, assemblies or STEP files, under My Folders, kept for next time": "Ein eigener Ordner mit Bauteilen, Baugruppen oder STEP-Dateien, unter Eigene Ordner, für das nächste Mal gemerkt",
+"Place a part or assembly file from anywhere, through Place Component": "Ein Bauteil oder eine Baugruppe von beliebiger Stelle platzieren, über Komponente platzieren",
+"Place what is picked: a family through its size window, a file as it is": "Das Gewählte platzieren: eine Familie über ihr Größenfenster, eine Datei so wie sie ist"
 }
 }

@@ -255,6 +255,59 @@ def _fastener(fam: Family, chosen: Dict[str, Any]):
     return doc
 
 
+# ------------------------------------------------- files from your folders
+
+NATIVE = (".icpart", ".icasm")
+FOREIGN = (".step", ".stp", ".iges", ".igs")
+PLACEABLE = NATIVE + FOREIGN
+
+
+def placeable(name: str) -> bool:
+    return os.path.splitext(name)[1].lower() in PLACEABLE
+
+
+def part_for_file(path: str, folder: str) -> str:
+    """What an assembly places for a file from one of your own library
+    folders: a part or assembly as it is, a STEP or IGES file as a part
+    holding its body, written into ``folder`` the first time and reused
+    after, the way Inventor's Import keeps a part for each."""
+    from . import fileformat
+    from .document import Document
+    from .features import ImportFeature
+
+    if os.path.splitext(path)[1].lower() not in FOREIGN:
+        return path
+    source = os.path.normcase(os.path.abspath(path))
+    os.makedirs(folder, exist_ok=True)
+    stem = re.sub(r"[^A-Za-z0-9_. -]+", "-",
+                  os.path.splitext(os.path.basename(path))[0]).strip() \
+        or "Imported"
+    extension = fileformat.extension_for(fileformat.PART)
+    for n in range(1, 1000):
+        target = os.path.join(folder, stem + ("" if n == 1 else " (%d)" % n)
+                              + extension)
+        if not os.path.exists(target):
+            break
+        try:
+            held = next((f for f in Document.load(target).features
+                         if isinstance(f, ImportFeature)), None)
+        except Exception:
+            held = None
+        if held is not None and os.path.normcase(
+                os.path.abspath(held.path)) == source:
+            return target
+    doc = Document()
+    feature = ImportFeature()
+    feature.path = os.path.abspath(path)
+    feature.name = stem
+    feature.operation = "new"
+    doc.add_feature(feature)
+    doc.properties["Description"] = stem
+    doc.rebuild()
+    doc.save(target)
+    return target
+
+
 def spec_of(path: str) -> Optional[Dict[str, Any]]:
     """What a part file was made from in the library, or None."""
     from .document import Document

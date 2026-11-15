@@ -1667,6 +1667,15 @@
 "Place from Library...": "Wstaw z biblioteki...",
 "Up": "W górę",
 "The folder this one is in": "Folder nadrzędny",
-"Pick its size and length, then place it": "Wybierz rozmiar i długość, potem wstaw"
+"Pick its size and length, then place it": "Wybierz rozmiar i długość, potem wstaw",
+"My Folders": "Moje foldery",
+"Add Folder...": "Dodaj folder...",
+"Remove Folder": "Usuń folder",
+"Browse for File...": "Wybierz plik...",
+"Add a Folder to the Library": "Dodaj folder do biblioteki",
+"Take this folder out of the library; nothing on disk is touched": "Usuń ten folder z biblioteki; na dysku nic się nie zmienia",
+"One of your own folders of parts, assemblies or STEP files, under My Folders, kept for next time": "Własny folder części, złożeń lub plików STEP, w Moich folderach, zapamiętany na następny raz",
+"Place a part or assembly file from anywhere, through Place Component": "Wstaw część lub złożenie z dowolnego miejsca, przez Wstaw komponent",
+"Place what is picked: a family through its size window, a file as it is": "Wstaw wybrane: rodzinę przez okno rozmiarów, plik taki, jaki jest"
 }
 }

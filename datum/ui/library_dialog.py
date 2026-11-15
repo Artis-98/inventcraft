@@ -11,10 +11,13 @@ Place Component is there for anything already on disk.
 """
 from __future__ import annotations
 
+import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from ..core import prefs
 from ..core import standard_parts as sp
 from . import icons
 from .theme import C
@@ -22,6 +25,7 @@ from .theme import C
 ROLE_FAMILY = QtCore.Qt.UserRole + 1
 ROLE_ABOUT = QtCore.Qt.UserRole + 2
 ROLE_PATH = QtCore.Qt.UserRole + 3
+ROLE_FILE = QtCore.Qt.UserRole + 4
 
 # shelves still to be filled: category -> [(shelf, what goes there)]
 COMING_SHELVES: List[Tuple[str, List[Tuple[str, str]]]] = [
@@ -140,24 +144,59 @@ class StandardPartDialog(QtWidgets.QDialog):
         self.accept()
 
 
-class _Folder:
-    """One folder of the library: its folders, its families, and what it
-    is for when it is still empty."""
+MY_FOLDERS = "My Folders"
 
-    def __init__(self, name: str, path: str) -> None:
+
+def natural(name: str):
+    """Sorting by the numbers in a name as numbers: M6, M8, M10."""
+    return [int(t) if t.isdigit() else t.lower()
+            for t in re.split(r"(\d+)", name)]
+
+
+class _Folder:
+    """One folder of the library: its folders, its families, the files in
+    it when it is a folder on disk, and what it is for when still empty."""
+
+    def __init__(self, name: str, path: str, disk: str = "") -> None:
         self.name = name
         self.path = path
         self.folders: Dict[str, "_Folder"] = {}
         self.families: List[sp.Family] = []
+        self.files: List[str] = []
         self.about = ""
+        # a folder of your own: read from disk when it is first opened
+        self.disk = disk
+        self.loaded = not disk
 
-    def folder(self, name: str) -> "_Folder":
+    def folder(self, name: str, disk: str = "") -> "_Folder":
         if name not in self.folders:
             self.folders[name] = _Folder(
-                name, (self.path + "/" + name) if self.path else name)
+                name, (self.path + "/" + name) if self.path else name, disk)
         return self.folders[name]
 
+    def load(self) -> None:
+        """What is in a folder on disk: its folders, and the parts,
+        assemblies and STEP files a library can place."""
+        if self.loaded:
+            return
+        self.loaded = True
+        try:
+            entries = sorted(os.scandir(self.disk),
+                             key=lambda e: natural(e.name))
+        except OSError:
+            self.about = "This folder cannot be read: %s" % self.disk
+            return
+        for entry in entries:
+            if entry.name.startswith(".") or entry.name == "OldVersions":
+                continue
+            if entry.is_dir():
+                self.folder(entry.name, entry.path)
+            elif sp.placeable(entry.name):
+                self.files.append(entry.path)
+
     def empty(self) -> bool:
+        if self.disk:
+            return False
         return not self.families and all(f.empty()
                                          for f in self.folders.values())
 
@@ -171,19 +210,49 @@ def family_label(fam: sp.Family) -> str:
     return "%s\n%s" % (fam.standard, name) if fam.standard else name
 
 
-def library_tree() -> _Folder:
+def library_tree(own: Optional[List[str]] = None) -> _Folder:
     """The library as folders: Structural Shapes from the Frame Generator,
-    Fasteners from the ISO tables, and the shelves still to come."""
+    Fasteners from the ISO tables, your own folders from disk, and the
+    shelves still to come."""
+    if own is None:
+        own = list(prefs.prefs().library_folders)
     root = _Folder("Library", "")
     for fam in sp.families():
         here = root
         for name in fam.category.split("/"):
             here = here.folder(name)
         here.families.append(fam)
+    mine = root.folder(MY_FOLDERS)
+    mine.about = ("Your own folders of parts, assemblies and STEP files, "
+                  "a bought in bolt library say. Add Folder puts one here.")
+    for path in own:
+        name = os.path.basename(os.path.normpath(path)) or path
+        while name in mine.folders:
+            name += " (2)"
+        mine.folder(name, path)
     for category, shelves in COMING_SHELVES:
         for name, about in shelves:
             root.folder(category).folder(name).about = about
     return root
+
+
+def _file_icon(path: str, size: int = 40) -> QtGui.QIcon:
+    """A part's own picture when its file has one, else its kind's icon."""
+    from ..core import fileformat
+
+    extension = os.path.splitext(path)[1].lower()
+    if extension in sp.NATIVE:
+        try:
+            data = fileformat.thumbnail_of(path)
+        except Exception:
+            data = None
+        if data:
+            picture = QtGui.QPixmap()
+            if picture.loadFromData(data):
+                return QtGui.QIcon(picture)
+        return icons.icon("pattern" if extension == ".icasm" else "box",
+                          size)
+    return icons.icon("import", size)
 
 
 class LibraryDialog(QtWidgets.QDialog):
@@ -191,20 +260,23 @@ class LibraryDialog(QtWidgets.QDialog):
     Center is: the folders on the left, what is in the open one on the
     right.  A folder opens with a double-click, into its folders or its
     families; Back and Up go the other way.  A family picked is placed
-    with Place, or a double-click, through its size window.
+    with Place, or a double-click, through its size window; a file from
+    one of your own folders is placed as it is, a STEP file as a part.
 
-    ``chosen`` is the standard part to place once a family has been sized;
-    ``place_file`` is set when somebody would rather bring in a file they
-    already have: the window closes and Place Component opens.
+    ``chosen`` is the standard part to place once a family has been sized,
+    ``chosen_file`` the file picked in one of your folders; ``place_file``
+    is set when somebody would rather browse for a file: the window
+    closes and Place Component opens.
     """
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Place from Library")
         self.setWindowIcon(icons.icon("library", 24))
-        self.resize(860, 520)
+        self.resize(900, 540)
         self.place_file = False
         self.chosen: Optional[Dict[str, Any]] = None
+        self.chosen_file = ""
         self.root = library_tree()
         self.current = self.root
         self._history: List[str] = []
@@ -265,18 +337,32 @@ class LibraryDialog(QtWidgets.QDialog):
 
         buttons = QtWidgets.QHBoxLayout()
         self.from_file = QtWidgets.QPushButton(
-            icons.icon("import", 16), "Place Component...", self)
-        self.from_file.setToolTip("Bring in a part or assembly file you "
-                                  "already have")
+            icons.icon("open", 16), "Browse for File...", self)
+        self.from_file.setToolTip("Place a part or assembly file from "
+                                  "anywhere, through Place Component")
         self.from_file.clicked.connect(self._from_file)
+        self.add_folder = QtWidgets.QPushButton(
+            icons.icon("open", 16), "Add Folder...", self)
+        self.add_folder.setToolTip(
+            "One of your own folders of parts, assemblies or STEP files, "
+            "under My Folders, kept for next time")
+        self.add_folder.clicked.connect(self._add_folder)
+        self.remove_folder = QtWidgets.QPushButton("Remove Folder", self)
+        self.remove_folder.setToolTip(
+            "Take this folder out of the library; nothing on disk is "
+            "touched")
+        self.remove_folder.clicked.connect(self._remove_folder)
         self.place = QtWidgets.QPushButton(icons.icon("library", 16),
                                            "Place...", self)
-        self.place.setToolTip("Pick its size and length, then place it")
+        self.place.setToolTip("Place what is picked: a family through its "
+                              "size window, a file as it is")
         self.place.setDefault(True)
-        self.place.clicked.connect(self._open_family)
+        self.place.clicked.connect(self._place_picked)
         close = QtWidgets.QPushButton("Close", self)
         close.clicked.connect(self.reject)
         buttons.addWidget(self.from_file)
+        buttons.addWidget(self.add_folder)
+        buttons.addWidget(self.remove_folder)
         buttons.addStretch(1)
         buttons.addWidget(self.place)
         buttons.addWidget(close)
@@ -288,10 +374,17 @@ class LibraryDialog(QtWidgets.QDialog):
 
     def _fill_tree(self, folder: _Folder, parent) -> None:
         for child in folder.folders.values():
+            if child.path in self._items:
+                continue
             item = QtWidgets.QTreeWidgetItem([child.name])
             item.setData(0, ROLE_PATH, child.path)
             item.setIcon(0, icons.icon("open", 16))
-            if child.empty():
+            if child.disk:
+                item.setToolTip(0, child.disk)
+                # it may have folders in it, read when it is opened
+                item.setChildIndicatorPolicy(
+                    QtWidgets.QTreeWidgetItem.ShowIndicator)
+            elif child.empty() and child.name != MY_FOLDERS:
                 item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
             if parent is None:
                 self.tree.addTopLevelItem(item)
@@ -303,9 +396,11 @@ class LibraryDialog(QtWidgets.QDialog):
     def folder_at(self, path: str) -> Optional[_Folder]:
         here = self.root
         for name in [p for p in (path or "").split("/") if p]:
+            here.load()
             here = here.folders.get(name)
             if here is None:
                 return None
+        here.load()
         return here
 
     def open_folder(self, path: str, remember: bool = True) -> None:
@@ -320,7 +415,14 @@ class LibraryDialog(QtWidgets.QDialog):
             "  >  " + p for p in folder.path.split("/") if p))
         self.back.setEnabled(bool(self._history))
         self.up.setEnabled(bool(folder.path))
+        self.remove_folder.setVisible(self._own_root(folder) is not None)
         item = self._items.get(folder.path)
+        if item is not None:
+            # a folder on disk just read: its folders join the tree
+            self._fill_tree(folder, item)
+            if not folder.folders:
+                item.setChildIndicatorPolicy(
+                    QtWidgets.QTreeWidgetItem.DontShowIndicatorWhenChildless)
         if item is not None and self.tree.currentItem() is not item:
             self.tree.blockSignals(True)
             self.tree.setCurrentItem(item)
@@ -332,8 +434,8 @@ class LibraryDialog(QtWidgets.QDialog):
                                               child.name)
             entry.setData(ROLE_PATH, child.path)
             entry.setSizeHint(QtCore.QSize(180, 104))
-            entry.setToolTip(child.about or child.name)
-            if child.empty():
+            entry.setToolTip(child.disk or child.about or child.name)
+            if child.empty() and child.name != MY_FOLDERS:
                 entry.setForeground(QtGui.QBrush(QtGui.QColor(C.text_dim)))
             self.view.addItem(entry)
         for fam in folder.families:
@@ -344,11 +446,29 @@ class LibraryDialog(QtWidgets.QDialog):
             entry.setSizeHint(QtCore.QSize(180, 104))
             entry.setToolTip("%s, %d sizes" % (fam.name, len(fam.rows)))
             self.view.addItem(entry)
-        if folder.about and not folder.families and not folder.folders:
-            self.about.setText("%s\n\n%s" % (folder.about, COMING))
+        for path in folder.files:
+            entry = QtWidgets.QListWidgetItem(
+                _file_icon(path), os.path.basename(path))
+            entry.setData(ROLE_FILE, path)
+            entry.setSizeHint(QtCore.QSize(180, 104))
+            entry.setToolTip(path)
+            self.view.addItem(entry)
+        if folder.about and not folder.families and not folder.files \
+                and not any(not f.empty() for f in folder.folders.values()):
+            self.about.setText(folder.about if folder.disk
+                               or folder.name == MY_FOLDERS
+                               else "%s\n\n%s" % (folder.about, COMING))
         else:
             self.about.setText("")
         self._picked(None)
+
+    def _own_root(self, folder: _Folder) -> Optional[str]:
+        """The folder of your own a folder is, or is inside: its key under
+        My Folders; None for the standard library."""
+        parts = folder.path.split("/")
+        if len(parts) >= 2 and parts[0] == MY_FOLDERS:
+            return parts[1]
+        return None
 
     def go_back(self) -> None:
         if self._history:
@@ -359,15 +479,16 @@ class LibraryDialog(QtWidgets.QDialog):
             self.open_folder(self.current.path.rpartition("/")[0])
 
     def _double_clicked(self, entry) -> None:
-        if entry.data(ROLE_FAMILY):
+        if entry.data(ROLE_FAMILY) or entry.data(ROLE_FILE):
             self.view.setCurrentItem(entry)
-            self._open_family()
+            self._place_picked()
         elif entry.data(ROLE_PATH) is not None:
             self.open_folder(entry.data(ROLE_PATH))
 
     def _picked(self, entry, _previous=None) -> None:
         family_id = entry.data(ROLE_FAMILY) if entry is not None else None
-        self.place.setEnabled(bool(family_id))
+        path = entry.data(ROLE_FILE) if entry is not None else None
+        self.place.setEnabled(bool(family_id or path))
         if family_id:
             fam = sp.family(family_id)
             self.about.setText("%s: %d sizes, %s to %s. Place, or a "
@@ -378,10 +499,26 @@ class LibraryDialog(QtWidgets.QDialog):
                                    fam.sizes()[-1] if fam.rows else "",
                                    " and length" if fam.needs_length
                                    else ""))
+        elif path:
+            foreign = os.path.splitext(path)[1].lower() in sp.FOREIGN
+            self.about.setText(
+                "%s. Place, or a double-click, puts it in the assembly%s."
+                % (path, ", as a part holding its body" if foreign else ""))
 
     def selected_family(self) -> str:
         entry = self.view.currentItem()
         return str(entry.data(ROLE_FAMILY) or "") if entry else ""
+
+    def selected_file(self) -> str:
+        entry = self.view.currentItem()
+        return str(entry.data(ROLE_FILE) or "") if entry else ""
+
+    def _place_picked(self) -> None:
+        if self.selected_file():
+            self.chosen_file = self.selected_file()
+            self.accept()
+            return
+        self._open_family()
 
     def _open_family(self) -> None:
         family_id = self.selected_family()
@@ -397,3 +534,53 @@ class LibraryDialog(QtWidgets.QDialog):
     def _from_file(self) -> None:
         self.place_file = True
         self.accept()
+
+    # -- your own folders --------------------------------------------------
+
+    def add_own_folder(self, path: str) -> None:
+        """Keep a folder of your own in the library, and open it."""
+        settings = prefs.prefs()
+        path = os.path.normpath(path)
+        if not any(os.path.normcase(p) == os.path.normcase(path)
+                   for p in settings.library_folders):
+            settings.library_folders.append(path)
+            settings.save()
+        self._rebuild()
+        mine = self.root.folders[MY_FOLDERS]
+        name = next((n for n, f in mine.folders.items()
+                     if os.path.normcase(f.disk) == os.path.normcase(path)),
+                    "")
+        self.open_folder(MY_FOLDERS + "/" + name if name else MY_FOLDERS)
+
+    def remove_own_folder(self, name: str) -> None:
+        mine = self.root.folders[MY_FOLDERS]
+        folder = mine.folders.get(name)
+        if folder is None:
+            return
+        settings = prefs.prefs()
+        settings.library_folders = [
+            p for p in settings.library_folders
+            if os.path.normcase(os.path.normpath(p))
+            != os.path.normcase(os.path.normpath(folder.disk))]
+        settings.save()
+        self._rebuild()
+        self.open_folder(MY_FOLDERS, remember=False)
+
+    def _rebuild(self) -> None:
+        self.root = library_tree()
+        self.current = self.root
+        self._history = []
+        self.tree.clear()
+        self._items = {}
+        self._fill_tree(self.root, None)
+
+    def _add_folder(self) -> None:
+        path = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Add a Folder to the Library")
+        if path:
+            self.add_own_folder(path)
+
+    def _remove_folder(self) -> None:
+        name = self._own_root(self.current)
+        if name:
+            self.remove_own_folder(name)

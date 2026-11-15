@@ -1667,6 +1667,15 @@
 "Place from Library...": "Colocar desde biblioteca...",
 "Up": "Subir",
 "The folder this one is in": "La carpeta superior",
-"Pick its size and length, then place it": "Elija tamaño y longitud y colóquelo"
+"Pick its size and length, then place it": "Elija tamaño y longitud y colóquelo",
+"My Folders": "Mis carpetas",
+"Add Folder...": "Añadir carpeta...",
+"Remove Folder": "Quitar carpeta",
+"Browse for File...": "Buscar archivo...",
+"Add a Folder to the Library": "Añadir una carpeta a la biblioteca",
+"Take this folder out of the library; nothing on disk is touched": "Quitar esta carpeta de la biblioteca; no se toca nada en el disco",
+"One of your own folders of parts, assemblies or STEP files, under My Folders, kept for next time": "Una carpeta propia de piezas, ensamblajes o archivos STEP, en Mis carpetas, guardada para la próxima vez",
+"Place a part or assembly file from anywhere, through Place Component": "Colocar una pieza o ensamblaje desde cualquier sitio, con Colocar componente",
+"Place what is picked: a family through its size window, a file as it is": "Colocar lo elegido: una familia con su ventana de tamaños, un archivo tal cual"
 }
 }

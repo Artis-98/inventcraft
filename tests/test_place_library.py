@@ -79,8 +79,8 @@ check("Place Component from inside it hands over", calls == ["file"], calls)
 print("the library, browsed like folders")
 from datum.core import frames, kernel                          # noqa: E402
 from datum.core import standard_parts as sp                     # noqa: E402
-from datum.ui.library_dialog import (ROLE_FAMILY, ROLE_PATH,    # noqa: E402
-                                     StandardPartDialog)
+from datum.ui.library_dialog import (ROLE_FAMILY, ROLE_FILE,    # noqa: E402
+                                     ROLE_PATH, StandardPartDialog)
 dialog = LibraryDialog()
 
 
@@ -90,14 +90,15 @@ def shown():
     for i in range(dialog.view.count()):
         entry = dialog.view.item(i)
         out.append((entry.text(), entry.data(ROLE_PATH)
-                    or entry.data(ROLE_FAMILY)))
+                    or entry.data(ROLE_FAMILY) or entry.data(ROLE_FILE)))
     return out
 
 
 def entry_for(key):
     for i in range(dialog.view.count()):
         entry = dialog.view.item(i)
-        if key in (entry.data(ROLE_PATH), entry.data(ROLE_FAMILY)):
+        if key in (entry.data(ROLE_PATH), entry.data(ROLE_FAMILY),
+                   entry.data(ROLE_FILE)):
             return entry
     return None
 
@@ -228,6 +229,72 @@ app.processEvents()
 back = win.assembly.occurrence(bolt.id)
 check("undo gives the M8 back", back is not None and win.assembly
       .component_path(back) == path)
+
+print("your own folders")
+from datum.core import fileio, prefs                            # noqa: E402
+from datum.core.document import Document                        # noqa: E402
+from datum.core.features import PrimitiveFeature                # noqa: E402
+OWN = tempfile.mkdtemp(prefix="datum_own_library_")
+os.makedirs(os.path.join(OWN, "M8"))
+fileio.write_step(kernel.cylinder(4.0, 35.0),
+                  os.path.join(OWN, "M8", "bolt M8x35.step"))
+plain = Document()
+block = PrimitiveFeature()
+block.kind, block.a, block.b, block.c = "box", "20", "10", "5"
+plain.add_feature(block)
+plain.rebuild()
+plain.save(os.path.join(OWN, "bracket.icpart"))
+with open(os.path.join(OWN, "notes.txt"), "w") as handle:
+    handle.write("not a part")
+
+dialog = LibraryDialog()
+check("My Folders is there before any is added",
+      entry_for("My Folders") is not None)
+dialog.add_own_folder(OWN)
+name = os.path.basename(OWN)
+check("Add Folder keeps it for next time",
+      OWN in prefs.prefs().library_folders, prefs.prefs().library_folders)
+check("and opens it", dialog.current.path == "My Folders/" + name,
+      dialog.current.path)
+check("its folders and its parts show, nothing else",
+      sorted(n for n, _ in shown()) == ["M8", "bracket.icpart"], shown())
+check("Remove Folder is offered in it", not dialog.remove_folder.isHidden())
+dialog._double_clicked(entry_for("My Folders/%s/M8" % name))
+step = os.path.join(OWN, "M8", "bolt M8x35.step")
+check("a folder inside opens like any other",
+      [key for _, key in shown()] == [step], shown())
+dialog.view.setCurrentItem(entry_for(step))
+check("a STEP file picked lights up Place", dialog.place.isEnabled())
+dialog._place_picked()
+check("Place hands the file over", dialog.chosen_file == step,
+      dialog.chosen_file)
+again = LibraryDialog()
+check("a new window has it too", "My Folders/" + name in
+      [again.folder_at("My Folders/" + name).path])
+
+print("a STEP file placed")
+bolt_step = win.assembly_ui.place_library_file(step)
+app.processEvents()
+part = doc.component_path(bolt_step) if bolt_step else ""
+check("it goes in as a part kept in the Library folder",
+      bolt_step is not None and os.path.dirname(part)
+      == os.path.join(WORK, "Library") and part.endswith(".icpart"), part)
+box = kernel.bounding_box(bolt_step.shape)
+check("holding the STEP file's body", abs((box[5] - box[2]) - 35) < 0.01,
+      box)
+second = win.assembly_ui.place_library_file(step)
+app.processEvents()
+check("placed again, the same part is used",
+      doc.component_path(second) == part)
+bracket = win.assembly_ui.place_library_file(
+    os.path.join(OWN, "bracket.icpart"))
+app.processEvents()
+check("a part from the folder is placed as it is",
+      doc.component_path(bracket) == os.path.join(OWN, "bracket.icpart"))
+
+again.remove_own_folder(name)
+check("Remove Folder forgets it", OWN not in prefs.prefs().library_folders
+      and os.path.isdir(OWN))
 
 print()
 if FAILS:
