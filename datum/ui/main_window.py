@@ -449,7 +449,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         "sketched on it").clicked.connect(
             lambda: self.new_feature(FoldFeature))
         panel = sheet.add_panel("Modify")
-        panel.add_small("extrude", "Cut", "Cut a profile through the sheet"
+        panel.add_small("cut", "Cut", "Cut a profile through the sheet"
                         ).clicked.connect(
             lambda: self.new_feature(ExtrudeFeature, operation="cut"))
         panel.add_small("hole", "Hole").clicked.connect(
@@ -637,7 +637,7 @@ class MainWindow(QtWidgets.QMainWindow):
             b.clicked.connect(lambda _=False, k=key: self.editor.start_constraint(k))
 
         panel = sketch.add_panel("Reference")
-        panel.add_big("offset", "Project\nGeometry",
+        panel.add_big("project_geometry", "Project\nGeometry",
                       "Bring model edges onto this sketch plane"
                       ).clicked.connect(self.project_geometry)
         panel.add_small("export", "Export DXF").clicked.connect(
@@ -650,7 +650,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         panel = sketch.add_panel("Format")
         self.construction_btn = panel.add_small(
-            "offset", "Construction",
+            "construction", "Construction",
             "Turn what is picked into construction and back; with nothing "
             "picked, draw construction until it is clicked again",
             checkable=True)
@@ -692,7 +692,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.move_button.clicked.connect(
             lambda: self.toggle_component_tool("move"))
         self.rotate_button = panel.add_big(
-            "revolve", "Free\nRotate", "Spin a component in the view",
+            "free_rotate", "Free\nRotate", "Spin a component in the view",
             checkable=True)
         self.rotate_button.clicked.connect(
             lambda: self.toggle_component_tool("rotate"))
@@ -779,7 +779,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         "The picked members back as Insert Frame made them"
                         ).clicked.connect(lambda: self.frame_action("remove"))
         panel = design.add_panel("Analysis")
-        panel.add_big("measure", "Frame\nAnalysis",
+        panel.add_big("frame_analysis", "Frame\nAnalysis",
                       "How a frame copes: stood on its feet, loaded on top "
                       "and in the wind, its sag, stresses and frequencies"
                       ).clicked.connect(self.frame_analysis)
@@ -864,11 +864,11 @@ class MainWindow(QtWidgets.QMainWindow):
                       ).clicked.connect(ui.add_detail)
 
         panel = place.add_panel("Modify")
-        panel.add_big("dv_detail", "Break",
+        panel.add_big("dv_break", "Break",
                       "Leave out the middle of a long view: click where the "
                       "part to leave out starts, then where it ends"
                       ).clicked.connect(ui.add_break)
-        panel.add_big("dv_section", "Break\nOut",
+        panel.add_big("dv_breakout", "Break\nOut",
                       "Open a view to show inside: click round the area, "
                       "right-click, then how deep").clicked.connect(
             ui.add_break_out)
@@ -883,10 +883,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         panel = place.add_panel("Sheets")
         panel.add_big("new_sheet", "New Sheet").clicked.connect(ui.new_sheet)
-        panel.add_small("export", "Sheet Setup",
+        panel.add_small("sheet_setup", "Sheet Setup",
                         "Size, border and title block"
                         ).clicked.connect(ui.sheet_setup)
-        panel.add_small("pattern", "Duplicate").clicked.connect(
+        panel.add_small("duplicate", "Duplicate").clicked.connect(
             ui.duplicate_sheet)
         panel.add_small("delete", "Delete Sheet").clicked.connect(
             ui.delete_sheet)
@@ -896,22 +896,22 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("dimension", "Dimension",
                       "Pick a line, circle or points on a view, then place"
                       ).clicked.connect(ui.start_dimension)
-        panel.add_small("dimension", "Baseline",
+        panel.add_small("dim_baseline", "Baseline",
                         "Every pick measured from the first: click them in "
                         "turn, right-click Continue, then place the set"
                         ).clicked.connect(
             lambda: ui.start_dimension_set("baseline"))
-        panel.add_small("dimension", "Ordinate",
+        panel.add_small("dim_ordinate", "Ordinate",
                         "Distances from an origin: click it, then the rest, "
                         "right-click Continue, then place the set"
                         ).clicked.connect(
             lambda: ui.start_dimension_set("ordinate"))
-        panel.add_small("dimension", "Chain",
+        panel.add_small("dim_chain", "Chain",
                         "Each pick to the next, in a row: click them, "
                         "right-click Continue, then place the set"
                         ).clicked.connect(
             lambda: ui.start_dimension_set("chain"))
-        panel.add_big("rollback", "Retrieve",
+        panel.add_big("retrieve", "Retrieve",
                       "Bring the part's own model dimensions and notes onto "
                       "a view: click the view, then tick which"
                       ).clicked.connect(ui.retrieve_model_annotations)
@@ -964,16 +964,16 @@ class MainWindow(QtWidgets.QMainWindow):
                       ).clicked.connect(ui.start_sketch)
 
         panel = annotate.add_panel("Table")
-        panel.add_big("params", "Revision",
+        panel.add_big("revision_table", "Revision",
                       "The revision table, in the top right of the sheet: "
                       "its history, and Add Revision for the next one"
                       ).clicked.connect(ui.revision_table)
-        panel.add_big("material", "Parts\nList",
+        panel.add_big("parts_list", "Parts\nList",
                       "List what the assembly on this sheet is made of"
                       ).clicked.connect(ui.add_parts_list)
 
         panel = annotate.add_panel("Balloon")
-        panel.add_big("c_coincident", "Balloon",
+        panel.add_big("balloon", "Balloon",
                       "One item number on the selected view"
                       ).clicked.connect(ui.add_balloon)
         panel.add_small("pattern", "Auto Balloon",
@@ -994,11 +994,11 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("auto", "cLogic", "Rules that drive this drawing"
                         ).clicked.connect(self.show_rules)
         panel = tools.add_panel("Output")
-        panel.add_big("export", "Export\nPDF", "Every sheet, at true size"
+        panel.add_big("export_pdf", "Export\nPDF", "Every sheet, at true size"
                       ).clicked.connect(ui.export_pdf)
         panel.add_small("export", "DXF...").clicked.connect(ui.export_dxf)
         panel.add_small("export", "SVG...").clicked.connect(ui.export_svg)
-        panel.add_small("export", "Print...").clicked.connect(
+        panel.add_small("print", "Print...").clicked.connect(
             ui.print_drawing)
 
         # ------------------------------------------------ Annotate (the part)
@@ -1052,7 +1052,7 @@ class MainWindow(QtWidgets.QMainWindow):
                       ).clicked.connect(self.new_code_feature)
 
         panel = manage.add_panel("Versions")
-        panel.add_big("rollback", "Versions",
+        panel.add_big("versions", "Versions",
                       "Check In this file, its history, and branches to try "
                       "things on").clicked.connect(self.show_versions)
 
@@ -1143,7 +1143,7 @@ class MainWindow(QtWidgets.QMainWindow):
         item("save", "Save", "Ctrl+S", lambda: self.save_document())
         item("save", "Save As...", "Ctrl+Shift+S",
              lambda: self.save_document(as_new=True))
-        item("rollback", "Versions...", "", self.show_versions)
+        item("versions", "Versions...", "", self.show_versions)
         menu.addSeparator()
         item("import", "Import...", "", self.import_geometry)
         item("export", "Export...", "", self.export_geometry)

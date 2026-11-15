@@ -1536,14 +1536,60 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
 }
 
 
+# Drawn icons can be replaced one at a time by a file of the same name in
+# assets/icons: <name>.svg on a 24 unit viewBox, drawn in the light scheme's
+# three tones, which are swapped for the scheme in use as it is read.  See
+# docs/icons/ICONS.md for how one is made.
+_ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "assets", "icons")
+_LIGHT_TONES = ("#2b3540", "#b9820f", "#7a8693")
+
+
+# Names a button asks for that have no drawing of their own yet: the
+# drawn icon they borrow until a file in assets/icons gives them theirs.
+BORROWED = {
+    "dv_break": "dv_detail", "dv_breakout": "dv_section",
+    "dv_crop": "dv_detail",
+    "dim_baseline": "dimension", "dim_chain": "dimension",
+    "dim_ordinate": "dimension", "retrieve": "rollback",
+    "revision_table": "params", "balloon": "c_coincident",
+    "parts_list": "material", "versions": "rollback",
+    "frame_analysis": "measure", "project_geometry": "offset",
+    "construction": "offset", "adaptive": "update", "redefine": "plane",
+    "print": "export", "export_pdf": "export",
+    "sheet_setup": "export", "cut": "extrude", "free_rotate": "revolve",
+    "duplicate": "pattern",
+}
+
+
+def _drop_in(name: str) -> Optional[bytes]:
+    path = os.path.join(_ICON_DIR, name + ".svg")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+    for light, now in zip(_LIGHT_TONES, (_LINE, _ACCENT, _SOLID)):
+        text = text.replace(light, now).replace(light.upper(), now)
+    return text.encode("utf-8")
+
+
 def pixmap(name: str, size: int = 24, ratio: float = 1.0) -> QtGui.QPixmap:
     px = QtGui.QPixmap(int(size * ratio), int(size * ratio))
     px.setDevicePixelRatio(ratio)
     px.fill(QtCore.Qt.transparent)
     painter = QtGui.QPainter(px)
     painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    data = _drop_in(name)
+    if data is not None:
+        from PySide6 import QtSvg
+        renderer = QtSvg.QSvgRenderer(QtCore.QByteArray(data))
+        if renderer.isValid():
+            renderer.render(painter, QtCore.QRectF(0, 0, size, size))
+            painter.end()
+            return px
     painter.scale(size / GRID, size / GRID)
-    fn = PAINTERS.get(name)
+    fn = PAINTERS.get(name) or PAINTERS.get(BORROWED.get(name, ""))
     if fn is not None:
         fn(painter)
     painter.end()

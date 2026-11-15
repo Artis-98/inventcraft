@@ -726,7 +726,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                     "other features can use it too.")
                 share.triggered.connect(lambda: self.share_toggled.emit(fid))
 
-                redefine = menu.addAction(icons.icon("plane", 16),
+                redefine = menu.addAction(icons.icon("redefine", 16),
                                           "Redefine")
                 redefine.setToolTip("Move the sketch to another plane or "
                                     "face; what is built on it follows")
