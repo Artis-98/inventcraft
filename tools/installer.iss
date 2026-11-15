@@ -128,18 +128,23 @@ Root: HKA; Subkey: "Software\Classes\IITEG.DATUM.Drawing"; \
     ValueType: string; ValueName: ""; ValueData: "InventCraft Drawing"; \
     Flags: uninsdeletekey; Tasks: associate
 
+; each kind of document its own picture (tools/make_doc_icons.py)
 Root: HKA; Subkey: "Software\Classes\IITEG.DATUM.Part\DefaultIcon"; \
     ValueType: string; ValueName: ""; \
-    ValueData: """{app}\{#MyAppExeName}"",0"; Tasks: associate
+    ValueData: """{app}\_internal\datum\ui\assets\filetypes\part.ico"""; \
+    Tasks: associate
 Root: HKA; Subkey: "Software\Classes\IITEG.DATUM.Assembly\DefaultIcon"; \
     ValueType: string; ValueName: ""; \
-    ValueData: """{app}\{#MyAppExeName}"",0"; Tasks: associate
+    ValueData: """{app}\_internal\datum\ui\assets\filetypes\assembly.ico"""; \
+    Tasks: associate
 Root: HKA; Subkey: "Software\Classes\IITEG.DATUM.Cam\DefaultIcon"; \
     ValueType: string; ValueName: ""; \
-    ValueData: """{app}\{#MyAppExeName}"",0"; Tasks: associate
+    ValueData: """{app}\_internal\datum\ui\assets\filetypes\cam.ico"""; \
+    Tasks: associate
 Root: HKA; Subkey: "Software\Classes\IITEG.DATUM.Drawing\DefaultIcon"; \
     ValueType: string; ValueName: ""; \
-    ValueData: """{app}\{#MyAppExeName}"",0"; Tasks: associate
+    ValueData: """{app}\_internal\datum\ui\assets\filetypes\drawing.ico"""; \
+    Tasks: associate
 
 Root: HKA; Subkey: "Software\Classes\IITEG.DATUM.Part\shell\open\command"; \
     ValueType: string; ValueName: ""; \

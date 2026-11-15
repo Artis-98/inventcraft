@@ -171,6 +171,12 @@ class StartPage(QtWidgets.QWidget):
             lambda: self.new_requested.emit(fileformat.ASSEMBLY))
         layout.addWidget(assembly_button)
 
+        drawing_button = QtWidgets.QPushButton("New Drawing")
+        drawing_button.setMinimumHeight(34)
+        drawing_button.clicked.connect(
+            lambda: self.new_requested.emit(fileformat.DRAWING))
+        layout.addWidget(drawing_button)
+
         cam_button = QtWidgets.QPushButton("New CAM Sheet")
         cam_button.setMinimumHeight(34)
         cam_button.clicked.connect(
@@ -202,13 +208,14 @@ class StartPage(QtWidgets.QWidget):
         tiles.setSpacing(14)
 
         self.part_tile = NewDocumentButton(
-            "box", "Part", "A single solid body  .icpart")
+            "doc_part", "Part", "A single solid body  .icpart")
         self.part_tile.clicked.connect(
             lambda: self.new_requested.emit(fileformat.PART))
         tiles.addWidget(self.part_tile)
 
         self.assembly_tile = NewDocumentButton(
-            "pattern", "Assembly", "Components placed together  .icasm")
+            "doc_assembly", "Assembly",
+            "Components placed together  .icasm")
         self.assembly_tile.setToolTip(
             "Place parts and constrain them to each other")
         self.assembly_tile.clicked.connect(
@@ -216,20 +223,21 @@ class StartPage(QtWidgets.QWidget):
         tiles.addWidget(self.assembly_tile)
 
         self.cam_tile = NewDocumentButton(
-            "export", "CAM Sheet", "Flat parts nested to cut  .iccam")
+            "doc_cam", "CAM Sheet", "Flat parts nested to cut  .iccam")
         self.cam_tile.setToolTip(
             "Lay flat parts on stock, offset for the cutter, export DXF")
         self.cam_tile.clicked.connect(
             lambda: self.new_requested.emit(fileformat.CAM))
-        tiles.addWidget(self.cam_tile)
 
         self.drawing_tile = NewDocumentButton(
-            "dimension", "Drawing", "Sheets of views  .icdraw")
+            "doc_drawing", "Drawing", "Sheets of views  .icdraw")
         self.drawing_tile.setToolTip(
             "Views generated from a part or an assembly, on a sheet")
         self.drawing_tile.clicked.connect(
             lambda: self.new_requested.emit(fileformat.DRAWING))
         tiles.addWidget(self.drawing_tile)
+        # the cutting sheet last: it is the step after the rest
+        tiles.addWidget(self.cam_tile)
 
         tiles.addStretch(1)
         layout.addLayout(tiles)
@@ -299,9 +307,10 @@ class StartPage(QtWidgets.QWidget):
             pixmap = QtGui.QPixmap()
             if pixmap.loadFromData(data):
                 return QtGui.QIcon(pixmap)
-        fallback = {fileformat.ASSEMBLY: "pattern",
-                    fileformat.CAM: "export",
-                    fileformat.DRAWING: "dimension"}.get(doc_type or "", "box")
+        fallback = {fileformat.ASSEMBLY: "doc_assembly",
+                    fileformat.CAM: "doc_cam",
+                    fileformat.DRAWING: "doc_drawing"}.get(doc_type or "",
+                                                           "doc_part")
         return icons.icon(fallback, 40)
 
     def _activate(self, item: QtWidgets.QListWidgetItem) -> None:

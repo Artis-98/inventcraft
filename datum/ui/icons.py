@@ -1600,6 +1600,9 @@ BORROWED = {
     "save_replace": "save", "xray": "section", "cut_face": "shell",
     "sm_folded": "sm_face", "sm_to_standard": "sm_convert",
     "frame_refresh": "update",
+    # the four kinds of document, each its own shape and colour
+    "doc_part": "box", "doc_assembly": "pattern", "doc_cam": "export",
+    "doc_drawing": "dimension",
 }
 
 

@@ -186,7 +186,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
 
         root = QtWidgets.QTreeWidgetItem(self, [doc.title])
         root.setIcon(0, icons.icon("frame_assembly" if getattr(
-            doc, "frame", None) is not None else "pattern", 16))
+            doc, "frame", None) is not None else "doc_assembly", 16))
         root.setData(0, ROLE_KIND, "root")
         font = root.font(0)
         font.setBold(True)

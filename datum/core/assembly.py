@@ -130,7 +130,8 @@ class Occurrence:
 
     @property
     def icon(self) -> str:
-        return "pattern" if fileformat.is_assembly(self.ref.path) else "box"
+        return ("doc_assembly" if fileformat.is_assembly(self.ref.path)
+                else "doc_part")
 
     def summary(self) -> str:
         if self.error:

@@ -21,10 +21,10 @@ from .theme import C
 HOME = "__home__"
 
 TYPE_ICONS = {
-    fileformat.PART: "box",
-    fileformat.ASSEMBLY: "pattern",
-    fileformat.CAM: "export",
-    fileformat.DRAWING: "dimension",
+    fileformat.PART: "doc_part",
+    fileformat.ASSEMBLY: "doc_assembly",
+    fileformat.CAM: "doc_cam",
+    fileformat.DRAWING: "doc_drawing",
 }
 
 
@@ -107,7 +107,7 @@ class DocumentTabs(QtWidgets.QTabBar):
         for entry in entries:
             label = entry["title"] + (" *" if entry.get("modified") else "")
             index = self.addTab(
-                icons.icon(TYPE_ICONS.get(entry.get("type"), "box"), 14),
+                icons.icon(TYPE_ICONS.get(entry.get("type"), "doc_part"), 14),
                 label)
             self._keys.append(entry["key"])
             self.setTabToolTip(index, entry.get("tooltip") or entry["title"])

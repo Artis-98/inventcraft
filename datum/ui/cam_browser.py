@@ -79,7 +79,7 @@ class CamBrowser(QtWidgets.QTreeWidget):
         stock, tool = doc.stock(), doc.tool()
 
         root = QtWidgets.QTreeWidgetItem(self, [doc.title])
-        root.setIcon(0, icons.icon("export", 16))
+        root.setIcon(0, icons.icon("doc_cam", 16))
         root.setData(0, ROLE_KIND, "root")
         font = root.font(0)
         font.setBold(True)

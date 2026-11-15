@@ -79,7 +79,7 @@ class DrawingBrowser(QtWidgets.QTreeWidget):
         item = QtWidgets.QTreeWidgetItem(self, [label])
         item.setData(0, ROLE_KIND, "sheet")
         item.setData(0, ROLE_ID, sheet.id)
-        item.setIcon(0, icons.icon("export", 16))
+        item.setIcon(0, icons.icon("doc_drawing", 16))
         if active:
             font = item.font(0)
             font.setBold(True)

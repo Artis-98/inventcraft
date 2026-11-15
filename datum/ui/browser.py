@@ -135,7 +135,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         self.clear()
 
         root = QtWidgets.QTreeWidgetItem(self, [doc.title])
-        root.setIcon(0, icons.icon("box", 16))
+        root.setIcon(0, icons.icon("doc_part", 16))
         root.setData(0, ROLE_KIND, "root")
         font = root.font(0)
         font.setBold(True)
