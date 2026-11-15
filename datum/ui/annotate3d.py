@@ -1,8 +1,11 @@
 """The part's Annotate tab: dimensions and hole notes on the 3D model.
 
 Dimension takes what is clicked: a round edge or face gives its diameter
-at once; a straight edge waits for a second pick, a distance to it, or
-Enter for its own length; anything else waits for a second pick.  Hole
+at once; a straight edge shows its length, placed where the next click on
+empty space is (or Enter), unless that click picks something else, which
+makes it the distance between the two; anything else waits for a second
+pick.  A dimension's legs stand square to what it measures, and any
+annotation's text can be picked up and dragged.  Hole
 Note takes the bore of a hole and writes the note a drawing would.  Both
 are drawn on the model after every rebuild and listed under Annotations in
 the tree, where they are edited, hidden and deleted.
@@ -27,6 +30,14 @@ class ModelAnnotateTool:
         self.host = host
         self.mode: Optional[str] = None
         self.picks: List[object] = []
+        # an edge picked on its own, shown with its length until placed
+        self.pending: Optional[core.ModelAnnotation] = None
+        # where each annotation's text was drawn, for picking it up
+        self._spots: List[tuple] = []
+        try:
+            host.viewport.grabber = self.grab_at
+        except Exception:
+            pass
 
     @property
     def active(self) -> bool:
@@ -60,6 +71,7 @@ class ModelAnnotateTool:
             return
         self.mode = None
         self.picks = []
+        self.pending = None
         self.host.set_pick_mode(None)
         self.host.viewport.clear_selection()
         self.host.viewport.clear_preview()
@@ -71,6 +83,9 @@ class ModelAnnotateTool:
             return False
         picked = list(self.host.viewport.selected_shapes() or [])
         if not picked:
+            if self.pending is not None and len(self.picks) == 1:
+                # a click off the part: the edge's length, put there
+                self._make(core.LINEAR, self.picks, at=self._click_point())
             return True
         self.host.viewport.clear_selection()
         pick = picked[-1]
@@ -90,12 +105,50 @@ class ModelAnnotateTool:
             if kind == core.DIAMETER:
                 self._make(core.DIAMETER, self.picks)
                 return True
+            if self._show_length(pick):
+                self.host.status_message.setText(
+                    "%s long. Click off the part where it goes, or Enter; "
+                    "or click a second face, edge or corner for the "
+                    "distance to it." % self.pending.display)
+                return True
             self.host.status_message.setText(
-                "Now the second face, edge or corner, or Enter for this "
-                "edge's own length.")
+                "Now the second face, edge or corner.")
             return True
+        self.pending = None
         self._make(core.LINEAR, self.picks[:2])
         return True
+
+    def _show_length(self, pick) -> bool:
+        """A straight edge picked on its own: its length, drawn at once."""
+        from OCP.TopAbs import TopAbs_EDGE
+
+        self.pending = None
+        if pick.ShapeType() != TopAbs_EDGE:
+            return False
+        document = self.host.document
+        refs, kinds = core.capture(document.shape, [pick])
+        if not refs:
+            return False
+        note = core.ModelAnnotation(kind=core.LINEAR, refs=refs,
+                                    ref_kinds=kinds)
+        core.evaluate(note, document.shape)
+        if note.lost:
+            return False
+        note.offset = core.default_offset(note, document.shape,
+                                          self._view_direction())
+        self.pending = note
+        self._redraw()
+        return True
+
+    def _click_point(self):
+        """Where the last click was, on the plane square to the view through
+        the pending dimension's middle; None when that cannot be told."""
+        vp = self.host.viewport
+        at = getattr(vp, "_press_pos", None)
+        direction = self._view_direction()
+        if at is None or direction is None or self.pending is None:
+            return None
+        return vp.plane_hit(at.x(), at.y(), self.pending.anchor, direction)
 
     def accept_single(self) -> bool:
         """Enter: a straight edge picked on its own is dimensioned by its
@@ -108,11 +161,12 @@ class ModelAnnotateTool:
         self._make(core.LINEAR, self.picks)
         return True
 
-    def _make(self, kind: str, picks) -> None:
+    def _make(self, kind: str, picks, at=None) -> None:
         host = self.host
         document = host.document
         refs, kinds = core.capture(document.shape, picks)
         self.picks = []
+        self.pending = None
         if len(refs) != len(picks):
             host.status_message.setText("That cannot be dimensioned.")
             return
@@ -127,6 +181,9 @@ class ModelAnnotateTool:
         annotation.id = document.new_id()
         annotation.offset = core.default_offset(
             annotation, document.shape, self._view_direction())
+        if at is not None:
+            annotation.offset = [at[i] - annotation.anchor[i]
+                                 for i in range(3)]
         document.annotations.append(annotation)
         document.annotations_visible = True
         document.modified = True
@@ -152,10 +209,12 @@ class ModelAnnotateTool:
         redraws after each rebuild."""
         host = self.host
         document = host.document
+        self._spots = []
+        if self.pending is not None and self.mode == DIM:
+            self._draw_note(self.pending, C.accent)
         notes = getattr(document, "annotations", None) or []
         if not notes or not document.annotations_visible:
             return
-        vp = host.viewport
         core.evaluate_all(document)
         for note in notes:
             if note.hidden:
@@ -163,26 +222,78 @@ class ModelAnnotateTool:
             # the theme's strongest text colour: black on a light view, near
             # white on a dark one, and never mistaken for a hidden model edge
             colour = C.error if note.lost else C.text_bright
-            off = note.offset
-            if note.kind == core.LINEAR and len(note.points) == 2:
-                p, q = note.points
-                p2 = tuple(p[i] + off[i] for i in range(3))
-                q2 = tuple(q[i] + off[i] for i in range(3))
-                vp.draw_edge(p, p2, colour, 1.0)
-                vp.draw_edge(q, q2, colour, 1.0)
-                vp.draw_edge(p2, q2, colour, 1.6)
-                for end, other in ((p2, q2), (q2, p2)):
-                    self._tick(end, other, colour)
-                at = tuple((p2[i] + q2[i]) / 2 for i in range(3))
-            elif len(note.points) == 2:
-                centre, rim = note.points
-                at = tuple(rim[i] + off[i] for i in range(3))
-                vp.draw_edge(rim, at, colour, 1.4)
-                vp.draw_point(rim, colour, 4.0)
-            else:
-                at = tuple(note.anchor[i] + off[i] for i in range(3))
-            text = note.display + ("  (lost)" if note.lost else "")
-            vp.draw_text(text, at, colour, 15.0)
+            at = self._draw_note(note, colour)
+            self._spots.append((note, at))
+
+    def _draw_note(self, note, colour: str):
+        """One annotation on the model; returns where its text is."""
+        vp = self.host.viewport
+        off = list(note.offset)
+        if note.kind == core.LINEAR and len(note.points) == 2:
+            p, q = note.points
+            span = [q[i] - p[i] for i in range(3)]
+            length = sum(c * c for c in span) ** 0.5
+            u = [c / length for c in span] if length > 1e-9 else [0.0] * 3
+            along = sum(off[i] * u[i] for i in range(3))
+            # the legs stand square to what is measured, whichever way the
+            # text has been dragged; the text may slide along the line
+            leg = [off[i] - along * u[i] for i in range(3)]
+            p2 = tuple(p[i] + leg[i] for i in range(3))
+            q2 = tuple(q[i] + leg[i] for i in range(3))
+            vp.draw_edge(p, p2, colour, 1.0)
+            vp.draw_edge(q, q2, colour, 1.0)
+            vp.draw_edge(p2, q2, colour, 1.6)
+            for end, other in ((p2, q2), (q2, p2)):
+                self._tick(end, other, colour)
+            mid = tuple((p2[i] + q2[i]) / 2 for i in range(3))
+            at = tuple(mid[i] + along * u[i] for i in range(3))
+            if abs(along) > length / 2.0:
+                # out past an end: the line runs on to the text
+                end = q2 if along > 0 else p2
+                vp.draw_edge(end, at, colour, 1.0)
+        elif len(note.points) == 2:
+            centre, rim = note.points
+            at = tuple(rim[i] + off[i] for i in range(3))
+            vp.draw_edge(rim, at, colour, 1.4)
+            vp.draw_point(rim, colour, 4.0)
+        else:
+            at = tuple(note.anchor[i] + off[i] for i in range(3))
+        text = note.display + ("  (lost)" if note.lost else "")
+        vp.draw_text(text, at, colour, 15.0)
+        return at
+
+    def _redraw(self) -> None:
+        self.host._draw_visible_sketches()
+        self.host.viewport.redraw()
+
+    # -- dragging the text -------------------------------------------------
+
+    GRAB_PIXELS = (40, 12)
+
+    def grab_at(self, x: int, y: int):
+        """A press on an annotation's text picks it up to drag."""
+        host = self.host
+        if not getattr(host, "in_part", False) or host.editor.active:
+            return None
+        document = host.document
+        if not getattr(document, "annotations_visible", True):
+            return None
+        vp = host.viewport
+        best, best_gap = None, None
+        for note, at in self._spots:
+            sx, sy = vp.project(at)
+            if abs(sx - x) > self.GRAB_PIXELS[0] \
+                    or abs(sy - y) > self.GRAB_PIXELS[1]:
+                continue
+            gap = abs(sx - x) + abs(sy - y)
+            if best_gap is None or gap < best_gap:
+                best, best_gap = (note, at), gap
+        if best is None:
+            return None
+        direction = self._view_direction()
+        if direction is None:
+            return None
+        return _TextDrag(self, best[0], best[1], direction)
 
     def _tick(self, end, other, colour: str) -> None:
         """A short arrowhead stroke at one end of a dimension line."""
@@ -246,3 +357,35 @@ class ModelAnnotateTool:
         self.host._draw_visible_sketches()
         self.host.viewport.redraw()
         self.host._update_title()
+
+
+class _TextDrag:
+    """An annotation's text being dragged, on the plane square to the view
+    through where it was picked up."""
+
+    def __init__(self, tool, note, at, direction) -> None:
+        self.tool = tool
+        self.note = note
+        self.start = tuple(at)
+        self.offset = list(note.offset)
+        self.direction = direction
+        self.moved = False
+
+    def move(self, x: int, y: int) -> None:
+        vp = self.tool.host.viewport
+        hit = vp.plane_hit(x, y, self.start, self.direction)
+        if hit is None:
+            return
+        if not self.moved:
+            self.tool.host.document.push_undo()
+            self.moved = True
+        self.note.offset = [self.offset[i] + hit[i] - self.start[i]
+                            for i in range(3)]
+        self.tool._redraw()
+
+    def finish(self) -> None:
+        if not self.moved:
+            return
+        host = self.tool.host
+        host.document.modified = True
+        host._update_title()

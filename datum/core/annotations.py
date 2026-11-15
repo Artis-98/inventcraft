@@ -320,16 +320,29 @@ def default_offset(annotation: ModelAnnotation, shape,
         middle = (0.0, 0.0, 0.0)
     a = annotation.anchor
     out = [a[i] - middle[i] for i in range(3)]
+    span = None
     if annotation.kind == LINEAR and len(annotation.points) == 2:
         p, q = annotation.points
         span = [q[i] - p[i] for i in range(3)]
         n = math.sqrt(sum(c * c for c in span)) or 1.0
         span = [c / n for c in span]
+    sight = list(view_dir) if view_dir is not None else None
+    if sight is not None and span is not None:
+        # the way the view looks, less any part of it along the line, so
+        # taking it away below cannot tip the legs off square
+        along = sum(sight[i] * span[i] for i in range(3))
+        sight = [sight[i] - along * span[i] for i in range(3)]
+        n = math.sqrt(sum(c * c for c in sight))
+        sight = [c / n for c in sight] if n > 1e-6 else None
+    if span is not None:
         along = sum(out[i] * span[i] for i in range(3))
         out = [out[i] - along * span[i] for i in range(3)]
-    if view_dir is not None:
-        towards = sum(out[i] * view_dir[i] for i in range(3))
-        out = [out[i] - towards * view_dir[i] for i in range(3)]
+    if sight is not None:
+        towards = sum(out[i] * sight[i] for i in range(3))
+        out = [out[i] - towards * sight[i] for i in range(3)]
+    if span is not None and math.sqrt(sum(c * c for c in out)) < 1e-6:
+        # straight through the middle: any way square to the line will do
+        out = list(_perpendicular(span))
     n = math.sqrt(sum(c * c for c in out))
     if n < 1e-6:
         out, n = [0.0, 0.0, 1.0], 1.0

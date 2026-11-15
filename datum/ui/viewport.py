@@ -393,6 +393,11 @@ class Viewport(QtWidgets.QWidget):
         # an axis, such as an extrude's arrow: called with the cursor, it
         # gives back (origin, direction) when the cursor is on it.
         self.drag_handle = None
+        # something on screen that can be picked up and dragged freely, a
+        # model annotation's text: called with a press's pixel, it hands
+        # back an object with move(x, y) and finish(), or None
+        self.grabber = None
+        self._grabbed = None
         self._free_drag = False
         self._component_basis: Tuple[Tuple[float, float, float], ...] = ()
 
@@ -3254,6 +3259,30 @@ class Viewport(QtWidgets.QWidget):
         except Exception:                               # noqa: BLE001
             return None
 
+    def _grab_free(self, x: int, y: int) -> bool:
+        """A press on something the grabber says can be dragged."""
+        if self.grabber is None:
+            return False
+        try:
+            self._grabbed = self.grabber(x, y)
+        except Exception:                               # noqa: BLE001
+            self._grabbed = None
+        return self._grabbed is not None
+
+    def plane_hit(self, x: int, y: int, point: Sequence[float],
+                  normal: Sequence[float]):
+        """Where the cursor ray meets the plane through a point, in 3D."""
+        ray = self.ray_at(x, y)
+        if ray is None:
+            return None
+        origin, direction = ray
+        denom = sum(direction[i] * normal[i] for i in range(3))
+        if abs(denom) < 1e-12:
+            return None
+        t = sum((point[i] - origin[i]) * normal[i]
+                for i in range(3)) / denom
+        return tuple(origin[i] + direction[i] * t for i in range(3))
+
     def _grab_handle(self, x: int, y: int) -> bool:
         """A press on the drag handle: start pulling it along its axis."""
         axis = self._handle_at(x, y)
@@ -3783,6 +3812,9 @@ class Viewport(QtWidgets.QWidget):
             # the section being placed: a drag slides it along its normal
             self.section_drag_pressed.emit()
         elif (event.button() == QtCore.Qt.LeftButton and not self.plane_mode
+              and self._grab_free(pos.x(), pos.y())):
+            pass                # something picked up to drag about
+        elif (event.button() == QtCore.Qt.LeftButton and not self.plane_mode
               and self._grab_handle(pos.x(), pos.y())):
             pass                # an axis drag of the handle has begun
         elif event.button() == QtCore.Qt.LeftButton:
@@ -3904,6 +3936,14 @@ class Viewport(QtWidgets.QWidget):
 
         if self._sel_box_from is not None:
             self._draw_selection_box(self._sel_box_from, pos)
+            self._last_pos = pos
+            return
+
+        if self._grabbed is not None:
+            try:
+                self._grabbed.move(pos.x(), pos.y())
+            except Exception:                           # noqa: BLE001
+                pass
             self._last_pos = pos
             return
 
@@ -4093,6 +4133,16 @@ class Viewport(QtWidgets.QWidget):
                 return
             self._free_drag = False
             self.component_drag_finished.emit()
+            self._button = QtCore.Qt.NoButton
+            return
+
+        if event.button() == QtCore.Qt.LeftButton \
+                and self._grabbed is not None:
+            grabbed, self._grabbed = self._grabbed, None
+            try:
+                grabbed.finish()
+            except Exception:                           # noqa: BLE001
+                pass
             self._button = QtCore.Qt.NoButton
             return
 
