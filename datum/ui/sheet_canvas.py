@@ -33,6 +33,7 @@ class SheetCanvas(QtWidgets.QWidget):
     view_activated = QtCore.Signal(int)     # double-clicked
     context_requested = QtCore.Signal(QtCore.QPoint)
     placing_finished = QtCore.Signal()      # right-click or Esc while placing
+    delete_requested = QtCore.Signal()      # the Delete key on a selection
     annotation_activated = QtCore.Signal(int)   # a dimension double-clicked
     sketch_activated = QtCore.Signal(int)       # a drawing sketch, likewise
     title_block_activated = QtCore.Signal()     # the title block, likewise
@@ -460,7 +461,7 @@ class SheetCanvas(QtWidgets.QWidget):
             note = next((a for a in sheet.annotations
                          if a.id == self._drag_note), None)
             if note is not None:
-                note.offset = [self._origin[0] + dx, self._origin[1] + dy]
+                note.offset = dwg.dragged_offset(note, self._origin, dx, dy)
                 self.update()
         elif self._drag_table is not None and self._origin is not None:
             table = sheet.parts_list(self._drag_table)
@@ -625,6 +626,11 @@ class SheetCanvas(QtWidgets.QWidget):
             return
         if event.key() == QtCore.Qt.Key_Escape and self.placer is not None:
             self.placing_finished.emit()
+            return
+        chosen = self.selected_views or self.selected_annotations
+        if event.key() in (QtCore.Qt.Key_Delete, QtCore.Qt.Key_Backspace) \
+                and self.placer is None and chosen:
+            self.delete_requested.emit()
             return
         if event.key() == QtCore.Qt.Key_Escape:
             self.selected_views = []

@@ -853,11 +853,12 @@ class MainWindow(QtWidgets.QMainWindow):
                       "A view turned from the selected one"
                       ).clicked.connect(ui.add_projected)
         panel.add_big("dv_auxiliary", "Auxiliary",
-                      "Click an edge of a view, then where the view goes: "
-                      "it looks square onto the face that edge belongs to"
+                      "Click a view, then drag out from it in the direction "
+                      "to look from, and click"
                       ).clicked.connect(ui.add_auxiliary)
         panel.add_big("dv_section", "Section",
-                      "Cut the selected view open"
+                      "Click a view, draw the cut line across it, then "
+                      "drag the section out to one side"
                       ).clicked.connect(ui.add_section)
         panel.add_big("dv_detail", "Detail",
                       "Enlarge part of the selected view"
@@ -872,8 +873,12 @@ class MainWindow(QtWidgets.QMainWindow):
                       "Open a view to show inside: click round the area, "
                       "right-click, then how deep").clicked.connect(
             ui.add_break_out)
+        panel.add_big("dv_crop", "Crop",
+                      "Click a view, then two corners: only what is inside "
+                      "is kept").clicked.connect(ui.add_crop)
         panel.add_small("delete", "Remove Breaks",
-                        "The selected view whole again"
+                        "The selected view whole again: breaks, break outs "
+                        "and crop"
                         ).clicked.connect(ui.remove_breaks)
 
         panel = place.add_panel("Sketch")

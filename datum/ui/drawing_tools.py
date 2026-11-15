@@ -632,74 +632,378 @@ class SymbolDialog(QtWidgets.QDialog):
         return {"text": self.letter.text().strip().upper() or "A"}
 
 
-class AuxiliaryTool(PickTool):
-    """Inventor's Auxiliary: click an edge of a view, then where the new
-    view goes, out square from that edge.  The view looks straight at the
-    face the edge is the side of, so a sloping face shows its true shape.
-    """
+def view_under(sheet, point):
+    """The view whose box a sheet point is in, and the point in that view's
+    own unbroken millimetres; the top one where they overlap."""
+    for view in reversed(sheet.views):
+        projection = view.projection
+        if projection is None:
+            continue
+        box = projection.box
+        local = dwg.unshown(view, (point[0] - view.x, point[1] - view.y))
+        if box[0] - 3 <= local[0] <= box[2] + 3 and \
+                box[1] - 3 <= local[1] <= box[3] + 3:
+            return view, local
+    return None
 
-    name = "Auxiliary View"
-    kinds = (drawpick.LINE,)
-    wanted = 2          # the edge, then the click that places the view
-    prompts = ("click the edge the view looks square onto.",
-               "click where the view goes.")
 
-    def press(self, point, device) -> None:
-        self._scale = self.controller.canvas.layout().scale
-        if not self.picks:
-            item = self._under(point)
-            if item is None:
-                return
-            self.picks.append(item)
-            self.say()
-            self.controller.canvas.update()
-            return
-        self.make(point)
-        self.picks = []
+def paint_view_box(painter, layout, view, colour="#3b82d6") -> None:
+    """A view picked for a tool: its box, dashed round it."""
+    if view is None or view.projection is None:
+        return
+    box = view.projection.box
+    lo = dwg.shown(view, (box[0], box[1]))
+    hi = dwg.shown(view, (box[2], box[3]))
+    painter.save()
+    painter.setPen(QtGui.QPen(QtGui.QColor(colour), 1.2, QtCore.Qt.DashLine))
+    painter.setBrush(QtCore.Qt.NoBrush)
+    painter.drawRect(QtCore.QRectF(
+        QtCore.QPointF(*layout.to_device(view.x + lo[0] - 3,
+                                         view.y + lo[1] - 3)),
+        QtCore.QPointF(*layout.to_device(view.x + hi[0] + 3,
+                                         view.y + hi[1] + 3))).normalized())
+    painter.restore()
+
+
+class ViewTool:
+    """A tool that starts by clicking a view's box, the way Inventor's
+    view commands do, and goes on from there."""
+
+    name = ""
+
+    def __init__(self, controller, sheet) -> None:
+        self.controller = controller
+        self.sheet = sheet
+        self.view = None
+        self.cursor = None
+        # a view already selected is the one meant
+        chosen = controller.canvas.selected_views
+        if chosen:
+            self.view = sheet.view(chosen[-1])
+            if self.view is not None and self.view.projection is None:
+                self.view = None
         self.say()
 
-    def spot(self, point):
-        """Where the view goes for a cursor here: on the line out square
-        from the edge, through the middle of the view it was picked on."""
-        edge = self.picks[0]
-        parent = self.sheet.view(edge.view)
-        if parent is None:
-            return None
-        dx, dy = edge.b[0] - edge.a[0], edge.b[1] - edge.a[1]
-        length = math.hypot(dx, dy) or 1.0
-        nx, ny = -dy / length, dx / length
-        reach = (point[0] - parent.x) * nx + (point[1] - parent.y) * ny
-        angle = math.degrees(math.atan2(dy, dx))
-        if reach < 0:
-            # the other side: looking the other way
-            angle += 180.0
-        return parent, (parent.x + nx * reach, parent.y + ny * reach), angle
+    def prompt(self) -> str:
+        return ""
 
-    def make(self, point) -> None:
+    def say(self) -> None:
+        host = self.controller.host
+        host.status_message.setStyleSheet("")
+        host.status_message.setText("%s: %s Esc to step back."
+                                    % (self.name, self.prompt()))
+
+    def local(self, point):
+        view = self.view
+        return dwg.unshown(view, (point[0] - view.x, point[1] - view.y))
+
+    def sheet_point(self, local):
+        view = self.view
+        at = dwg.shown(view, local)
+        return (view.x + at[0], view.y + at[1])
+
+    def press(self, point, device) -> None:
+        if self.view is None:
+            found = view_under(self.sheet, point)
+            if found is not None:
+                self.view = found[0]
+                self.say()
+                self.controller.canvas.update()
+            return
+        self.pressed(point)
+        self.say()
+        self.controller.canvas.update()
+
+    def pressed(self, point) -> None:
+        raise NotImplementedError
+
+    def move(self, point, device, held: bool) -> None:
+        self.cursor = (point[0], point[1])
+
+    def release(self, point, device) -> None:
+        pass
+
+    def right_click(self, point, device) -> bool:
+        return self.escape()
+
+    def back(self) -> bool:
+        """One step back; False when there was nothing to undo."""
+        if self.view is not None:
+            self.view = None
+            return True
+        return False
+
+    def escape(self) -> bool:
+        if self.back():
+            self.say()
+            self.controller.canvas.update()
+            return True
+        return False
+
+    def cursor_shape(self, point, device):
+        return QtCore.Qt.CrossCursor
+
+    def paint(self, painter, layout) -> None:
+        if self.view is None:
+            if self.cursor is not None:
+                found = view_under(self.sheet, self.cursor)
+                if found is not None:
+                    paint_view_box(painter, layout, found[0], "#e08a1e")
+            return
+        paint_view_box(painter, layout, self.view)
+
+    def close(self) -> None:
+        pass
+
+
+def snapped_angle(sheet, view, angle: float, tolerance: float = 3.0) -> float:
+    """A direction in degrees, pulled onto the nearest 45 or onto square
+    from an edge of the view when it is within a few degrees of one."""
+    wanted = [k * 45.0 for k in range(8)]
+    for item in drawpick.items(view):
+        if item.kind != drawpick.LINE:
+            continue
+        edge = math.degrees(math.atan2(item.b[1] - item.a[1],
+                                       item.b[0] - item.a[0]))
+        wanted += [edge + 90.0, edge - 90.0]
+    best, gap = angle, tolerance
+    for target in wanted:
+        off = (angle - target + 180.0) % 360.0 - 180.0
+        if abs(off) < gap:
+            best, gap = target, abs(off)
+    return best
+
+
+class AuxiliaryTool(ViewTool):
+    """Inventor's Auxiliary, the way the Projected view is placed: click a
+    view, then drag out from it in any direction and click.  The new view
+    looks at the part from that side, so a sloping face can be seen square
+    on; the direction snaps square to the view's edges and to 45s."""
+
+    name = "Auxiliary View"
+
+    def prompt(self) -> str:
+        if self.view is None:
+            return "click the view to project from."
+        return "move out from it in the direction to look, and click."
+
+    def spot(self, point):
+        """Where the view goes for a cursor here, and the angle handed to
+        the auxiliary view: square to the direction it was dragged."""
+        parent = self.view
+        dx, dy = point[0] - parent.x, point[1] - parent.y
+        reach = math.hypot(dx, dy)
+        if reach < 1e-6:
+            return None
+        heading = snapped_angle(self.sheet, parent,
+                                math.degrees(math.atan2(dy, dx)))
+        rad = math.radians(heading)
+        x = parent.x + math.cos(rad) * reach
+        y = parent.y + math.sin(rad) * reach
+        return (x, y), heading - 90.0
+
+    def pressed(self, point) -> None:
         found = self.spot(point)
         if found is None:
             return
-        parent, (x, y), angle = found
-        self.controller.create_auxiliary(parent.id, x, y, angle)
+        (x, y), angle = found
+        self.controller.create_auxiliary(self.view.id, x, y, angle)
 
     def paint(self, painter, layout) -> None:
         super().paint(painter, layout)
-        if not self.picks or self.cursor is None:
+        if self.view is None or self.cursor is None:
             return
         found = self.spot(self.cursor)
         if found is None:
             return
-        parent, (x, y), _angle = found
+        (x, y), _angle = found
+        parent = self.view
         painter.save()
         painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.2,
                                   QtCore.Qt.DashLine))
         painter.drawLine(QtCore.QPointF(*layout.to_device(parent.x,
                                                           parent.y)),
                          QtCore.QPointF(*layout.to_device(x, y)))
-        r = 6.0
+        box = parent.projection.box
+        w = (box[2] - box[0]) / 2.0
+        h = (box[3] - box[1]) / 2.0
+        r = max(6.0, min(w, h))
         painter.drawRect(QtCore.QRectF(
             QtCore.QPointF(*layout.to_device(x - r, y + r)),
-            QtCore.QPointF(*layout.to_device(x + r, y - r))))
+            QtCore.QPointF(*layout.to_device(x + r, y - r))).normalized())
+        painter.restore()
+
+
+class SectionTool(ViewTool):
+    """Inventor's Section: click the view to cut, then draw the cut line
+    as in a sketch, two clicks at any angle, then drag the new view out
+    to one side of the line and click.  The section is only as wide as
+    the line, so a short line makes a small section."""
+
+    name = "Section View"
+    SNAP_PIXELS = 8.0
+
+    def __init__(self, controller, sheet) -> None:
+        self.points: List[Tuple[float, float]] = []
+        super().__init__(controller, sheet)
+
+    def prompt(self) -> str:
+        if self.view is None:
+            return "click the view to cut."
+        if not self.points:
+            return "click where the cut line starts."
+        if len(self.points) == 1:
+            return "click where it ends."
+        return "move the view to the side to look from, and click."
+
+    def back(self) -> bool:
+        if self.points:
+            self.points.pop()
+            return True
+        return super().back()
+
+    def _snapped(self, point):
+        """The point in the view's millimetres, onto a corner or a centre
+        near it, and the second one level or plumb when nearly so."""
+        scale = self.controller.canvas.layout().scale
+        found = drawpick.nearest(self.sheet, point,
+                                 self.SNAP_PIXELS / max(scale, 1e-9),
+                                 only_view=self.view.id,
+                                 kinds=(drawpick.POINT, drawpick.CIRCLE))
+        local = self.local(point)
+        if found is not None:
+            local = tuple(found.a[:2])
+        elif self.points:
+            a = self.points[0]
+            dx, dy = local[0] - a[0], local[1] - a[1]
+            angle = math.degrees(math.atan2(dy, dx))
+            for target in (0.0, 90.0, 180.0, -90.0, -180.0):
+                if abs(angle - target) < 4.0:
+                    length = math.hypot(dx, dy)
+                    rad = math.radians(target)
+                    local = (a[0] + math.cos(rad) * length,
+                             a[1] + math.sin(rad) * length)
+                    break
+        return (float(local[0]), float(local[1]))
+
+    def spot(self, point):
+        """The two ends ordered so the model reads them the right way
+        round, and where the view goes, out square from the line."""
+        a, b = self.points
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / length, dx / length
+        local = self.local(point)
+        mid = ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
+        reach = (local[0] - mid[0]) * nx + (local[1] - mid[1]) * ny
+        if abs(reach) < 1e-6:
+            reach = -1e-6
+        # The model looks from the line's left (its normal) at what lies
+        # to its right.  First angle puts the view on the side away from
+        # where it is looked from, third angle on the same side.
+        third = getattr(self.controller.document, "angle",
+                        dwg.FIRST_ANGLE) == dwg.THIRD_ANGLE
+        if (reach > 0) != third:
+            a, b = b, a
+        at = self.sheet_point(mid)
+        return (a, b), (at[0] + nx * reach, at[1] + ny * reach)
+
+    def pressed(self, point) -> None:
+        if len(self.points) < 2:
+            p = self._snapped(point)
+            if self.points and math.dist(p, self.points[0]) < 1.0:
+                return
+            self.points.append(p)
+            return
+        (a, b), (x, y) = self.spot(point)
+        made = self.controller.create_section(self.view.id, a, b, x, y)
+        self.points = []
+        if made is not None:
+            self.view = None
+
+    def paint(self, painter, layout) -> None:
+        super().paint(painter, layout)
+        if self.view is None:
+            return
+        painter.save()
+        pen = QtGui.QPen(QtGui.QColor("#3b82d6"), 1.6)
+        pen.setDashPattern([8.0, 3.0, 2.0, 3.0])
+        painter.setPen(pen)
+        drawn = [self.sheet_point(p) for p in self.points]
+        if len(self.points) == 1 and self.cursor is not None:
+            drawn.append(self.sheet_point(self._snapped(self.cursor)))
+        if len(drawn) == 2:
+            painter.drawLine(QtCore.QPointF(*layout.to_device(*drawn[0])),
+                             QtCore.QPointF(*layout.to_device(*drawn[1])))
+        for p in drawn:
+            painter.setBrush(QtGui.QColor("#3b82d6"))
+            painter.drawEllipse(QtCore.QPointF(*layout.to_device(*p)),
+                                3.0, 3.0)
+        if len(self.points) == 2 and self.cursor is not None:
+            (a, b), (x, y) = self.spot(self.cursor)
+            half = math.dist(a, b) / 2.0
+            painter.setBrush(QtCore.Qt.NoBrush)
+            painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.2,
+                                      QtCore.Qt.DashLine))
+            mid = self.sheet_point(((a[0] + b[0]) / 2.0,
+                                    (a[1] + b[1]) / 2.0))
+            painter.drawLine(QtCore.QPointF(*layout.to_device(*mid)),
+                             QtCore.QPointF(*layout.to_device(x, y)))
+            r = max(6.0, half)
+            painter.drawRect(QtCore.QRectF(
+                QtCore.QPointF(*layout.to_device(x - r, y + r)),
+                QtCore.QPointF(*layout.to_device(x + r, y - r))).normalized())
+        painter.restore()
+
+
+class CropTool(ViewTool):
+    """Inventor's Crop: click the view, then two corners of a rectangle;
+    only what is inside it is kept on the view."""
+
+    name = "Crop"
+
+    def __init__(self, controller, sheet) -> None:
+        self.corner = None
+        super().__init__(controller, sheet)
+
+    def prompt(self) -> str:
+        if self.view is None:
+            return "click the view to crop."
+        if self.corner is None:
+            return "click one corner of what to keep."
+        return "click the opposite corner."
+
+    def back(self) -> bool:
+        if self.corner is not None:
+            self.corner = None
+            return True
+        return super().back()
+
+    def pressed(self, point) -> None:
+        here = self.local(point)
+        if self.corner is None:
+            self.corner = here
+            return
+        a, b = self.corner, here
+        if abs(a[0] - b[0]) < 1.0 or abs(a[1] - b[1]) < 1.0:
+            return
+        view = self.view
+        self.corner = None
+        self.view = None
+        self.controller.crop_view(self.sheet, view,
+                                  [a[0], a[1], b[0], b[1]])
+
+    def paint(self, painter, layout) -> None:
+        super().paint(painter, layout)
+        if self.view is None or self.corner is None or self.cursor is None:
+            return
+        a = self.sheet_point(self.corner)
+        painter.save()
+        painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.4))
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.drawRect(QtCore.QRectF(
+            QtCore.QPointF(*layout.to_device(*a)),
+            QtCore.QPointF(*layout.to_device(*self.cursor))).normalized())
         painter.restore()
 
 

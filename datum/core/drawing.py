@@ -718,6 +718,11 @@ class View:
     # inside it is taken away to show what is in there
     breakout: List[List[float]] = field(default_factory=list)
     breakout_depth: float = 0.0
+    # a section only as wide as the line drawn for it, not the whole part
+    bounded: bool = False
+    # Crop: the corners of a rectangle on the view, in its own unbroken
+    # millimetres; only what is inside it is drawn
+    crop: List[float] = field(default_factory=list)
 
     # filled in by a rebuild; never written to the drawing.json
     projection: Optional[hlr.Projection] = None
@@ -745,6 +750,8 @@ class View:
             **({"breakout": [list(p) for p in self.breakout],
                 "breakout_depth": self.breakout_depth}
                if self.breakout else {}),
+            **({"bounded": True} if self.bounded else {}),
+            **({"crop": list(self.crop)} if self.crop else {}),
         }
 
     @classmethod
@@ -774,7 +781,9 @@ class View:
                     for b in d.get("breaks") or []],
             breakout=[[float(v) for v in p][:2]
                       for p in d.get("breakout") or []],
-            breakout_depth=float(d.get("breakout_depth", 0.0) or 0.0))
+            breakout_depth=float(d.get("breakout_depth", 0.0) or 0.0),
+            bounded=bool(d.get("bounded", False)),
+            crop=[float(v) for v in d.get("crop") or []][:4])
 
     @property
     def label(self) -> str:
@@ -1200,9 +1209,32 @@ def dimension_line(note: "Annotation"):
         b = (p2[0] + nx * oy, p2[1] + ny * oy)
         along = ox if note.axis == "aligned" else 0.0
     span = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
-    label = ((a[0] + b[0]) / 2.0 + (b[0] - a[0]) / span * along,
-             (a[1] + b[1]) / 2.0 + (b[1] - a[1]) / span * along)
+    if note.kind == LINEAR:
+        # along the page's own axis, whichever end was picked first: the
+        # tool measures it that way, and a dimension picked right to left
+        # used to slide its value the opposite way to the mouse
+        flat = abs(b[1] - a[1]) < 1e-12
+        ux, uy = (1.0, 0.0) if flat else (0.0, 1.0)
+    else:
+        ux, uy = (b[0] - a[0]) / span, (b[1] - a[1]) / span
+    label = ((a[0] + b[0]) / 2.0 + ux * along,
+             (a[1] + b[1]) / 2.0 + uy * along)
     return a, b, label
+
+
+def dragged_offset(note: "Annotation", origin: Sequence[float], dx: float,
+                   dy: float) -> List[float]:
+    """An annotation's offset once it is dragged (dx, dy) on the page
+    from where it was.  An aligned dimension keeps its offset along and
+    across its own line, so the page move is turned into those."""
+    ox, oy = (list(origin) + [0.0, 0.0])[:2]
+    p = note.points
+    if note.kind == ALIGNED and len(p) >= 2:
+        ex, ey = p[1][0] - p[0][0], p[1][1] - p[0][1]
+        length = math.hypot(ex, ey) or 1.0
+        ux, uy = ex / length, ey / length
+        return [ox + dx * ux + dy * uy, oy - dx * uy + dy * ux]
+    return [ox + dx, oy + dy]
 
 
 def label_at(note: "Annotation") -> Tuple[float, float]:

@@ -123,13 +123,13 @@ if not slope:
 check("the side view shows the slope as an edge", bool(slope))
 edge = slope[0]
 
-print("Auxiliary off that edge")
+print("Auxiliary: the view, then dragged out square from the slope")
 ui.add_auxiliary()
 tool = ui._placer
 check("the tool is armed", isinstance(tool, drawing_tools.AuxiliaryTool))
 mid = ((edge.a[0] + edge.b[0]) / 2, (edge.a[1] + edge.b[1]) / 2)
 tool.press((view.x + mid[0], view.y + mid[1]), None)
-check("the edge is taken", len(tool.picks) == 1)
+check("the view is taken", tool.view is view)
 dx, dy = edge.b[0] - edge.a[0], edge.b[1] - edge.a[1]
 n = math.hypot(dx, dy)
 normal = (-dy / n, dx / n)

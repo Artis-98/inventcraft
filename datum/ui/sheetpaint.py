@@ -619,22 +619,38 @@ def _cut_line(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     painter.setPen(pen)
 
     x1, y1, x2, y2 = view.cut[:4]
-    a = layout.to_device(parent.x + x1, parent.y + y1)
-    b = layout.to_device(parent.x + x2, parent.y + y2)
+    s1 = (parent.x + x1, parent.y + y1)
+    s2 = (parent.x + x2, parent.y + y2)
+    a = layout.to_device(*s1)
+    b = layout.to_device(*s2)
     painter.drawLine(QtCore.QPointF(*a), QtCore.QPointF(*b))
 
-    painter.setPen(_pen(layout, style))
-    for point, sign in ((a, 1.0), (b, -1.0)):
-        _arrow_head(painter, point, (b[0] - a[0]) * sign, (b[1] - a[1]) * sign,
+    # Arrows square to the line at both ends, pointing the way the section
+    # looks, with the letter past each one.  The model looks from the
+    # line's left at what is to its right, so that is the way they point.
+    length = math.hypot(x2 - x1, y2 - y1) or 1.0
+    ux, uy = (x2 - x1) / length, (y2 - y1) / length
+    sight = (uy, -ux)
+    shaft = max(6.0, style.arrow_size * 2.4)
+    thick = _pen(layout, style)
+    thick.setWidthF(thick.widthF() * 2.0)
+    for end, out in ((s1, -1.0), (s2, 1.0)):
+        painter.setPen(thick)
+        stub = (end[0] - ux * out * 3.0, end[1] - uy * out * 3.0)
+        painter.drawLine(QtCore.QPointF(*layout.to_device(*end)),
+                         QtCore.QPointF(*layout.to_device(*stub)))
+        painter.setPen(_pen(layout, style))
+        tip = (end[0] + sight[0] * shaft, end[1] + sight[1] * shaft)
+        d_end = layout.to_device(*end)
+        d_tip = layout.to_device(*tip)
+        painter.drawLine(QtCore.QPointF(*d_end), QtCore.QPointF(*d_tip))
+        _arrow_head(painter, d_tip, d_tip[0] - d_end[0], d_tip[1] - d_end[1],
                     layout.pen_width(style.arrow_size) * 1.6)
-    for point in (a, b):
-        pass
-    if view.letter:
-        for point in (a, b):
-            sheet_point = layout.to_sheet(point[0], point[1])
-            _text(painter, layout, view.letter,
-                  sheet_point[0], sheet_point[1] + 4.0, 5.0, bold=True,
-                  align="centre", colour=style.colour)
+        if view.letter:
+            at = (tip[0] + sight[0] * 3.5 + ux * out * 2.5,
+                  tip[1] + sight[1] * 3.5 + uy * out * 2.5 - 2.0)
+            _text(painter, layout, view.letter, at[0], at[1], 5.0,
+                  bold=True, align="centre", colour=style.colour)
 
 
 def _detail_circle(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,

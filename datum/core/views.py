@@ -955,6 +955,13 @@ class Generator:
             report.errors.append("%s: %s" % (view.label, projection.error))
             return
 
+        if len(view.crop) >= 4:
+            cropped = cropped_projection(projection, view.crop)
+            if cropped is None:
+                view.error = "nothing of it is inside the crop"
+                report.errors.append("%s: %s" % (view.label, view.error))
+                return
+            projection = cropped
         if projection.of_kind(hlr.CUT):
             projection.hatch = view.hatch_pattern or drawing.hatch_for_material(
                 getattr(document, "material", "")) or "steel"
@@ -1250,6 +1257,18 @@ class Generator:
         cut = half_space(shape, point, normal)
         if cut is None or cut.IsNull():
             raise ValueError("the cut line does not pass through the model")
+        if view.bounded:
+            # only as wide as the line: the part past either end is left
+            # out, by a plane square to the line through each end
+            side = _unit([right[i] * along[0] + pu[i] * along[1]
+                          for i in range(3)])
+            for (ex, ey), sign in (((x1, y1), -1.0), ((x2, y2), 1.0)):
+                end = [right[i] * ex + pu[i] * ey + centre[i]
+                       for i in range(3)]
+                cut = half_space(cut, end, [c * sign for c in side])
+                if cut is None or cut.IsNull():
+                    raise ValueError("the cut line does not pass through "
+                                     "the model")
 
         # Look along the cut normal.  Which way is up then follows the same
         # rule a projected view uses, because a section is read exactly like
@@ -1335,6 +1354,105 @@ def _scaled(projection: hlr.Projection, scale: float) -> hlr.Projection:
     for line in projection.lines:
         line.points = [(x * scale, y * scale) for x, y in line.points]
     projection.box = tuple(c * scale for c in projection.box)
+    return projection
+
+
+def _clip_to_rect(points, box):
+    """A polyline cut down to the parts inside a rectangle (Liang-Barsky
+    on each segment, joined back up where they run on)."""
+    x0, y0, x1, y1 = box
+    pieces: List[List[Tuple[float, float]]] = []
+    current: List[Tuple[float, float]] = []
+    for a, b in zip(points, points[1:]):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        t0, t1 = 0.0, 1.0
+        inside = True
+        for p, q in ((-dx, a[0] - x0), (dx, x1 - a[0]),
+                     (-dy, a[1] - y0), (dy, y1 - a[1])):
+            if abs(p) < 1e-12:
+                if q < 0:
+                    inside = False
+                    break
+                continue
+            t = q / p
+            if p < 0:
+                t0 = max(t0, t)
+            else:
+                t1 = min(t1, t)
+        if not inside or t0 > t1:
+            if len(current) >= 2:
+                pieces.append(current)
+            current = []
+            continue
+        start = (a[0] + dx * t0, a[1] + dy * t0)
+        end = (a[0] + dx * t1, a[1] + dy * t1)
+        if current and math.dist(current[-1], start) < 1e-9:
+            current.append(end)
+        else:
+            if len(current) >= 2:
+                pieces.append(current)
+            current = [start, end]
+        if t1 < 1.0:
+            pieces.append(current)
+            current = []
+    if len(current) >= 2:
+        pieces.append(current)
+    return pieces
+
+
+def _clip_loop_to_rect(points, box):
+    """A closed area cut down to a rectangle (Sutherland-Hodgman), so a
+    cut face stays closed and its hatching does not leak."""
+    x0, y0, x1, y1 = box
+    loop = list(points)
+    for inside, cross in (
+            (lambda p: p[0] >= x0,
+             lambda a, b: (x0, a[1] + (b[1] - a[1]) * (x0 - a[0])
+                           / (b[0] - a[0]))),
+            (lambda p: p[0] <= x1,
+             lambda a, b: (x1, a[1] + (b[1] - a[1]) * (x1 - a[0])
+                           / (b[0] - a[0]))),
+            (lambda p: p[1] >= y0,
+             lambda a, b: (a[0] + (b[0] - a[0]) * (y0 - a[1])
+                           / (b[1] - a[1]), y0)),
+            (lambda p: p[1] <= y1,
+             lambda a, b: (a[0] + (b[0] - a[0]) * (y1 - a[1])
+                           / (b[1] - a[1]), y1))):
+        if not loop:
+            break
+        out = []
+        for i, here in enumerate(loop):
+            before = loop[i - 1]
+            if inside(here):
+                if not inside(before):
+                    out.append(cross(before, here))
+                out.append(here)
+            elif inside(before):
+                out.append(cross(before, here))
+        loop = out
+    return loop
+
+
+def cropped_projection(projection: hlr.Projection, crop):
+    """Only what is inside the crop rectangle of a view; None when none of
+    it is.  The view keeps its place: only its lines and box change."""
+    box = (min(crop[0], crop[2]), min(crop[1], crop[3]),
+           max(crop[0], crop[2]), max(crop[1], crop[3]))
+    lines: List[hlr.Polyline] = []
+    for line in projection.lines:
+        if line.kind == hlr.CUT:
+            piece = _clip_loop_to_rect(line.points, box)
+            if len(piece) >= 3:
+                lines.append(hlr.Polyline(piece, line.kind))
+            continue
+        for piece in _clip_to_rect(line.points, box):
+            lines.append(hlr.Polyline(piece, line.kind))
+    if not lines:
+        return None
+    xs = [p[0] for line in lines for p in line.points]
+    ys = [p[1] for line in lines for p in line.points]
+    projection.lines = lines
+    projection.box = (min(xs), min(ys), max(xs), max(ys))
     return projection
 
 

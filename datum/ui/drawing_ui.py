@@ -69,6 +69,7 @@ class DrawingController(QtCore.QObject):
         canvas.view_activated.connect(self.edit_view)
         canvas.context_requested.connect(self._canvas_menu)
         canvas.placing_finished.connect(self._placing_finished)
+        canvas.delete_requested.connect(self.delete_selected)
         # a dimension double-clicked opens its text; a leg dragged to
         # another point is tied to the model there
         canvas.annotation_activated.connect(self.edit_annotation)
@@ -590,13 +591,14 @@ class DrawingController(QtCore.QObject):
     def remove_breaks(self) -> None:
         """The selected view whole again."""
         doc, sheet, view = self._selected_view()
-        if view is None or not (view.breaks or view.breakout):
-            self._complain("Select a broken view first.")
+        if view is None or not (view.breaks or view.breakout or view.crop):
+            self._complain("Select a broken or cropped view first.")
             return
         doc.push_undo()
-        opened = bool(view.breakout)
+        opened = bool(view.breakout or view.crop)
         view.breaks = []
         view.breakout = []
+        view.crop = []
         doc.modified = True
         if opened:
             view.projection = None
@@ -626,26 +628,47 @@ class DrawingController(QtCore.QObject):
         return child
 
     def add_section(self) -> None:
-        """Cut the selected view across its middle and look at the cut."""
-        doc, sheet, view = self._selected_view()
+        """Inventor's Section: a view, a line drawn on it, then where."""
+        self._start_tool("SectionTool")
+
+    def create_section(self, parent_id: int, a, b, x: float,
+                       y: float) -> Optional[View]:
+        """A section of a view cut on the line from a to b, in the view's
+        own millimetres, only as wide as the line, centred at (x, y)."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        view = sheet.view(parent_id) if sheet else None
         if view is None:
-            self._complain("Select the view to cut, then add a section.")
-            return
-        box = view.projection.box if view.projection else (-20, -20, 20, 20)
+            return None
         doc.push_undo()
         letter = doc.next_letter()
         section = View(kind=SECTION, parent=view.id, letter=letter,
-                       cut=[box[0] - 4.0, 0.0, box[2] + 4.0, 0.0],
-                       x=view.x, y=view.y - (box[3] - box[1]) - 30.0)
+                       cut=[float(a[0]), float(a[1]), float(b[0]),
+                            float(b[1])],
+                       bounded=True, x=float(x), y=float(y))
         doc.add_view(sheet, section)
-        report = self.rebuild()
+        self.rebuild()
         if section.error:
             self._complain("That cut did not work: %s" % section.error)
         else:
-            self.canvas.select([section.id])
             self.host.status_message.setText(
-                "Section %s-%s added. Drag its cut line on the parent."
-                % (letter, letter))
+                "Section %s-%s added." % (letter, letter))
+        return section
+
+    def add_crop(self) -> None:
+        """Inventor's Crop: a rectangle on a view, and only what is in it."""
+        self._start_tool("CropTool")
+
+    def crop_view(self, sheet, view, rect) -> bool:
+        doc = self.document
+        doc.push_undo()
+        view.crop = [float(v) for v in rect[:4]]
+        view.projection = None
+        doc.modified = True
+        self.rebuild(force=True)
+        if view.error:
+            self._complain("The crop did not work: %s" % view.error)
+        return True
 
     def add_detail(self) -> None:
         doc, sheet, view = self._selected_view()

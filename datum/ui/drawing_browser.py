@@ -148,18 +148,14 @@ class DrawingBrowser(QtWidgets.QTreeWidget):
             item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.warn)))
             item.setToolTip(0, "The model has changed - press Update")
 
-        for note in sheet.annotations_for(view.id):
-            child = QtWidgets.QTreeWidgetItem(
-                item, [dwg.ANNOTATION_LABELS.get(note.kind, "Annotation")
-                       + "  " + note.caption(doc.view_scale(sheet, view))])
-            child.setData(0, ROLE_KIND, "note")
-            child.setData(0, ROLE_ID, note.id)
-            child.setIcon(0, icons.icon(
-                "c_coincident" if note.kind == dwg.BALLOON else "dimension",
-                16))
-            if note.sick:
-                child.setForeground(0, QtGui.QBrush(QtGui.QColor(C.error)))
-                child.setToolTip(0, "What this was attached to is gone")
+        # Dimensions and notes are not listed, as Inventor lists none: a
+        # view with a hundred of them buried its own children.  One that
+        # has lost what it was attached to still says so on the view.
+        sick = sum(1 for note in sheet.annotations_for(view.id) if note.sick)
+        if sick and not view.error:
+            item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.warn)))
+            item.setToolTip(0, "%d annotation(s) here have lost what they "
+                               "were attached to" % sick)
         return item
 
     # ------------------------------------------------------------- selection
