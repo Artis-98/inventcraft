@@ -8,7 +8,7 @@ Two sources, one way of placing:
 * bolts, screws, nuts and washers are tables here, by ISO standard.
 
 A part is written to a file the first time a size is asked for and reused
-after.  The file remembers what it is (``Document.library``), which is how
+after.  The file remembers what it is (``Document.standard_part``), which is how
 Change Size knows what to offer when it is opened again on a placed part.
 """
 from __future__ import annotations
@@ -163,7 +163,7 @@ def write_part(chosen: Dict[str, Any], folder: str) -> str:
                         + fileformat.extension_for(fileformat.PART))
     if os.path.exists(path):
         try:
-            if Document.load(path).library == chosen:
+            if Document.load(path).standard_part == chosen:
                 return path
         except Exception:
             pass
@@ -171,7 +171,7 @@ def write_part(chosen: Dict[str, Any], folder: str) -> str:
         _write_profile(path, fam, chosen)
     else:
         doc = _fastener(fam, chosen)
-        doc.library = dict(chosen)
+        doc.standard_part = dict(chosen)
         doc.save(path)
     return path
 
@@ -184,7 +184,7 @@ def _write_profile(path: str, fam: Family, chosen: Dict[str, Any]) -> None:
     frames.write_member_part(path, member, frames.family(fam.id),
                              float(chosen["length"]))
     doc = Document.load(path)
-    doc.library = dict(chosen)
+    doc.standard_part = dict(chosen)
     doc.properties["Description"] = description(chosen)
     doc.rebuild()
     doc.save(path)
@@ -265,7 +265,7 @@ def spec_of(path: str) -> Optional[Dict[str, Any]]:
            os.path.getmtime(path))
     if key not in _seen:
         try:
-            _seen[key] = dict(Document.load(path).library or {}) or None
+            _seen[key] = dict(Document.load(path).standard_part or {}) or None
         except Exception:
             _seen[key] = None
     return _seen[key]
