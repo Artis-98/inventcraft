@@ -583,7 +583,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                     lambda: self.plane_action_requested.emit("sketch", fid))
                 menu.addAction("Edit Offset...").triggered.connect(
                     lambda: self.plane_action_requested.emit("offset", fid))
-                menu.addAction(icons.icon("plane", 16), "Redefine"
+                menu.addAction(icons.icon("redefine", 16), "Redefine"
                                ).triggered.connect(
                     lambda: self.plane_action_requested.emit("redefine",
                                                              fid))
@@ -611,12 +611,12 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             open_part.triggered.connect(
                 lambda: self.occurrence_activated.emit(oid))
 
-            replace = menu.addAction(icons.icon("import", 16), "Replace...")
+            replace = menu.addAction(icons.icon("replace", 16), "Replace...")
             replace.triggered.connect(
                 lambda: self.replace_requested.emit(oid))
             from ..core import standard_parts
             if standard_parts.spec_of(self._doc.component_path(occurrence)):
-                change = menu.addAction(icons.icon("library", 16),
+                change = menu.addAction(icons.icon("change_size", 16),
                                         "Change Size...")
                 change.setToolTip("Its size, and its length, from the "
                                   "library again")
@@ -722,7 +722,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                     lambda: self.properties_requested.emit(0),
                     lambda: self.open_location_requested.emit(0))
                 menu.addSeparator()
-            place = menu.addAction(icons.icon("import", 16),
+            place = menu.addAction(icons.icon("place", 16),
                                    "Place Component...")
             place.triggered.connect(self.place_requested.emit)
 

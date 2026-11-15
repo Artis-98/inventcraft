@@ -1004,12 +1004,12 @@ class CamController(QtCore.QObject):
                                        placed.label)
                 title.setEnabled(False)
                 menu.addSeparator()
-                face = menu.addAction(icons.icon("shell", 16), "Cut Face...")
+                face = menu.addAction(icons.icon("cut_face", 16), "Cut Face...")
                 face.triggered.connect(
                     lambda: self.cut_face_dialog(placed.id))
                 move = menu.addAction(icons.icon("move", 16), "Move To...")
                 move.triggered.connect(lambda: self.move_dialog(placed.id))
-                rotate = menu.addAction(icons.icon("revolve", 16),
+                rotate = menu.addAction(icons.icon("rotate_90", 16),
                                         "Rotate 90")
                 rotate.triggered.connect(
                     lambda: self.rotate_part(placed.id, 90.0))
@@ -1022,15 +1022,15 @@ class CamController(QtCore.QObject):
                 delete.triggered.connect(lambda: self.delete_part(placed.id))
                 menu.addSeparator()
 
-        add = menu.addAction(icons.icon("import", 16), "Add Part...")
+        add = menu.addAction(icons.icon("cam_add_part", 16), "Add Part...")
         add.triggered.connect(self.add_part)
-        arrange = menu.addAction(icons.icon("pattern", 16), "Auto Arrange")
+        arrange = menu.addAction(icons.icon("auto_arrange", 16), "Auto Arrange")
         arrange.setEnabled(bool(doc and doc.parts))
         arrange.triggered.connect(self.auto_arrange)
-        stock = menu.addAction(icons.icon("rect", 16), "Sheet and Tool...")
+        stock = menu.addAction(icons.icon("cam_sheet", 16), "Sheet and Tool...")
         stock.triggered.connect(self.sheet_dialog)
         menu.addSeparator()
-        export = menu.addAction(icons.icon("export", 16), "Export DXF...")
+        export = menu.addAction(icons.icon("export_dxf", 16), "Export DXF...")
         export.setEnabled(bool(doc and doc.last_report.toolpath.cuts))
         export.triggered.connect(self.export_dxf)
         menu.addSeparator()

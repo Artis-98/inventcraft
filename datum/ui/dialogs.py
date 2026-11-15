@@ -2022,8 +2022,8 @@ class PatternDialog(FeatureDialog):
 
     KINDS = [("rectangular", "pattern", "Rectangular Pattern"),
              ("circular", "pattern_circ", "Circular Pattern")]
-    WHAT = [("features", "extrude", "Pattern features"),
-            ("bodies", "box", "Pattern solids")]
+    WHAT = [("features", "features", "Pattern features"),
+            ("bodies", "bodies", "Pattern solids")]
 
     def __init__(self, host, feature, is_new, snapshot=None):
         super().__init__(host, feature, "Pattern", "pattern", is_new, snapshot)
@@ -2148,8 +2148,8 @@ class MirrorDialog(FeatureDialog):
     """Inventor's Mirror: features or solids down the side, both picked,
     and the plane picked or one of the origin's three."""
 
-    WHAT = [("features", "extrude", "Mirror features"),
-            ("body", "box", "Mirror solids")]
+    WHAT = [("features", "features", "Mirror features"),
+            ("body", "bodies", "Mirror solids")]
 
     def __init__(self, host, feature, is_new, snapshot=None):
         super().__init__(host, feature, "Mirror", "mirror", is_new, snapshot)

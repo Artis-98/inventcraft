@@ -342,7 +342,7 @@ class LibraryDialog(QtWidgets.QDialog):
                                   "anywhere, through Place Component")
         self.from_file.clicked.connect(self._from_file)
         self.add_folder = QtWidgets.QPushButton(
-            icons.icon("open", 16), "Add Folder...", self)
+            icons.icon("folder_add", 16), "Add Folder...", self)
         self.add_folder.setToolTip(
             "One of your own folders of parts, assemblies or STEP files, "
             "under My Folders, kept for next time")

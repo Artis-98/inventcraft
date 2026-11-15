@@ -31,11 +31,11 @@ def add_file_actions(menu: QtWidgets.QMenu, doc, properties, location
     part at the top of its own tree, an assembly at the top of its, and
     each component an assembly places.
     """
-    props = menu.addAction(icons.icon("edit", 16), "dProperties...")
+    props = menu.addAction(icons.icon("properties", 16), "dProperties...")
     props.setToolTip("Title, part number, material and your own properties")
     props.triggered.connect(lambda: properties())
     path = getattr(doc, "path", "") or ""
-    where = menu.addAction(icons.icon("open", 16), "Open File Location")
+    where = menu.addAction(icons.icon("folder_open", 16), "Open File Location")
     where.setEnabled(bool(path))
     where.setToolTip("Show the file in Explorer" if path
                      else "It has no file yet: save it first")
@@ -630,7 +630,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             menu.addAction(icons.icon("sm_flat", 16), "Edit Flat Pattern"
                            ).triggered.connect(
                 lambda: self.flat_requested.emit("open", -1))
-            menu.addAction(icons.icon("export", 16), "Save Copy As DXF..."
+            menu.addAction(icons.icon("export_dxf", 16), "Save Copy As DXF..."
                            ).triggered.connect(
                 lambda: self.flat_requested.emit("dxf", -1))
             return menu
@@ -653,7 +653,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         if kind == "body":
             name = str(item.data(0, ROLE_ID))
             shown = self._doc.body_visible(name)
-            vis = menu.addAction(icons.icon("box", 16),
+            vis = menu.addAction(icons.icon("hide", 16),
                                  "Hide" if shown else "Show")
             vis.triggered.connect(
                 lambda: self.body_visibility_requested.emit(
@@ -699,7 +699,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
                 offset = menu.addAction("Edit Offset...")
                 offset.triggered.connect(
                     lambda: self.plane_action_requested.emit("offset", fid))
-                redefine = menu.addAction(icons.icon("plane", 16),
+                redefine = menu.addAction(icons.icon("redefine", 16),
                                           "Redefine")
                 redefine.setToolTip("Pick what the plane is made from again: "
                                     "a face, lines, points")
@@ -767,7 +767,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
             act.triggered.connect(lambda: self.rollback_requested.emit(None))
             rolled = self._doc.rollback_index
             menu.addSeparator()
-            drop = menu.addAction(icons.icon("delete", 16),
+            drop = menu.addAction(icons.icon("delete_below", 16),
                                   "Delete All Features Below")
             drop.setEnabled(rolled is not None
                             and rolled < len(self._doc.features))

@@ -134,7 +134,7 @@ ALL_TABS = (TAB_MODEL, TAB_ASSEMBLE, TAB_DESIGN, TAB_CAM, TAB_DRAWING,
 # What sits behind the Rectangle button: the same list Inventor shows, in
 # the same order, titles and all.
 PLACE_OPTIONS = [
-    ("place", "import", "Place", "Component (P)"),
+    ("place", "place", "Place", "Component (P)"),
     ("library", "library", "Place from", "Library"),
 ]
 
@@ -454,7 +454,7 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.new_feature(ExtrudeFeature, operation="cut"))
         panel.add_small("hole", "Hole").clicked.connect(
             lambda: self.new_feature(HoleFeature))
-        panel.add_small("fillet", "Corner Round").clicked.connect(
+        panel.add_small("sm_corner_round", "Corner Round").clicked.connect(
             lambda: self.new_feature(FilletFeature))
         panel.add_small("sm_corner", "Corner Seam",
                         "Close the corner between two flanges made apart"
@@ -481,15 +481,15 @@ class MainWindow(QtWidgets.QMainWindow):
                       "Thickness, bend radius and K-factor"
                       ).clicked.connect(self.edit_sheet_metal_defaults)
         panel = flat.add_panel("Export")
-        panel.add_big("export", "Save Copy\nAs DXF",
+        panel.add_big("export_dxf", "Save Copy\nAs DXF",
                       "The flat's size, and a DXF to cut from"
                       ).clicked.connect(self.show_flat_pattern)
         panel = flat.add_panel("Folded Part")
-        panel.add_big("sm_face", "Go to\nFolded Part",
+        panel.add_big("sm_folded", "Go to\nFolded Part",
                       "Back to the part as it is bent"
                       ).clicked.connect(self.exit_flat)
         panel = sheet.add_panel("Convert")
-        panel.add_small("sm_convert", "Convert to Standard Part",
+        panel.add_small("sm_to_standard", "Convert to Standard Part",
                         "Back to an ordinary part; the features stay"
                         ).clicked.connect(self.convert_to_standard)
 
@@ -640,9 +640,9 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("project_geometry", "Project\nGeometry",
                       "Bring model edges onto this sketch plane"
                       ).clicked.connect(self.project_geometry)
-        panel.add_small("export", "Export DXF").clicked.connect(
+        panel.add_small("export_dxf", "Export DXF").clicked.connect(
             self.export_sketch_dxf)
-        panel.add_small("import", "Import DXF",
+        panel.add_small("import_dxf", "Import DXF",
                         "Bring the lines, arcs, circles and text of a DXF "
                         "into this sketch, as Inventor's Insert ACAD: a "
                         "title block drawn in AutoCAD, say"
@@ -678,16 +678,16 @@ class MainWindow(QtWidgets.QMainWindow):
                                             "Bring a part or sub-assembly in")
         self.place_button.setCheckable(False)
         self.place_button.chosen.connect(self._place_chosen)
-        panel.add_small("box", "Create Part", "Start a new part for this "
+        panel.add_small("create_part", "Create Part", "Start a new part for this "
                         "assembly").clicked.connect(self.new_part_for_assembly)
         panel.add_small("delete", "Delete").clicked.connect(
             self.delete_selected_component)
-        panel.add_small("edit", "Open Part").clicked.connect(
+        panel.add_small("open", "Open Part").clicked.connect(
             self.open_selected_component)
 
         panel = assemble.add_panel("Position")
         self.move_button = panel.add_big(
-            "move", "Free\nMove", "Drag a component in the view (M)",
+            "free_move", "Free\nMove", "Drag a component in the view (M)",
             checkable=True)
         self.move_button.clicked.connect(
             lambda: self.toggle_component_tool("move"))
@@ -696,7 +696,7 @@ class MainWindow(QtWidgets.QMainWindow):
             checkable=True)
         self.rotate_button.clicked.connect(
             lambda: self.toggle_component_tool("rotate"))
-        panel.add_small("params", "Move To...", "Type an exact placement"
+        panel.add_small("move_to", "Move To...", "Type an exact placement"
                         ).clicked.connect(self.assembly_ui.move_selected)
         panel.add_small("c_fix", "Ground",
                         "Pin the selected component so the solver leaves it"
@@ -720,23 +720,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 lambda _=False, k=kind: self.assembly_ui.constrain(k))
 
         panel = assemble.add_panel("Productivity")
-        panel.add_big("save", "Save and\nReplace",
+        panel.add_big("save_replace", "Save and\nReplace",
                       "Save this component's file under a new name and "
                       "point the assembly at the copy"
                       ).clicked.connect(
             lambda: self.assembly_ui.save_and_replace())
 
         panel = assemble.add_panel("Manage")
-        panel.add_big("material", "Bill of\nMaterials",
+        panel.add_big("bom", "Bill of\nMaterials",
                       "What the assembly is made of: its parts, counted, "
                       "with their properties to read and change"
                       ).clicked.connect(self.show_bom)
-        panel.add_small("rollback", "Update All",
+        panel.add_small("update_views", "Update All",
                         "Reload every component from disk"
                         ).clicked.connect(self.reload_components)
         panel.add_small("params", "Parameters", "Named parameters (Ctrl+P)"
                         ).clicked.connect(self.edit_parameters)
-        panel.add_small("material", "dProperties",
+        panel.add_small("properties", "dProperties",
                         "Title, part number, units, mass and bounding box"
                         ).clicked.connect(self.show_properties)
         panel.add_small("auto", "cLogic", "Rules that drive this assembly"
@@ -755,7 +755,7 @@ class MainWindow(QtWidgets.QMainWindow):
                       "Change Frame: new sizes, placement or material for "
                       "members already made").clicked.connect(
             lambda: self.change_frame())
-        panel.add_small("update", "Refresh",
+        panel.add_small("frame_refresh", "Refresh",
                         "Bring every frame up to its skeleton").clicked.connect(
             lambda: self.assembly_ui.rebuild())
         panel = design.add_panel("End Treatments")
@@ -775,7 +775,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 else panel.add_small
             add(icon, label, tip).clicked.connect(
                 lambda _c=False, k=kind: self.end_treatment(k))
-        panel.add_small("delete", "Remove End Treatments",
+        panel.add_small("frame_untreat", "Remove End Treatments",
                         "The picked members back as Insert Frame made them"
                         ).clicked.connect(lambda: self.frame_action("remove"))
         panel = design.add_panel("Analysis")
@@ -791,10 +791,10 @@ class MainWindow(QtWidgets.QMainWindow):
         cam = r.add_tab(TAB_CAM)
 
         panel = cam.add_panel("Sheet")
-        panel.add_big("rect", "Sheet\nand Tool",
+        panel.add_big("cam_sheet", "Sheet\nand Tool",
                       "Stock size, thickness and the cutter (Ctrl+E)"
                       ).clicked.connect(self.cam_ui.sheet_dialog)
-        panel.add_small("rollback", "Regenerate",
+        panel.add_small("regenerate", "Regenerate",
                         "Re-read every part from disk, keeping the layout"
                         ).clicked.connect(self.cam_ui.regenerate)
         panel.add_small("params", "Parameters", "Named parameters (Ctrl+P)"
@@ -803,18 +803,18 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(self.show_rules)
 
         panel = cam.add_panel("Parts")
-        panel.add_big("import", "Add\nPart", "Put a part on the sheet (P)"
+        panel.add_big("cam_add_part", "Add\nPart", "Put a part on the sheet (P)"
                       ).clicked.connect(self.cam_ui.add_part)
-        panel.add_small("shell", "Cut Face...",
+        panel.add_small("cut_face", "Cut Face...",
                         "Which face of the part lies on the sheet"
                         ).clicked.connect(self.cut_face_of_selected)
-        panel.add_small("edit", "Open Part").clicked.connect(
+        panel.add_small("open", "Open Part").clicked.connect(
             self.open_selected_cam_part)
         panel.add_small("delete", "Delete").clicked.connect(
             self.delete_selected_cam_part)
 
         panel = cam.add_panel("Layout")
-        panel.add_big("pattern", "Auto\nArrange",
+        panel.add_big("auto_arrange", "Auto\nArrange",
                       "Lay every part out on a grid with a tool-sized gap"
                       ).clicked.connect(self.cam_ui.auto_arrange)
         self.cam_move_button = panel.add_big(
@@ -822,19 +822,19 @@ class MainWindow(QtWidgets.QMainWindow):
             checkable=True)
         self.cam_move_button.clicked.connect(
             lambda: self.toggle_cam_tool("move"))
-        panel.add_small("revolve", "Rotate 90").clicked.connect(
+        panel.add_small("rotate_90", "Rotate 90").clicked.connect(
             lambda: self.rotate_selected_cam_part(90.0))
         panel.add_small("mirror", "Mirror").clicked.connect(
             self.mirror_selected_cam_part)
-        panel.add_small("params", "Move To...").clicked.connect(
+        panel.add_small("move_to", "Move To...").clicked.connect(
             self.move_selected_cam_part)
 
         panel = cam.add_panel("Toolpath")
-        panel.add_big("export", "Export\nDXF",
+        panel.add_big("export_dxf", "Export\nDXF",
                       "Write the compensated toolpath for MyPlasm"
                       ).clicked.connect(self.cam_ui.export_dxf)
         self.cam_paths_button = panel.add_small(
-            "offset", "Show Toolpath",
+            "toolpath", "Show Toolpath",
             "Draw the offset paths over the parts", checkable=True)
         self.cam_paths_button.setChecked(True)
         self.cam_paths_button.toggled.connect(self.cam_ui.toggle_paths)
@@ -877,7 +877,7 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("dv_crop", "Crop",
                       "Click a view, then two corners: only what is inside "
                       "is kept").clicked.connect(ui.add_crop)
-        panel.add_small("delete", "Remove Breaks",
+        panel.add_small("dv_unbreak", "Remove Breaks",
                         "The selected view whole again: breaks, break outs "
                         "and crop"
                         ).clicked.connect(ui.remove_breaks)
@@ -894,7 +894,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(ui.sheet_setup)
         panel.add_small("duplicate", "Duplicate").clicked.connect(
             ui.duplicate_sheet)
-        panel.add_small("delete", "Delete Sheet").clicked.connect(
+        panel.add_small("delete_sheet", "Delete Sheet").clicked.connect(
             ui.delete_sheet)
 
         annotate = r.add_tab(TAB_ANNOTATE)
@@ -982,19 +982,19 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_big("balloon", "Balloon",
                       "One item number on the selected view"
                       ).clicked.connect(ui.add_balloon)
-        panel.add_small("pattern", "Auto Balloon",
+        panel.add_small("auto_balloon", "Auto Balloon",
                         "A balloon on every component of the selected view"
                         ).clicked.connect(ui.auto_balloon)
 
         tools = r.add_tab(TAB_DRAWING_TOOLS)
         panel = tools.add_panel("Update")
         self.drawing_update_button = panel.add_big(
-            "rollback", "Update",
+            "update_views", "Update",
             "Redraw every view from the models as they are now")
         self.drawing_update_button.clicked.connect(
             lambda: ui.rebuild(force=True))
         panel = tools.add_panel("Manage")
-        panel.add_small("material", "dProperties",
+        panel.add_small("properties", "dProperties",
                         "Title, part number, units, mass and bounding box"
                         ).clicked.connect(self.show_properties)
         panel.add_small("auto", "cLogic", "Rules that drive this drawing"
@@ -1002,8 +1002,8 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = tools.add_panel("Output")
         panel.add_big("export_pdf", "Export\nPDF", "Every sheet, at true size"
                       ).clicked.connect(ui.export_pdf)
-        panel.add_small("export", "DXF...").clicked.connect(ui.export_dxf)
-        panel.add_small("export", "SVG...").clicked.connect(ui.export_svg)
+        panel.add_small("export_dxf", "DXF...").clicked.connect(ui.export_dxf)
+        panel.add_small("export_svg", "SVG...").clicked.connect(ui.export_svg)
         panel.add_small("print", "Print...").clicked.connect(
             ui.print_drawing)
 
@@ -1032,15 +1032,15 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = inspect.add_panel("Measure")
         panel.add_big("measure", "Measure", "Measure faces, edges and distances"
                       ).clicked.connect(self.open_measure)
-        panel.add_big("material", "dProperties",
+        panel.add_big("properties", "dProperties",
                       "Title, part number, units, mass and bounding box"
                       ).clicked.connect(self.show_properties)
 
         panel = inspect.add_panel("Selection Filter")
-        for key, icon_name, label in (("solid", "box", "Body"),
-                                      ("face", "shell", "Face"),
-                                      ("edge", "line", "Edge"),
-                                      ("vertex", "point", "Vertex")):
+        for key, icon_name, label in (("solid", "select_body", "Body"),
+                                      ("face", "select_face", "Face"),
+                                      ("edge", "select_edge", "Edge"),
+                                      ("vertex", "select_vertex", "Vertex")):
             b = panel.add_small(icon_name, label, checkable=True)
             b.clicked.connect(lambda _=False, k=key: self.set_pick_mode(k))
 
@@ -1084,7 +1084,7 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.viewport.set_view("top"))
         panel.add_small("right", "Right").clicked.connect(
             lambda: self.viewport.set_view("right"))
-        panel.add_small("front", "Normal To",
+        panel.add_small("normal_to", "Normal To",
                         "Look straight at the selected face"
                         ).clicked.connect(self.normal_to_selected_face)
 
@@ -1093,7 +1093,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                        "Shaded + Edges"),
                                       ("shaded", "shaded", "Shaded"),
                                       ("wireframe", "wireframe", "Wireframe"),
-                                      ("xray", "section", "X-Ray")):
+                                      ("xray", "xray", "X-Ray")):
             b = panel.add_small(icon_name, label, checkable=True)
             b.clicked.connect(lambda _=False, k=key:
                               self.viewport.set_display_mode(k))
@@ -1102,14 +1102,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ortho_btn = panel.add_small("ortho", "Orthographic", checkable=True)
         self.ortho_btn.setChecked(True)
         self.ortho_btn.toggled.connect(self.viewport.set_projection)
-        self.origin_btn = panel.add_small("plane", "Origin", checkable=True)
+        self.origin_btn = panel.add_small("origin", "Origin", checkable=True)
         self.origin_btn.setChecked(True)
         self.origin_btn.toggled.connect(self.viewport.set_show_origin)
         self.section_btn = panel.add_small(
             "section", "Section View",
             "Cut the view open at a flat face or a plane", checkable=True)
         self.section_btn.toggled.connect(self._toggle_section)
-        frame = panel.add_small("measure", "Frame Time",
+        frame = panel.add_small("frame_time", "Frame Time",
                                 "Show how long each frame takes to draw, "
                                 "in the status bar", checkable=True)
         frame.toggled.connect(self.viewport.set_frame_time)
@@ -1147,7 +1147,7 @@ class MainWindow(QtWidgets.QMainWindow):
         item("open", "Open...", "Ctrl+O", self.open_document)
         menu.addSeparator()
         item("save", "Save", "Ctrl+S", lambda: self.save_document())
-        item("save", "Save As...", "Ctrl+Shift+S",
+        item("save_as", "Save As...", "Ctrl+Shift+S",
              lambda: self.save_document(as_new=True))
         item("versions", "Versions...", "", self.show_versions)
         menu.addSeparator()
@@ -1155,13 +1155,13 @@ class MainWindow(QtWidgets.QMainWindow):
         item("export", "Export...", "", self.export_geometry)
         menu.addSeparator()
         item("params", "Parameters...", "Ctrl+P", self.edit_parameters)
-        item("edit", "dProperties...", "", self.show_properties)
-        item("open", "Projects...", "", self.choose_project)
-        item("edit", "Preferences...", "", self.edit_preferences)
-        item("rollback", "Check for Updates...", "",
+        item("properties", "dProperties...", "", self.show_properties)
+        item("projects", "Projects...", "", self.choose_project)
+        item("preferences", "Preferences...", "", self.edit_preferences)
+        item("check_updates", "Check for Updates...", "",
              lambda: self.updater.check(quiet=False))
         item("file", "About %s..." % APP_NAME, "", self.show_about)
-        item("dimension", "Save as Template...", "",
+        item("template", "Save as Template...", "",
              lambda: self.drawing_ui.save_as_template())
         menu.addSeparator()
         item("exit", "Exit", "", self.close)
@@ -4714,10 +4714,10 @@ class MainWindow(QtWidgets.QMainWindow):
             done.triggered.connect(self.ok_sketch_tool)
             menu.addSeparator()
 
-        project = menu.addAction(icons.icon("offset", 16), "Project Geometry")
+        project = menu.addAction(icons.icon("project_geometry", 16), "Project Geometry")
         project.setToolTip("Bring model edges onto this sketch plane")
         project.triggered.connect(self.project_geometry)
-        menu.addAction(icons.icon("export", 16), "Export Sketch as DXF"
+        menu.addAction(icons.icon("export_dxf", 16), "Export Sketch as DXF"
                        ).triggered.connect(self.export_sketch_dxf)
         menu.addSeparator()
         menu.addAction(icons.icon("finish", 16),
@@ -5627,7 +5627,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # where the commands stop, and a button parked past a gap of
             # empty ribbon is a button nobody finds
             panel = tab.add_panel("Return")
-            button = panel.add_big("finish", "Return",
+            button = panel.add_big("return_up", "Return",
                                    "Go back up one level")
             button.clicked.connect(self.finish_in_place)
             self._in_place_panels.append(panel)
@@ -6213,12 +6213,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 plane.setEnabled(flat)
                 plane.triggered.connect(self._plane_from_selected_face)
 
-                normal = menu.addAction(icons.icon("front", 16), "Normal To")
+                normal = menu.addAction(icons.icon("normal_to", 16), "Normal To")
                 normal.setEnabled(flat)
                 normal.setToolTip("Look straight at this face")
                 normal.triggered.connect(self.normal_to_selected_face)
 
-                export = menu.addAction(icons.icon("export", 16),
+                export = menu.addAction(icons.icon("export_dxf", 16),
                                         "Export Face as DXF...")
                 export.setEnabled(flat)
                 export.triggered.connect(self.export_face_dxf)
@@ -6370,10 +6370,10 @@ class MainWindow(QtWidgets.QMainWindow):
         reset.setEnabled(bool(setup.home))
         reset.triggered.connect(self.reset_home)
         menu.addSeparator()
-        menu.addAction(icons.icon("front", 16),
+        menu.addAction(icons.icon("set_front", 16),
                        "Set Current View as Front").triggered.connect(
             lambda: self.set_front("front"))
-        menu.addAction(icons.icon("top", 16),
+        menu.addAction(icons.icon("set_top", 16),
                        "Set Current View as Top").triggered.connect(
             lambda: self.set_front("top"))
         reset = menu.addAction("Reset Front")

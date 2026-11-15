@@ -1944,7 +1944,7 @@ class AssemblyController(QtCore.QObject):
                     lambda: self.toggle_suppress(occurrence.id))
                 isolate = menu.addAction("Isolate")
                 isolate.triggered.connect(lambda: self.isolate(occurrence.id))
-                here = menu.addAction(icons.icon("edit", 16),
+                here = menu.addAction(icons.icon("edit_in_place", 16),
                                       "Edit in Place")
                 here.triggered.connect(
                     lambda: self.host.edit_in_place(occurrence.id))
@@ -1953,7 +1953,7 @@ class AssemblyController(QtCore.QObject):
                     lambda: self.open_component(occurrence.id))
                 from ..core import standard_parts
                 if standard_parts.spec_of(doc.component_path(occurrence)):
-                    change = menu.addAction(icons.icon("library", 16),
+                    change = menu.addAction(icons.icon("change_size", 16),
                                             "Change Size...")
                     change.setToolTip("Its size, and its length, from the "
                                       "library again")
@@ -1964,12 +1964,12 @@ class AssemblyController(QtCore.QObject):
                     lambda: self.delete_occurrence(occurrence.id))
                 menu.addSeparator()
 
-        place = menu.addAction(icons.icon("import", 16), "Place Component...")
+        place = menu.addAction(icons.icon("place", 16), "Place Component...")
         place.triggered.connect(self.place_component)
         library = menu.addAction(icons.icon("library", 16),
                                  "Place from Library...")
         library.triggered.connect(self.host.place_from_library)
-        constrain = menu.addAction(icons.icon("c_coincident", 16),
+        constrain = menu.addAction(icons.icon("c3d_mate", 16),
                                    "Constrain...")
         constrain.setEnabled(doc is not None and len(doc.occurrences) >= 2)
         constrain.triggered.connect(lambda: self.constrain(MATE))

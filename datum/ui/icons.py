@@ -1579,6 +1579,27 @@ BORROWED = {
     "print": "export", "export_pdf": "export",
     "sheet_setup": "export", "cut": "extrude", "free_rotate": "revolve",
     "duplicate": "pattern",
+    # second round: every other button that borrowed an icon
+    "select_body": "box", "select_face": "shell", "select_edge": "line",
+    "select_vertex": "point", "move_to": "params", "frame_time": "measure",
+    "origin": "plane", "create_part": "box", "hide": "box",
+    "template": "dimension", "delete_below": "delete",
+    "dv_unbreak": "delete", "frame_untreat": "delete",
+    "delete_sheet": "delete", "edit_in_place": "edit",
+    "preferences": "edit", "properties": "material", "bom": "material",
+    "export_dxf": "export", "export_svg": "export", "features": "extrude",
+    "bodies": "box", "sm_corner_round": "fillet", "return_up": "finish",
+    "normal_to": "front", "set_front": "front", "set_top": "top",
+    "cam_add_part": "import", "import_dxf": "import", "place": "import",
+    "replace": "import", "change_size": "library", "free_move": "move",
+    "toolpath": "offset", "folder_open": "open", "projects": "open",
+    "folder_add": "open", "cam_sheet": "rect", "auto_arrange": "pattern",
+    "auto_balloon": "pattern", "rotate_90": "revolve",
+    "check_updates": "rollback", "regenerate": "rollback",
+    "update_views": "rollback", "save_as": "save",
+    "save_replace": "save", "xray": "section", "cut_face": "shell",
+    "sm_folded": "sm_face", "sm_to_standard": "sm_convert",
+    "frame_refresh": "update",
 }
 
 

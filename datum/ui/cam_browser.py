@@ -281,7 +281,7 @@ class CamBrowser(QtWidgets.QTreeWidget):
             open_part = menu.addAction(icons.icon("open", 16), "Open Part")
             open_part.triggered.connect(
                 lambda: self.part_activated.emit(pid))
-            face = menu.addAction(icons.icon("shell", 16), "Cut Face...")
+            face = menu.addAction(icons.icon("cut_face", 16), "Cut Face...")
             face.triggered.connect(lambda: self.cut_face_requested.emit(pid))
 
             menu.addSeparator()
@@ -339,12 +339,12 @@ class CamBrowser(QtWidgets.QTreeWidget):
                     lambda _=False, s=side: self.side_changed.emit(pid, key, s))
 
         elif kind == "stock":
-            action = menu.addAction(icons.icon("params", 16),
+            action = menu.addAction(icons.icon("cam_sheet", 16),
                                     "Sheet and Tool...")
             action.triggered.connect(self.stock_requested.emit)
 
         else:
-            action = menu.addAction(icons.icon("import", 16), "Add Part...")
+            action = menu.addAction(icons.icon("cam_add_part", 16), "Add Part...")
             action.triggered.connect(self.add_requested.emit)
 
         menu.exec(self.viewport().mapToGlobal(pos))

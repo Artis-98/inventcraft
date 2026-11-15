@@ -229,33 +229,112 @@ meaning, own drawing.
 | `an_datum` | Datum identifier |
 | `an_weld` | Welding symbol |
 
-## Icons that are missing
+## Icons that borrow another one
 
-These buttons borrow another tool's icon today. Each one wants its own; same
-rules as above, and the file name is what the app will look for once I wire
-it up.
+These buttons and menu items have a name of their own already, but show
+another tool's picture until a file of that name is put in
+`datum/ui/assets/icons/`. Same rules as above. "Draw" is the brief for the
+image model; "Now shows" is what it borrows until then.
 
-| New name | For | Borrows now |
-|---|---|---|
-| `dv_break` | Break view | `dv_detail` |
-| `dv_breakout` | Break Out | `dv_section` |
-| `dv_crop` | Crop a view (coming) | none |
-| `dim_baseline` | Baseline dimension set | `dimension` |
-| `dim_chain` | Chain dimension set | `dimension` |
-| `dim_ordinate` | Ordinate dimension set | `dimension` |
-| `retrieve` | Retrieve model dimensions | `rollback` |
-| `revision_table` | Revision table | `params` |
-| `balloon` | Balloon | `c_coincident` |
-| `parts_list` | Parts list | `material` |
-| `versions` | Versions and branches | `rollback` |
-| `frame_analysis` | Frame Analysis | `measure` |
-| `project_geometry` | Project Geometry | `offset` |
-| `construction` | Construction line toggle | `offset` |
-| `adaptive` | Adaptive part badge in the assembly tree (coming) | none |
-| `redefine` | Redefine sketch | none |
-| `print` | Print | `export` |
-| `export_pdf` | Export PDF | `export` |
-| `sheet_setup` | Sheet Setup | `export` |
-| `cut` | Extrude as a cut | `extrude` |
-| `free_rotate` | Free Rotate | `revolve` |
-| `duplicate` | Duplicate a sheet | `pattern` |
+### Drawings
+
+| File name | Where it is | Draw | Now shows |
+|---|---|---|---|
+| `dv_break` | Drawing, Place Views, Break | A long bar with a gap in its middle, two zigzag break lines either side of the gap; the zigzags in accent | `dv_detail` |
+| `dv_breakout` | Drawing, Break Out | A view frame with an irregular closed blob cut into it, the inside of the blob hatched | `dv_section` |
+| `dv_crop` | Drawing, Crop | A view frame with a dashed accent rectangle inside it and corner crop marks, the part outside faded | `dv_detail` |
+| `dv_unbreak` | Drawing, Remove Breaks | A bar with its zigzag break and a curved accent arrow closing the gap | `delete` |
+| `dim_baseline` | Drawing, Baseline set | Three dimension lines stacked, all starting from one vertical datum line on the left | `dimension` |
+| `dim_chain` | Drawing, Chain set | Three short dimension lines end to end in one row | `dimension` |
+| `dim_ordinate` | Drawing, Ordinate set | An origin mark with three leader lines up to numbers 0, 20, 45 shown as short ticks (no real text) | `dimension` |
+| `retrieve` | Drawing, Retrieve | A small 3D part with a dimension line lifting off it, an accent arrow pointing down onto a sheet | `rollback` |
+| `revision_table` | Drawing, Revision | A small table of three rows with a triangle revision marker beside it | `params` |
+| `balloon` | Drawing, Balloon | A circle on a leader line ending in a dot, the circle outlined in accent | `c_coincident` |
+| `auto_balloon` | Drawing, Auto Balloon | Three balloons on leaders fanned round a small part, a sparkle in accent | `pattern` |
+| `parts_list` | Drawing, Parts List | A table with a header row and numbered item rows, header filled grey | `material` |
+| `print` | Drawing, Print | A printer with a sheet coming out | `export` |
+| `export_pdf` | Drawing, Export PDF | A page with a folded corner and an accent arrow out of it, a red band on the page | `export` |
+| `sheet_setup` | Drawing, Sheet Setup | A sheet with its border and title block in the corner, a small gear | `export` |
+| `duplicate` | Drawing, Duplicate sheet | Two sheets overlapping, the front one with a plus | `pattern` |
+| `delete_sheet` | Drawing, Delete Sheet | A sheet with its title block and a red cross | `delete` |
+| `update_views` | Drawing, Update and Update All | A drawing view frame with circular refresh arrows round it | `rollback` |
+| `template` | File menu, Save as Template | A page with a ruler and a dashed outline, a star in accent | `dimension` |
+
+### Part modelling
+
+| File name | Where it is | Draw | Now shows |
+|---|---|---|---|
+| `cut` | Sheet metal, Cut | A plate with a rectangular hole going through, an accent arrow pushing down into it | `extrude` |
+| `features` | Pattern and Mirror window, "Pattern features" | Three small feature blocks in a row, joined, on one body | `extrude` |
+| `bodies` | Pattern and Mirror window, "Pattern solids" | Two whole separate solid boxes side by side | `box` |
+| `project_geometry` | Sketch, Project Geometry | A 3D edge with a dashed accent line dropping onto a flat sketch plane below | `offset` |
+| `construction` | Sketch, Construction | A dashed line between two points, in accent, nothing solid | `offset` |
+| `redefine` | Browser, Redefine sketch or plane | A sketch plane with a curved accent arrow moving it onto another plane | `plane` |
+| `delete_below` | Browser, Delete All Features Below | A short feature list with a red line and everything under it faded | `delete` |
+| `sm_corner_round` | Sheet metal, Corner Round | A plate corner rounded off, the round edge in accent | `fillet` |
+| `sm_folded` | Sheet metal flat pattern, Go to Folded Part | A flat plate with an accent arrow folding one flange up | `sm_face` |
+| `sm_to_standard` | Convert to Standard Part | A bent sheet metal part with an arrow to a plain solid block | `sm_convert` |
+| `origin` | View, Origin toggle | Three short axis arrows from one point (X red, Y green, Z blue are fine here) | `plane` |
+| `normal_to` | View, Normal To | An eye looking straight at a face, the face square on, an accent arrow into it | `front` |
+| `set_front` | View cube menu, Set Current View as Front | The front cube face filled accent with a small pin | `front` |
+| `set_top` | View cube menu, Set Current View as Top | The top cube face filled accent with a small pin | `top` |
+| `xray` | View, X-Ray | A solid shown see-through with its hidden edges dashed | `section` |
+
+### Selection filter
+
+| File name | Where it is | Draw | Now shows |
+|---|---|---|---|
+| `select_body` | Selection filter, Body | A cursor arrow on a whole solid box, the whole box highlighted | `box` |
+| `select_face` | Selection filter, Face | A cursor arrow on one face of a box, only that face filled accent | `shell` |
+| `select_edge` | Selection filter, Edge | A cursor arrow on one edge of a box, only that edge in accent | `line` |
+| `select_vertex` | Selection filter, Vertex | A cursor arrow on one corner of a box, an accent dot on the corner | `point` |
+
+### Assembly and frames
+
+| File name | Where it is | Draw | Now shows |
+|---|---|---|---|
+| `place` | Assemble, Place, and Place Component | A part dropping down onto a base with an accent arrow | `import` |
+| `replace` | Component menu, Replace | Two parts with two arrows swapping them | `import` |
+| `change_size` | Component menu, Change Size | A bolt with a double-ended accent arrow along its length | `library` |
+| `create_part` | Assemble, Create Part | A new part outline with a plus, inside an assembly frame | `box` |
+| `edit_in_place` | Component menu, Edit in Place | A pencil on one part among faded others | `edit` |
+| `free_move` | Assemble, Free Move | A part with four way arrows | `move` |
+| `free_rotate` | Assemble, Free Rotate | A part with a circular arrow round it | `revolve` |
+| `return_up` | Assemble, Return (out of Edit in Place) | An arrow curving up and left out of a box | `finish` |
+| `move_to` | Assemble and CAM, Move To | A part, a crosshair target and an accent arrow to it, a small number field | `params` |
+| `hide` | Browser, Hide | A closed eye | `box` |
+| `adaptive` | Assembly tree badge | Drawn already (two arrows chasing round), replace if wanted | drawn |
+| `frame_refresh` | Frame Generator, Refresh | A frame of two members with circular refresh arrows | `update` |
+| `frame_untreat` | Frame Generator, Remove End Treatments | A mitred corner of two members with a red cross | `delete` |
+| `frame_analysis` | Design, Frame Analysis (experimental) | A frame with a downward load arrow and a curved deflection line in accent | `measure` |
+
+### CAM
+
+| File name | Where it is | Draw | Now shows |
+|---|---|---|---|
+| `cam_add_part` | CAM, Add Part | A flat part shape with a plus over a sheet | `import` |
+| `cam_sheet` | CAM, Sheet and Tool | A rectangular sheet of plate with a small torch or cutter beside it | `rect` |
+| `auto_arrange` | CAM, Auto Arrange | Several flat parts nested tightly on a sheet | `pattern` |
+| `rotate_90` | CAM, Rotate 90 | A flat part with a quarter circle arrow and a right angle mark | `revolve` |
+| `cut_face` | CAM, Cut Face | A part with one face filled accent and a cutter path round it | `shell` |
+| `toolpath` | CAM, Show Toolpath | A dashed accent path running round a part outline with a direction arrow | `offset` |
+| `frame_time` | View, Frame Time (developer timing) | A stopwatch | `measure` |
+
+### Files and the window
+
+| File name | Where it is | Draw | Now shows |
+|---|---|---|---|
+| `save_as` | File, Save As | A floppy disk with a small pencil | `save` |
+| `save_replace` | Save and Replace | A floppy disk with two swap arrows | `save` |
+| `export_dxf` | Every DXF export | A page with an accent arrow out of it and a small plotted line shape on the page | `export` |
+| `export_svg` | Drawing, SVG | A page with an accent arrow out of it and a curve with two handles on the page | `export` |
+| `import_dxf` | Import DXF | A page with an accent arrow into it and a plotted line shape | `import` |
+| `folder_open` | Browser, Open File Location | An open folder with a small arrow out of it | `open` |
+| `folder_add` | Library, Add Folder | A folder with an accent plus | `open` |
+| `projects` | File, Projects | A folder with a small stack of parts on it | `open` |
+| `preferences` | File, Preferences | A gear | `edit` |
+| `properties` | dProperties everywhere | A part with a tag or label hanging on it | `material` |
+| `bom` | Assemble, Bill of Materials | A list with a small part icon at each row | `material` |
+| `check_updates` | Help, Check for Updates | A circular arrow round a down arrow | `rollback` |
+| `regenerate` | Manage, Regenerate | A part with a lightning bolt and circular arrows | `rollback` |
+| `versions` | File and Manage, Versions | A branching line with three dots, two branches | `rollback` |
