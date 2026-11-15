@@ -1610,6 +1610,21 @@
 "Drag coefficient": "Widerstandsbeiwert",
 "Stress": "Spannung",
 "Of yield": "Der Streckgrenze",
-"Member": "Stab"
+"Member": "Stab",
+"Versions...": "Versionen...",
+"Versions": "Versionen",
+"Check In this file, its history, and branches to try things on": "Diese Datei einchecken, ihre Historie und Zweige zum Ausprobieren",
+"Branch": "Zweig",
+"Every branch": "Alle Zweige",
+"Version": "Version",
+"When": "Wann",
+"Who": "Wer",
+"Why": "Warum",
+"What changed": "Was sich geändert hat",
+"Check In": "Einchecken",
+"Restore": "Wiederherstellen",
+"New Branch...": "Neuer Zweig...",
+"Merge into main": "In main zusammenführen",
+"Name of the branch:": "Name des Zweigs:"
 }
 }

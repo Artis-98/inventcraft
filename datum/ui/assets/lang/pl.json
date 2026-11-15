@@ -1610,6 +1610,21 @@
 "Drag coefficient": "Współczynnik oporu",
 "Stress": "Naprężenie",
 "Of yield": "Granicy plast.",
-"Member": "Pręt"
+"Member": "Pręt",
+"Versions...": "Wersje...",
+"Versions": "Wersje",
+"Check In this file, its history, and branches to try things on": "Zapisz wersję tego pliku, jego historia i gałęzie do prób",
+"Branch": "Gałąź",
+"Every branch": "Wszystkie gałęzie",
+"Version": "Wersja",
+"When": "Kiedy",
+"Who": "Kto",
+"Why": "Dlaczego",
+"What changed": "Co się zmieniło",
+"Check In": "Zapisz wersję",
+"Restore": "Przywróć",
+"New Branch...": "Nowa gałąź...",
+"Merge into main": "Scal do main",
+"Name of the branch:": "Nazwa gałęzi:"
 }
 }

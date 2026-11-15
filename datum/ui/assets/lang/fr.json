@@ -1610,6 +1610,21 @@
 "Drag coefficient": "Coefficient de traînée",
 "Stress": "Contrainte",
 "Of yield": "De la limite",
-"Member": "Membrure"
+"Member": "Membrure",
+"Versions...": "Versions...",
+"Versions": "Versions",
+"Check In this file, its history, and branches to try things on": "Archiver ce fichier, son historique et des branches pour essayer",
+"Branch": "Branche",
+"Every branch": "Toutes les branches",
+"Version": "Version",
+"When": "Quand",
+"Who": "Qui",
+"Why": "Pourquoi",
+"What changed": "Ce qui a changé",
+"Check In": "Archiver",
+"Restore": "Restaurer",
+"New Branch...": "Nouvelle branche...",
+"Merge into main": "Fusionner dans main",
+"Name of the branch:": "Nom de la branche :"
 }
 }

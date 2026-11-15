@@ -1034,6 +1034,11 @@ class MainWindow(QtWidgets.QMainWindow):
                       "railings, anything a loop can describe"
                       ).clicked.connect(self.new_code_feature)
 
+        panel = manage.add_panel("Versions")
+        panel.add_big("rollback", "Versions",
+                      "Check In this file, its history, and branches to try "
+                      "things on").clicked.connect(self.show_versions)
+
         panel = manage.add_panel("Update")
         panel.add_big("rollback", "Roll to\nEnd", "Rebuild the whole tree"
                       ).clicked.connect(lambda: self.set_rollback(None))
@@ -1121,6 +1126,7 @@ class MainWindow(QtWidgets.QMainWindow):
         item("save", "Save", "Ctrl+S", lambda: self.save_document())
         item("save", "Save As...", "Ctrl+Shift+S",
              lambda: self.save_document(as_new=True))
+        item("rollback", "Versions...", "", self.show_versions)
         menu.addSeparator()
         item("import", "Import...", "", self.import_geometry)
         item("export", "Export...", "", self.export_geometry)
@@ -2606,13 +2612,44 @@ class MainWindow(QtWidgets.QMainWindow):
     def _sync_file_menu(self) -> None:
         """Grey the entries that need a document, when there is not one."""
         has = not self.on_start_page and self.session.active is not None
-        needs_document = ("Save", "Save As...", "Import...", "Export...",
+        needs_document = ("Save", "Save As...", "Versions...", "Import...",
+                          "Export...",
                           "Parameters...", "dProperties...",
                           "Save as Template...")
         for action in self.file_menu.actions():
             label = i18n.english(action.text()).split("\t")[0]
             if label in needs_document:
                 action.setEnabled(has)
+
+    def show_versions(self):
+        """Versions of the open file: check in, history, branches."""
+        from .versions_ui import VersionsDialog
+        entry = self.session.active
+        if entry is None:
+            return None
+        if not entry.document.path and not self.save_document(entry=entry):
+            return None
+        dialog = VersionsDialog(self, entry.document.path)
+        self.versions_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def save_versioned(self, path: str) -> bool:
+        """The file saved, if it is open with unsaved changes, so what is
+        checked in or switched from is what is on screen."""
+        entry = self.session.by_path(path)
+        if entry is not None and entry.modified:
+            return self.save_document(entry=entry)
+        return True
+
+    def reload_from_disk(self, path: str) -> None:
+        """Open a file again from disk after Versions put another version
+        in its place: the tab closed without asking and opened anew."""
+        entry = self.session.by_path(path)
+        if entry is not None:
+            entry.document.modified = False
+            self.close_entry(entry)
+        self.open_path(path)
 
     def choose_project(self) -> None:
         """Pick which project the work goes into, from anywhere in the app."""
