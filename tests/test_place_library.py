@@ -76,44 +76,84 @@ click["file"] = True
 win._place_chosen("library")
 check("Place Component from inside it hands over", calls == ["file"], calls)
 
-print("the shelves")
+print("the library, browsed like folders")
 from datum.core import frames, kernel                          # noqa: E402
 from datum.core import standard_parts as sp                     # noqa: E402
-from datum.ui.library_dialog import (ROLE_FAMILY,               # noqa: E402
+from datum.ui.library_dialog import (ROLE_FAMILY, ROLE_PATH,    # noqa: E402
                                      StandardPartDialog)
 dialog = LibraryDialog()
-tops = [dialog.tree.topLevelItem(i).text(0)
-        for i in range(dialog.tree.topLevelItemCount())]
-check("profiles, fasteners and the shelves to come",
-      tops[:2] == ["Structural Shapes", "Fasteners"]
-      and "Online libraries" in tops and "Bearings" in tops, tops)
 
 
-def leaves(item):
+def shown():
+    """What the right hand side shows: (name, folder path or family)."""
     out = []
-    for i in range(item.childCount()):
-        child = item.child(i)
-        if child.data(0, ROLE_FAMILY):
-            out.append((item.text(0), child.data(0, ROLE_FAMILY)))
-        out += leaves(child)
+    for i in range(dialog.view.count()):
+        entry = dialog.view.item(i)
+        out.append((entry.text(), entry.data(ROLE_PATH)
+                    or entry.data(ROLE_FAMILY)))
     return out
 
 
-shapes = leaves(dialog.tree.topLevelItem(0))
-check("Structural Shapes are the Frame Generator's own families, the same "
-      "ones", sorted(f for _, f in shapes)
-      == sorted(f.id for f in frames.families()), shapes)
-check("by the Frame Generator's categories", all(
-    shelf == frames.family(f).category for shelf, f in shapes), shapes)
-bolts = leaves(dialog.tree.topLevelItem(1))
-check("bolts, nuts and washers by ISO standard",
-      {f for _, f in bolts} >= {"iso-4017", "iso-4762", "iso-4032",
-                                "iso-7089"}, bolts)
-coming = dialog.tree.findItems("GrabCAD and others",
-                               QtCore.Qt.MatchExactly | QtCore.Qt.MatchRecursive)
-dialog.tree.setCurrentItem(coming[0])
-check("a shelf still empty says what is coming",
-      "GrabCAD" in dialog.state.text() and not dialog.select.isVisible())
+def entry_for(key):
+    for i in range(dialog.view.count()):
+        entry = dialog.view.item(i)
+        if key in (entry.data(ROLE_PATH), entry.data(ROLE_FAMILY)):
+            return entry
+    return None
+
+
+tops = [name for name, _ in shown()]
+check("it opens on the top folders: profiles, fasteners and those to come",
+      tops[:2] == ["Structural Shapes", "Fasteners"]
+      and "Online libraries" in tops and "Bearings" in tops, tops)
+check("nothing to place until a part is picked",
+      not dialog.place.isEnabled())
+check("Back and Up have nowhere to go yet",
+      not dialog.back.isEnabled() and not dialog.up.isEnabled())
+
+dialog._double_clicked(entry_for("Structural Shapes"))
+categories = sorted({f.category or "Custom" for f in frames.families()})
+check("a double-click goes into a folder: the Frame Generator's categories",
+      sorted(name for name, _ in shown()) == categories, shown())
+check("and says where it is", "Structural Shapes" in dialog.where.text())
+check("the folder tree follows",
+      dialog.tree.currentItem().text(0) == "Structural Shapes")
+square = frames.family("din-en-10219-2-square")
+dialog._double_clicked(entry_for("Structural Shapes/" + square.category))
+check("deeper: every family in that category, no more",
+      [key for _, key in shown()] == [f.id for f in frames.families()
+                                       if f.category == square.category],
+      shown())
+check("Place is still off with nothing picked", not dialog.place.isEnabled())
+dialog.view.setCurrentItem(entry_for(square.id))
+check("picking a family lights up Place", dialog.place.isEnabled())
+check("and says what it is", "sizes" in dialog.about.text())
+dialog.go_up()
+check("Up goes back out to the categories",
+      sorted(name for name, _ in shown()) == categories)
+dialog.go_back()
+check("Back goes to where it was", any(key == square.id
+                                       for _, key in shown()), shown())
+
+dialog.open_folder("Fasteners/Bolts")
+check("the tree's folders open the same way",
+      {key for _, key in shown()} == {"iso-4017", "iso-4762"}, shown())
+dialog.open_folder("Fasteners")
+check("fasteners hold bolts, nuts and washers", {"Bolts", "Nuts",
+                                                 "Washers"}
+      <= {name for name, _ in shown()}, shown())
+dialog.open_folder("Online libraries/GrabCAD and others")
+check("a folder still empty says what is coming",
+      "GrabCAD" in dialog.about.text() and dialog.view.count() == 0)
+
+opened = []
+StandardPartDialog.exec = lambda self: (opened.append(self.family.id),
+                                        QtWidgets.QDialog.Rejected)[1]
+dialog.open_folder("Fasteners/Washers")
+dialog._double_clicked(entry_for("iso-7089"))
+check("a double-click on a family opens its size window",
+      opened == ["iso-7089"], opened)
+del StandardPartDialog.exec
 
 print("the size window")
 angle = sp.family(frames.families()[0].id)
@@ -165,6 +205,15 @@ check("the same size again uses the same file",
 print("Change Size")
 check("the component menu offers it",
       sp.spec_of(doc.component_path(bolt)) is not None)
+menu = QtWidgets.QMenu()
+win.viewport.selected_components = lambda: [bolt.id]
+win.assembly_ui.context_menu(menu)
+del win.viewport.selected_components
+labels = [a.text() for a in menu.actions()]
+check("and so does a right-click on it in the view",
+      "Change Size..." in labels, labels)
+check("which offers Place from Library too",
+      "Place from Library..." in labels, labels)
 win.assembly_ui.change_size(bolt.id, sp.spec("iso-4017", "M10", 40))
 app.processEvents()
 moved = doc.component_path(bolt)

@@ -1662,6 +1662,11 @@
 "Structural Shapes": "Kształtowniki",
 "Square Tubes": "Rury kwadratowe",
 "Frame Analysis (experimental)": "Analiza ramy (eksperymentalna)",
-"Select a broken or cropped view first.": "Najpierw wybierz przerwany lub przycięty widok."
+"Select a broken or cropped view first.": "Najpierw wybierz przerwany lub przycięty widok.",
+"Place...": "Wstaw...",
+"Place from Library...": "Wstaw z biblioteki...",
+"Up": "W górę",
+"The folder this one is in": "Folder nadrzędny",
+"Pick its size and length, then place it": "Wybierz rozmiar i długość, potem wstaw"
 }
 }

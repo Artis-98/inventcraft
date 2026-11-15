@@ -21,6 +21,7 @@ from .theme import C
 
 ROLE_FAMILY = QtCore.Qt.UserRole + 1
 ROLE_ABOUT = QtCore.Qt.UserRole + 2
+ROLE_PATH = QtCore.Qt.UserRole + 3
 
 # shelves still to be filled: category -> [(shelf, what goes there)]
 COMING_SHELVES: List[Tuple[str, List[Tuple[str, str]]]] = [
@@ -139,8 +140,58 @@ class StandardPartDialog(QtWidgets.QDialog):
         self.accept()
 
 
+class _Folder:
+    """One folder of the library: its folders, its families, and what it
+    is for when it is still empty."""
+
+    def __init__(self, name: str, path: str) -> None:
+        self.name = name
+        self.path = path
+        self.folders: Dict[str, "_Folder"] = {}
+        self.families: List[sp.Family] = []
+        self.about = ""
+
+    def folder(self, name: str) -> "_Folder":
+        if name not in self.folders:
+            self.folders[name] = _Folder(
+                name, (self.path + "/" + name) if self.path else name)
+        return self.folders[name]
+
+    def empty(self) -> bool:
+        return not self.families and all(f.empty()
+                                         for f in self.folders.values())
+
+
+def family_label(fam: sp.Family) -> str:
+    """The standard on one line and what it is on the next, the standard
+    said once even when the family's name starts with it."""
+    name = fam.name
+    if fam.standard and name.startswith(fam.standard):
+        name = name[len(fam.standard):].strip()
+    return "%s\n%s" % (fam.standard, name) if fam.standard else name
+
+
+def library_tree() -> _Folder:
+    """The library as folders: Structural Shapes from the Frame Generator,
+    Fasteners from the ISO tables, and the shelves still to come."""
+    root = _Folder("Library", "")
+    for fam in sp.families():
+        here = root
+        for name in fam.category.split("/"):
+            here = here.folder(name)
+        here.families.append(fam)
+    for category, shelves in COMING_SHELVES:
+        for name, about in shelves:
+            root.folder(category).folder(name).about = about
+    return root
+
+
 class LibraryDialog(QtWidgets.QDialog):
-    """The library, by category, shelf and family.
+    """The library, browsed like folders on disk, as Inventor's Content
+    Center is: the folders on the left, what is in the open one on the
+    right.  A folder opens with a double-click, into its folders or its
+    families; Back and Up go the other way.  A family picked is placed
+    with Place, or a double-click, through its size window.
 
     ``chosen`` is the standard part to place once a family has been sized;
     ``place_file`` is set when somebody would rather bring in a file they
@@ -151,41 +202,63 @@ class LibraryDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle("Place from Library")
         self.setWindowIcon(icons.icon("library", 24))
-        self.resize(760, 480)
+        self.resize(860, 520)
         self.place_file = False
         self.chosen: Optional[Dict[str, Any]] = None
+        self.root = library_tree()
+        self.current = self.root
+        self._history: List[str] = []
 
         layout = QtWidgets.QVBoxLayout(self)
+        bar = QtWidgets.QHBoxLayout()
+        self.back = QtWidgets.QToolButton(self)
+        self.back.setText("<")
+        self.back.setToolTip("Back")
+        self.back.clicked.connect(self.go_back)
+        self.up = QtWidgets.QToolButton(self)
+        self.up.setText("Up")
+        self.up.setToolTip("The folder this one is in")
+        self.up.clicked.connect(self.go_up)
+        self.where = QtWidgets.QLabel("", self)
+        self.where.setStyleSheet("font-weight: 600;")
+        bar.addWidget(self.back)
+        bar.addWidget(self.up)
+        bar.addSpacing(6)
+        bar.addWidget(self.where, 1)
+        layout.addLayout(bar)
+
         split = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
         layout.addWidget(split, 1)
-
         self.tree = QtWidgets.QTreeWidget(split)
         self.tree.setHeaderHidden(True)
-        self.tree.setMinimumWidth(260)
-        self._build()
+        self.tree.setMinimumWidth(220)
+        self._items: Dict[str, QtWidgets.QTreeWidgetItem] = {}
+        self._fill_tree(self.root, None)
+        self.tree.itemClicked.connect(
+            lambda item, _c: self.open_folder(item.data(0, ROLE_PATH)))
+        # clicked or chosen with the keys, not whatever is current when the
+        # window first shows, so it opens at the top of the library
+        self.tree.itemActivated.connect(
+            lambda item, _c: self.open_folder(item.data(0, ROLE_PATH)))
 
         side = QtWidgets.QWidget(split)
         right = QtWidgets.QVBoxLayout(side)
-        right.setContentsMargins(16, 8, 8, 8)
-        self.title = QtWidgets.QLabel("Library", side)
-        self.title.setStyleSheet("font-size: 16px; font-weight: 600;")
-        self.title.setWordWrap(True)
+        right.setContentsMargins(6, 0, 0, 0)
+        self.view = QtWidgets.QListWidget(side)
+        self.view.setViewMode(QtWidgets.QListView.IconMode)
+        self.view.setIconSize(QtCore.QSize(40, 40))
+        self.view.setGridSize(QtCore.QSize(190, 112))
+        self.view.setTextElideMode(QtCore.Qt.ElideNone)
+        self.view.setResizeMode(QtWidgets.QListView.Adjust)
+        self.view.setMovement(QtWidgets.QListView.Static)
+        self.view.setWordWrap(True)
+        self.view.itemDoubleClicked.connect(self._double_clicked)
+        self.view.currentItemChanged.connect(self._picked)
         self.about = QtWidgets.QLabel("", side)
         self.about.setWordWrap(True)
         self.about.setStyleSheet("color: %s;" % C.text_dim)
-        self.state = QtWidgets.QLabel("", side)
-        self.state.setWordWrap(True)
-        self.state.setObjectName("LibraryState")
-        self.select = QtWidgets.QPushButton(icons.icon("library", 16),
-                                            "Select Size...", side)
-        self.select.setToolTip("Pick the size and length, then place it")
-        self.select.clicked.connect(self._open_family)
-        right.addWidget(self.title)
+        right.addWidget(self.view, 1)
         right.addWidget(self.about)
-        right.addSpacing(12)
-        right.addWidget(self.state)
-        right.addWidget(self.select, 0, QtCore.Qt.AlignLeft)
-        right.addStretch(1)
         split.addWidget(self.tree)
         split.addWidget(side)
         split.setStretchFactor(1, 1)
@@ -196,92 +269,122 @@ class LibraryDialog(QtWidgets.QDialog):
         self.from_file.setToolTip("Bring in a part or assembly file you "
                                   "already have")
         self.from_file.clicked.connect(self._from_file)
+        self.place = QtWidgets.QPushButton(icons.icon("library", 16),
+                                           "Place...", self)
+        self.place.setToolTip("Pick its size and length, then place it")
+        self.place.setDefault(True)
+        self.place.clicked.connect(self._open_family)
         close = QtWidgets.QPushButton("Close", self)
         close.clicked.connect(self.reject)
         buttons.addWidget(self.from_file)
         buttons.addStretch(1)
+        buttons.addWidget(self.place)
         buttons.addWidget(close)
         layout.addLayout(buttons)
 
-        self.tree.currentItemChanged.connect(self._show)
-        self.tree.itemDoubleClicked.connect(
-            lambda item, _c: self._open_family() if item.data(
-                0, ROLE_FAMILY) else None)
-        first = self.tree.topLevelItem(0)
-        if first is not None:
-            self.tree.setCurrentItem(first)
+        self.open_folder("", remember=False)
 
-    def _branch(self, path: str) -> QtWidgets.QTreeWidgetItem:
-        """The tree item for a category path such as Fasteners/Bolts,
-        made the first time it is asked for."""
-        parent = None
-        for name in path.split("/"):
-            count = (parent.childCount() if parent is not None
-                     else self.tree.topLevelItemCount())
-            found = None
-            for i in range(count):
-                item = (parent.child(i) if parent is not None
-                        else self.tree.topLevelItem(i))
-                if item.text(0) == name and not item.data(0, ROLE_FAMILY):
-                    found = item
-                    break
-            if found is None:
-                found = QtWidgets.QTreeWidgetItem([name])
-                found.setIcon(0, icons.icon("open", 16))
-                if parent is None:
-                    self.tree.addTopLevelItem(found)
-                else:
-                    parent.addChild(found)
-            parent = found
-        return parent
+    # -- the folders -------------------------------------------------------
 
-    def _build(self) -> None:
-        for fam in sp.families():
-            shelf = self._branch(fam.category)
-            item = QtWidgets.QTreeWidgetItem(
-                ["%s  %s" % (fam.standard, fam.name)
-                 if fam.standard and fam.standard not in fam.name
-                 else fam.name])
-            item.setData(0, ROLE_FAMILY, fam.id)
-            item.setData(0, ROLE_ABOUT, "%d sizes, %s to %s" % (
-                len(fam.rows), fam.sizes()[0] if fam.rows else "",
-                fam.sizes()[-1] if fam.rows else ""))
-            item.setIcon(0, icons.icon(
-                "frame_member" if fam.kind == sp.PROFILE else "library", 16))
-            shelf.addChild(item)
-        for category, shelves in COMING_SHELVES:
-            for name, about in shelves:
-                item = self._branch(category + "/" + name)
-                item.setData(0, ROLE_ABOUT, about)
-                item.setForeground(0, QtGui.QBrush(QtGui.QColor(
-                    C.text_dim)))
-        for i in range(self.tree.topLevelItemCount()):
-            self.tree.topLevelItem(i).setExpanded(True)
+    def _fill_tree(self, folder: _Folder, parent) -> None:
+        for child in folder.folders.values():
+            item = QtWidgets.QTreeWidgetItem([child.name])
+            item.setData(0, ROLE_PATH, child.path)
+            item.setIcon(0, icons.icon("open", 16))
+            if child.empty():
+                item.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
+            if parent is None:
+                self.tree.addTopLevelItem(item)
+            else:
+                parent.addChild(item)
+            self._items[child.path] = item
+            self._fill_tree(child, item)
 
-    def _show(self, item, _previous=None) -> None:
-        if item is None:
+    def folder_at(self, path: str) -> Optional[_Folder]:
+        here = self.root
+        for name in [p for p in (path or "").split("/") if p]:
+            here = here.folders.get(name)
+            if here is None:
+                return None
+        return here
+
+    def open_folder(self, path: str, remember: bool = True) -> None:
+        """Show what is in a folder, as the right hand side."""
+        folder = self.folder_at(path)
+        if folder is None:
             return
-        family_id = item.data(0, ROLE_FAMILY)
-        about = item.data(0, ROLE_ABOUT)
-        self.title.setText(item.text(0))
-        self.select.setVisible(bool(family_id))
-        if family_id:
-            self.about.setText(str(about or ""))
-            self.state.setText("Select Size, or double-click it, to pick "
-                               "the size%s and place it." % (
-                                   " and length" if sp.family(
-                                       family_id).needs_length else ""))
-        elif about:
-            self.about.setText(str(about))
-            self.state.setText(COMING)
+        if remember and folder is not self.current:
+            self._history.append(self.current.path)
+        self.current = folder
+        self.where.setText("Library" + "".join(
+            "  >  " + p for p in folder.path.split("/") if p))
+        self.back.setEnabled(bool(self._history))
+        self.up.setEnabled(bool(folder.path))
+        item = self._items.get(folder.path)
+        if item is not None and self.tree.currentItem() is not item:
+            self.tree.blockSignals(True)
+            self.tree.setCurrentItem(item)
+            item.setExpanded(True)
+            self.tree.blockSignals(False)
+        self.view.clear()
+        for child in folder.folders.values():
+            entry = QtWidgets.QListWidgetItem(icons.icon("open", 40),
+                                              child.name)
+            entry.setData(ROLE_PATH, child.path)
+            entry.setSizeHint(QtCore.QSize(180, 104))
+            entry.setToolTip(child.about or child.name)
+            if child.empty():
+                entry.setForeground(QtGui.QBrush(QtGui.QColor(C.text_dim)))
+            self.view.addItem(entry)
+        for fam in folder.families:
+            entry = QtWidgets.QListWidgetItem(
+                icons.icon("frame_member" if fam.kind == sp.PROFILE
+                           else "library", 40), family_label(fam))
+            entry.setData(ROLE_FAMILY, fam.id)
+            entry.setSizeHint(QtCore.QSize(180, 104))
+            entry.setToolTip("%s, %d sizes" % (fam.name, len(fam.rows)))
+            self.view.addItem(entry)
+        if folder.about and not folder.families and not folder.folders:
+            self.about.setText("%s\n\n%s" % (folder.about, COMING))
         else:
-            self.about.setText(", ".join(
-                item.child(i).text(0) for i in range(item.childCount())))
-            self.state.setText("")
+            self.about.setText("")
+        self._picked(None)
+
+    def go_back(self) -> None:
+        if self._history:
+            self.open_folder(self._history.pop(), remember=False)
+
+    def go_up(self) -> None:
+        if self.current.path:
+            self.open_folder(self.current.path.rpartition("/")[0])
+
+    def _double_clicked(self, entry) -> None:
+        if entry.data(ROLE_FAMILY):
+            self.view.setCurrentItem(entry)
+            self._open_family()
+        elif entry.data(ROLE_PATH) is not None:
+            self.open_folder(entry.data(ROLE_PATH))
+
+    def _picked(self, entry, _previous=None) -> None:
+        family_id = entry.data(ROLE_FAMILY) if entry is not None else None
+        self.place.setEnabled(bool(family_id))
+        if family_id:
+            fam = sp.family(family_id)
+            self.about.setText("%s: %d sizes, %s to %s. Place, or a "
+                               "double-click, to pick the size%s." % (
+                                   family_label(fam).replace("\n", ", "),
+                                   len(fam.rows),
+                                   fam.sizes()[0] if fam.rows else "",
+                                   fam.sizes()[-1] if fam.rows else "",
+                                   " and length" if fam.needs_length
+                                   else ""))
+
+    def selected_family(self) -> str:
+        entry = self.view.currentItem()
+        return str(entry.data(ROLE_FAMILY) or "") if entry else ""
 
     def _open_family(self) -> None:
-        item = self.tree.currentItem()
-        family_id = item.data(0, ROLE_FAMILY) if item is not None else None
+        family_id = self.selected_family()
         if not family_id:
             return
         dialog = StandardPartDialog(self, sp.family(family_id))

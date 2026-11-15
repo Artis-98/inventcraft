@@ -1662,6 +1662,11 @@
 "Structural Shapes": "Profilés",
 "Square Tubes": "Tubes carrés",
 "Frame Analysis (experimental)": "Analyse de cadre (expérimental)",
-"Select a broken or cropped view first.": "Choisissez d'abord une vue rompue ou recadrée."
+"Select a broken or cropped view first.": "Choisissez d'abord une vue rompue ou recadrée.",
+"Place...": "Placer...",
+"Place from Library...": "Placer depuis la bibliothèque...",
+"Up": "Haut",
+"The folder this one is in": "Le dossier parent",
+"Pick its size and length, then place it": "Choisissez sa taille et sa longueur, puis placez"
 }
 }

@@ -1662,6 +1662,11 @@
 "Structural Shapes": "Perfiles estructurales",
 "Square Tubes": "Tubos cuadrados",
 "Frame Analysis (experimental)": "Análisis de bastidor (experimental)",
-"Select a broken or cropped view first.": "Elija primero una vista rota o recortada."
+"Select a broken or cropped view first.": "Elija primero una vista rota o recortada.",
+"Place...": "Colocar...",
+"Place from Library...": "Colocar desde biblioteca...",
+"Up": "Subir",
+"The folder this one is in": "La carpeta superior",
+"Pick its size and length, then place it": "Elija tamaño y longitud y colóquelo"
 }
 }

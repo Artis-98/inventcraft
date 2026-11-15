@@ -1662,6 +1662,11 @@
 "Structural Shapes": "Stahlprofile",
 "Square Tubes": "Quadratrohre",
 "Frame Analysis (experimental)": "Rahmenanalyse (experimentell)",
-"Select a broken or cropped view first.": "Zuerst eine gebrochene oder zugeschnittene Ansicht wählen."
+"Select a broken or cropped view first.": "Zuerst eine gebrochene oder zugeschnittene Ansicht wählen.",
+"Place...": "Platzieren...",
+"Place from Library...": "Aus Bibliothek platzieren...",
+"Up": "Nach oben",
+"The folder this one is in": "Der übergeordnete Ordner",
+"Pick its size and length, then place it": "Größe und Länge wählen, dann platzieren"
 }
 }

@@ -1906,6 +1906,14 @@ class AssemblyController(QtCore.QObject):
                 open_part = menu.addAction(icons.icon("open", 16), "Open Part")
                 open_part.triggered.connect(
                     lambda: self.open_component(occurrence.id))
+                from ..core import standard_parts
+                if standard_parts.spec_of(doc.component_path(occurrence)):
+                    change = menu.addAction(icons.icon("library", 16),
+                                            "Change Size...")
+                    change.setToolTip("Its size, and its length, from the "
+                                      "library again")
+                    change.triggered.connect(
+                        lambda: self.change_size(occurrence.id))
                 delete = menu.addAction(icons.icon("delete", 16), "Delete")
                 delete.triggered.connect(
                     lambda: self.delete_occurrence(occurrence.id))
@@ -1913,6 +1921,9 @@ class AssemblyController(QtCore.QObject):
 
         place = menu.addAction(icons.icon("import", 16), "Place Component...")
         place.triggered.connect(self.place_component)
+        library = menu.addAction(icons.icon("library", 16),
+                                 "Place from Library...")
+        library.triggered.connect(self.host.place_from_library)
         constrain = menu.addAction(icons.icon("c_coincident", 16),
                                    "Constrain...")
         constrain.setEnabled(doc is not None and len(doc.occurrences) >= 2)
