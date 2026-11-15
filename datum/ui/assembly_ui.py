@@ -643,6 +643,7 @@ class AssemblyController(QtCore.QObject):
         b.suppress_toggled.connect(self.toggle_suppress)
         b.isolate_requested.connect(self.isolate)
         b.replace_requested.connect(self.replace_component)
+        b.change_size_requested.connect(self.change_size)
         b.properties_requested.connect(self.component_properties)
         b.open_location_requested.connect(self.component_location)
         b.constraint_activated.connect(self.edit_constraint)
@@ -1068,6 +1069,100 @@ class AssemblyController(QtCore.QObject):
             shift = edge + PLACE_GAP - xmin
             occurrence.placement.position = [shift, 0.0, 0.0]
             edge = shift + xmax
+
+    # -------------------------------------------------- standard parts
+
+    def library_folder(self) -> str:
+        """Where standard parts from the library are written: a Library
+        folder beside the assembly, or in the project when it is not
+        saved; "" when there is neither."""
+        doc = self.document
+        base = (doc.base_dir if doc is not None else "") \
+            or self.host.project_folder()
+        return os.path.join(base, "Library") if base else ""
+
+    def place_standard(self, chosen) -> Optional[Occurrence]:
+        """A standard part from the library, written if it is new, placed."""
+        from ..core import standard_parts
+
+        doc = self.document
+        if doc is None:
+            return None
+        folder = self.library_folder()
+        if not folder:
+            QtWidgets.QMessageBox.information(
+                self.host, "Place from Library",
+                "Save the assembly first: its standard parts are kept in a "
+                "Library folder beside it.")
+            return None
+        self.take_over()
+        try:
+            path = standard_parts.write_part(chosen, folder)
+        except Exception as exc:                        # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self.host, "Place from Library",
+                                          "It could not be made: %s" % exc)
+            return None
+        doc.push_undo()
+        arrival = doc.place(path)
+        doc.rebuild()
+        self._spread([arrival])
+        self.rebuild(keep_camera=False)
+        self.host.status_message.setStyleSheet("")
+        self.host.status_message.setText(
+            "Placed %s. Right-click it for Change Size."
+            % standard_parts.description(chosen))
+        return arrival
+
+    def change_size(self, occurrence_id: int, chosen=None) -> bool:
+        """Inventor's Change Size: the library's size window again, on a
+        placed standard part, and the part swapped for the new size."""
+        from ..core import standard_parts
+        from .library_dialog import StandardPartDialog
+
+        doc = self.document
+        occurrence = doc.occurrence(occurrence_id) if doc else None
+        if occurrence is None:
+            return False
+        current = standard_parts.spec_of(doc.component_path(occurrence))
+        if not current:
+            return False
+        if chosen is None:
+            try:
+                family = standard_parts.family(current["family"])
+            except KeyError:
+                QtWidgets.QMessageBox.warning(
+                    self.host, "Change Size",
+                    "Its family is no longer in the library.")
+                return False
+            dialog = StandardPartDialog(self.host, family, current["size"],
+                                        current.get("length", 0.0), "OK")
+            self._sizer = dialog
+            accepted = dialog.exec() == QtWidgets.QDialog.Accepted
+            self._sizer = None
+            if not accepted or not dialog.chosen:
+                return False
+            chosen = dialog.chosen
+        if chosen == current:
+            return False
+        folder = self.library_folder() or os.path.dirname(
+            doc.component_path(occurrence))
+        try:
+            path = standard_parts.write_part(chosen, folder)
+        except Exception as exc:                        # noqa: BLE001
+            QtWidgets.QMessageBox.warning(self.host, "Change Size",
+                                          "It could not be made: %s" % exc)
+            return False
+        doc.push_undo()
+        base = doc.base_dir
+        occurrence.ref.path = (fileformat.relative_path(path, base) if base
+                               else path)
+        occurrence.ref.name = os.path.basename(path)
+        self.rebuild()
+        self.host.status_message.setStyleSheet("")
+        self.host.status_message.setText(
+            "%s is now %s." % (occurrence.label,
+                               standard_parts.description(chosen)))
+        return True
 
     def replace_component(self, occurrence_id: int) -> None:
         doc = self.document

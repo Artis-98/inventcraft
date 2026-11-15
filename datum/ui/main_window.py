@@ -2221,6 +2221,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._library_dialog = None
         if dialog.place_file:
             self.assembly_ui.place_component()
+        elif dialog.chosen:
+            self.assembly_ui.place_standard(dialog.chosen)
 
     def new_part_for_assembly(self) -> None:
         """Start a part in its own tab, to be placed in this assembly."""

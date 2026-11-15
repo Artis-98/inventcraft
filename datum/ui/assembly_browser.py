@@ -75,6 +75,8 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     occurrence_rename_requested = QtCore.Signal(int, str)
     ground_toggled = QtCore.Signal(int)
     adaptive_toggled = QtCore.Signal(int)
+    # a standard part from the library: open its size window again
+    change_size_requested = QtCore.Signal(int)
     visibility_toggled = QtCore.Signal(int)
     suppress_toggled = QtCore.Signal(int)
     isolate_requested = QtCore.Signal(int)
@@ -612,6 +614,14 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             replace = menu.addAction(icons.icon("import", 16), "Replace...")
             replace.triggered.connect(
                 lambda: self.replace_requested.emit(oid))
+            from ..core import standard_parts
+            if standard_parts.spec_of(self._doc.component_path(occurrence)):
+                change = menu.addAction(icons.icon("library", 16),
+                                        "Change Size...")
+                change.setToolTip("Its size, and its length, from the "
+                                  "library again")
+                change.triggered.connect(
+                    lambda: self.change_size_requested.emit(oid))
 
             from ..core import frames
             path = self._doc.component_path(occurrence)

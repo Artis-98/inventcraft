@@ -282,6 +282,9 @@ class Document:
         # dimensions and hole notes on the model itself (annotations.py)
         self.annotations: List[Any] = []
         self.annotations_visible = True
+        # a standard part from Place from Library: which family, size and
+        # length it was made as (standard_parts.py), for Change Size
+        self.library: Dict[str, Any] = {}
         # once a body exists the origin planes have done their job, so they
         # are put away automatically - but only ever once, so a user who
         # turns them back on keeps them
@@ -1319,6 +1322,7 @@ class Document:
             **({"annotations": [a.to_dict() for a in self.annotations],
                 "annotations_visible": self.annotations_visible}
                if self.annotations else {}),
+            **({"library": dict(self.library)} if self.library else {}),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1365,6 +1369,7 @@ class Document:
         self.annotations = [ModelAnnotation.from_dict(a)
                             for a in data.get("annotations") or []]
         self.annotations_visible = bool(data.get("annotations_visible", True))
+        self.library = dict(data.get("library") or {})
         self.features = []
         for entry in data.get("features", []):
             try:
