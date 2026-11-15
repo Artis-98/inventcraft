@@ -1595,6 +1595,21 @@
 "Datum": "Bezug",
 "Auxiliary": "Hilfsansicht",
 "Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Eine Kante einer Ansicht anklicken, dann den Ort der Ansicht: sie blickt senkrecht auf die Fläche dieser Kante",
-"Auxiliary View": "Hilfsansicht"
+"Auxiliary View": "Hilfsansicht",
+"Frame\nAnalysis": "Rahmen-\nanalyse",
+"Frame Analysis": "Rahmenanalyse",
+"Analysis": "Analyse",
+"How a frame copes: stood on its feet, loaded on top and in the wind, its sag, stresses and frequencies": "Wie ein Rahmen standhält: auf seinen Füßen, oben belastet und im Wind; Durchbiegung, Spannungen und Eigenfrequenzen",
+"Lowest joints": "Unterste Knoten",
+"Fixed": "Eingespannt",
+"Pinned": "Gelenkig",
+"Its own weight": "Eigengewicht",
+"Load on top, shared": "Last oben, verteilt",
+"Wind speed": "Windgeschwindigkeit",
+"Wind blowing towards": "Wind weht nach",
+"Drag coefficient": "Widerstandsbeiwert",
+"Stress": "Spannung",
+"Of yield": "Der Streckgrenze",
+"Member": "Stab"
 }
 }

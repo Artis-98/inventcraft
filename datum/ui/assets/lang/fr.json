@@ -11,7 +11,7 @@
 "Gap": "Écart",
 "Hem": "Ourlet",
 "New": "Nouveau",
-"Run": "Exécuter",
+"Run": "Lancer",
 "Top": "Dessus",
 "Auto": "Automatique",
 "Axis": "Axe",
@@ -1595,6 +1595,21 @@
 "Datum": "Référence",
 "Auxiliary": "Auxiliaire",
 "Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Cliquez une arête d'une vue, puis l'emplacement de la vue : elle regarde perpendiculairement la face de cette arête",
-"Auxiliary View": "Vue auxiliaire"
+"Auxiliary View": "Vue auxiliaire",
+"Frame\nAnalysis": "Analyse\nde cadre",
+"Frame Analysis": "Analyse de cadre",
+"Analysis": "Analyse",
+"How a frame copes: stood on its feet, loaded on top and in the wind, its sag, stresses and frequencies": "Comment un cadre tient : sur ses pieds, chargé dessus et au vent ; flèche, contraintes et fréquences",
+"Lowest joints": "Nœuds les plus bas",
+"Fixed": "Encastré",
+"Pinned": "Articulé",
+"Its own weight": "Poids propre",
+"Load on top, shared": "Charge en haut, répartie",
+"Wind speed": "Vitesse du vent",
+"Wind blowing towards": "Vent soufflant vers",
+"Drag coefficient": "Coefficient de traînée",
+"Stress": "Contrainte",
+"Of yield": "De la limite",
+"Member": "Membrure"
 }
 }

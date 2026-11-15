@@ -1595,6 +1595,21 @@
 "Datum": "Baza",
 "Auxiliary": "Pomocniczy",
 "Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Kliknij krawędź widoku, potem miejsce widoku: patrzy prostopadle na ścianę tej krawędzi",
-"Auxiliary View": "Widok pomocniczy"
+"Auxiliary View": "Widok pomocniczy",
+"Frame\nAnalysis": "Analiza\nramy",
+"Frame Analysis": "Analiza ramy",
+"Analysis": "Analiza",
+"How a frame copes: stood on its feet, loaded on top and in the wind, its sag, stresses and frequencies": "Jak rama sobie radzi: na nogach, obciążona z góry i wiatrem; ugięcie, naprężenia i częstotliwości",
+"Lowest joints": "Najniższe węzły",
+"Fixed": "Utwierdzone",
+"Pinned": "Przegubowe",
+"Its own weight": "Ciężar własny",
+"Load on top, shared": "Obciążenie z góry, rozłożone",
+"Wind speed": "Prędkość wiatru",
+"Wind blowing towards": "Wiatr wieje w stronę",
+"Drag coefficient": "Współczynnik oporu",
+"Stress": "Naprężenie",
+"Of yield": "Granicy plast.",
+"Member": "Pręt"
 }
 }

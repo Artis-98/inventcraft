@@ -1595,6 +1595,21 @@
 "Datum": "Referencia",
 "Auxiliary": "Auxiliar",
 "Click an edge of a view, then where the view goes: it looks square onto the face that edge belongs to": "Haga clic en una arista de una vista y luego donde va la vista: mira perpendicular a la cara de esa arista",
-"Auxiliary View": "Vista auxiliar"
+"Auxiliary View": "Vista auxiliar",
+"Frame\nAnalysis": "Análisis\nde bastidor",
+"Frame Analysis": "Análisis de bastidor",
+"Analysis": "Análisis",
+"How a frame copes: stood on its feet, loaded on top and in the wind, its sag, stresses and frequencies": "Cómo aguanta un bastidor: sobre sus patas, cargado arriba y con viento; flecha, tensiones y frecuencias",
+"Lowest joints": "Nudos más bajos",
+"Fixed": "Empotrado",
+"Pinned": "Articulado",
+"Its own weight": "Peso propio",
+"Load on top, shared": "Carga arriba, repartida",
+"Wind speed": "Velocidad del viento",
+"Wind blowing towards": "Viento hacia",
+"Drag coefficient": "Coeficiente de arrastre",
+"Stress": "Tensión",
+"Of yield": "Del límite",
+"Member": "Miembro"
 }
 }

@@ -778,6 +778,11 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("delete", "Remove End Treatments",
                         "The picked members back as Insert Frame made them"
                         ).clicked.connect(lambda: self.frame_action("remove"))
+        panel = design.add_panel("Analysis")
+        panel.add_big("measure", "Frame\nAnalysis",
+                      "How a frame copes: stood on its feet, loaded on top "
+                      "and in the wind, its sag, stresses and frequencies"
+                      ).clicked.connect(self.frame_analysis)
         panel = design.add_panel("Profiles")
         panel.add_big("frame_library", "Profile\nLibrary",
                       "The profile families and their sizes; your own too"
@@ -2242,6 +2247,21 @@ class MainWindow(QtWidgets.QMainWindow):
             return None
         dialog = InsertFrameDialog(self)
         self.frame_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def frame_analysis(self):
+        """Frame Analysis: a frame's beams, loaded and solved."""
+        from .frame_analysis_ui import FrameAnalysisDialog, frames_in
+        if self.assembly is None:
+            return None
+        found = frames_in(self.assembly)
+        if not found:
+            self.status_message.setText(
+                "There is no frame here to analyse: Insert Frame first.")
+            return None
+        dialog = FrameAnalysisDialog(self, found)
+        self.frame_analysis_dialog = dialog
         dialog.show()
         return dialog
 
