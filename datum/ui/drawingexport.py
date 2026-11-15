@@ -188,9 +188,14 @@ def to_dxf(doc: DrawingDocument, sheet: Sheet, path: str,
             continue
         for line in view.projection.lines:
             layer = DXF_LAYERS.get(line.kind, "VIEW_VISIBLE")
-            points = [(view.x + x, view.y + y) for x, y in line.points]
-            for a, b in zip(points, points[1:]):
-                out.line(a, b, layer)
+            for p, q in zip(line.points, line.points[1:]):
+                for a, b in dwg.broken_segments(view, p, q):
+                    out.line((view.x + a[0], view.y + a[1]),
+                             (view.x + b[0], view.y + b[1]), layer)
+        for points in dwg.break_lines(view):
+            moved = [(view.x + x, view.y + y) for x, y in points]
+            for a, b in zip(moved, moved[1:]):
+                out.line(a, b, "VIEW_VISIBLE")
         # A DXF has no fills here, so hatching goes out as the lines it is
         # actually made of, on their own layer to be turned off easily.
         loops = view.projection.of_kind(hlr.CUT)

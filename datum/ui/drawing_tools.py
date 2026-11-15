@@ -703,6 +703,92 @@ class AuxiliaryTool(PickTool):
         painter.restore()
 
 
+class BreakTool:
+    """Inventor's Break: click a view where the band to take out starts,
+    then where it ends.  Spread across the page it shortens the view that
+    way, up the page the other.  Stays on for the next until Esc."""
+
+    name = "Break"
+
+    def __init__(self, controller, sheet) -> None:
+        self.controller = controller
+        self.sheet = sheet
+        self.first = None           # (view, point in its own unbroken mm)
+        self.cursor = None
+        self.say()
+
+    def say(self) -> None:
+        host = self.controller.host
+        host.status_message.setStyleSheet("")
+        host.status_message.setText(
+            "Break: click the view where the part to leave out starts."
+            if self.first is None else
+            "Break: click where it ends. Esc when done.")
+
+    def view_at(self, point):
+        for view in reversed(self.sheet.views):
+            projection = view.projection
+            if projection is None:
+                continue
+            box = projection.box
+            local = dwg.unshown(view, (point[0] - view.x, point[1] - view.y))
+            if box[0] - 3 <= local[0] <= box[2] + 3 and \
+                    box[1] - 3 <= local[1] <= box[3] + 3:
+                return view, local
+        return None
+
+    def press(self, point, device) -> None:
+        if self.first is None:
+            found = self.view_at(point)
+            if found is not None:
+                self.first = found
+                self.say()
+            return
+        view, start = self.first
+        end = dwg.unshown(view, (point[0] - view.x, point[1] - view.y))
+        self.first = None
+        dx, dy = abs(end[0] - start[0]), abs(end[1] - start[1])
+        axis = 0 if dx >= dy else 1
+        lo, hi = sorted((start[axis], end[axis]))
+        self.controller._break(self.sheet, view, axis, lo, hi)
+        self.say()
+
+    def move(self, point, device, held: bool) -> None:
+        self.cursor = point
+
+    def release(self, point, device) -> None:
+        pass
+
+    def right_click(self, point, device) -> bool:
+        return False
+
+    def escape(self) -> bool:
+        if self.first is not None:
+            self.first = None
+            self.say()
+            return True
+        return False
+
+    def cursor_shape(self, point, device):
+        return QtCore.Qt.CrossCursor
+
+    def paint(self, painter, layout) -> None:
+        if self.first is None or self.cursor is None:
+            return
+        view, start = self.first
+        a = dwg.shown(view, start)
+        painter.save()
+        painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.2,
+                                  QtCore.Qt.DashLine))
+        p = QtCore.QPointF(*layout.to_device(view.x + a[0], view.y + a[1]))
+        q = QtCore.QPointF(*layout.to_device(*self.cursor))
+        painter.drawRect(QtCore.QRectF(p, q).normalized())
+        painter.restore()
+
+    def close(self) -> None:
+        pass
+
+
 class HoleNoteTool(PickTool):
     """Inventor's Hole and Thread: click a hole, then where its note goes.
 

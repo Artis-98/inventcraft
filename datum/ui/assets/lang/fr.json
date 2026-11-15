@@ -1638,6 +1638,11 @@
 "Square butt": "Soudure bord à bord",
 "Single bevel butt": "Soudure en demi-V",
 "Plug or slot": "Bouchon ou entaille",
-"Spot": "Par points"
+"Spot": "Par points",
+"Break": "Coupure",
+"Remove Breaks": "Supprimer les coupures",
+"The selected view whole again": "La vue sélectionnée de nouveau entière",
+"Leave out the middle of a long view: click where the part to leave out starts, then where it ends": "Omettre le milieu d'une longue vue : cliquez où commence la partie à omettre, puis où elle finit",
+"Select a broken view first.": "Sélectionnez d'abord une vue coupée."
 }
 }

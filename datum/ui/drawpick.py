@@ -17,6 +17,8 @@ import math
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ..core import drawing as dwg
+
 Point = Tuple[float, float]
 
 POINT = "point"
@@ -174,7 +176,8 @@ def nearest(sheet, point: Point, tolerance: float,
         projection = view.projection
         if projection is None or not projection.box:
             continue
-        local = (point[0] - view.x, point[1] - view.y)
+        # on a broken view, the unbroken point drawn here
+        local = dwg.unshown(view, (point[0] - view.x, point[1] - view.y))
         box = projection.box
         if not (box[0] - tolerance <= local[0] <= box[2] + tolerance
                 and box[1] - tolerance <= local[1] <= box[3] + tolerance):

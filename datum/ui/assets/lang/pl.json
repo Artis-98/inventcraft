@@ -136,7 +136,7 @@
 "Margin": "Margines",
 "Method": "Metoda",
 "Mirror": "Lustro",
-"Modify": "Modyfikuj",
+"Modify": "Zmień",
 "Offset": "Odsunięcie",
 "Origin": "Początek",
 "Output": "Wynik",
@@ -1638,6 +1638,11 @@
 "Square butt": "Doczołowa I",
 "Single bevel butt": "Doczołowa 1/2 V",
 "Plug or slot": "Otworowa",
-"Spot": "Punktowa"
+"Spot": "Punktowa",
+"Break": "Przerwanie",
+"Remove Breaks": "Usuń przerwania",
+"The selected view whole again": "Zaznaczony widok znów w całości",
+"Leave out the middle of a long view: click where the part to leave out starts, then where it ends": "Pomiń środek długiego widoku: kliknij początek pomijanej części, potem jej koniec",
+"Select a broken view first.": "Najpierw zaznacz przerwany widok."
 }
 }

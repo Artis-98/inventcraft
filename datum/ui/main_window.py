@@ -863,6 +863,15 @@ class MainWindow(QtWidgets.QMainWindow):
                       "Enlarge part of the selected view"
                       ).clicked.connect(ui.add_detail)
 
+        panel = place.add_panel("Modify")
+        panel.add_big("dv_detail", "Break",
+                      "Leave out the middle of a long view: click where the "
+                      "part to leave out starts, then where it ends"
+                      ).clicked.connect(ui.add_break)
+        panel.add_small("delete", "Remove Breaks",
+                        "The selected view whole again"
+                        ).clicked.connect(ui.remove_breaks)
+
         panel = place.add_panel("Sketch")
         panel.add_big("sketch", "Start\nSketch",
                       "Then click a view to sketch on it, or the sheet"

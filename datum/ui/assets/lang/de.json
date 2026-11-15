@@ -1638,6 +1638,11 @@
 "Square butt": "I-Naht",
 "Single bevel butt": "HV-Naht",
 "Plug or slot": "Loch- oder Schlitznaht",
-"Spot": "Punktnaht"
+"Spot": "Punktnaht",
+"Break": "Unterbrechung",
+"Remove Breaks": "Unterbrechungen entfernen",
+"The selected view whole again": "Die gewählte Ansicht wieder ganz",
+"Leave out the middle of a long view: click where the part to leave out starts, then where it ends": "Die Mitte einer langen Ansicht weglassen: klicken, wo der wegzulassende Teil beginnt, dann wo er endet",
+"Select a broken view first.": "Zuerst eine unterbrochene Ansicht wählen."
 }
 }

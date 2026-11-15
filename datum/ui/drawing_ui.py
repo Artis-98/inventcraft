@@ -535,6 +535,44 @@ class DrawingController(QtCore.QObject):
         self.rebuild()
         return child
 
+    def add_break(self) -> None:
+        """Inventor's Break: a band of a long view left out."""
+        self._start_tool("BreakTool")
+
+    def _break(self, sheet, view, axis: int, lo: float, hi: float) -> bool:
+        """Take a band out of a view.  Too narrow a band, or one over
+        another, is refused rather than drawn wrong."""
+        if hi - lo <= dwg.BREAK_GAP:
+            self._complain("That is narrower than the gap a break leaves: "
+                           "drag across more of the view.")
+            return False
+        for b in view.breaks:
+            if int(b[0]) == axis and lo < b[2] and hi > b[1]:
+                self._complain("That overlaps a break already there.")
+                return False
+        doc = self.document
+        doc.push_undo()
+        view.breaks.append([float(axis), float(lo), float(hi)])
+        doc.modified = True
+        self.canvas.update()
+        self.host.update_title()
+        self.host.status_message.setText(
+            "%s broken: %.0f mm left out. Dimensions across it read true."
+            % (view.label, (hi - lo) / (doc.view_scale(sheet, view) or 1)))
+        return True
+
+    def remove_breaks(self) -> None:
+        """The selected view whole again."""
+        doc, sheet, view = self._selected_view()
+        if view is None or not view.breaks:
+            self._complain("Select a broken view first.")
+            return
+        doc.push_undo()
+        view.breaks = []
+        doc.modified = True
+        self.canvas.update()
+        self.host.update_title()
+
     def add_auxiliary(self) -> None:
         """Inventor's Auxiliary: an edge of a view, then where it goes."""
         self._start_tool("AuxiliaryTool")

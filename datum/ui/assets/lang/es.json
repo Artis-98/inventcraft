@@ -1638,6 +1638,11 @@
 "Square butt": "A tope recta",
 "Single bevel butt": "A tope en media V",
 "Plug or slot": "De tapón o ranura",
-"Spot": "Por puntos"
+"Spot": "Por puntos",
+"Break": "Rotura",
+"Remove Breaks": "Quitar roturas",
+"The selected view whole again": "La vista seleccionada entera de nuevo",
+"Leave out the middle of a long view: click where the part to leave out starts, then where it ends": "Omitir el centro de una vista larga: haga clic donde empieza la parte a omitir y luego donde termina",
+"Select a broken view first.": "Seleccione primero una vista con rotura."
 }
 }

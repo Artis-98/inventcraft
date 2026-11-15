@@ -453,12 +453,38 @@ def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
         style = doc.styles.get(style_name, dwg.Style())
         colour = STALE if view.stale else None
         painter.setPen(_pen(layout, style, dashed, colour))
+        if view.breaks:
+            # a broken view: what is in a band taken out is not drawn,
+            # and the rest closes up round it
+            for line in lines:
+                for p, q in zip(line.points, line.points[1:]):
+                    for a, b in dwg.broken_segments(view, p, q):
+                        painter.drawLine(
+                            QtCore.QPointF(*layout.to_device(
+                                view.x + a[0], view.y + a[1])),
+                            QtCore.QPointF(*layout.to_device(
+                                view.x + b[0], view.y + b[1])))
+            continue
         for line in lines:
             path = QtGui.QPainterPath()
             first = layout.to_device(view.x + line.points[0][0],
                                      view.y + line.points[0][1])
             path.moveTo(QtCore.QPointF(*first))
             for x, y in line.points[1:]:
+                path.lineTo(QtCore.QPointF(*layout.to_device(view.x + x,
+                                                             view.y + y)))
+            painter.drawPath(path)
+
+    if view.breaks:
+        style = doc.styles.get("visible", dwg.Style())
+        thin = doc.styles.get("dimension", style)
+        painter.setPen(_pen(layout, thin, colour=STALE if view.stale
+                            else None))
+        for points in dwg.break_lines(view):
+            path = QtGui.QPainterPath()
+            path.moveTo(QtCore.QPointF(*layout.to_device(
+                view.x + points[0][0], view.y + points[0][1])))
+            for x, y in points[1:]:
                 path.lineTo(QtCore.QPointF(*layout.to_device(view.x + x,
                                                              view.y + y)))
             painter.drawPath(path)
@@ -805,6 +831,9 @@ def _annotation(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     view = sheet.view(note.view)
     if view is None:
         return
+    if view.breaks:
+        # drawn where the broken view puts it, reading the true value
+        note = dwg.broken_note(note, view, doc.view_scale(sheet, view))
     style = doc.styles.get("dimension", dwg.Style())
     colour = SICK if note.sick else (SELECTED if selected
                                      else style.colour)

@@ -708,6 +708,11 @@ class View:
     flat: bool = False
     # where a fillet meets a face, a thin line, as Inventor's Tangent Edges
     tangents: bool = True
+    # Inventor's Break: bands taken out of a long view, each [axis, from,
+    # to], axis 0 across the page and 1 up it, in the view's own
+    # unbroken millimetres.  Only the drawing is shortened: everything is
+    # kept and measured unbroken, so a dimension across a break reads true.
+    breaks: List[List[float]] = field(default_factory=list)
 
     # filled in by a rebuild; never written to the drawing.json
     projection: Optional[hlr.Projection] = None
@@ -730,6 +735,8 @@ class View:
             "hatch_pattern": self.hatch_pattern,
             "flat": self.flat,
             "tangents": self.tangents,
+            **({"breaks": [list(b) for b in self.breaks]}
+               if self.breaks else {}),
         }
 
     @classmethod
@@ -754,7 +761,9 @@ class View:
             radius=float(d.get("radius", 25.0)),
             depth=float(d.get("depth", 0.0)),
             flat=bool(d.get("flat", False)),
-            tangents=bool(d.get("tangents", True)))
+            tangents=bool(d.get("tangents", True)),
+            breaks=[[float(v) for v in b][:3]
+                    for b in d.get("breaks") or []])
 
     @property
     def label(self) -> str:
@@ -763,6 +772,140 @@ class View:
         if self.kind == DETAIL and self.letter:
             return "DETAIL %s" % self.letter
         return self.name or VIEW_LABELS.get(self.kind, "View")
+
+
+# ------------------------------------------------------------- breaks
+
+BREAK_GAP = 6.0         # mm on the sheet between the two sides of a break
+
+
+def _breaks(view, axis: int):
+    return sorted(((b[1], b[2]) for b in getattr(view, "breaks", None) or []
+                   if int(b[0]) == axis and b[2] - b[1] > BREAK_GAP),
+                  key=lambda ab: ab[0])
+
+
+def _squeeze(v: float, spans) -> float:
+    """One coordinate, each band taken out of the drawing.  The view keeps
+    its middle: what is before a band moves on by half of what was taken
+    out, what is after it back by half."""
+    out = v
+    for a, b in spans:
+        removed = (b - a) - BREAK_GAP
+        if v <= a:
+            out += removed / 2.0
+        elif v >= b:
+            out -= removed / 2.0
+        else:
+            out += (a + removed / 2.0 + (v - a) * BREAK_GAP / (b - a)) - v
+    return out
+
+
+def _unsqueeze(v: float, spans) -> float:
+    """The other way: where on the unbroken view a drawn point is."""
+    if not spans:
+        return v
+    knots = sorted({k for a, b in spans for k in (a, b)})
+    knots = [knots[0] - 1e7] + knots + [knots[-1] + 1e7]
+    drawn = [_squeeze(k, spans) for k in knots]
+    for (k0, d0), (k1, d1) in zip(zip(knots, drawn),
+                                  zip(knots[1:], drawn[1:])):
+        if d0 <= v <= d1 and d1 > d0:
+            return k0 + (v - d0) * (k1 - k0) / (d1 - d0)
+    return v
+
+
+def shown(view, point) -> Tuple[float, float]:
+    """Where a point of a view's own is drawn, its breaks taken out."""
+    if not getattr(view, "breaks", None):
+        return (point[0], point[1])
+    return (_squeeze(point[0], _breaks(view, 0)),
+            _squeeze(point[1], _breaks(view, 1)))
+
+
+def unshown(view, point) -> Tuple[float, float]:
+    """The point of a view's own that is drawn here."""
+    if not getattr(view, "breaks", None):
+        return (point[0], point[1])
+    return (_unsqueeze(point[0], _breaks(view, 0)),
+            _unsqueeze(point[1], _breaks(view, 1)))
+
+
+def broken_segments(view, a, b):
+    """A segment of a view, as drawn: the parts in a band taken out are
+    gone, the rest moved together.  A list of (a, b) to draw."""
+    if not getattr(view, "breaks", None):
+        return [((a[0], a[1]), (b[0], b[1]))]
+    cuts = [0.0, 1.0]
+    for axis in (0, 1):
+        d = b[axis] - a[axis]
+        if abs(d) < 1e-12:
+            continue
+        for lo, hi in _breaks(view, axis):
+            for edge in (lo, hi):
+                t = (edge - a[axis]) / d
+                if 0.0 < t < 1.0:
+                    cuts.append(t)
+    cuts.sort()
+    out = []
+    for t0, t1 in zip(cuts, cuts[1:]):
+        if t1 - t0 < 1e-12:
+            continue
+        mid = [a[i] + (b[i] - a[i]) * (t0 + t1) / 2.0 for i in (0, 1)]
+        if any(lo < mid[axis] < hi for axis in (0, 1)
+               for lo, hi in _breaks(view, axis)):
+            continue
+        p = [a[i] + (b[i] - a[i]) * t0 for i in (0, 1)]
+        q = [a[i] + (b[i] - a[i]) * t1 for i in (0, 1)]
+        out.append((shown(view, p), shown(view, q)))
+    return out
+
+
+def break_lines(view):
+    """The zigzag either side of each band, as Inventor's rectangular
+    break draws it: [(points), ...] in the view's drawn millimetres."""
+    projection = getattr(view, "projection", None)
+    if projection is None or not getattr(view, "breaks", None):
+        return []
+    box = projection.box
+    out = []
+    for axis in (0, 1):
+        other = 1 - axis
+        if axis == 1:
+            lo_o, hi_o = box[0] - 2.0, box[2] + 2.0
+        else:
+            lo_o, hi_o = box[1] - 2.0, box[3] + 2.0
+        for a, b in _breaks(view, axis):
+            for edge in (a, b):
+                at = _squeeze(edge, _breaks(view, axis))
+                steps = 8
+                points = []
+                for i in range(steps + 1):
+                    o = lo_o + (hi_o - lo_o) * i / steps
+                    wiggle = 0.0
+                    if i in (steps // 2 - 1, steps // 2 + 1):
+                        wiggle = 1.5 if i < steps // 2 else -1.5
+                    p = [0.0, 0.0]
+                    p[axis] = at + wiggle
+                    p[other] = o
+                    points.append(tuple(p))
+                out.append(points)
+    return out
+
+
+def broken_note(note: "Annotation", view, scale: float) -> "Annotation":
+    """An annotation as it is drawn on a broken view: its points moved
+    with the drawing, its value still the true one."""
+    import copy
+
+    if not getattr(view, "breaks", None):
+        return note
+    out = copy.copy(note)
+    out.points = [list(shown(view, p)) + list(p[2:]) for p in note.points]
+    if note.kind in DIMENSIONS and not note.text:
+        out.text = note.caption(scale)
+        out.prefix = out.suffix = ""
+    return out
 
 
 # ------------------------------------------------------------- annotations

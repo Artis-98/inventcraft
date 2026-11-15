@@ -217,7 +217,7 @@ class SheetCanvas(QtWidgets.QWidget):
             return []
         layout = self.layout()
         return [(note, index, QtCore.QPointF(*layout.to_device(
-            view.x + p[0], view.y + p[1])))
+            view.x + dwg.shown(view, p)[0], view.y + dwg.shown(view, p)[1])))
             for index, p in enumerate(note.points)]
 
     def _paint_grips(self, painter: QtGui.QPainter) -> None:
@@ -252,7 +252,7 @@ class SheetCanvas(QtWidgets.QWidget):
 
         best, best_distance = None, tolerance
         for view in reversed(sheet.views):
-            local = (point[0] - view.x, point[1] - view.y)
+            local = dwg.unshown(view, (point[0] - view.x, point[1] - view.y))
             projection = view.projection
             if projection is None:
                 if abs(local[0]) < 20.0 and abs(local[1]) < 20.0:
@@ -298,7 +298,8 @@ class SheetCanvas(QtWidgets.QWidget):
             if view is None or not note.points:
                 continue
             # taken hold of by its text, wherever that was put
-            label = dwg.label_at(note)
+            label = dwg.label_at(dwg.broken_note(
+                note, view, 1.0) if view.breaks else note)
             where = (view.x + label[0], view.y + label[1])
             if math.hypot(where[0] - point[0],
                           where[1] - point[1]) < tolerance * 2.2:
