@@ -120,7 +120,7 @@
 "Emboss": "Prägen",
 "Export": "Exportieren",
 "Family": "Familie",
-"Fillet": "Rundung",
+"Fillet": "Kehlnaht",
 "Finish": "Fertig stellen",
 "Flange": "Lasche",
 "Format": "Format",
@@ -1625,6 +1625,19 @@
 "Restore": "Wiederherstellen",
 "New Branch...": "Neuer Zweig...",
 "Merge into main": "In main zusammenführen",
-"Name of the branch:": "Name des Zweigs:"
+"Name of the branch:": "Name des Zweigs:",
+"Welding": "Schweißen",
+"Weld Symbol": "Schweißsymbol",
+"A weld symbol: click the joint, then the weld, its size and length": "Ein Schweißsymbol: die Fuge anklicken, dann Naht, Größe und Länge",
+"Weld": "Naht",
+"all along": "durchgehend",
+"On the other side": "Auf der Gegenseite",
+"All round": "Ringsum",
+"Welded on site": "Baustellennaht",
+"Single V butt": "V-Naht",
+"Square butt": "I-Naht",
+"Single bevel butt": "HV-Naht",
+"Plug or slot": "Loch- oder Schlitznaht",
+"Spot": "Punktnaht"
 }
 }

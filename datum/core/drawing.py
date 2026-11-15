@@ -782,6 +782,20 @@ CENTRELINE = "centreline"
 SURFACE = "surface"         # surface texture: the tick, and Ra above it
 FCF = "fcf"                 # feature control frame, GD&T
 DATUM_ID = "datum"          # datum identifier: a letter in a box
+WELD = "weld"               # ISO 2553 weld symbol on a reference line
+
+# the welds a symbol can call for, ISO 2553's commonest
+WELDS = (("fillet", "Fillet"), ("v_butt", "Single V butt"),
+         ("square_butt", "Square butt"), ("bevel", "Single bevel butt"),
+         ("plug", "Plug or slot"), ("spot", "Spot"))
+
+
+def weld_parts(text: str):
+    """A weld symbol as stored: kind|size|length|flags, flags a comma
+    list of all_around, field and other (the weld on the other side)."""
+    parts = (text or "").split("|") + ["", "", "", ""]
+    flags = {f for f in parts[3].split(",") if f}
+    return parts[0] or "fillet", parts[1], parts[2], flags
 
 # surface texture, by what the symbol's shape says
 SURFACE_ANY = ""            # the plain tick: any process
@@ -828,7 +842,7 @@ ANNOTATION_LABELS = {
     BALLOON: "Balloon", NOTE: "Text", LEADER: "Leader",
     CENTRE_MARK: "Centre Mark", CENTRELINE: "Centreline",
     SURFACE: "Surface Texture", FCF: "Feature Control Frame",
-    DATUM_ID: "Datum Identifier",
+    DATUM_ID: "Datum Identifier", WELD: "Weld Symbol",
 }
 
 DIMENSIONS = (LINEAR, ALIGNED, ANGULAR, RADIUS, DIAMETER, ORDINATE)

@@ -159,6 +159,32 @@ ui.end_placement()
 check("and the next one B", sheet.annotations[-1].text == "B",
       sheet.annotations[-1].text)
 
+print("a weld")
+values.clear()
+
+
+def weld_exec(dialog, *a, **k):
+    dialog.weld.setCurrentIndex([k for k, _l in dwg.WELDS].index("fillet"))
+    dialog.size.setText("a5")
+    dialog.length.setText("100")
+    dialog.around.setChecked(True)
+    dialog.field.setChecked(True)
+    values[dialog.kind] = dialog.values()
+    return QtWidgets.QDialog.Accepted
+
+
+drawing_tools.SymbolDialog.exec = weld_exec
+ui.add_symbol_tool(dwg.WELD)
+ui._placer.press(at((edge.a[0] + (edge.b[0] - edge.a[0]) * 0.9,
+                     edge.a[1])), None)
+ui.end_placement()
+weld = sheet.annotations[-1]
+check("a weld symbol placed", weld.kind == dwg.WELD)
+kind, size, length, flags = dwg.weld_parts(weld.text)
+check("fillet a5, 100 long, all round, on site",
+      (kind, size, length) == ("fillet", "a5", "100")
+      and flags == {"all_around", "field"}, weld.text)
+
 print("painted")
 errors = []
 hook = sys.excepthook
@@ -174,8 +200,9 @@ print("saved")
 win.save_document()
 back = dwg.DrawingDocument.load(win.drawing.path)
 kinds = [n.kind for n in back.active().annotations]
-check("all four come back", kinds.count(dwg.DATUM_ID) == 2
-      and dwg.SURFACE in kinds and dwg.FCF in kinds, kinds)
+check("all five come back", kinds.count(dwg.DATUM_ID) == 2
+      and dwg.SURFACE in kinds and dwg.FCF in kinds and dwg.WELD in kinds,
+      kinds)
 
 print()
 if FAILS:

@@ -120,7 +120,7 @@
 "Emboss": "Gaufrage",
 "Export": "Exporter",
 "Family": "Famille",
-"Fillet": "Congé",
+"Fillet": "Soudure d'angle",
 "Finish": "Finition",
 "Flange": "Tôle pliée",
 "Format": "Format",
@@ -1625,6 +1625,19 @@
 "Restore": "Restaurer",
 "New Branch...": "Nouvelle branche...",
 "Merge into main": "Fusionner dans main",
-"Name of the branch:": "Nom de la branche :"
+"Name of the branch:": "Nom de la branche :",
+"Welding": "Soudage",
+"Weld Symbol": "Symbole de soudure",
+"A weld symbol: click the joint, then the weld, its size and length": "Un symbole de soudure : cliquez le joint, puis la soudure, sa taille et sa longueur",
+"Weld": "Soudure",
+"all along": "sur toute la longueur",
+"On the other side": "De l'autre côté",
+"All round": "Sur tout le pourtour",
+"Welded on site": "Soudé sur chantier",
+"Single V butt": "Soudure en V",
+"Square butt": "Soudure bord à bord",
+"Single bevel butt": "Soudure en demi-V",
+"Plug or slot": "Bouchon ou entaille",
+"Spot": "Par points"
 }
 }

@@ -931,6 +931,10 @@ class DrawingController(QtCore.QObject):
                 offset = [sx * (8.0 + tall * 0.6), 4.0]
         elif kind == dwg.DATUM_ID:
             offset = [sx * 6.0, sy * 6.0]
+        elif kind == dwg.WELD:
+            # the arrow comes in on a slant from the side, the reference
+            # line level beside it
+            offset = [(sx or 1.0) * 10.0, (sy or 1.0) * 10.0]
         else:
             offset = [sx * 10.0 + (8.0 if sy else 0.0),
                       sy * 10.0 + (8.0 if sx else 0.0)]

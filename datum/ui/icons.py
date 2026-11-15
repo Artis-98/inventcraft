@@ -882,6 +882,16 @@ def _i_an_datum(p):
                                    QtCore.QPointF(12, 16)]))
 
 
+def _i_an_weld(p):
+    """A weld symbol: arrow, reference line, a fillet triangle under it."""
+    _pen(p, _LINE, 1.4)
+    p.drawLine(QtCore.QPointF(3, 20), QtCore.QPointF(9, 10))
+    p.drawLine(QtCore.QPointF(9, 10), QtCore.QPointF(22, 10))
+    _pen(p, _ACCENT, 1.4)
+    p.drawLine(QtCore.QPointF(13, 10), QtCore.QPointF(13, 16))
+    p.drawLine(QtCore.QPointF(13, 16), QtCore.QPointF(19, 10))
+
+
 def _i_an_hole(p):
     _pen(p, _LINE, 1.5)
     p.drawEllipse(QtCore.QPointF(8, 15), 4.5, 4.5)
@@ -1486,7 +1496,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "an_centremark": _i_an_centremark, "an_centreline": _i_an_centreline,
     "an_bisector": _i_an_bisector, "an_hole": _i_an_hole,
     "an_surface": _i_an_surface, "an_fcf": _i_an_fcf,
-    "an_datum": _i_an_datum,
+    "an_datum": _i_an_datum, "an_weld": _i_an_weld,
     "split_solid": _i_split_solid,
     "pattern_circ": _i_pattern_circ, "mirror": _i_mirror, "move": _i_move,
     "box": _i_box, "cylinder": _i_cylinder, "sphere": _i_sphere,

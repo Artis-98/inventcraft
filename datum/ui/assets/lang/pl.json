@@ -46,7 +46,7 @@
 "Runs": "Uruchomienia",
 "Save": "Zapisz",
 "Show": "Pokaż",
-"Size": "Rozmiar",
+"Size": "Wymiar",
 "Skip": "Pomiń",
 "Text": "Tekst",
 "Tilt": "Pochyl",
@@ -120,7 +120,7 @@
 "Emboss": "Wytłoczenie",
 "Export": "Eksportuj",
 "Family": "Rodzina",
-"Fillet": "Zaokrąglenie",
+"Fillet": "Pachwinowa",
 "Finish": "Wykończenie",
 "Flange": "Kołnierz",
 "Format": "Format",
@@ -1625,6 +1625,19 @@
 "Restore": "Przywróć",
 "New Branch...": "Nowa gałąź...",
 "Merge into main": "Scal do main",
-"Name of the branch:": "Nazwa gałęzi:"
+"Name of the branch:": "Nazwa gałęzi:",
+"Welding": "Spawanie",
+"Weld Symbol": "Symbol spoiny",
+"A weld symbol: click the joint, then the weld, its size and length": "Symbol spoiny: kliknij złącze, potem spoinę, jej wymiar i długość",
+"Weld": "Spoina",
+"all along": "na całej długości",
+"On the other side": "Po drugiej stronie",
+"All round": "Dookoła",
+"Welded on site": "Spawane na budowie",
+"Single V butt": "Doczołowa V",
+"Square butt": "Doczołowa I",
+"Single bevel butt": "Doczołowa 1/2 V",
+"Plug or slot": "Otworowa",
+"Spot": "Punktowa"
 }
 }

@@ -513,7 +513,8 @@ class SymbolTool(PickTool):
     kinds = (drawpick.LINE, drawpick.POINT, drawpick.CIRCLE)
     titles = {dwg.SURFACE: "Surface Texture",
               dwg.FCF: "Feature Control Frame",
-              dwg.DATUM_ID: "Datum Identifier"}
+              dwg.DATUM_ID: "Datum Identifier",
+              dwg.WELD: "Weld Symbol"}
 
     def __init__(self, controller, sheet, kind: str) -> None:
         self.kind = kind
@@ -583,6 +584,21 @@ class SymbolDialog(QtWidgets.QDialog):
                                   self.datums):
                 edit.setMaxLength(4)
                 form.addRow("%s datum" % name, edit)
+        elif kind == dwg.WELD:
+            self.weld = QtWidgets.QComboBox(self)
+            for key, label in dwg.WELDS:
+                self.weld.addItem(label, key)
+            self.size = QtWidgets.QLineEdit("a4", self)
+            self.length = QtWidgets.QLineEdit("", self)
+            self.length.setPlaceholderText("all along")
+            self.other = QtWidgets.QCheckBox("On the other side", self)
+            self.around = QtWidgets.QCheckBox("All round", self)
+            self.field = QtWidgets.QCheckBox("Welded on site", self)
+            form.addRow("Weld", self.weld)
+            form.addRow("Size", self.size)
+            form.addRow("Length", self.length)
+            for box in (self.other, self.around, self.field):
+                form.addRow("", box)
         else:
             self.letter = QtWidgets.QLineEdit(letter, self)
             self.letter.setMaxLength(3)
@@ -604,6 +620,15 @@ class SymbolDialog(QtWidgets.QDialog):
             cells += [d.text().strip().upper() for d in self.datums
                       if d.text().strip()]
             return {"text": "|".join(cells)}
+        if self.kind == dwg.WELD:
+            flags = [name for name, box in (("other", self.other),
+                                            ("all_around", self.around),
+                                            ("field", self.field))
+                     if box.isChecked()]
+            return {"text": "|".join([self.weld.currentData(),
+                                      self.size.text().strip(),
+                                      self.length.text().strip(),
+                                      ",".join(flags)])}
         return {"text": self.letter.text().strip().upper() or "A"}
 
 

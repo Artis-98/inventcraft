@@ -940,6 +940,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         "Click the edge or face that is the datum, then "
                         "its letter").clicked.connect(
             lambda: ui.add_symbol_tool("datum"))
+        panel.add_small("an_weld", "Welding",
+                        "A weld symbol: click the joint, then the weld, "
+                        "its size and length").clicked.connect(
+            lambda: ui.add_symbol_tool("weld"))
 
         panel = annotate.add_panel("Sketch")
         panel.add_big("sketch", "Start\nSketch",

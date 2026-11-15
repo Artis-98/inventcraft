@@ -824,6 +824,9 @@ def _annotation(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     if note.kind == BALLOON:
         _balloon(painter, doc, sheet, view, note, layout, at, colour)
         return
+    if note.kind == dwg.WELD:
+        _weld(painter, doc, view, note, layout, at, colour)
+        return
     if note.kind in (dwg.SURFACE, dwg.FCF, dwg.DATUM_ID):
         _symbol(painter, doc, view, note, layout, at, colour)
         return
@@ -1021,6 +1024,82 @@ def _between_lines(painter, doc, view, note, layout, at, colour) -> None:
           view.x + vertex[0] + math.cos(middle) * (radius + 3.5),
           view.y + vertex[1] + math.sin(middle) * (radius + 3.5),
           style.text_height, align="centre", colour=colour)
+
+
+def _weld(painter, doc, view, note, layout, at, colour) -> None:
+    """ISO 2553: an arrow to the joint, a reference line, the weld's
+    symbol on it (under the line for the arrow side, over it for the
+    other), its size before and its length after; a circle at the knee
+    for all round, a flag for a weld made on site."""
+    if not note.points:
+        return
+    style = doc.styles.get("dimension", dwg.Style())
+    h = doc.styles.get("text", dwg.Style()).text_height
+    pen = _pen(layout, style, colour=colour)
+    kind, size, length, flags = dwg.weld_parts(note.text)
+    p = note.points[0]
+    ox, oy = (list(note.offset) + [0.0, 0.0])[:2]
+    knee = (p[0] + ox, p[1] + oy)
+    way = 1.0 if ox >= 0 else -1.0
+    span = 8.0 + h * 0.62 * (len(size) + len(length)) + h * 2.0
+    end = (knee[0] + way * span, knee[1])
+
+    def line(a, b):
+        painter.setPen(pen)
+        painter.drawLine(QtCore.QPointF(*at(a)), QtCore.QPointF(*at(b)))
+
+    line(p, knee)
+    tip, tail = at(p), at(knee)
+    _arrow_head(painter, tip, tip[0] - tail[0], tip[1] - tail[1],
+                layout.pen_width(style.arrow_size) * 1.4)
+    line(knee, end)
+    side = 1.0 if "other" in flags else -1.0      # over the line, or under
+    s = h * 1.2
+    mid = knee[0] + way * (3.0 + h * 0.62 * len(size) + s)
+    if kind == "fillet":
+        line((mid - s / 2, knee[1]), (mid - s / 2, knee[1] + side * s))
+        line((mid - s / 2, knee[1] + side * s), (mid + s / 2, knee[1]))
+    elif kind == "v_butt":
+        line((mid - s / 2, knee[1] + side * s), (mid, knee[1]))
+        line((mid, knee[1]), (mid + s / 2, knee[1] + side * s))
+    elif kind == "bevel":
+        line((mid - s / 2, knee[1]), (mid - s / 2, knee[1] + side * s))
+        line((mid - s / 2, knee[1]), (mid + s / 2, knee[1] + side * s))
+    elif kind == "square_butt":
+        line((mid - s / 4, knee[1]), (mid - s / 4, knee[1] + side * s))
+        line((mid + s / 4, knee[1]), (mid + s / 4, knee[1] + side * s))
+    elif kind == "plug":
+        a = at((mid - s / 2, knee[1] + side * s * 0.6))
+        b = at((mid + s / 2, knee[1]))
+        painter.setPen(pen)
+        painter.drawRect(QtCore.QRectF(QtCore.QPointF(*a),
+                                       QtCore.QPointF(*b)).normalized())
+    else:       # spot: a circle on the line
+        r = s * 0.45 * layout.scale
+        painter.setPen(pen)
+        painter.drawEllipse(QtCore.QPointF(*at((mid, knee[1]))), r, r)
+    base = knee[1] + (side * s * 0.25 if side > 0 else -s * 0.9)
+    if size:
+        _text(painter, layout, size, view.x + mid - way * (s / 2 + 1.0),
+              view.y + base, h, align="right" if way > 0 else "left",
+              colour=colour)
+    if length:
+        _text(painter, layout, length, view.x + mid + way * (s / 2 + 1.0),
+              view.y + base, h, align="left" if way > 0 else "right",
+              colour=colour)
+    if "all_around" in flags:
+        r = h * 0.55 * layout.scale
+        painter.setPen(pen)
+        painter.drawEllipse(QtCore.QPointF(*at(knee)), r, r)
+    if "field" in flags:
+        top = (knee[0], knee[1] + h * 2.2)
+        line(knee, top)
+        flag = [at(top), at((knee[0] + way * h * 1.4, top[1] - h * 0.45)),
+                at((knee[0], top[1] - h * 0.9))]
+        painter.setBrush(QtGui.QColor(colour))
+        painter.drawPolygon(QtGui.QPolygonF(
+            [QtCore.QPointF(*c) for c in flag]))
+        painter.setBrush(QtCore.Qt.NoBrush)
 
 
 def _symbol(painter, doc, view, note, layout, at, colour) -> None:

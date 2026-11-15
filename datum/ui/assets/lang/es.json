@@ -120,7 +120,7 @@
 "Emboss": "Repujado",
 "Export": "Exportar",
 "Family": "Familia",
-"Fillet": "Empalme",
+"Fillet": "Filete",
 "Finish": "Acabado",
 "Flange": "Pestaña",
 "Format": "Formato",
@@ -1625,6 +1625,19 @@
 "Restore": "Restaurar",
 "New Branch...": "Nueva rama...",
 "Merge into main": "Fusionar en main",
-"Name of the branch:": "Nombre de la rama:"
+"Name of the branch:": "Nombre de la rama:",
+"Welding": "Soldadura",
+"Weld Symbol": "Símbolo de soldadura",
+"A weld symbol: click the joint, then the weld, its size and length": "Un símbolo de soldadura: haga clic en la unión, luego la soldadura, su tamaño y longitud",
+"Weld": "Soldadura",
+"all along": "en toda la longitud",
+"On the other side": "En el otro lado",
+"All round": "Todo alrededor",
+"Welded on site": "Soldado en obra",
+"Single V butt": "A tope en V",
+"Square butt": "A tope recta",
+"Single bevel butt": "A tope en media V",
+"Plug or slot": "De tapón o ranura",
+"Spot": "Por puntos"
 }
 }
