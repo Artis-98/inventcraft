@@ -154,6 +154,25 @@ def _i_redo(p):
     p.restore()
 
 
+def _i_adaptive(p):
+    """Two arrows chasing round: the part follows another.  Green and the
+    accent, not Inventor's colours."""
+    rect = QtCore.QRectF(4.5, 4.5, 15, 15)
+    for start, colour in ((200, _GREEN), (20, _ACCENT)):
+        _pen(p, colour, 2.0)
+        p.drawArc(rect, int(start * 16), int(140 * 16))
+        end = math.radians(start + 140)
+        tip = (12 + 7.5 * math.cos(end), 12 - 7.5 * math.sin(end))
+        # the head points on round the circle
+        heading = end + math.pi / 2
+        dx, dy = math.cos(heading), -math.sin(heading)
+        _fill(p, colour)
+        p.drawPolygon(_poly(
+            (tip[0] + dx * 3.2, tip[1] + dy * 3.2),
+            (tip[0] - dy * 2.6, tip[1] + dx * 2.6),
+            (tip[0] + dy * 2.6, tip[1] - dx * 2.6)))
+
+
 def _i_sketch(p):
     _pen(p, _ACCENT, 1.5, dashed=True)
     p.drawRect(QtCore.QRectF(3.5, 6.5, 17, 13))
@@ -1530,6 +1549,7 @@ PAINTERS: Dict[str, Callable[[QtGui.QPainter], None]] = {
     "c3d_parallel": _i_c3d_parallel,
     "c3d_insert": _i_c3d_insert, "c3d_symmetry": _i_c3d_symmetry,
     "feature": _i_box,
+    "adaptive": _i_adaptive,
     "dir_default": _i_dir_default, "dir_flipped": _i_dir_flipped,
     "dir_symmetric": _i_dir_symmetric,
     "dir_asymmetric": _i_dir_asymmetric,
@@ -1555,7 +1575,7 @@ BORROWED = {
     "revision_table": "params", "balloon": "c_coincident",
     "parts_list": "material", "versions": "rollback",
     "frame_analysis": "measure", "project_geometry": "offset",
-    "construction": "offset", "adaptive": "update", "redefine": "plane",
+    "construction": "offset", "redefine": "plane",
     "print": "export", "export_pdf": "export",
     "sheet_setup": "export", "cut": "extrude", "free_rotate": "revolve",
     "duplicate": "pattern",

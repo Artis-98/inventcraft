@@ -124,6 +124,13 @@ ring = next(e for e in kernel.edges(ghost["shape"])
 curve = BRepAdaptor_Curve(ring)
 p = curve.Value(curve.FirstParameter())
 x, y = win.viewport.project((p.X(), p.Y(), p.Z()))
+win._hover_neighbour_edge(int(round(x)), int(round(y)))
+check("the plate's edge under the cursor lights up",
+      win._hovered_edge is not None and win._hovered_edge.IsSame(ring)
+      and win.viewport._hover_ais is not None)
+win._hover_neighbour_edge(int(round(x)) + 400, int(round(y)) + 400)
+check("and goes out when the cursor leaves it",
+      win._hovered_edge is None and win.viewport._hover_ais is None)
 win.viewport.selected_shapes = lambda: []
 win.viewport._press_pos = QtCore.QPoint(int(round(x)), int(round(y)))
 win._project_picked_edge()
@@ -140,6 +147,33 @@ check("the sketch has the circle, tied to the link",
 check("it says so", "adaptive" in win.status_message.text(),
       win.status_message.text())
 
+print("with Ctrl held, a plain copy")
+edge = next(e for e in kernel.edges(ghost["shape"])
+            if BRepAdaptor_Curve(e).GetType() != GeomAbs_Circle
+            and abs(kernel.shape_centre(e)[2]) < 1e-6
+            and kernel.edge_length(e) > 20)
+c = BRepAdaptor_Curve(edge)
+q = c.Value((c.FirstParameter() + c.LastParameter()) / 2)
+x2, y2 = win.viewport.project((q.X(), q.Y(), q.Z()))
+records = len(win.document.feature(follow.id).sketch.projections)
+real_mods = QtWidgets.QApplication.keyboardModifiers
+QtWidgets.QApplication.keyboardModifiers = staticmethod(
+    lambda: QtCore.Qt.ControlModifier)
+win.viewport.selected_shapes = lambda: []
+win.viewport._press_pos = QtCore.QPoint(int(round(x2)), int(round(y2)))
+win._project_picked_edge()
+del win.viewport.selected_shapes
+QtWidgets.QApplication.keyboardModifiers = real_mods
+pump()
+sk = win.document.feature(follow.id).sketch
+check("no new link: the part does not become adaptive by it",
+      len(doc.adaptive) == 1, doc.adaptive)
+check("the edge is projected all the same", len(sk.projections) == records
+      + 1 or any(not r.source for r in sk.projections),
+      [r.source for r in sk.projections])
+check("and says it is not adaptive", "not adaptive"
+      in win.status_message.text(), win.status_message.text())
+
 
 def circle():
     sk = win._in_place_document(cover).feature(follow.id).sketch
@@ -155,6 +189,21 @@ win.finish_sketch()
 pump()
 win.finish_in_place()
 pump()
+
+print("the tree marks the cover adaptive")
+from datum.ui.assembly_browser import ROLE_ADAPTIVE, ROLE_ID  # noqa: E402
+tree = win.assembly_ui.browser
+marked = {}
+stack = [tree.topLevelItem(i) for i in range(tree.topLevelItemCount())]
+while stack:
+    item = stack.pop()
+    if item.data(0, ROLE_ADAPTIVE):
+        marked[item.data(0, ROLE_ID)] = True
+    stack += [item.child(i) for i in range(item.childCount())]
+check("the cover carries the badge, the plate does not",
+      marked.get(cover_occ.id) and not marked.get(plate_occ.id), marked)
+tree.grab().save(os.path.join(WORK, "tree.png"))
+print("    picture:", os.path.join(WORK, "tree.png"))
 
 print("the plate moves")
 plate_occ.placement.position = [12.0, -6.0, 0.0]

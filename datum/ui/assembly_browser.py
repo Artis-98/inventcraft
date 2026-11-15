@@ -24,6 +24,40 @@ ROLE_KIND = QtCore.Qt.UserRole + 2
 ROLE_OWNER = QtCore.Qt.UserRole + 3
 # a feature row's kind of feature, "workplane" and so on
 ROLE_TYPE = QtCore.Qt.UserRole + 4
+# a component that follows another (adaptive): a badge in front of its icon
+ROLE_ADAPTIVE = QtCore.Qt.UserRole + 5
+BADGE = 16
+
+
+class _BadgeDelegate(QtWidgets.QStyledItemDelegate):
+    """Inventor puts a second icon in front of an adaptive part's: the row
+    is drawn as usual, moved over, with the badge in the space left."""
+
+    def paint(self, painter, option, index) -> None:
+        if not index.data(ROLE_ADAPTIVE):
+            super().paint(painter, option, index)
+            return
+        widget = option.widget
+        style = widget.style() if widget else QtWidgets.QApplication.style()
+        whole = QtWidgets.QStyleOptionViewItem(option)
+        self.initStyleOption(whole, index)
+        whole.text = ""
+        whole.icon = QtGui.QIcon()
+        style.drawPrimitive(QtWidgets.QStyle.PE_PanelItemViewItem, whole,
+                            painter, widget)
+        rect = option.rect
+        top = rect.top() + (rect.height() - BADGE) // 2
+        icons.icon("adaptive", BADGE).paint(
+            painter, QtCore.QRect(rect.left() + 1, top, BADGE, BADGE))
+        moved = QtWidgets.QStyleOptionViewItem(option)
+        moved.rect = rect.adjusted(BADGE + 2, 0, 0, 0)
+        super().paint(painter, moved, index)
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        if index.data(ROLE_ADAPTIVE):
+            size.setWidth(size.width() + BADGE + 2)
+        return size
 
 ORIGIN_PLANES = (("XY Plane", "XY"), ("XZ Plane", "XZ"), ("YZ Plane", "YZ"))
 
@@ -85,6 +119,7 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
         self.setExpandsOnDoubleClick(False)
         self.setIconSize(QtCore.QSize(16, 16))
         self.setUniformRowHeights(True)
+        self.setItemDelegate(_BadgeDelegate(self))
 
         self.customContextMenuRequested.connect(self._menu)
         self.itemDoubleClicked.connect(self._double_clicked)
@@ -184,6 +219,11 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             item.setData(0, ROLE_ID, occurrence.id)
             item.setData(0, ROLE_KIND, "occurrence")
             item.setToolTip(0, occurrence.summary())
+            if any(link.adaptive and link.target == occurrence.id
+                   for link in getattr(doc, "adaptive", None) or []):
+                item.setData(0, ROLE_ADAPTIVE, True)
+                item.setToolTip(0, occurrence.summary() + "\nAdaptive: it "
+                                "follows the parts it was drawn from")
 
             tags = []
             if occurrence.grounded:

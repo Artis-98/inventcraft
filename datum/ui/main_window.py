@@ -1754,6 +1754,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.delete_pressed.connect(self._viewport_delete)
         self.viewport.plane_tool_pressed.connect(self._plane_tool_pressed)
         self.viewport.model_edge_picked.connect(self._project_picked_edge)
+        self.viewport.hover_probe = self._hover_neighbour_edge
+        self._hovered_edge = None
         self.viewport.plane_picker_dismissed.connect(self._draw_visible_planes)
         self.viewport.axis_drag_moved.connect(self._plane_drag_moved)
         self.viewport.axis_drag_finished.connect(self._plane_drag_finished)
@@ -4633,6 +4635,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def finish_sketch(self) -> None:
         if not self.editor.active:
             return
+        self._clear_hovered_edge()
         if getattr(self.drawing_ui, "sheet_sketch_active", False):
             # a sketch on a drawing: it goes back into the drawing
             self.drawing_ui.finish_drawing_sketch()
@@ -4740,6 +4743,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def set_sketch_tool(self, tool: str) -> None:
         if not self.editor.active:
             return
+        self._clear_hovered_edge()
         self.editor.set_tool(tool)
         self._sync_tool_buttons()
 
@@ -6682,9 +6686,12 @@ class MainWindow(QtWidgets.QMainWindow):
                      if pos is not None else None)
             if found is None:
                 # editing in place: an edge of a part beside this one,
-                # projected adaptively, so it follows that part
+                # projected adaptively, so it follows that part; with Ctrl
+                # held, a plain copy that follows nothing
+                held = QtWidgets.QApplication.keyboardModifiers()
+                plain = bool(held & QtCore.Qt.ControlModifier)
                 if pos is not None and self._project_neighbour_edge(
-                        pos.x(), pos.y()):
+                        pos.x(), pos.y(), adaptive=not plain):
                     return
                 return
             edge, source = found
@@ -6742,10 +6749,33 @@ class MainWindow(QtWidgets.QMainWindow):
                         best, best_d, which = edge, d, ghost["occurrence"]
         return None if best is None else (best, which)
 
-    def _project_neighbour_edge(self, x: int, y: int) -> bool:
+    def _clear_hovered_edge(self) -> None:
+        if getattr(self, "_hovered_edge", None) is not None:
+            self._hovered_edge = None
+            self.viewport.show_hover(None)
+
+    def _hover_neighbour_edge(self, x: int, y: int) -> None:
+        """While Project Geometry runs in a part edited in place, light up
+        the edge of a part beside it that a click here would take."""
+        edge = None
+        if (self.in_place and self.editor.active
+                and getattr(self.editor, "tool", None) == "project"):
+            found = self._neighbour_edge_at(x, y)
+            edge = found[0] if found is not None else None
+        if edge is self._hovered_edge or (
+                edge is not None and self._hovered_edge is not None
+                and edge.IsSame(self._hovered_edge)):
+            return
+        self._hovered_edge = edge
+        self.viewport.show_hover(edge, C.accent)
+
+    def _project_neighbour_edge(self, x: int, y: int,
+                                adaptive: bool = True) -> bool:
         """Project another component's edge onto the sketch being drawn in
         a part edited in place, tied to that component through the
-        assembly so it follows it (Inventor's adaptive projection)."""
+        assembly so it follows it (Inventor's adaptive projection).  Not
+        adaptive, as with Ctrl held, it is a plain copy where the edge is
+        now: grounded, following nothing, and the part stays as it was."""
         found = self._neighbour_edge_at(x, y)
         if found is None or self._sketch_feature_id is None:
             return False
@@ -6756,6 +6786,16 @@ class MainWindow(QtWidgets.QMainWindow):
         source = parent.occurrence(source_id)
         if target is None or source is None or source.shape is None:
             return False
+        if not adaptive:
+            made = self.editor.project_one(edge)
+            self.status_message.setStyleSheet("")
+            self.status_message.setText(
+                "Projected from %s, not adaptive: it stays where it is if "
+                "%s moves. Keep clicking, or Esc to finish." % (
+                    source.label, source.label) if made else
+                "That edge is square to the sketch, so it projects to "
+                "nothing. Pick another.")
+            return True
         from ..core.adaptive import to_part_frame
         from ..core.naming import RefSet
 

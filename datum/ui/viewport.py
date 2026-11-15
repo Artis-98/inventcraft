@@ -398,6 +398,10 @@ class Viewport(QtWidgets.QWidget):
         # back an object with move(x, y) and finish(), or None
         self.grabber = None
         self._grabbed = None
+        # told where the cursor is while sketching, for lighting up what a
+        # click there would take; and what it has lit up
+        self.hover_probe = None
+        self._hover_ais = None
         self._free_drag = False
         self._component_basis: Tuple[Tuple[float, float, float], ...] = ()
 
@@ -3259,6 +3263,27 @@ class Viewport(QtWidgets.QWidget):
         except Exception:                               # noqa: BLE001
             return None
 
+    def show_hover(self, shape, colour: str = "", width: float = 3.4
+                   ) -> None:
+        """Light up one shape the way a pre-highlight does, or put out the
+        one lit; kept apart from the overlay and the preview, which the
+        sketcher clears as it draws."""
+        if not self._ready or self.context is None:
+            return
+        if self._hover_ais is not None:
+            self.context.Remove(self._hover_ais, False)
+            self._hover_ais = None
+        if shape is not None:
+            ais = AIS_Shape(shape)
+            ais.SetColor(_col(colour or C.accent))
+            ais.SetWidth(width)
+            ais.SetZLayer(Graphic3d_ZLayerId_Top)
+            ais.SetInfiniteState(True)
+            self.context.Display(ais, False)
+            self.context.Deactivate(ais)
+            self._hover_ais = ais
+        self.view.Redraw()
+
     def _grab_free(self, x: int, y: int) -> bool:
         """A press on something the grabber says can be dragged."""
         if self.grabber is None:
@@ -3968,6 +3993,11 @@ class Viewport(QtWidgets.QWidget):
                 # selection is off while sketching, so the only thing this
                 # can pre-highlight is the cube
                 self._hover_soon(pos)
+                if self.hover_probe is not None:
+                    try:
+                        self.hover_probe(pos.x(), pos.y())
+                    except Exception:                   # noqa: BLE001
+                        pass
             uv = self.plane_point(pos.x(), pos.y())
             if uv is not None:
                 if (self._drag_armed and not self._dragging_plane
