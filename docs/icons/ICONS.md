@@ -4,6 +4,25 @@ Every icon in the app today, what it stands for, and how a replacement has to
 be made so it drops straight in. The picture of how they look now is
 `current-icons.png` next to this file.
 
+## Putting them in
+
+1. Save each icon as `<name>.svg` in `datum/ui/assets/icons/`, the name
+   exactly as in the lists below. Nothing else changes: no code, no list
+   to edit.
+2. Check them all at once:
+   `.venv/Scripts/python.exe tools/icon_sheet.py` redraws
+   `docs/icons/current-icons.png` with every icon as the app shows it. A
+   green corner means the file was picked up; a grey name means that one
+   is still borrowing. Run it again with `--theme dark` (and an output
+   name) to see they hold up on the dark scheme, which swaps the colours.
+3. Look at them in the app: close InventCraft and start it from
+   `datum.bat`, which runs this folder's code.
+4. Commit the SVG files. The build already packs the whole `assets`
+   folder, so they ship in the next release with nothing more to do.
+
+A file that is not valid SVG is skipped and the old icon shows, so a bad
+one cannot break the window.
+
 ## How a replacement is made
 
 **File.** One SVG per icon, named exactly as the list below
