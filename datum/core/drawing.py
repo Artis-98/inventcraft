@@ -713,6 +713,11 @@ class View:
     # unbroken millimetres.  Only the drawing is shortened: everything is
     # kept and measured unbroken, so a dimension across a break reads true.
     breaks: List[List[float]] = field(default_factory=list)
+    # Inventor's Break Out: an outline drawn on the view, in its own
+    # millimetres, and how deep behind the front of the part the material
+    # inside it is taken away to show what is in there
+    breakout: List[List[float]] = field(default_factory=list)
+    breakout_depth: float = 0.0
 
     # filled in by a rebuild; never written to the drawing.json
     projection: Optional[hlr.Projection] = None
@@ -737,6 +742,9 @@ class View:
             "tangents": self.tangents,
             **({"breaks": [list(b) for b in self.breaks]}
                if self.breaks else {}),
+            **({"breakout": [list(p) for p in self.breakout],
+                "breakout_depth": self.breakout_depth}
+               if self.breakout else {}),
         }
 
     @classmethod
@@ -763,7 +771,10 @@ class View:
             flat=bool(d.get("flat", False)),
             tangents=bool(d.get("tangents", True)),
             breaks=[[float(v) for v in b][:3]
-                    for b in d.get("breaks") or []])
+                    for b in d.get("breaks") or []],
+            breakout=[[float(v) for v in p][:2]
+                      for p in d.get("breakout") or []],
+            breakout_depth=float(d.get("breakout_depth", 0.0) or 0.0))
 
     @property
     def label(self) -> str:

@@ -561,15 +561,46 @@ class DrawingController(QtCore.QObject):
             % (view.label, (hi - lo) / (doc.view_scale(sheet, view) or 1)))
         return True
 
+    def add_break_out(self) -> None:
+        """Inventor's Break Out: an outline on a view, opened to a depth."""
+        self._start_tool("BreakOutTool")
+
+    def break_out(self, sheet, view, loop, depth=None) -> bool:
+        """Open a view inside an outline, to a depth behind the front of
+        the part, asked for when not given."""
+        if depth is None:
+            depth, ok = QtWidgets.QInputDialog.getDouble(
+                self.host, "Break Out",
+                "How deep behind the front of the part, mm:", 10.0, 0.1,
+                1e6, 2)
+            if not ok:
+                return False
+        doc = self.document
+        doc.push_undo()
+        view.breakout = [list(p) for p in loop]
+        view.breakout_depth = float(depth)
+        view.projection = None
+        doc.modified = True
+        self.rebuild(force=True)
+        if view.error:
+            self._complain("The break out could not be made: %s"
+                           % view.error)
+        return True
+
     def remove_breaks(self) -> None:
         """The selected view whole again."""
         doc, sheet, view = self._selected_view()
-        if view is None or not view.breaks:
+        if view is None or not (view.breaks or view.breakout):
             self._complain("Select a broken view first.")
             return
         doc.push_undo()
+        opened = bool(view.breakout)
         view.breaks = []
+        view.breakout = []
         doc.modified = True
+        if opened:
+            view.projection = None
+            self.rebuild(force=True)
         self.canvas.update()
         self.host.update_title()
 

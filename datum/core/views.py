@@ -1080,7 +1080,7 @@ class Generator:
         show_hidden = doc.view_display(sheet, view) == WITH_HIDDEN
         scale = doc.view_scale(sheet, view)
 
-        if view.kind not in (SECTION, DETAIL):
+        if view.kind not in (SECTION, DETAIL) and not view.breakout:
             handed = getattr(self, "_pending", {}).pop(
                 (id(sheet), view.id), None)
             if handed is not None:
@@ -1126,7 +1126,72 @@ class Generator:
 
         projection = hlr.project(shape, direction, up, hidden=show_hidden,
                                  tangents=self._tangents(doc, sheet, view))
+        if len(view.breakout) >= 3 and projection.ok:
+            opened = self._break_out(doc, sheet, view, shape, direction, up,
+                                     show_hidden, scale, projection)
+            if opened is not None:
+                projection = opened
         return _scaled(projection, scale)
+
+    def _break_out(self, doc, sheet, view, shape, direction, up,
+                   show_hidden: bool, scale: float, whole):
+        """Inventor's Break Out: the material inside an outline drawn on
+        the view taken away, from the front of the part to a depth, and
+        the view drawn again with what that lays bare hatched.  Kept
+        centred where the whole view was, so nothing on it moves."""
+        from OCP.BRepAlgoAPI import BRepAlgoAPI_Cut
+        from OCP.BRepBuilderAPI import (BRepBuilderAPI_MakeFace,
+                                        BRepBuilderAPI_MakePolygon)
+        from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
+        from OCP.gp import gp_Pnt, gp_Vec
+
+        frame = hlr.camera(direction, up)
+        xd, yd, zd = frame.XDirection(), frame.YDirection(), frame.Direction()
+        xd = (xd.X(), xd.Y(), xd.Z())
+        yd = (yd.X(), yd.Y(), yd.Z())
+        out = (zd.X(), zd.Y(), zd.Z())          # towards the viewer
+        cx, cy = whole.centre
+        try:
+            front = max(sum(kernel.shape_centre(v)[i] * out[i]
+                            for i in range(3))
+                        for v in kernel.vertices(shape))
+        except Exception:
+            return None
+        depth = max(0.01, view.breakout_depth)
+        start = front + 1.0
+        polygon = BRepBuilderAPI_MakePolygon()
+        for u, v in view.breakout:
+            u, v = u / (scale or 1.0) + cx, v / (scale or 1.0) + cy
+            p = [xd[i] * u + yd[i] * v + out[i] * start for i in range(3)]
+            polygon.Add(gp_Pnt(*p))
+        polygon.Close()
+        try:
+            face = BRepBuilderAPI_MakeFace(polygon.Wire(), True).Face()
+            reach = start - (front - depth)
+            tool = BRepPrimAPI_MakePrism(
+                face, gp_Vec(*[-out[i] * reach for i in range(3)])).Shape()
+            cut = BRepAlgoAPI_Cut(shape, tool)
+            cut.Build()
+            if not cut.IsDone():
+                return None
+            opened = cut.Shape()
+        except Exception:
+            return None
+        floor = [out[i] * (front - depth) for i in range(3)]
+        faces = hlr.cut_faces(opened, floor, out) if view.hatch else []
+        projection = hlr.project(opened, direction, up, hidden=show_hidden,
+                                 hatch=faces,
+                                 tangents=self._tangents(doc, sheet, view))
+        if not projection.ok:
+            return None
+        dx = projection.centre[0] - cx
+        dy = projection.centre[1] - cy
+        for line in projection.lines:
+            line.points = [(x + dx, y + dy) for x, y in line.points]
+        box = projection.box
+        projection.box = (box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy)
+        projection.centre = (cx, cy)
+        return projection
 
     def orientation(self, doc: DrawingDocument, sheet: Sheet,
                     view: View):

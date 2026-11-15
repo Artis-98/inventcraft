@@ -1643,6 +1643,10 @@
 "Remove Breaks": "Quitar roturas",
 "The selected view whole again": "La vista seleccionada entera de nuevo",
 "Leave out the middle of a long view: click where the part to leave out starts, then where it ends": "Omitir el centro de una vista larga: haga clic donde empieza la parte a omitir y luego donde termina",
-"Select a broken view first.": "Seleccione primero una vista con rotura."
+"Select a broken view first.": "Seleccione primero una vista con rotura.",
+"Break\nOut": "Corte\nparcial",
+"Break Out": "Corte parcial",
+"Open a view to show inside: click round the area, right-click, then how deep": "Abrir una vista para mostrar el interior: haga clic alrededor del área, clic derecho y luego la profundidad",
+"How deep behind the front of the part, mm:": "Profundidad tras el frente de la pieza, mm:"
 }
 }

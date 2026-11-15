@@ -789,6 +789,73 @@ class BreakTool:
         pass
 
 
+class BreakOutTool(BreakTool):
+    """Inventor's Break Out: click round the area to open on a view,
+    corner by corner, right-click to close it, then say how deep."""
+
+    name = "Break Out"
+
+    def __init__(self, controller, sheet) -> None:
+        self.points = []
+        super().__init__(controller, sheet)
+
+    def say(self) -> None:
+        host = self.controller.host
+        host.status_message.setStyleSheet("")
+        host.status_message.setText(
+            "Break Out: click round the area to open, corner by corner."
+            if not getattr(self, "points", None) else
+            "Break Out: %d corners. Click more, or right-click to close it."
+            % len(self.points))
+
+    def press(self, point, device) -> None:
+        if not self.points:
+            found = self.view_at(point)
+            if found is None:
+                return
+            self.first = found
+            self.points.append(found[1])
+        else:
+            view = self.first[0]
+            self.points.append(dwg.unshown(
+                view, (point[0] - view.x, point[1] - view.y)))
+        self.say()
+        self.controller.canvas.update()
+
+    def right_click(self, point, device) -> bool:
+        if len(self.points) < 3:
+            return False
+        view = self.first[0]
+        loop = [list(p) for p in self.points]
+        self.points = []
+        self.first = None
+        self.controller.break_out(self.sheet, view, loop)
+        self.say()
+        return True
+
+    def escape(self) -> bool:
+        if self.points:
+            self.points = []
+            self.first = None
+            self.say()
+            return True
+        return False
+
+    def paint(self, painter, layout) -> None:
+        if not self.points:
+            return
+        view = self.first[0]
+        drawn = [QtCore.QPointF(*layout.to_device(
+            view.x + dwg.shown(view, p)[0], view.y + dwg.shown(view, p)[1]))
+            for p in self.points]
+        if self.cursor is not None:
+            drawn.append(QtCore.QPointF(*layout.to_device(*self.cursor)))
+        painter.save()
+        painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.4))
+        painter.drawPolygon(QtGui.QPolygonF(drawn))
+        painter.restore()
+
+
 class HoleNoteTool(PickTool):
     """Inventor's Hole and Thread: click a hole, then where its note goes.
 

@@ -868,6 +868,10 @@ class MainWindow(QtWidgets.QMainWindow):
                       "Leave out the middle of a long view: click where the "
                       "part to leave out starts, then where it ends"
                       ).clicked.connect(ui.add_break)
+        panel.add_big("dv_section", "Break\nOut",
+                      "Open a view to show inside: click round the area, "
+                      "right-click, then how deep").clicked.connect(
+            ui.add_break_out)
         panel.add_small("delete", "Remove Breaks",
                         "The selected view whole again"
                         ).clicked.connect(ui.remove_breaks)

@@ -1643,6 +1643,10 @@
 "Remove Breaks": "Usuń przerwania",
 "The selected view whole again": "Zaznaczony widok znów w całości",
 "Leave out the middle of a long view: click where the part to leave out starts, then where it ends": "Pomiń środek długiego widoku: kliknij początek pomijanej części, potem jej koniec",
-"Select a broken view first.": "Najpierw zaznacz przerwany widok."
+"Select a broken view first.": "Najpierw zaznacz przerwany widok.",
+"Break\nOut": "Wyrwanie",
+"Break Out": "Wyrwanie",
+"Open a view to show inside: click round the area, right-click, then how deep": "Otwórz widok, by pokazać wnętrze: kliknij wokół obszaru, prawy klik, potem głębokość",
+"How deep behind the front of the part, mm:": "Jak głęboko za przodem części, mm:"
 }
 }
