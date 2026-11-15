@@ -780,7 +780,8 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(lambda: self.frame_action("remove"))
         panel = design.add_panel("Analysis")
         panel.add_big("frame_analysis", "Frame\nAnalysis",
-                      "How a frame copes: stood on its feet, loaded on top "
+                      "Experimental. How a frame copes: stood on its feet, "
+                      "loaded on top "
                       "and in the wind, its sag, stresses and frequencies"
                       ).clicked.connect(self.frame_analysis)
         panel = design.add_panel("Profiles")

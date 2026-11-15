@@ -368,6 +368,64 @@ class RibbonTab(QtWidgets.QWidget):
         return panel
 
 
+class ShineButton(QtWidgets.QToolButton):
+    """A button with a glint that runs across it now and then, so the eye
+    finds it without it ever blinking: the Suggest button, which is how
+    the people building InventCraft hear what is wanted."""
+
+    EVERY_MS = 7000
+    RUN_MS = 1100
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._glint = -1.0
+        self._run = QtCore.QVariantAnimation(self)
+        self._run.setStartValue(0.0)
+        self._run.setEndValue(1.0)
+        self._run.setDuration(self.RUN_MS)
+        self._run.setEasingCurve(QtCore.QEasingCurve.InOutQuad)
+        self._run.valueChanged.connect(self._moved)
+        self._run.finished.connect(self._done)
+        self._timer = QtCore.QTimer(self)
+        self._timer.setInterval(self.EVERY_MS)
+        self._timer.timeout.connect(self.shine)
+        self._timer.start()
+        QtCore.QTimer.singleShot(1500, self.shine)
+
+    def shine(self) -> None:
+        if self.isVisible() and not self.underMouse():
+            self._run.start()
+
+    def _moved(self, value) -> None:
+        self._glint = float(value)
+        self.update()
+
+    def _done(self) -> None:
+        self._glint = -1.0
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        if self._glint < 0:
+            return
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        rect = QtCore.QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        clip = QtGui.QPainterPath()
+        clip.addRoundedRect(rect, 9, 9)
+        painter.setClipPath(clip)
+        band = rect.width() * 0.45
+        x = -band + (rect.width() + 2 * band) * self._glint
+        glint = QtGui.QLinearGradient(x - band / 2, 0, x + band / 2,
+                                      rect.height())
+        for at, alpha in ((0.0, 0), (0.5, 150), (1.0, 0)):
+            colour = QtGui.QColor("#ffffff")
+            colour.setAlpha(alpha)
+            glint.setColorAt(at, colour)
+        painter.fillRect(rect, QtGui.QBrush(glint))
+        painter.end()
+
+
 class Ribbon(QtWidgets.QWidget):
     """The whole ribbon: tab strip plus the stacked tab pages."""
 
@@ -498,16 +556,21 @@ class Ribbon(QtWidgets.QWidget):
 
         # under the window's own buttons, at the right of the tab strip: a
         # suggestion or a problem, sent straight to the people building it
-        self.suggest_button = QtWidgets.QToolButton(self.strip)
+        self.suggest_button = ShineButton(self.strip)
         self.suggest_button.setText("Suggest or report")
         self.suggest_button.setToolTip(
             "Send a suggestion or a problem straight to IITEG")
         self.suggest_button.setCursor(QtCore.Qt.PointingHandCursor)
+        self.suggest_button.setToolButtonStyle(
+            QtCore.Qt.ToolButtonTextBesideIcon)
+        self.suggest_button.setIcon(icons.icon("bulb", 14))
+        self.suggest_button.setIconSize(QtCore.QSize(14, 14))
         self.suggest_button.setStyleSheet(
-            "QToolButton { color: %s; border: none; padding: 3px 8px;"
-            " font-size: 11px; }"
+            "QToolButton { color: %s; border: 1px solid %s;"
+            " border-radius: 9px; padding: 1px 9px 1px 6px;"
+            " font-size: 11px; font-weight: 600; background: %s; }"
             "QToolButton:hover { color: %s; background: %s; }"
-            % (C.text_dim, C.text, C.accent_soft))
+            % (C.text, C.accent, C.accent_soft, C.on_accent, C.accent))
         strip_layout.addSpacing(10)
         strip_layout.addWidget(self.suggest_button)
 

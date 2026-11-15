@@ -37,7 +37,7 @@ class FrameAnalysisDialog(QtWidgets.QDialog):
         super().__init__(host)
         self.host = host
         self.found = found
-        self.setWindowTitle("Frame Analysis")
+        self.setWindowTitle("Frame Analysis (experimental)")
         self.resize(560, 640)
         layout = QtWidgets.QVBoxLayout(self)
         form = QtWidgets.QFormLayout()

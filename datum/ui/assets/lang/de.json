@@ -589,7 +589,7 @@
 "Nothing was made.": "Es wurde nichts erstellt.",
 "Reset to defaults": "Auf Standard zurücksetzen",
 "Reverse direction": "Richtung umkehren",
-"Suggest or report": "Vorschlag oder Problem",
+"Suggest or report": "Vorschlagen oder melden",
 "when these change": "wenn sich diese ändern",
 ", exactly as it is": ", genau wie sie ist",
 "Appearance Browser": "Darstellungs-Browser",
@@ -1647,6 +1647,21 @@
 "Break\nOut": "Aus-\nbruch",
 "Break Out": "Ausbruch",
 "Open a view to show inside: click round the area, right-click, then how deep": "Eine Ansicht öffnen, um das Innere zu zeigen: um den Bereich klicken, Rechtsklick, dann die Tiefe",
-"How deep behind the front of the part, mm:": "Wie tief hinter der Vorderseite des Teils, mm:"
+"How deep behind the front of the part, mm:": "Wie tief hinter der Vorderseite des Teils, mm:",
+"Crop": "Zuschneiden",
+"Click a view, then two corners: only what is inside is kept": "Eine Ansicht anklicken, dann zwei Ecken: nur was innen liegt, bleibt",
+"Click a view, draw the cut line across it, then drag the section out to one side": "Eine Ansicht anklicken, die Schnittlinie darüber ziehen, dann den Schnitt zu einer Seite herausziehen",
+"Click a view, then drag out from it in the direction to look from, and click": "Eine Ansicht anklicken, dann in die Blickrichtung herausziehen und klicken",
+"The selected view whole again: breaks, break outs and crop": "Die gewählte Ansicht wieder ganz: Bruch, Ausbruch und Zuschnitt entfernt",
+"Change Size...": "Größe ändern...",
+"Its size, and its length, from the library again": "Größe und Länge erneut aus der Bibliothek",
+"Select Size...": "Größe wählen...",
+"Pick the size and length, then place it": "Größe und Länge wählen, dann platzieren",
+"Length, mm": "Länge, mm",
+"Type any length, or pick a standard one": "Beliebige Länge eingeben oder eine Normlänge wählen",
+"Structural Shapes": "Stahlprofile",
+"Square Tubes": "Quadratrohre",
+"Frame Analysis (experimental)": "Rahmenanalyse (experimentell)",
+"Select a broken or cropped view first.": "Zuerst eine gebrochene oder zugeschnittene Ansicht wählen."
 }
 }

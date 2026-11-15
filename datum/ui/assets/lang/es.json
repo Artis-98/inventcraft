@@ -1647,6 +1647,21 @@
 "Break\nOut": "Corte\nparcial",
 "Break Out": "Corte parcial",
 "Open a view to show inside: click round the area, right-click, then how deep": "Abrir una vista para mostrar el interior: haga clic alrededor del área, clic derecho y luego la profundidad",
-"How deep behind the front of the part, mm:": "Profundidad tras el frente de la pieza, mm:"
+"How deep behind the front of the part, mm:": "Profundidad tras el frente de la pieza, mm:",
+"Crop": "Recortar",
+"Click a view, then two corners: only what is inside is kept": "Haga clic en una vista y luego en dos esquinas: solo se conserva lo de dentro",
+"Click a view, draw the cut line across it, then drag the section out to one side": "Haga clic en una vista, trace la línea de corte y arrastre la sección a un lado",
+"Click a view, then drag out from it in the direction to look from, and click": "Haga clic en una vista, arrastre en la dirección desde la que mirar y haga clic",
+"The selected view whole again: breaks, break outs and crop": "La vista elegida entera de nuevo: sin roturas, rupturas ni recorte",
+"Change Size...": "Cambiar tamaño...",
+"Its size, and its length, from the library again": "Su tamaño y su longitud, de nuevo desde la biblioteca",
+"Select Size...": "Elegir tamaño...",
+"Pick the size and length, then place it": "Elija tamaño y longitud y colóquelo",
+"Length, mm": "Longitud, mm",
+"Type any length, or pick a standard one": "Escriba cualquier longitud o elija una normalizada",
+"Structural Shapes": "Perfiles estructurales",
+"Square Tubes": "Tubos cuadrados",
+"Frame Analysis (experimental)": "Análisis de bastidor (experimental)",
+"Select a broken or cropped view first.": "Elija primero una vista rota o recortada."
 }
 }
