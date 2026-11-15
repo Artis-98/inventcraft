@@ -65,7 +65,7 @@ tabs = [win.ribbon.stack.widget(i).title
 check("tab order matches Inventor",
       tabs == ["Sheet Metal", "Flat Pattern", "3D Model", "Sketch",
                "Assemble", "Design", "CAM", "Place Views", "Annotate",
-               "Tools", "Inspect", "Manage",
+               "Tools", "Annotate Model", "Inspect", "Manage",
                "View"], tabs)
 check("an ordinary part hides the Sheet Metal and Flat Pattern tabs",
       not win.ribbon._buttons["Sheet Metal"].isVisible()
