@@ -1,0 +1,30 @@
+# InventCraft standard parts library
+# id: is-808-tee
+# name: T Sections
+# standard: IS 808
+# category: T Sections
+# kind: tee
+# source: FreeCAD BIM profiles, group IS Tee
+# licence: LGPL-2.1-or-later
+size,h,b,tw,tf,r,r2
+ISNT 20,20,20,4,4,0,0
+ISNT 30,30,30,4,4,0,0
+ISNT 40,40,40,6,6,0,0
+ISNT 50,50,50,6,6,0,0
+ISNT 60,60,60,6,6,0,0
+ISNT 75,75,75,9,9,0,0
+ISNT 100,100,100,10,10,0,0
+ISNT 150,150,150,10,10,0,0
+ISDT 100,100,50,5.8,10,0,0
+ISDT 150,100,75,8,11.6,0,0
+ISLT 200,200,165,8,12.5,0,0
+ISLT 250,250,180,9.2,14.1,0,0
+ISMT 50,50,70,4.5,7.5,0,0
+ISMT 62.5,62.5,70,5,8,0,0
+ISMT 75,75,75,5,8,0,0
+ISMT 87.5,87.5,85,5.8,9,0,0
+ISMT 100,100,100,5.7,10.8,0,0
+ISHT 75,75,150,8.4,9,0,0
+ISHT 100,100,200,7.8,9,0,0
+ISHT 125,125,250,8.8,9.7,0,0
+ISHT 150,150,250,7.6,10.6,0,0

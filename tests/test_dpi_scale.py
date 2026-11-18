@@ -138,6 +138,12 @@ if shape is not None:
           picked >= 3, picked)
 vp.set_selection_mode("none")
 
+print("labels are as big as the window's own text (GitHub issue #20)")
+label = vp.draw_text("25", (0.0, 0.0, 0.0), "#ffffff", 15.0)
+height = label.Attributes().TextAspect().Height()
+check("a 15 pixel dimension is drawn 22.5 real pixels tall at 150 percent",
+      abs(height - 22.5) < 1e-6, height)
+
 print()
 if FAILS:
     print("%d FAILURES: %s" % (len(FAILS), ", ".join(FAILS)))

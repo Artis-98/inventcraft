@@ -1,0 +1,41 @@
+# InventCraft standard parts library
+# id: din-935
+# name: Castle Nut
+# standard: DIN 935
+# category: Fasteners/Nuts/Hex
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table DIN935def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M4,4,7,5
+M5,5,8,6
+M6,6,10,7.5
+M7,7,11,8
+M8,8,13,9.5
+M10,10,17,12
+M12,12,19,15
+M14,14,22,16
+M16,16,24,19
+M18,18,27,21
+M20,20,30,22
+M22,22,34,26
+M24,24,36,27
+M27,27,41,30
+M30,30,46,33
+M33,33,50,35
+M36,36,55,38
+M39,39,60,40
+M42,42,65,46
+M45,45,70,48
+M48,48,75,50
+M52,52,80,54
+M56,56,85,57
+M60,60,90,63
+M64,64,95,66
+M68,68,100,69
+M72,72,105,73
+M76,76,110,76
+M80,80,115,79
+M85,85,120,88
+M90,90,130,92
+M100,100,145,100

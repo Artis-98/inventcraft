@@ -3674,6 +3674,93 @@ class FrameEndsFeature(Feature):
         self.extrude_id = int(data.get("extrude_id", 0))
 
 
+@dataclass
+class PipeRunFeature(Feature):
+    """A pipe run's tube, or its insulation: a ring section swept along
+    the run's corner points, bent at each corner to the radius.
+
+    Written by the Frame Generator from the skeleton lines the run lies
+    on; the route and section are kept here, so the part builds on its
+    own.
+    """
+
+    type_name: str = "pipe_run"
+    icon: str = "sweep"
+    name: str = "Pipe Run"
+    family: str = ""
+    size: str = ""
+    role: str = "pipe"          # or "insulation"
+    d: float = 22.0             # outside diameter
+    t: float = 1.0              # wall, or the insulation's thickness
+    radius: float = 66.0        # bend radius, to the tube's centre line
+    points: List[List[float]] = field(default_factory=list)
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import piping
+        if len(self.points) < 2:
+            raise FeatureError("%s: the run has no length" % self.name)
+        try:
+            tool = piping.tube_solid(self.points, self.d, self.t,
+                                     self.radius)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        ctx.apply(tool, JOIN, self.id, targets=self.solids)
+
+    def summary(self) -> str:
+        bends = max(0, len(self.points) - 2)
+        return "%s: %s, %d bend%s" % (self.name, self.size, bends,
+                                       "" if bends == 1 else "s")
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"family": self.family, "size": self.size, "role": self.role,
+                "d": self.d, "t": self.t, "radius": self.radius,
+                "points": [list(p) for p in self.points]}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.family = str(data.get("family", ""))
+        self.size = str(data.get("size", ""))
+        self.role = str(data.get("role", "pipe"))
+        self.d = float(data.get("d", 22.0))
+        self.t = float(data.get("t", 1.0))
+        self.radius = float(data.get("radius", 66.0))
+        self.points = [[float(c) for c in p]
+                       for p in data.get("points", [])]
+
+
+@dataclass
+class PipeFittingFeature(Feature):
+    """A pipe fitting: an elbow, tee, coupling or reducer, made to its
+    sockets' sizes.  Put in by Insert Pipe where pipes meet."""
+
+    type_name: str = "pipe_fitting"
+    icon: str = "sweep"
+    name: str = "Pipe Fitting"
+    kind: str = "elbow90"
+    sockets: List[Dict[str, float]] = field(default_factory=list)
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import piping_fittings
+        if not self.sockets:
+            raise FeatureError("%s: it has no sizes" % self.name)
+        try:
+            tool = piping_fittings.solid(self.kind, self.sockets)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        ctx.apply(tool, JOIN, self.id, targets=self.solids)
+
+    def summary(self) -> str:
+        return "%s: %s" % (self.name, " x ".join(
+            "%g" % s.get("d", 0) for s in self.sockets))
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"kind": self.kind, "sockets": [dict(s) for s in self.sockets]}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.kind = str(data.get("kind", "elbow90"))
+        self.sockets = [{str(k): float(v) for k, v in s.items()}
+                        for s in data.get("sockets", [])]
+
+
 FEATURE_TYPES: Dict[str, type] = {
     cls.type_name: cls for cls in (
         SketchFeature, WorkPlaneFeature, WorkAxisFeature,
@@ -3684,5 +3771,6 @@ FEATURE_TYPES: Dict[str, type] = {
         SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
         HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
         FrameMemberFeature, FrameEndsFeature, CombineFeature,
+        PipeRunFeature, PipeFittingFeature,
     )
 }

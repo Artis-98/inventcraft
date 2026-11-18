@@ -1,0 +1,18 @@
+# InventCraft standard parts library
+# id: din-571
+# name: Hex Head Wood Screw
+# standard: DIN 571
+# category: Fasteners/Screws/Wood
+# kind: hex_bolt
+# source: FreeCAD Fasteners Workbench, FsData table DIN571def
+# licence: LGPL-2.1-or-later
+# lengths: 16 20 25 30 35 40 45 50 55 60 65 70 75 80 90 100 110 120 130 140 150 160 170 180 190 200
+size,d,s,k,lmin,lmax
+4,4,7,2.8,16,40
+5,5,8,3.5,16,40
+6,6,10,4,20,60
+8,8,13,5.5,25,100
+10,10,17,7,30,100
+12,12,19,8,35,120
+16,16,24,10,50,160
+20,20,30,13,60,200

@@ -75,8 +75,36 @@ def describe(shape) -> Tuple[str, List[Tuple[str, float, str]]]:
     return "Shape", []
 
 
-def angle_between(a, b) -> Optional[float]:
-    """Degrees between two flat faces or two straight edges, else None."""
+def _ends(edge) -> Tuple[Tuple[float, ...], Tuple[float, ...]]:
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    curve = BRepAdaptor_Curve(edge)
+    a = curve.Value(curve.FirstParameter())
+    b = curve.Value(curve.LastParameter())
+    return (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z())
+
+
+def _shared_edge(fa, fb):
+    """The edge two faces meet along, or None."""
+    from OCP.TopAbs import TopAbs_EDGE
+    for ea in kernel.explore(fa, TopAbs_EDGE):
+        for eb in kernel.explore(fb, TopAbs_EDGE):
+            if ea.IsSame(eb):
+                return ea
+    return None
+
+
+def angle_detail(a, b) -> Optional[Tuple[float, Optional[Tuple[float, ...]],
+                                         str]]:
+    """The angle between two flat faces or two straight edges: (degrees,
+    where to show it, what it is), else None.
+
+    Two edges meeting at a point give the corner between them, 0 to 180,
+    however each was drawn; two faces meeting along an edge give the
+    corner between them, as a protractor laid on the part reads it: 90
+    for a box's sides, 135 for a 45 degree chamfer and its face.  Apart,
+    two lines give the angle between them, 0 to 90, and two faces the
+    angle between their outward sides, 180 for a plate's two faces.
+    """
     from OCP.BRepAdaptor import BRepAdaptor_Curve
     from OCP.GeomAbs import GeomAbs_CurveType
     from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
@@ -84,31 +112,56 @@ def angle_between(a, b) -> Optional[float]:
 
     from ..core.constraints3d import PLANE, frame_from_shape
 
-    def way(shape):
-        if shape.ShapeType() == TopAbs_FACE:
-            frame = frame_from_shape(shape)
-            if frame is not None and frame.kind == PLANE:
-                return "face", frame.direction
-            return None
-        if shape.ShapeType() == TopAbs_EDGE:
-            try:
-                curve = BRepAdaptor_Curve(TopoDS.Edge_s(shape))
-                if curve.GetType() != GeomAbs_CurveType.GeomAbs_Line:
-                    return None
-                d = curve.Line().Direction()
-                return "edge", (d.X(), d.Y(), d.Z())
-            except Exception:                           # noqa: BLE001
-                return None
-        return None
+    def deg(u, v) -> float:
+        dot = sum(u[i] * v[i] for i in range(3))
+        return math.degrees(math.acos(max(-1.0, min(1.0, dot))))
 
-    first, second = way(a), way(b)
-    if first is None or second is None or first[0] != second[0]:
-        return None
-    dot = sum(first[1][i] * second[1][i] for i in range(3))
-    dot = max(-1.0, min(1.0, dot))
-    if first[0] == "edge":
-        dot = abs(dot)              # a line has no way round
-    return math.degrees(math.acos(dot))
+    def unit(v):
+        n = math.sqrt(sum(c * c for c in v)) or 1.0
+        return tuple(c / n for c in v)
+
+    kinds = (a.ShapeType(), b.ShapeType())
+    if kinds == (TopAbs_EDGE, TopAbs_EDGE):
+        ea, eb = TopoDS.Edge_s(a), TopoDS.Edge_s(b)
+        try:
+            for e in (ea, eb):
+                if BRepAdaptor_Curve(e).GetType() \
+                        != GeomAbs_CurveType.GeomAbs_Line:
+                    return None
+            pa, pb = _ends(ea), _ends(eb)
+        except Exception:                               # noqa: BLE001
+            return None
+        reach = max(math.dist(*pa), math.dist(*pb))
+        for i in range(2):
+            for j in range(2):
+                if math.dist(pa[i], pb[j]) <= 1e-6 * max(1.0, reach):
+                    corner = pa[i]
+                    u = unit([pa[1 - i][k] - corner[k] for k in range(3)])
+                    v = unit([pb[1 - j][k] - corner[k] for k in range(3)])
+                    return deg(u, v), corner, "at the corner they meet"
+        u = unit([pa[1][k] - pa[0][k] for k in range(3)])
+        v = unit([pb[1][k] - pb[0][k] for k in range(3)])
+        angle = deg(u, v)
+        return min(angle, 180.0 - angle), None, "between the two lines"
+    if kinds == (TopAbs_FACE, TopAbs_FACE):
+        fa, fb = frame_from_shape(a), frame_from_shape(b)
+        if fa is None or fb is None or fa.kind != PLANE or fb.kind != PLANE:
+            return None
+        normals = deg(fa.direction, fb.direction)
+        edge = _shared_edge(a, b)
+        if edge is not None:
+            ends = _ends(TopoDS.Edge_s(edge))
+            middle = tuple((ends[0][k] + ends[1][k]) / 2.0 for k in range(3))
+            return 180.0 - normals, middle, "at the edge they meet"
+        return normals, None, "between the two planes"
+    return None
+
+
+def angle_between(a, b) -> Optional[float]:
+    """Degrees between two flat faces or two straight edges, else None:
+    see angle_detail."""
+    found = angle_detail(a, b)
+    return found[0] if found is not None else None
 
 
 class MeasureDialog(QtWidgets.QDialog):
@@ -262,9 +315,10 @@ class MeasureDialog(QtWidgets.QDialog):
                 out.append("Distance  %s" % length(distance))
                 out.append("    dX %s   dY %s   dZ %s" % tuple(
                     number(abs(c)) for c in delta))
-                angle = angle_between(*self.picks)
-                if angle is not None:
-                    out.append("Angle     %s deg" % unitlib.fmt(angle, 4))
+                found = angle_detail(*self.picks)
+                if found is not None:
+                    out.append("Angle     %s deg, %s" % (
+                        unitlib.fmt(found[0], 4), found[2]))
         elif len(self.picks) == 1:
             out.append("")
             out.append("Pick a second one to measure between them.")
@@ -308,6 +362,11 @@ class MeasureDialog(QtWidgets.QDialog):
             middle = [(pa[i] + pb[i]) / 2.0 for i in range(3)]
             viewport.draw_text(unitlib.length_text(distance, self._unit(), 6),
                                middle, C.annotation, 16.0)
+            # the angle where it is, so it is clear which one it is
+            found = angle_detail(*self.picks)
+            if found is not None and found[1] is not None:
+                viewport.draw_text("%s\u00b0" % unitlib.fmt(found[0], 4),
+                                   found[1], C.annotation, 16.0)
         # over the model, as Inventor draws it: a line from corner to
         # corner of a box runs through the box
         self._drawn += drawn

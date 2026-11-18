@@ -1,0 +1,20 @@
+# InventCraft standard parts library
+# id: iso-10512
+# name: Nylon Insert Lock Nut, fine thread
+# standard: ISO 10512
+# category: Fasteners/Nuts/Lock
+# kind: lock_nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO10512def
+# licence: LGPL-2.1-or-later
+size,d,s,m,h,dw
+M8x1,8,13,5.15,9.5,11.63
+M10x1,10,16,6.43,11.9,14.63
+M10x1.25,10,16,6.43,11.9,14.63
+M12x1.25,12,18,8.3,14.9,16.63
+M12x1.5,12,18,8.3,14.9,16.63
+M14x1.5,14,21,9.68,17,19.64
+M16x1.5,16,24,11.28,19.1,22.49
+M20x1.5,20,30,13.52,22.8,27.7
+M24x2,24,36,16.16,27.1,33.25
+M30x2,30,46,19.44,32.6,42.75
+M36x2,36,55,23.52,38.9,51.11

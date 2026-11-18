@@ -1,0 +1,21 @@
+# InventCraft standard parts library
+# id: iso-7046
+# name: Cross Recessed Countersunk Screw
+# standard: ISO 7046
+# category: Fasteners/Screws/Countersunk
+# kind: countersunk
+# drive: cross
+# source: FreeCAD Fasteners Workbench, FsData table ISO7046def
+# licence: LGPL-2.1-or-later
+# lengths: 3 4 5 6 8 10 12 14 16 20 25 30 35 40 45 50 55 60
+size,d,dk,k,angle,s,t,lmin,lmax
+M1.6,1.6,3.6,1,90,1.6,0.72,3,16
+M2,2,4.4,1.2,90,1.9,0.855,3,20
+M2.5,2.5,5.5,1.5,90,2.9,1.305,3,25
+M3,3,6.3,1.65,90,3.2,1.44,4,30
+M3.5,3.5,8.2,2.35,90,4.4,1.98,5,35
+M4,4,9.4,2.7,90,4.6,2.07,5,40
+M5,5,10.4,2.7,90,5.2,2.34,6,50
+M6,6,12.6,3.3,90,6.8,3.06,8,60
+M8,8,17.3,4.65,90,8.9,4.005,10,60
+M10,10,20,5,90,10,4.5,12,60

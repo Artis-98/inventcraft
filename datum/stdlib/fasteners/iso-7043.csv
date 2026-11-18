@@ -1,0 +1,17 @@
+# InventCraft standard parts library
+# id: iso-7043
+# name: Nylon Insert Flange Lock Nut
+# standard: ISO 7043
+# category: Fasteners/Nuts/Flange
+# kind: lock_nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO7043def
+# licence: LGPL-2.1-or-later
+size,d,s,m,h,dw,dc,c
+M5,5,8,2.5,7.1,9.8,11.8,1
+M6,6,10,3.1,9.1,12.2,14.2,1.1
+M8,8,13,4.6,11.1,15.8,17.9,1.2
+M10,10,15,5.6,13.5,19.6,21.8,1.5
+M12,12,18,6.8,16.1,23.8,26,1.8
+M14,14,21,7.7,18.2,27.6,29.9,2.1
+M16,16,24,8.9,20.3,31.9,34.5,2.4
+M20,20,30,10.7,24.8,39.9,42.8,3

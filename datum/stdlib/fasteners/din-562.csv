@@ -1,0 +1,18 @@
+# InventCraft standard parts library
+# id: din-562
+# name: Square Nut, thin
+# standard: DIN 562
+# category: Fasteners/Nuts/Square
+# kind: square_nut
+# source: FreeCAD Fasteners Workbench, FsData table DIN562def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M1.6,1.6,3.2,1
+M2,2,4,1.2
+M2.5,2.5,5,1.6
+M3,3,5.5,1.8
+M4,4,7,2.2
+M5,5,8,2.7
+M6,6,10,3.2
+M8,8,13,4
+M10,10,17,5

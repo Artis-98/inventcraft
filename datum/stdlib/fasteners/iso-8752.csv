@@ -1,0 +1,22 @@
+# InventCraft standard parts library
+# id: iso-8752
+# name: Slotted Spring Pin, heavy duty
+# standard: ISO 8752
+# category: Fasteners/Pins/Spring
+# kind: spring_pin
+# source: FreeCAD Fasteners Workbench, FsData table ISO8752def
+# licence: LGPL-2.1-or-later
+# lengths: 4 5 6 8 10 12 14 16 18 20 22 24 26 28 30 32 35 40 45 50 55 60 65 70 75 80 85 90 95 100 120 140 160 180 200
+size,d,s,lmin,lmax
+1,1.25,0.2,4,20
+1.5,1.75,0.3,4,20
+2,2.35,0.4,4,30
+2.5,2.85,0.5,4,30
+3,3.4,0.6,4,40
+3.5,3.9,0.75,4,40
+4,4.5,0.8,4,50
+4.5,5,1,5,50
+5,5.5,1,5,80
+6,6.55,1.2,10,100
+8,8.65,1.5,10,120
+10,10.65,2,10,160

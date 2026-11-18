@@ -1,0 +1,27 @@
+# InventCraft standard parts library
+# id: din-6912
+# name: Socket Head Cap Screw, low head with pilot
+# standard: DIN 6912
+# category: Fasteners/Bolts/Socket Head
+# kind: socket_head
+# drive: hex
+# source: FreeCAD Fasteners Workbench, FsData table DIN6912def
+# licence: LGPL-2.1-or-later
+# lengths: 5 6 8 10 12 16 20 25 30 35 40 45 50 55 60 65 70 80 90 100 110 120 130 140 150 160 170 180 190 200
+size,d,dk,k,s,t,lmin,lmax
+M4,4,7,2.8,3,1.6,10,50
+M5,5,8.5,3.5,4,2,10,60
+M6,6,10,4,5,2.5,10,70
+M8,8,13,5,6,3,12,80
+M10,10,16,6.5,8,3.5,16,90
+M12,12,18,7.5,10,4,16,100
+M14,14,21,8.5,12,4.5,20,120
+M16,16,24,10,14,5.5,20,140
+M18,18,27,11,14,6,25,150
+M20,20,30,12,17,6.5,30,180
+M22,22,33,13,17,7,40,200
+M24,24,36,14,19,7,60,200
+M27,27,40,16,19,8.5,70,200
+M30,30,45,17.5,22,9,70,200
+M33,33,50,19.5,24,10,80,200
+M36,36,54,21.5,27,11.5,90,200

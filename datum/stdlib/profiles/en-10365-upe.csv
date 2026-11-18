@@ -1,0 +1,23 @@
+# InventCraft standard parts library
+# id: en-10365-upe
+# name: UPE Channels, parallel flanges
+# standard: EN 10365
+# category: Channels
+# kind: channel
+# source: FreeCAD BIM profiles, group UPE; root radii from EN 10365
+# licence: LGPL-2.1-or-later
+size,h,b,tw,tf,r,slope,r2
+UPE 80,80,50,4,7,8,0,0
+UPE 100,100,55,4.5,7.5,9,0,0
+UPE 120,120,60,5,8,9,0,0
+UPE 140,140,65,5,9,10,0,0
+UPE 160,160,70,5.5,9.5,10,0,0
+UPE 180,180,75,5.5,10.5,11,0,0
+UPE 200,200,80,6,11,12,0,0
+UPE 220,220,85,6.5,12,12,0,0
+UPE 240,240,90,7,12.5,13,0,0
+UPE 270,270,95,7.5,13.5,14,0,0
+UPE 300,300,100,9.5,15,15,0,0
+UPE 330,330,105,11,16,16,0,0
+UPE 360,360,110,12,17,18,0,0
+UPE 400,400,115,13.5,18,18,0,0

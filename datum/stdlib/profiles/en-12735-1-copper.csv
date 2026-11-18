@@ -1,0 +1,26 @@
+# InventCraft standard parts library
+# id: en-12735-1-copper
+# name: Copper Tube for Refrigeration
+# standard: EN 12735-1
+# category: Piping/Copper
+# kind: pipe
+# source: EN 12735-1 dimensions, the sizes stockists carry; r a bend radius to start from, 3.5 x d
+# licence: CC0-1.0
+size,d,t,r
+6x1,6,1,21
+8x1,8,1,28
+10x1,10,1,35
+12x1,12,1,42
+15x1,15,1,53
+16x1,16,1,56
+18x1,18,1,63
+22x1,22,1,77
+28x1,28,1,98
+28x1.5,28,1.5,98
+35x1.5,35,1.5,123
+42x1.5,42,1.5,147
+54x2,54,2,189
+64x2,64,2,224
+76.1x2,76.1,2,267
+88.9x2.5,88.9,2.5,312
+108x2.5,108,2.5,378

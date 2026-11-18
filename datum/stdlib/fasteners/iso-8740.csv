@@ -1,0 +1,23 @@
+# InventCraft standard parts library
+# id: iso-8740
+# name: Grooved Pin, full length
+# standard: ISO 8740
+# category: Fasteners/Pins/Grooved
+# kind: pin
+# source: FreeCAD Fasteners Workbench, FsData table ISO8740def
+# licence: LGPL-2.1-or-later
+# lengths: 8 10 12 14 16 18 20 22 24 26 28 30 32 35 40 45 50 55 60 65 70 75 80 85 90 95 100
+size,d,c,lmin,lmax
+1.5,1.5,0.12,8,20
+2,2,0.18,8,30
+2.5,2.5,0.25,10,30
+3,3,0.3,10,40
+4,4,0.4,10,60
+5,5,0.5,14,60
+6,6,0.6,14,80
+8,8,0.8,14,100
+10,10,1,14,100
+12,12,1.2,18,100
+16,16,1.6,22,100
+20,20,2,26,100
+25,25,2.5,26,100

@@ -241,6 +241,10 @@ class Constraint:
     label_offset: Tuple[float, float] = (0.0, 0.0)
     # what the Parameters table says about it
     comment: str = ""
+    # an angle between two lines measured to the second line turned end
+    # for end: of the two angles where lines cross, the other one, so the
+    # angle is the one between the arms on the side it was placed
+    flip: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         out = {
@@ -256,6 +260,8 @@ class Constraint:
         }
         if self.comment:
             out["comment"] = self.comment
+        if self.flip:
+            out["flip"] = True
         return out
 
     @classmethod
@@ -271,6 +277,7 @@ class Constraint:
             driving=bool(d.get("driving", True)),
             label_offset=tuple(d.get("label_offset", (0.0, 0.0))),
             comment=str(d.get("comment", "")),
+            flip=bool(d.get("flip", False)),
         )
 
     @property
@@ -785,6 +792,8 @@ class Sketch:
                     return math.degrees(math.atan2(uy, ux)) % 360.0
                 second = self.entities[c.entities[1]].points
                 vx, vy = direction(second[0], second[1])
+                if c.flip:
+                    vx, vy = -vx, -vy
                 return math.degrees(math.atan2(ux * vy - uy * vx,
                                                ux * vx + uy * vy)) % 360.0
             a = self.points[c.points[0]]
@@ -1152,6 +1161,8 @@ class Sketch:
                             (p, q) = line_pts(x, c.entities[1])
                             a1 = math.atan2(b[1] - a[1], b[0] - a[0])
                         a2 = math.atan2(q[1] - p[1], q[0] - p[0])
+                        if c.flip and len(c.entities) > 1:
+                            a2 += math.pi
                         diff = math.degrees(a2 - a1) % 360.0
                         target = val % 360.0
                         delta = (diff - target + 180.0) % 360.0 - 180.0

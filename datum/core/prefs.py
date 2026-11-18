@@ -143,6 +143,8 @@ class Preferences:
     # your own folders in Place from Library: parts, assemblies and STEP
     # files, browsed there like the standard ones
     library_folders: List[str] = field(default_factory=list)
+    # the standards bodies the library's Standards filter hides: ISO, DIN
+    hidden_standards: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
@@ -162,7 +164,8 @@ class Preferences:
                 "shortcuts": dict(self.shortcuts),
                 "templates_folder": self.templates_folder,
                 "language": self.language,
-                "library_folders": list(self.library_folders)}
+                "library_folders": list(self.library_folders),
+                "hidden_standards": list(self.hidden_standards)}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
@@ -208,6 +211,9 @@ class Preferences:
             library_folders=[str(f) for f in
                              data.get("library_folders") or [] if f]
             if isinstance(data.get("library_folders"), list) else [],
+            hidden_standards=[str(f) for f in
+                              data.get("hidden_standards") or [] if f]
+            if isinstance(data.get("hidden_standards"), list) else [],
             old_versions=_count(data.get("old_versions"), 1),
             shortcuts={str(k): str(v) for k, v in
                        (data.get("shortcuts") or {}).items()

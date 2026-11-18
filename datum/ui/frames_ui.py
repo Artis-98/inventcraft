@@ -389,12 +389,13 @@ class InsertFrameDialog(PickingDialog):
     the same window on members already made."""
 
     def __init__(self, host, parent=None,
-                 change: Optional[Tuple[int, List[int]]] = None) -> None:
+                 change: Optional[Tuple[int, List[int]]] = None,
+                 pipe: bool = False) -> None:
         super().__init__(host, parent)
         self.changing = change is not None
         self.frame_oid = change[0] if change else 0
         self.setWindowTitle("Change Frame" if self.changing
-                            else "Insert Frame")
+                            else "Insert Pipe" if pipe else "Insert Frame")
         self._picked: List[Any] = []
         self._initial: Dict[str, Any] = {}
         layout = QtWidgets.QVBoxLayout(self)
@@ -431,6 +432,9 @@ class InsertFrameDialog(PickingDialog):
         form.addRow("Family", self.family)
         self.size = QtWidgets.QComboBox()
         form.addRow("Size", self.size)
+        from .profile_preview import ProfilePreview
+        self.section = ProfilePreview(group, 150)
+        form.addRow(self.section)
         self.material = QtWidgets.QComboBox()
         self.material.addItem("As the part comes", "")
         for name in sorted(materials.library().materials):
@@ -443,8 +447,41 @@ class InsertFrameDialog(PickingDialog):
             form.addRow("", self.merge)
         layout.addWidget(group)
 
+        # -- a pipe's: bend radius and insulation
+        group = QtWidgets.QGroupBox("Pipe")
+        self.pipe_group = group
+        form = QtWidgets.QFormLayout(group)
+        self.bend_radius = QtWidgets.QDoubleSpinBox()
+        self.bend_radius.setRange(0, 10000)
+        self.bend_radius.setDecimals(1)
+        self.bend_radius.setSuffix(" mm")
+        self.bend_radius.setToolTip(
+            "To the tube's centre line. 0 takes the size's own, about "
+            "what a lever bender gives")
+        form.addRow("Bend radius", self.bend_radius)
+        self.insulation = QtWidgets.QDoubleSpinBox()
+        self.insulation.setRange(0, 200)
+        self.insulation.setDecimals(1)
+        self.insulation.setSuffix(" mm")
+        self.insulation.setSpecialValueText("None")
+        self.insulation.setToolTip("Insulation thickness: a part of its own "
+                                   "round the tube, following the bends")
+        form.addRow("Insulation", self.insulation)
+        self.insulation_material = QtWidgets.QComboBox()
+        for name in sorted(materials.library().materials):
+            self.insulation_material.addItem(name, name)
+        self.insulation_material.setCurrentText("Elastomeric Foam")
+        form.addRow("Insulation material", self.insulation_material)
+        hint = QtWidgets.QLabel("Lines meeting end to end become one pipe, "
+                                "bent at the corners. Where three meet, the "
+                                "runs end.")
+        hint.setWordWrap(True)
+        form.addRow(hint)
+        layout.addWidget(group)
+
         # -- orientation
         group = QtWidgets.QGroupBox("Orientation")
+        self.orientation_group = group
         form = QtWidgets.QFormLayout(group)
         grid = QtWidgets.QGridLayout()
         grid.setSpacing(2)
@@ -500,12 +537,26 @@ class InsertFrameDialog(PickingDialog):
         self.family.currentIndexChanged.connect(lambda _i: self._sizes())
         self.size.currentIndexChanged.connect(lambda _i:
                                               self.schedule_preview())
+        self.size.currentIndexChanged.connect(lambda _i: self._show_section())
+        self.size.currentIndexChanged.connect(
+            lambda _i: self.is_pipe() and self._radius_hint())
         for spin in (self.rotate, self.offset_a, self.offset_b):
             spin.valueChanged.connect(lambda _v: self.schedule_preview())
         self.mirror.toggled.connect(lambda _on: self.schedule_preview())
         self.merge.toggled.connect(lambda _on: self.schedule_preview())
+        for spin in (self.bend_radius, self.insulation):
+            spin.valueChanged.connect(lambda _v: self.schedule_preview())
+        self.insulation.valueChanged.connect(
+            lambda v: self.insulation_material.setEnabled(v > 0))
+        self.insulation_material.setEnabled(False)
 
         self._fill_categories()
+        if pipe and not self.changing:
+            piped = next((f for f in self._families_all
+                          if f.kind == "pipe"), None)
+            if piped is not None:
+                self.choose(piped.id, piped.sizes()[
+                    min(7, len(piped.sizes()) - 1)])
         if self.changing:
             self._member_segments()
             self._picked = [("m", self.frame_oid, mid) for mid in change[1]
@@ -589,6 +640,8 @@ class InsertFrameDialog(PickingDialog):
                            "%d %ss selected" % (n, what))
         if self.changing and self._picked:
             self.frame_oid = self._picked[0][1]
+        if hasattr(self, "pipe_group"):
+            self._merge_offered()
         self._redraw()
         self.schedule_preview()
 
@@ -633,7 +686,75 @@ class InsertFrameDialog(PickingDialog):
         if fam is not None:
             self.size.addItems(fam.sizes())
         self.size.blockSignals(False)
+        self._pipe_mode()
+        self._show_section()
         self.schedule_preview()
+
+    def current_family(self):
+        fid = self.family.currentData()
+        return next((f for f in self._families_all if f.id == fid), None)
+
+    def is_pipe(self) -> bool:
+        fam = self.current_family()
+        return fam is not None and fam.kind == "pipe"
+
+    def _pipe_mode(self) -> None:
+        """A pipe has no orientation to set; it has a bend radius and
+        insulation instead, and Merge makes a connected run one pipe."""
+        pipe = self.is_pipe()
+        was = getattr(self, "_was_pipe", None)
+        self._was_pipe = pipe
+        self.pipe_group.setVisible(pipe)
+        self.orientation_group.setVisible(not pipe)
+        if pipe != was:
+            self.merge.setText("Merge into one pipe" if pipe
+                               else "Merge Frame Members")
+            self.merge.setToolTip(
+                "Lines joined end to end become one pipe, bent at the "
+                "corners, whichever sketches they are in" if pipe else
+                "Lines running on in one straight line become one member")
+            # a run of tube is one piece unless asked otherwise
+            self.merge.setChecked(pipe)
+        if pipe:
+            self._radius_hint()
+        self._merge_offered()
+
+    def _merge_offered(self) -> None:
+        """Merge for a pipe is offered once the picked lines join up: two
+        or more of them end to end."""
+        if self.changing or not self.is_pipe():
+            self.merge.setEnabled(True)
+            return
+        from ..core import piping
+        picked = {k: self._lines[k] for k in self._picked if k in self._lines}
+        try:
+            joined = any(len(run) > 1 for run in piping.runs(
+                picked, list(picked)))
+        except Exception:
+            joined = False
+        self.merge.setEnabled(joined)
+
+    def _radius_hint(self) -> None:
+        fam, size = self.current_family(), self.size.currentText()
+        try:
+            from ..core import piping
+            r = piping.default_radius(fam.row(size))
+            self.bend_radius.setSpecialValueText("Size's own, %g mm" % r)
+        except Exception:
+            self.bend_radius.setSpecialValueText("Size's own")
+
+    def _show_section(self) -> None:
+        """The section of the size picked, drawn under the list."""
+        fid = self.family.currentData()
+        fam = next((f for f in self._families_all if f.id == fid), None)
+        size = self.size.currentText()
+        if fam is None or not size:
+            self.section.clear()
+            return
+        try:
+            self.section.show_profile(fam.kind, fam.row(size), fam.source)
+        except Exception:
+            self.section.clear()
 
     def choose(self, family_id: str, size: str) -> bool:
         """Set the member to a family and size, as picking them would."""
@@ -659,7 +780,11 @@ class InsertFrameDialog(PickingDialog):
                 "offset_b": self.offset_b.value(),
                 "rotate": self.rotate.value(),
                 "mirror": self.mirror.isChecked(),
-                "material": self.material.currentData() or ""}
+                "material": self.material.currentData() or "",
+                "bend_radius": self.bend_radius.value(),
+                "insulation": self.insulation.value(),
+                "insulation_material": (self.insulation_material.currentData()
+                                        or "")}
 
     def _take_member_values(self) -> None:
         """Change Frame opens on the first picked member as it is; only
@@ -682,6 +807,11 @@ class InsertFrameDialog(PickingDialog):
         self.mirror.setChecked(member.mirror)
         index = self.material.findData(member.material)
         self.material.setCurrentIndex(max(0, index))
+        self.bend_radius.setValue(member.bend_radius)
+        self.insulation.setValue(member.insulation)
+        if member.insulation_material:
+            self.insulation_material.setCurrentText(
+                member.insulation_material)
         self._initial = self.values()
 
     def changes(self) -> Dict[str, Any]:
@@ -700,20 +830,25 @@ class InsertFrameDialog(PickingDialog):
                 frame_doc, self.picked_members(), self.changes())
             location = frame_location(self.doc, self.frame_oid)
             return [s.Moved(location) for s in solids.values()]
-        groups: Dict[Tuple[int, int], List[int]] = {}
+        # by skeleton and sketch; a pipe's by skeleton alone, since its run
+        # goes from one sketch into the next
+        groups: Dict[Tuple[int, int], Dict[int, List[int]]] = {}
+        pipe = self.is_pipe()
         for oid, sid, lid in self._picked:
-            groups.setdefault((oid, sid), []).append(lid)
+            groups.setdefault((oid, 0 if pipe else sid), {}).setdefault(
+                sid, []).append(lid)
         out = []
         v = self.values()
-        for (oid, sid), line_ids in groups.items():
+        for (oid, _sid), by_sketch in groups.items():
             occurrence = self.doc.occurrence(oid)
             if occurrence is None:
                 continue
             out += frames.preview_solids(
-                self.doc, occurrence, {sid: line_ids}, v["family"],
+                self.doc, occurrence, by_sketch, v["family"],
                 v["size"], anchor=v["anchor"], offset_a=v["offset_a"],
                 offset_b=v["offset_b"], rotate=v["rotate"],
-                mirror=v["mirror"], merge=self.merge.isChecked())
+                mirror=v["mirror"], merge=self.merge.isChecked(),
+                bend_radius=v["bend_radius"], insulation=v["insulation"])
         return out
 
     # -- doing it --------------------------------------------------------------
@@ -735,12 +870,23 @@ class InsertFrameDialog(PickingDialog):
         # one frame per skeleton, as Inventor makes one per skeleton: the
         # lines are put in by sketch, each sketch's into the same frame
         groups: Dict[Tuple[int, int], List[int]] = {}
+        pipe = self.is_pipe()
+        routes: Dict[Tuple[int, int], List[Tuple[int, int]]] = {}
         for oid, sid, lid in picked:
-            groups.setdefault((oid, sid), []).append(lid)
+            if pipe:
+                # a pipe's lines by skeleton only: its run may go on into
+                # another of the skeleton's sketches
+                routes.setdefault((oid, 0), []).append((sid, lid))
+                groups.setdefault((oid, 0), [])
+            else:
+                groups.setdefault((oid, sid), []).append(lid)
         problems: List[str] = []
         made = []
         doc.push_undo()
         for (oid, sid), line_ids in groups.items():
+            segments = routes.get((oid, sid)) if pipe else None
+            if segments:
+                sid = segments[0][0]
             skeleton = doc.occurrence(oid)
             if skeleton is None:
                 continue
@@ -753,7 +899,11 @@ class InsertFrameDialog(PickingDialog):
                     anchor=v["anchor"], offset_a=v["offset_a"],
                     offset_b=v["offset_b"], rotate=v["rotate"],
                     mirror=v["mirror"], merge=self.merge.isChecked(),
-                    material=v["material"], frame_occurrence=existing)
+                    material=v["material"], frame_occurrence=existing,
+                    bend_radius=v["bend_radius"],
+                    insulation=v["insulation"],
+                    insulation_material=v["insulation_material"],
+                    segments=segments)
             except (ValueError, KeyError, kernel.KernelError) as exc:
                 problems.append(str(exc))
                 continue
@@ -804,12 +954,122 @@ class InsertFrameDialog(PickingDialog):
             self.accept()
 
 
+# ------------------------------------------------------------ cut list
+
+class CutListDialog(QtWidgets.QDialog):
+    """Every pipe of the frames here: the length of tube each is cut from,
+    its bends and straights, its insulation; and the totals per size."""
+
+    def __init__(self, host, parent=None) -> None:
+        super().__init__(parent or host)
+        from ..core import piping
+        self.host = host
+        self.setWindowTitle("Pipe Cut List")
+        self.resize(760, 520)
+        layout = QtWidgets.QVBoxLayout(self)
+        self.rows, problems = [], []
+        self.fittings: Dict[str, int] = {}
+        doc = host.assembly
+        for fid in frame_ids(doc):
+            try:
+                frame_doc = load_frame(doc, fid)
+                rows, wrong = piping.cut_list(frame_doc)
+                for label, n in piping.fittings_of(frame_doc).items():
+                    self.fittings[label] = self.fittings.get(label, 0) + n
+            except Exception as exc:  # noqa: BLE001
+                problems.append(str(exc))
+                continue
+            self.rows += rows
+            problems += wrong
+        self.table = QtWidgets.QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels(
+            ["Member", "Size", "Cut length", "Bends", "Straights",
+             "Insulation"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        for row in self.rows:
+            i = self.table.rowCount()
+            self.table.insertRow(i)
+            cells = [str(row.member), row.size, "%.1f mm" % row.length,
+                     ", ".join("%.0f° R%g" % (b.angle, b.radius)
+                               for b in row.bends) or "straight",
+                     ", ".join("%.0f" % v for v in row.straights),
+                     "%g mm %s" % (row.insulation, row.insulation_material)
+                     if row.insulation else ""]
+            for j, text in enumerate(cells):
+                self.table.setItem(i, j, QtWidgets.QTableWidgetItem(text))
+        self.table.resizeColumnsToContents()
+        self.table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(QtWidgets.QLabel("Pipes"))
+        layout.addWidget(self.table, 2)
+
+        t = piping.totals(self.rows)
+        self.totals = QtWidgets.QTableWidget(0, 3)
+        self.totals.setHorizontalHeaderLabels(["Tube", "Pieces", "Total"])
+        self.totals.verticalHeader().setVisible(False)
+        self.totals.setEditTriggers(
+            QtWidgets.QAbstractItemView.NoEditTriggers)
+        for size, (n, length) in sorted(t["tube"].items()):
+            self._total(size, str(n), length)
+        for (size, thk, mat), length in sorted(t["insulation"].items()):
+            self._total("Insulation %g mm %s, for %s" % (thk, mat, size), "",
+                        length)
+        for label, n in sorted(self.fittings.items()):
+            i = self.totals.rowCount()
+            self.totals.insertRow(i)
+            for j, text in enumerate([label, str(n), ""]):
+                self.totals.setItem(i, j, QtWidgets.QTableWidgetItem(text))
+        self.totals.resizeColumnsToContents()
+        self.totals.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(QtWidgets.QLabel("Totals"))
+        layout.addWidget(self.totals, 1)
+
+        self.message = QtWidgets.QLabel(
+            "; ".join(problems) if problems else
+            "" if self.rows else "There are no pipes here: Insert Pipe "
+            "first.")
+        self.message.setWordWrap(True)
+        if problems:
+            self.message.setStyleSheet("color: %s;" % C.error)
+        layout.addWidget(self.message)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Close, self)
+        export = buttons.addButton("Export CSV...",
+                                   QtWidgets.QDialogButtonBox.ActionRole)
+        export.clicked.connect(self.export)
+        export.setEnabled(bool(self.rows))
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _total(self, what: str, pieces: str, length: float) -> None:
+        i = self.totals.rowCount()
+        self.totals.insertRow(i)
+        for j, text in enumerate([what, pieces, "%.2f m" % (length / 1000)]):
+            self.totals.setItem(i, j, QtWidgets.QTableWidgetItem(text))
+
+    def export(self, path: str = "") -> str:
+        from ..core import piping
+        if not path:
+            doc = self.host.assembly
+            start = os.path.splitext(doc.path)[0] + " cut list.csv" \
+                if getattr(doc, "path", "") else "cut list.csv"
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Export Cut List", start, "CSV (*.csv)")
+        if not path:
+            return ""
+        with open(path, "w", encoding="utf-8", newline="") as fp:
+            fp.write(piping.cut_list_csv(self.rows, self.fittings))
+        self.message.setStyleSheet("")
+        self.message.setText("Saved %s" % path)
+        return path
+
+
 # -------------------------------------------------------- end treatments
 
 # for each: its title, the picks it takes (a label each, the second the
 # members the first are cut against), and what it asks for
 TREATMENT_SETUP = {
-    "miter": ("Miter", ["Frame members, two by two"], ),
+    "miter": ("Miter", ["Frame members"], ),
     "corner": ("Corner Joint", ["Members to trim", "Member to trim to"]),
     "trim_face": ("Trim - Extend To Face", ["Frame members"]),
     "notch": ("Notch", ["Members to notch", "Notching member"]),
@@ -869,6 +1129,12 @@ class EndTreatmentDialog(PickingDialog):
         self.gap.setSuffix(" mm")
         self.split = QtWidgets.QCheckBox("Split the gap between both")
         self.split.setChecked(True)
+        self.every = QtWidgets.QCheckBox("Miter every corner between them")
+        self.every.setToolTip(
+            "Each two picked members that meet end to end are mitered: "
+            "pick the six sides of a hexagon and all six corners are done. "
+            "Off, they pair up two by two in the order picked")
+        self.every.setChecked(True)
         self.extend = QtWidgets.QCheckBox("Run the other on to the outside")
         self.extend.setChecked(True)
         self.side = QtWidgets.QComboBox()
@@ -878,6 +1144,7 @@ class EndTreatmentDialog(PickingDialog):
         if kind == "miter":
             form.addRow("Gap", self.gap)
             form.addRow("", self.split)
+            form.addRow("", self.every)
         elif kind == "corner":
             form.addRow("Gap", self.gap)
             form.addRow("", self.extend)
@@ -893,7 +1160,7 @@ class EndTreatmentDialog(PickingDialog):
         layout.addWidget(group)
         for w in (self.gap,):
             w.valueChanged.connect(lambda _v: self.schedule_preview())
-        for w in (self.split, self.extend):
+        for w in (self.split, self.extend, self.every):
             w.toggled.connect(lambda _on: self.schedule_preview())
         self.side.currentIndexChanged.connect(lambda _i:
                                               self.schedule_preview())
@@ -1042,6 +1309,12 @@ class EndTreatmentDialog(PickingDialog):
         params: Dict[str, Any] = {}
         if self.kind == "miter":
             params = {"gap": gap, "split": self.split.isChecked()}
+            if self.every.isChecked() and self.frame_oid and members:
+                try:
+                    members = frames.meeting_pairs(
+                        load_frame(self.doc, self.frame_oid), members)
+                except Exception:
+                    members = []
         elif self.kind == "corner":
             params = {"gap": gap, "extend": self.extend.isChecked()}
         elif self.kind == "trim_face":
@@ -1120,6 +1393,12 @@ class ProfileLibraryDialog(QtWidgets.QDialog):
         self.resize(820, 520)
         layout = QtWidgets.QHBoxLayout(self)
         left = QtWidgets.QVBoxLayout()
+        from .standards_filter import StandardsFilter
+        self.standards = StandardsFilter(self)
+        self.standards.set_standards(f.standard for f in frames.families())
+        self.standards.changed.connect(
+            lambda: self.fill(self.current.id if self.current else ""))
+        left.addWidget(self.standards)
         self.tree = QtWidgets.QTreeWidget()
         self.tree.setHeaderHidden(True)
         left.addWidget(self.tree, 1)
@@ -1139,6 +1418,11 @@ class ProfileLibraryDialog(QtWidgets.QDialog):
         right.addWidget(self.title)
         self.table = QtWidgets.QTableWidget()
         right.addWidget(self.table, 1)
+        from .profile_preview import ProfilePreview
+        self.section = ProfilePreview(self, 170)
+        right.addWidget(self.section)
+        self.table.currentCellChanged.connect(
+            lambda row, _c, _r, _cc: self._show_section(row))
         row = QtWidgets.QHBoxLayout()
         self.add_row = QtWidgets.QPushButton("Add Size")
         self.add_row.clicked.connect(self._add_row)
@@ -1166,14 +1450,23 @@ class ProfileLibraryDialog(QtWidgets.QDialog):
         groups: Dict[str, QtWidgets.QTreeWidgetItem] = {}
         chosen = None
         for fam in frames.families():
+            if fam.builtin and not self.standards.shows(fam.standard):
+                continue
             category = fam.category or "Other"
             if category not in groups:
                 groups[category] = QtWidgets.QTreeWidgetItem(self.tree,
                                                              [category])
                 groups[category].setExpanded(True)
+            text = fam.name
+            if fam.standard and not fam.name.startswith(fam.standard):
+                text = "%s, %s" % (fam.standard, fam.name)
             item = QtWidgets.QTreeWidgetItem(groups[category], [
-                fam.name + ("" if not fam.builtin else "  (built in)")])
+                text + ("" if not fam.builtin else "  (built in)")])
             item.setData(0, QtCore.Qt.UserRole, fam.id)
+            from .profile_preview import family_icon
+            picture = family_icon(fam, 20)
+            if picture is not None:
+                item.setIcon(0, picture)
             if fam.id == select or chosen is None:
                 chosen = item
         if chosen is not None:
@@ -1201,6 +1494,22 @@ class ProfileLibraryDialog(QtWidgets.QDialog):
             else QtWidgets.QAbstractItemView.NoEditTriggers)
         for button in (self.add_row, self.remove_row, self.save_button):
             button.setEnabled(editable)
+        if fam.rows:
+            self.table.setCurrentCell(len(fam.rows) // 2, 0)
+        self._show_section(self.table.currentRow())
+
+    def _show_section(self, row: int) -> None:
+        """The section of the size the table's cursor is on."""
+        fam = self.current
+        if fam is None or not 0 <= row < len(fam.rows):
+            self.section.clear()
+            return
+        try:
+            dims = {c: float(v) for c, v in zip(fam.columns,
+                                                fam.rows[row][1:])}
+            self.section.show_profile(fam.kind, dims, fam.source)
+        except Exception:
+            self.section.clear()
 
     def _add_row(self) -> None:
         self.table.insertRow(self.table.rowCount())
@@ -1263,13 +1572,12 @@ class ProfileLibraryDialog(QtWidgets.QDialog):
         closed sketch in a part of yours, its parameters the table's
         columns."""
         if not kind:
-            kinds = ["Square tube", "Equal angle", "Sketch in a part"]
+            kinds = list(frames.KIND_NAMES.values())
             choice, ok = QtWidgets.QInputDialog.getItem(
                 self, "New Family", "Shape:", kinds, 0, False)
             if not ok:
                 return None
-            kind = {"Square tube": "square_tube", "Equal angle": "angle",
-                    "Sketch in a part": "sketch"}[choice]
+            kind = {v: k for k, v in frames.KIND_NAMES.items()}[choice]
         if kind == "sketch" and not source:
             source, _ = QtWidgets.QFileDialog.getOpenFileName(
                 self, "The profile's part", "", "Parts (*.icpart *.pdat)")

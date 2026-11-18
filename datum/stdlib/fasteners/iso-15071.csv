@@ -1,0 +1,17 @@
+# InventCraft standard parts library
+# id: iso-15071
+# name: Hex Flange Bolt
+# standard: ISO 15071
+# category: Fasteners/Bolts/Hex Flange
+# kind: hex_bolt
+# source: FreeCAD Fasteners Workbench, FsData table ISO15071def
+# licence: LGPL-2.1-or-later
+# lengths: 10 12 16 20 25 30 35 40 45 50 55 60 65 70 80 90 100 110 120 130 140 150 160
+size,d,s,k,dc,c,lmin,lmax
+M5,5,7,5.6,11.4,1,10,50
+M6,6,8,6.9,13.6,1.1,12,60
+M8,8,10,8.5,17,1.2,16,80
+M10,10,13,9.7,20.8,1.5,20,100
+M12,12,15,12.1,24.7,1.8,25,120
+M14,14,18,12.9,28.6,2.1,30,140
+M16,16,21,15.2,32.8,2.4,40,160

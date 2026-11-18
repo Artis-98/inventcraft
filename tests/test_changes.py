@@ -225,6 +225,12 @@ px, py = win.viewport.project(kernel.shape_centre(probe))
 win.viewport.context.MoveTo(int(px), int(py), win.viewport.view, False)
 detected = win.viewport.context.HasDetected()
 check("an edge is detectable under the cursor", detected)
+win.viewport.context.MoveTo(int(px) + 6, int(py), win.viewport.view, False)
+check("and from 6 pixels off it too", win.viewport.context.HasDetected())
+win.viewport.context.MoveTo(int(px) + 30, int(py), win.viewport.view, False)
+far = (win.viewport.context.HasDetected()
+       and win.viewport.context.DetectedShape().IsSame(probe))
+check("but not from 30 pixels off", not far)
 win.viewport.clear_selection()
 
 # then feed the edges in one at a time, as clicking each would

@@ -33,12 +33,9 @@ COMING_SHELVES: List[Tuple[str, List[Tuple[str, str]]]] = [
         ("Threaded inserts", "Heat set inserts for printed parts"),
     ]),
     ("Shaft parts", [
-        ("Pins", "Dowel pins ISO 8734, spring pins"),
         ("Keys", "Parallel keys DIN 6885"),
-        ("Retaining rings", "Circlips DIN 471 and DIN 472"),
     ]),
     ("Bearings", [
-        ("Ball bearings", "Deep groove 6000, 6200 and 600 series"),
         ("Linear bearings", "LM8UU and the rest of the LM series"),
     ]),
     ("Online libraries", [
@@ -51,6 +48,10 @@ COMING = ("This shelf is being built. Online libraries such as GrabCAD "
           "follow the standard parts.")
 # kept for anything that still reads the old name
 SHELVES = COMING_SHELVES
+
+
+# columns that are not lengths
+UNITS = {"angle": "angle, deg", "slope": "slope, %", "point": "point"}
 
 
 class StandardPartDialog(QtWidgets.QDialog):
@@ -75,7 +76,8 @@ class StandardPartDialog(QtWidgets.QDialog):
         self.table = QtWidgets.QTableWidget(len(family.rows),
                                             1 + len(family.columns), self)
         self.table.setHorizontalHeaderLabels(
-            ["Size"] + ["%s, mm" % c for c in family.columns])
+            ["Size"] + [UNITS.get(c, "%s, mm" % c)
+                        for c in family.columns])
         self.table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectRows)
         self.table.setSelectionMode(
@@ -94,19 +96,35 @@ class StandardPartDialog(QtWidgets.QDialog):
                 self.table.setItem(r, c, item)
         self.table.resizeColumnsToContents()
         self.table.itemDoubleClicked.connect(lambda _item: self._ok())
-        layout.addWidget(self.table, 1)
+        from .profile_preview import ProfilePreview
+        middle = QtWidgets.QHBoxLayout()
+        middle.addWidget(self.table, 1)
+        self.section = ProfilePreview(self, 200)
+        self.section.setFixedWidth(240)
+        middle.addWidget(self.section)
+        layout.addLayout(middle, 1)
+        self.resize(780, 480)
 
         form = QtWidgets.QFormLayout()
         self.length = None
         if family.needs_length:
             self.length = QtWidgets.QComboBox(self)
             self.length.setEditable(True)
-            for value in family.lengths:
-                self.length.addItem("%g" % value)
-            self.length.setEditText("%g" % (length or family.default_length))
-            self.length.setToolTip("Type any length, or pick a standard one")
+            self.length.setToolTip("Type any length, or pick one the "
+                                   "standard lists for this size")
+            self.length.currentTextChanged.connect(
+                lambda _t: self._show_section())
             form.addRow("Length, mm", self.length)
+        if family.source:
+            note = QtWidgets.QLabel("From %s, %s." % (
+                family.source.split(",")[0], family.licence), self)
+            note.setStyleSheet("color: %s;" % C.text_dim)
+            note.setToolTip(family.source)
+            form.addRow(note)
         layout.addLayout(form)
+        self._start_length = length
+        self.table.currentCellChanged.connect(
+            lambda _r, _c, _pr, _pc: self._size_changed())
 
         buttons = QtWidgets.QDialogButtonBox(self)
         self.ok = buttons.addButton(verb, QtWidgets.QDialogButtonBox.AcceptRole)
@@ -119,6 +137,51 @@ class StandardPartDialog(QtWidgets.QDialog):
         start = sizes.index(size) if size in sizes else 0
         if sizes:
             self.table.selectRow(start)
+            self._size_changed()
+
+    def _size_changed(self) -> None:
+        """A size picked: its own standard lengths, the one typed kept
+        when it is still one of them, and its picture."""
+        size = self.size()
+        if self.length is not None and size:
+            typed = self.length.currentText()
+            if self._start_length:
+                typed, self._start_length = "%g" % self._start_length, 0.0
+            choices = ["%g" % v for v in self.family.lengths_for(size)]
+            self.length.blockSignals(True)
+            self.length.clear()
+            self.length.addItems(choices)
+            keep = typed if typed in choices or (
+                typed and not self.family.ranges) else                 "%g" % self.family.default_length_for(size)
+            self.length.setEditText(keep)
+            self.length.blockSignals(False)
+        self._show_section()
+
+    def _length(self) -> float:
+        if self.length is None:
+            return 0.0
+        try:
+            return float(self.length.currentText().replace(",", "."))
+        except ValueError:
+            return 0.0
+
+    def _show_section(self) -> None:
+        size = self.size()
+        if not size:
+            self.section.clear()
+            return
+        if self.family.kind != sp.PROFILE:
+            from .fastener_preview import drawing
+            path, box = drawing(self.family.kind, self.family.row(size),
+                                self._length())
+            self.section.show_path(path, box)
+            return
+        from ..core import frames
+        try:
+            fam = frames.family(self.family.id)
+            self.section.show_profile(fam.kind, fam.row(size), fam.source)
+        except Exception:
+            self.section.clear()
 
     def size(self) -> str:
         row = self.table.currentRow()
@@ -210,18 +273,30 @@ def family_label(fam: sp.Family) -> str:
     return "%s\n%s" % (fam.standard, name) if fam.standard else name
 
 
-def library_tree(own: Optional[List[str]] = None) -> _Folder:
+def library_tree(own: Optional[List[str]] = None,
+                 shows=None) -> _Folder:
     """The library as folders: Structural Shapes from the Frame Generator,
-    Fasteners from the ISO tables, your own folders from disk, and the
-    shelves still to come."""
+    Fasteners and Bearings from the standard library, your own folders
+    from disk, and the shelves still to come.  ``shows`` says which
+    families the Standards filter lets through."""
     if own is None:
         own = list(prefs.prefs().library_folders)
     root = _Folder("Library", "")
     for fam in sp.families():
+        if shows is not None and not shows(fam.standard):
+            continue
         here = root
         for name in fam.category.split("/"):
             here = here.folder(name)
         here.families.append(fam)
+
+    def tidy(folder: _Folder) -> None:
+        # inside a category, folders by name, so a filter never moves them
+        for child in folder.folders.values():
+            child.folders = dict(sorted(child.folders.items(),
+                                        key=lambda kv: natural(kv[0])))
+            tidy(child)
+    tidy(root)
     mine = root.folder(MY_FOLDERS)
     mine.about = ("Your own folders of parts, assemblies and STEP files, "
                   "a bought in bolt library say. Add Folder puts one here.")
@@ -277,7 +352,11 @@ class LibraryDialog(QtWidgets.QDialog):
         self.place_file = False
         self.chosen: Optional[Dict[str, Any]] = None
         self.chosen_file = ""
-        self.root = library_tree()
+        from .standards_filter import StandardsFilter
+        self.standards = StandardsFilter(self)
+        self.standards.set_standards(f.standard for f in sp.families())
+        self.standards.changed.connect(self._filtered)
+        self.root = library_tree(shows=self.standards.shows)
         self.current = self.root
         self._history: List[str] = []
 
@@ -297,6 +376,7 @@ class LibraryDialog(QtWidgets.QDialog):
         bar.addWidget(self.up)
         bar.addSpacing(6)
         bar.addWidget(self.where, 1)
+        bar.addWidget(self.standards)
         layout.addLayout(bar)
 
         split = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
@@ -438,10 +518,21 @@ class LibraryDialog(QtWidgets.QDialog):
             if child.empty() and child.name != MY_FOLDERS:
                 entry.setForeground(QtGui.QBrush(QtGui.QColor(C.text_dim)))
             self.view.addItem(entry)
+        from .profile_preview import family_icon
         for fam in folder.families:
+            picture = None
+            if fam.kind == sp.PROFILE:
+                from ..core import frames
+                try:
+                    picture = family_icon(frames.family(fam.id), 40)
+                except KeyError:
+                    picture = None
+            else:
+                from .fastener_preview import icon as fastener_icon
+                picture = fastener_icon(fam, 40)
             entry = QtWidgets.QListWidgetItem(
-                icons.icon("frame_member" if fam.kind == sp.PROFILE
-                           else "library", 40), family_label(fam))
+                picture or icons.icon("frame_member" if fam.kind == sp.PROFILE
+                                      else "library", 40), family_label(fam))
             entry.setData(ROLE_FAMILY, fam.id)
             entry.setSizeHint(QtCore.QSize(180, 104))
             entry.setToolTip("%s, %d sizes" % (fam.name, len(fam.rows)))
@@ -566,8 +657,17 @@ class LibraryDialog(QtWidgets.QDialog):
         self._rebuild()
         self.open_folder(MY_FOLDERS, remember=False)
 
+    def _filtered(self) -> None:
+        """The Standards filter changed: the same folder again, or the
+        nearest one still there."""
+        path = self.current.path
+        self._rebuild()
+        while path and self.folder_at(path) is None:
+            path = path.rpartition("/")[0]
+        self.open_folder(path, remember=False)
+
     def _rebuild(self) -> None:
-        self.root = library_tree()
+        self.root = library_tree(shows=self.standards.shows)
         self.current = self.root
         self._history = []
         self.tree.clear()

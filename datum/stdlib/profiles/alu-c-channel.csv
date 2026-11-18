@@ -1,0 +1,29 @@
+# InventCraft standard parts library
+# id: alu-c-channel
+# name: Aluminium C Channels
+# standard: Aluminium
+# category: Channels
+# kind: channel
+# source: FreeCAD BIM profiles, group Aluminium C Channel
+# licence: LGPL-2.1-or-later
+size,h,b,tw,tf,r,slope,r2
+2x1 Channel,50.8,25.4,3.302,3.302,0,0,0
+2x1.25 Channel,50.8,31.75,6.604,4.318,0,0,0
+3x1.5 Channel,76.2,38.1,5.08,3.302,0,0,0
+3x1.75 Channel,76.2,44.45,6.604,4.318,0,0,0
+4x2 Channel,101.6,50.8,5.842,3.81,0,0,0
+4x2.25 Channel,101.6,57.15,7.366,4.826,0,0,0
+5x2.25 Channel,127,57.15,6.604,3.81,0,0,0
+5x2.75 Channel,127,69.85,8.128,4.826,0,0,0
+6x2.5 Channel,152.4,63.5,7.366,4.318,0,0,0
+6x3.25 Channel,152.4,82.55,8.89,5.334,0,0,0
+7x2.75 Channel,177.8,69.85,7.366,4.318,0,0,0
+7x3.5 Channel,177.8,88.9,9.652,5.334,0,0,0
+8x3 Channel,203.2,76.2,8.89,4.826,0,0,0
+8x3.75 Channel,203.2,95.25,10.414,6.35,0,0,0
+9x3.25 Channel,228.6,82.55,8.89,5.842,0,0,0
+9x4 Channel,228.6,101.6,11.176,7.366,0,0,0
+10x3.5 Channel,254,88.9,10.414,6.35,0,0,0
+10x4.25 Channel,254,107.95,12.7,7.874,0,0,0
+12x4 Channel,304.8,101.6,11.938,7.366,0,0,0
+12x5 Channel,304.8,127,15.748,8.89,0,0,0

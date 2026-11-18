@@ -758,6 +758,20 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("frame_refresh", "Refresh",
                         "Bring every frame up to its skeleton").clicked.connect(
             lambda: self.assembly_ui.rebuild())
+        panel = design.add_panel("Pipe")
+        panel.add_big("pipe_insert", "Insert\nPipe",
+                      "Copper tube along a skeleton's lines, bent at the "
+                      "corners, with insulation if it has any"
+                      ).clicked.connect(self.insert_pipe)
+        panel.add_big("pipe_corners", "Pipe\nCorners",
+                      "Piping mode: a small button on every pipe corner in "
+                      "the view, to make it a bend or an elbow fitting. "
+                      "Esc or click again to finish"
+                      ).clicked.connect(self.pipe_corners)
+        panel.add_big("pipe_cutlist", "Cut\nList",
+                      "Every pipe's cut length, bends and insulation, and "
+                      "the total tube per size").clicked.connect(
+            self.pipe_cut_list)
         panel = design.add_panel("End Treatments")
         for kind, icon, label, tip in (
                 ("miter", "frame_miter", "Miter",
@@ -2282,6 +2296,36 @@ class MainWindow(QtWidgets.QMainWindow):
             return None
         dialog = InsertFrameDialog(self)
         self.frame_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def insert_pipe(self):
+        """Insert Pipe: Insert Frame set to a copper tube, whose picked
+        lines become runs bent at the corners."""
+        from .frames_ui import InsertFrameDialog
+        if self.assembly is None:
+            return None
+        dialog = InsertFrameDialog(self, pipe=True)
+        self.frame_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def pipe_corners(self):
+        """Pipe Corners: piping mode on or off, a small button on every
+        pipe corner in the view to make it a bend or an elbow fitting."""
+        from .pipe_corners_ui import PipeCornersMode
+        if getattr(self, "corners_mode", None) is None:
+            self.corners_mode = PipeCornersMode(self)
+        self.corners_mode.toggle()
+        return self.corners_mode
+
+    def pipe_cut_list(self):
+        """The cut list of every pipe in the frames here."""
+        from .frames_ui import CutListDialog
+        if self.assembly is None:
+            return None
+        dialog = CutListDialog(self)
+        self.cut_list_dialog = dialog
         dialog.show()
         return dialog
 

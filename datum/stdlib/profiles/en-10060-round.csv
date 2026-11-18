@@ -1,0 +1,44 @@
+# InventCraft standard parts library
+# id: en-10060-round
+# name: Round Bars
+# standard: EN 10060
+# category: Bars
+# kind: round_bar
+# source: EN 10060 size range
+# licence: CC0-1.0
+size,d
+RD 6,6
+RD 8,8
+RD 10,10
+RD 12,12
+RD 14,14
+RD 16,16
+RD 18,18
+RD 20,20
+RD 22,22
+RD 25,25
+RD 28,28
+RD 30,30
+RD 32,32
+RD 35,35
+RD 36,36
+RD 40,40
+RD 45,45
+RD 50,50
+RD 55,55
+RD 60,60
+RD 63,63
+RD 65,65
+RD 70,70
+RD 75,75
+RD 80,80
+RD 90,90
+RD 100,100
+RD 110,110
+RD 120,120
+RD 130,130
+RD 140,140
+RD 150,150
+RD 160,160
+RD 180,180
+RD 200,200

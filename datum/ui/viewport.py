@@ -80,6 +80,10 @@ from .theme import C
 # OCCT selection mode indices for AIS_Shape
 SEL_SHAPE, SEL_VERTEX, SEL_EDGE, SEL_WIRE, SEL_FACE, SEL_SHELL, SEL_SOLID = range(7)
 
+# how far from an edge or a corner, in screen pixels, a click still takes
+# it: OCCT's own 2 pixels meant pointing exactly at a line to chamfer it
+EDGE_PICK_PIXELS = 8
+
 SELECTION_MODES = {
     "none": (),
     "solid": (SEL_SHAPE,),
@@ -1325,10 +1329,28 @@ class Viewport(QtWidgets.QWidget):
             if id(ais) not in locked and modes:
                 pending.append(ais)
         self._arming = (pending, tuple(modes))
+        self._highlight_layer(modes)
         if len(pending) <= self.ARM_NOW:
             self._finish_arming()
         else:
             self._arm_timer.start()
+
+    def _highlight_layer(self, modes) -> None:
+        """Where the highlight is drawn.  When only edges and corners can
+        be picked, one behind the part can be picked too, so its highlight
+        goes on top of everything and shows through the part; with faces
+        in play it stays in the scene, so a face does not shine through
+        whatever is in front of it."""
+        through = bool(modes) and set(modes) <= {SEL_EDGE, SEL_VERTEX}
+        layer = Graphic3d_ZLayerId_Topmost if through             else Graphic3d_ZLayerId_Top
+        for kind in (Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_Selected,
+                     Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_LocalSelected,
+                     Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_Dynamic,
+                     Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_LocalDynamic):
+            try:
+                self.context.HighlightStyle(kind).SetZLayer(layer)
+            except Exception:
+                pass
 
     def _arm_some(self) -> None:
         """Make a few more bodies pickable, for as long as a frame lasts."""
@@ -1339,7 +1361,7 @@ class Viewport(QtWidgets.QWidget):
         while pending and time.perf_counter() < deadline:
             ais = pending.pop(0)
             for index in modes:
-                self.context.Activate(ais, index, True)
+                self._activate(ais, index)
         if pending:
             self._arm_timer.start()
 
@@ -1352,7 +1374,20 @@ class Viewport(QtWidgets.QWidget):
             return
         for ais in pending:
             for index in modes:
-                self.context.Activate(ais, index, True)
+                self._activate(ais, index)
+
+    def _activate(self, ais, index: int) -> None:
+        """One body pickable in one mode; edges and corners from a few
+        pixels off, so a thin line need not be hit exactly."""
+        self.context.Activate(ais, index, True)
+        if index in (SEL_EDGE, SEL_VERTEX):
+            try:
+                # OCCT's sensitivity is the width of the box round the
+                # cursor, so twice the reach either side
+                reach = int(round(2 * EDGE_PICK_PIXELS * self._occt_ratio()))
+                self.context.SetSelectionSensitivity(ais, index, reach)
+            except Exception:
+                pass
 
     def _forget_arming(self, gone) -> None:
         """Bodies taken off screen are not waiting to be made pickable."""
@@ -3018,7 +3053,15 @@ class Viewport(QtWidgets.QWidget):
         label.SetText(TCollection_ExtendedString(str(text), True))
         label.SetPosition(gp_Pnt(*position))
         label.SetColor(_col(colour))
-        label.SetHeight(height)
+        # ``height`` is in the window's logical pixels, as Qt's fonts are;
+        # OCCT draws in real ones, so on a scaled display (a 4K screen at
+        # 150 or 200 percent) the text would come out that much smaller
+        # than everything round it (GitHub issue #20)
+        try:
+            ratio = self._occt_ratio()
+        except Exception:
+            ratio = 1.0
+        label.SetHeight(height * ratio)
         try:
             label.SetZoomable(False)
         except Exception:

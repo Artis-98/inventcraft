@@ -1,0 +1,38 @@
+# InventCraft standard parts library
+# id: iso-4035
+# name: Hex Thin Nut
+# standard: ISO 4035
+# category: Fasteners/Nuts/Hex
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO4035def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M1.6,1.6,3.2,1
+M2,2,4,1.2
+M2.5,2.5,5,1.6
+M3,3,5.5,1.8
+M3.5,3.5,6,2
+M4,4,7,2.2
+M5,5,8,2.7
+M6,6,10,3.2
+M8,8,13,4
+M10,10,16,5
+M12,12,18,6
+M14,14,22,7
+M16,16,24,8
+M18,18,27,9
+M20,20,30,10
+M22,22,34,11
+M24,24,36,12
+M27,27,41,13.5
+M30,30,46,15
+M33,33,50,16.5
+M36,36,55,18
+M39,39,60,19.5
+M42,42,65,21
+M45,45,70,22.5
+M48,48,75,24
+M52,52,80,26
+M56,56,85,28
+M60,60,90,30
+M64,64,95,32

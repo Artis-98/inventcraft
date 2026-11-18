@@ -1,0 +1,24 @@
+# InventCraft standard parts library
+# id: iso-7094
+# name: Plain Washer, extra large series
+# standard: ISO 7094
+# category: Fasteners/Washers
+# kind: washer
+# source: FreeCAD Fasteners Workbench, FsData table ISO7094def
+# licence: LGPL-2.1-or-later
+size,d,d1,d2,h
+M5,5,5.5,18,2
+M6,6,6.6,22,2
+M8,8,9,28,3
+M10,10,11,34,3
+M12,12,13.5,44,4
+M14,14,15.5,50,4
+M16,16,17.5,56,5
+M18,18,20,60,5
+M20,20,22,72,6
+M22,22,24,80,6
+M24,24,26,85,6
+M27,27,30,98,6
+M30,30,33,105,6
+M33,33,36,115,8
+M36,36,39,125,8

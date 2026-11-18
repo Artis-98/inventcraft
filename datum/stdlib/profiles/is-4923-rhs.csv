@@ -1,0 +1,35 @@
+# InventCraft standard parts library
+# id: is-4923-rhs
+# name: Rectangular Hollow Sections
+# standard: IS 4923
+# category: Rectangular Tubes
+# kind: rect_tube
+# source: FreeCAD BIM profiles, group IS RHS
+# licence: LGPL-2.1-or-later
+size,h,b,t,ro
+RHS50x25x2.9,50,25,2.9,5.8
+RHS50x25x3.2,50,25,3.2,6.4
+RHS60x40x2.9,60,40,2.9,5.8
+RHS66x33x2.9,66,33,2.9,5.8
+RHS66x33x3.6,66,33,3.6,7.2
+RHS66x33x4.5,66,33,4.5,9
+RHS70x30x2.9,70,30,2.9,5.8
+RHS70x30x3.2,70,30,3.2,6.4
+RHS70x30x4,70,30,4,8
+RHS80x40x2.9,80,40,2.9,5.8
+RHS80x40x3.2,80,40,3.2,6.4
+RHS80x40x4,80,40,4,8
+RHS96x48x3.2,96,48,3.2,6.4
+RHS96x48x4,96,48,4,8
+RHS96x48x4.8,96,48,4.8,9.6
+RHS100x50x3.2,100,50,3.2,6.4
+RHS100x50x4,100,50,4,8
+RHS122x61x3.6,122,61,3.6,7.2
+RHS122x61x4.5,122,61,4.5,9
+RHS122x61x5.4,122,61,5.4,10.8
+RHS127x50x3.6,127,50,3.6,7.2
+RHS127x50x4.6,127,50,4.6,9.2
+RHS145x82x4.8,145,82,4.8,9.6
+RHS145x82x5.4,145,82,5.4,10.8
+RHS172x92x4.8,172,92,4.8,9.6
+RHS172x92x5.4,172,92,5.4,10.8

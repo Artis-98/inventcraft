@@ -1,0 +1,23 @@
+# InventCraft standard parts library
+# id: iso-14579
+# name: Hexalobular Socket Cap Screw
+# standard: ISO 14579
+# category: Fasteners/Bolts/Socket Head
+# kind: socket_head
+# drive: torx
+# source: FreeCAD Fasteners Workbench, FsData table ISO14579def
+# licence: LGPL-2.1-or-later
+# lengths: 3 4 5 6 8 10 12 16 20 25 30 35 40 45 50 55 60 65 70 80 90 100 110 120 130 140 150 160 180 200
+size,d,dk,k,s,t,lmin,lmax
+M2,2,3.8,2,1.75,0.8,3,20
+M2.5,2.5,4.5,2.5,2.4,1,4,25
+M3,3,5.5,3,2.8,1.2,5,30
+M4,4,7,4,3.95,1.7,6,40
+M5,5,8.5,5,4.5,1.9,8,50
+M6,6,10,6,5.6,2.3,10,60
+M8,8,13,8,7.95,3.2,12,80
+M10,10,16,10,8.95,3.8,16,100
+M12,12,18,12,11.35,5,20,120
+M14,14,21,14,13.45,5.8,25,140
+M16,16,24,16,15.7,6.8,25,160
+M20,20,30,20,20.2,9,30,200

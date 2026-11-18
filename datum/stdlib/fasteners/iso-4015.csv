@@ -1,0 +1,23 @@
+# InventCraft standard parts library
+# id: iso-4015
+# name: Hex Head Bolt, reduced shank
+# standard: ISO 4015
+# category: Fasteners/Bolts/Hex Head
+# kind: hex_bolt
+# source: FreeCAD Fasteners Workbench, FsData table ISO4015def
+# licence: LGPL-2.1-or-later
+# lengths: 20 25 30 35 40 45 50 55 60 65 70 80 90 100 110 120 130 140 150
+size,d,s,k,lmin,lmax
+M3,3,5.5,2,20,30
+M3.5,3.5,6,2.4,20,35
+M4,4,7,2.8,20,40
+M5,5,8,3.5,25,50
+M6,6,10,4,25,60
+M7,7,11,4.8,30,70
+M8,8,13,5.3,30,80
+M10,10,16,6.9,40,100
+M12,12,18,7.5,45,120
+M14,14,21,8.8,50,140
+M16,16,24,10,55,150
+M18,18,27,11.5,60,150
+M20,20,30,12.5,65,150

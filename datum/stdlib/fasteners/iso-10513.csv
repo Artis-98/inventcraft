@@ -1,0 +1,20 @@
+# InventCraft standard parts library
+# id: iso-10513
+# name: All Metal Lock Nut, fine thread
+# standard: ISO 10513
+# category: Fasteners/Nuts/Lock
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO10513def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M8x1,8,13,8
+M10x1,10,16,10
+M10x1.25,10,16,10
+M12x1.25,12,18,13.3
+M12x1.5,12,18,13.3
+M14x1.5,14,21,14.1
+M16x1.5,16,24,16.4
+M20x1.5,20,30,20.3
+M24x2,24,36,23.9
+M30x2,30,46,30
+M36x2,36,55,36

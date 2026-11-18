@@ -1,0 +1,33 @@
+# InventCraft standard parts library
+# id: iso-8673
+# name: Hex Nut, fine thread
+# standard: ISO 8673
+# category: Fasteners/Nuts/Hex
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO8673def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M8x1,8,13,6.8
+M10x1,10,16,8.4
+M10x1.25,10,16,8.4
+M12x1.25,12,18,10.8
+M12x1.5,12,18,10.8
+M14x1.5,14,21,12.8
+M16x1.5,16,24,14.8
+M18x1.5,18,27,15.8
+M20x1.5,20,30,18
+M20x2,20,30,18
+M22x1.5,22,34,19.4
+M24x2,24,36,21.5
+M27x2,27,41,23.8
+M30x2,30,46,25.6
+M33x2,33,50,28.7
+M36x3,36,55,31
+M39x3,39,60,33.4
+M42x3,42,65,34
+M45x3,45,70,36
+M48x3,48,75,38
+M52x4,52,80,42
+M56x4,56,85,45
+M60x4,60,90,48
+M64x4,64,95,51

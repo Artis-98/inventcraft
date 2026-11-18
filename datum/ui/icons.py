@@ -1618,12 +1618,43 @@ def _drop_in(name: str) -> Optional[bytes]:
     return text.encode("utf-8")
 
 
+def _dark_scheme() -> bool:
+    """Whether the icons are drawn for a dark scheme: its outline tone is
+    the light one."""
+    c = QtGui.QColor(_LINE)
+    return (0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue()) > 128
+
+
+def _render(name: str) -> Optional[str]:
+    """A rendered icon (tools/icons/render3d.py) for this name, the dark
+    scheme's own render when there is one: these win over the drawing,
+    since they are what it was drawn to stand in for."""
+    if _dark_scheme():
+        path = os.path.join(_ICON_DIR, name + ".dark.png")
+        if os.path.exists(path):
+            return path
+    path = os.path.join(_ICON_DIR, name + ".png")
+    return path if os.path.exists(path) else None
+
+
 def pixmap(name: str, size: int = 24, ratio: float = 1.0) -> QtGui.QPixmap:
     px = QtGui.QPixmap(int(size * ratio), int(size * ratio))
     px.setDevicePixelRatio(ratio)
     px.fill(QtCore.Qt.transparent)
     painter = QtGui.QPainter(px)
     painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    rendered = _render(name)
+    if rendered is not None:
+        image = QtGui.QImage(rendered)
+        if not image.isNull():
+            # scaled down in one go, averaging, so a 256 pixel render
+            # stays crisp at 16 and does not shimmer
+            side = max(1, int(round(size * ratio)))
+            small = image.scaled(side, side, QtCore.Qt.KeepAspectRatio,
+                                 QtCore.Qt.SmoothTransformation)
+            painter.drawImage(QtCore.QRectF(0, 0, size, size), small)
+            painter.end()
+            return px
     data = _drop_in(name)
     if data is not None:
         from PySide6 import QtSvg

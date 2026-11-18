@@ -29,6 +29,8 @@ binaries = collect_dynamic_libs("OCP")
 datas = [
     (str(ROOT / "datum" / "templates"), "datum/templates"),
     (str(ROOT / "datum" / "ui" / "assets"), "datum/ui/assets"),
+    # the standard parts library: fasteners, bearings, profiles
+    (str(ROOT / "datum" / "stdlib"), "datum/stdlib"),
     # the beaver, for the window, the Dock and the start page
     (str(ROOT / "datum" / "ui" / "brand"), "datum/ui/brand"),
 ]

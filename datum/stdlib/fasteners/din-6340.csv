@@ -1,0 +1,17 @@
+# InventCraft standard parts library
+# id: din-6340
+# name: Washer for clamping devices
+# standard: DIN 6340
+# category: Fasteners/Washers
+# kind: washer
+# source: FreeCAD Fasteners Workbench, FsData table DIN6340def
+# licence: LGPL-2.1-or-later
+size,d,d1,d2,h
+M6,6,6.4,17,3
+M8,8,8.4,23,4
+M10,10,10.5,26,4
+M12,12,13,35,5
+M16,16,17,45,6
+M20,20,21,50,6
+M24,24,25,60,8
+M30,30,31,68,10

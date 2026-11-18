@@ -1,0 +1,22 @@
+# InventCraft standard parts library
+# id: iso-7040
+# name: Nylon Insert Lock Nut
+# standard: ISO 7040
+# category: Fasteners/Nuts/Lock
+# kind: lock_nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO7040def
+# licence: LGPL-2.1-or-later
+size,d,s,m,h,dw
+M3,3,5.5,1.72,4.5,4.57
+M4,4,7,2.32,6,5.88
+M5,5,8,3.52,6.8,6.88
+M6,6,10,3.92,8,8.88
+M8,8,13,5.15,9.5,11.63
+M10,10,16,6.43,11.9,14.63
+M12,12,18,8.3,14.9,16.63
+M14,14,21,9.68,17,19.64
+M16,16,24,11.28,19.1,22.49
+M20,20,30,13.52,22.8,27.7
+M24,24,36,16.16,27.1,33.25
+M30,30,46,19.44,32.6,42.75
+M36,36,55,23.52,38.9,51.11

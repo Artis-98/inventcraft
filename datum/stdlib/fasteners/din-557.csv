@@ -1,0 +1,16 @@
+# InventCraft standard parts library
+# id: din-557
+# name: Square Nut
+# standard: DIN 557
+# category: Fasteners/Nuts/Square
+# kind: square_nut
+# source: FreeCAD Fasteners Workbench, FsData table DIN557def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M4,4,7,3.2
+M5,5,8,4
+M6,6,10,5
+M8,8,13,6.5
+M10,10,17,8
+M12,12,19,10
+M16,16,24,13

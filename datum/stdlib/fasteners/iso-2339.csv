@@ -1,0 +1,30 @@
+# InventCraft standard parts library
+# id: iso-2339
+# name: Taper Pin
+# standard: ISO 2339
+# category: Fasteners/Pins/Taper
+# kind: taper_pin
+# source: FreeCAD Fasteners Workbench, FsData table ISO2339def
+# licence: LGPL-2.1-or-later
+# lengths: 2 3 4 5 6 8 10 12 14 16 18 20 22 24 26 28 30 32 35 40 45 50 55 60 65 70 75 80 85 90 95 100 120 140 160 180 200
+size,d,lmin,lmax
+0.6,0.6,4,8
+0.8,0.8,5,12
+1,1,6,16
+1.2,1.2,6,20
+1.5,1.5,8,24
+2,2,10,35
+2.5,2.5,10,35
+3,3,12,45
+4,4,14,55
+5,5,18,60
+6,6,22,90
+8,8,22,120
+10,10,26,160
+12,12,32,180
+16,16,40,200
+20,20,45,200
+25,25,50,200
+30,30,55,200
+40,40,60,200
+50,50,65,200

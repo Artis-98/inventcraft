@@ -1,0 +1,33 @@
+# InventCraft standard parts library
+# id: iso-4034
+# name: Hex Nut, grade C
+# standard: ISO 4034
+# category: Fasteners/Nuts/Hex
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO4034def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M5,5,8,4
+M6,6,10,5
+M8,8,13,6.5
+M10,10,17,8
+M12,12,19,10
+M16,16,24,13
+M20,20,30,16
+M22,22,32,18
+M24,24,36,19
+M27,27,41,22
+M30,30,46,24
+M33,33,50,26
+M39,39,60,31
+M42,42,65,34
+M45,45,70,36
+M48,48,75,38
+M52,52,80,42
+M56,56,85,45
+M60,60,90,48
+M64,64,95,51
+M72,72,105,58
+M80,80,115,64
+M90,90,130,72
+M100,100,145,80

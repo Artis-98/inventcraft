@@ -1,0 +1,21 @@
+# InventCraft standard parts library
+# id: din-1587
+# name: Domed Cap Nut
+# standard: DIN 1587
+# category: Fasteners/Nuts/Cap
+# kind: cap_nut
+# source: FreeCAD Fasteners Workbench, FsData table DIN1587def
+# licence: LGPL-2.1-or-later
+size,d,s,m,h,dk
+M4,4,7,3.05,8,6.5
+M5,5,8,3.85,10,7.5
+M6,6,10,4.85,12,9.5
+M8,8,13,6.32,15,12.5
+M10,10,16,8.22,18,15
+M12,12,18,9.82,22,17
+M14,14,21,10.65,25,20
+M16,16,24,12.65,28,23
+M18,18,27,14.65,32,26
+M20,20,30,15.45,34,28
+M22,22,34,17.45,39,33
+M24,24,36,18.35,42,34

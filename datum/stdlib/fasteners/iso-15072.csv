@@ -1,0 +1,17 @@
+# InventCraft standard parts library
+# id: iso-15072
+# name: Hex Flange Bolt, fine thread
+# standard: ISO 15072
+# category: Fasteners/Bolts/Hex Flange
+# kind: hex_bolt
+# source: FreeCAD Fasteners Workbench, FsData table ISO15072def
+# licence: LGPL-2.1-or-later
+# lengths: 16 20 25 30 35 40 45 50 55 60 65 70 80 90 100 110 120 130 140 150 160
+size,d,s,k,dc,c,lmin,lmax
+M8x1,8,10,8.5,17,1.2,16,80
+M10x1,10,13,9.7,20.8,1.5,20,100
+M10x1.25,10,13,9.7,20.8,1.5,20,100
+M12x1.25,12,15,12.1,24.7,1.8,25,120
+M12x1.5,12,15,12.1,24.7,1.8,25,120
+M14x1.5,14,18,12.9,28.6,2.1,30,140
+M16x1.5,16,21,15.2,32.8,2.4,35,160

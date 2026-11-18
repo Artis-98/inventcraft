@@ -1,0 +1,17 @@
+# InventCraft standard parts library
+# id: iso-4161
+# name: Hex Flange Nut
+# standard: ISO 4161
+# category: Fasteners/Nuts/Flange
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO4161def
+# licence: LGPL-2.1-or-later
+size,d,s,m,dc,c
+M5,5,8,5,11.8,1
+M6,6,10,6,14.2,1.1
+M8,8,13,8,17.9,1.2
+M10,10,15,10,21.8,1.5
+M12,12,18,12,26,1.8
+M14,14,21,14,29.9,2.1
+M16,16,24,16,34.5,2.4
+M20,20,30,20,42.8,3

@@ -1,0 +1,27 @@
+# InventCraft standard parts library
+# id: iso-8750
+# name: Coiled Spring Pin, standard duty
+# standard: ISO 8750
+# category: Fasteners/Pins/Spring
+# kind: spring_pin
+# source: FreeCAD Fasteners Workbench, FsData table ISO8750def
+# licence: LGPL-2.1-or-later
+# lengths: 4 5 6 8 10 12 14 16 18 20 22 24 26 28 30 32 35 40 45 50 55 60 65 70 75 80 85 90 95 100 120 140 160 180 200
+size,d,s,lmin,lmax
+0.8,0.88,0.07,4,16
+1,1.1,0.08,4,16
+1.2,1.3,0.1,4,16
+1.5,1.675,0.13,4,24
+2,2.19,0.17,4,40
+2.5,2.715,0.21,5,45
+3,3.225,0.25,6,50
+3.5,3.755,0.29,6,50
+4,4.3,0.33,8,60
+5,5.375,0.42,10,60
+6,6.375,0.5,12,75
+8,8.465,0.67,16,120
+10,10.575,0.84,20,120
+12,12.625,1,24,160
+14,14.7,1.2,28,200
+16,16.725,1.3,32,200
+20,20.75,1.7,45,200

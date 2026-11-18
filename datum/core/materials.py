@@ -257,6 +257,8 @@ def builtin_materials() -> List[Material]:
                  youngs_modulus=70.0, poisson_ratio=0.22),
         Material("Rubber, EPDM", "Rubber", 1.15, "Rubber, Black",
                  youngs_modulus=0.01, poisson_ratio=0.49),
+        Material("Elastomeric Foam", "Rubber", 0.065, "Rubber, Black",
+                 notes="Closed cell pipe insulation, the ArmaFlex kind."),
         Material("Concrete", "Stone", 2.40, "Concrete",
                  youngs_modulus=30.0, poisson_ratio=0.20),
     ]

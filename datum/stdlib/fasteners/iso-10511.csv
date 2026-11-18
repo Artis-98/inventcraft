@@ -1,0 +1,22 @@
+# InventCraft standard parts library
+# id: iso-10511
+# name: Nylon Insert Lock Nut, thin
+# standard: ISO 10511
+# category: Fasteners/Nuts/Lock
+# kind: lock_nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO10511def
+# licence: LGPL-2.1-or-later
+size,d,s,m,h,dw
+M3,3,5.5,1.24,3.9,4.56
+M4,4,7,1.56,5,5.9
+M5,5,8,1.96,5,6.9
+M6,6,10,2.32,6,8.9
+M8,8,13,2.96,6.76,11.6
+M10,10,16,3.76,8.56,14.6
+M12,12,18,4.56,10.23,16.6
+M14,14,21,5.14,11.32,19.6
+M16,16,24,5.94,12.42,22.5
+M20,20,30,7.28,14.9,27.7
+M24,24,36,8.72,17.8,33.2
+M30,30,46,11.12,22.2,42.8
+M36,36,55,13.52,25.5,51.1

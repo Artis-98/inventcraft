@@ -1,0 +1,20 @@
+# InventCraft standard parts library
+# id: din-6330
+# name: Hex Nut, 1.5 d high
+# standard: DIN 6330
+# category: Fasteners/Nuts/Hex
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table DIN6330def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M6,6,10,9
+M8,8,13,12
+M10,10,16,15
+M12,12,18,18
+M16,16,24,24
+M20,20,30,30
+M24,24,36,36
+M30,30,46,45
+M36,36,55,54
+M42,42,65,63
+M48,48,75,72

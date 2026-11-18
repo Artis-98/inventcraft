@@ -1,0 +1,20 @@
+# InventCraft standard parts library
+# id: iso-7379
+# name: Socket Shoulder Screw
+# standard: ISO 7379
+# category: Fasteners/Bolts/Shoulder
+# kind: shoulder
+# drive: hex
+# source: FreeCAD Fasteners Workbench, FsData table ISO7379def
+# licence: LGPL-2.1-or-later
+# lengths: 4 5 6 8 10 12 16 20 25 30 35 40 45 50 55 60 65 70 80 90 100
+size,d,d1,dk,k,lt,s,t,lmin,lmax
+M3,3,4,7,3,7,2,1.2,4,30
+M4,4,5,9,4,8,2.5,1.6,5,40
+M5,5,6,10,4.5,9.5,3,1.8,10,80
+M6,6,8,13,5.5,11,4,2.2,16,100
+M8,8,10,16,7,13,5,2.8,16,100
+M10,10,12,18,9,16,6,3.6,16,100
+M12,12,16,24,11,18,8,4.4,25,100
+M16,16,20,30,14,22,10,5.6,30,100
+M20,20,24,36,16,27,12,6.4,50,100

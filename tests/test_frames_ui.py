@@ -226,7 +226,7 @@ tree = win.assembly_ui.browser
 check("the frame has an icon of its own",
       tree._icon_of(frame_occurrence) == "frame_assembly"
       and tree._icon_of(next(o for o in asm.occurrences
-                             if not o.follows)) == "box")
+                             if not o.follows)) == "doc_part")
 fd = frames.read_frame(frame_path)
 member_path = os.path.join(os.path.dirname(frame_path), fd.members[0].part)
 check("and its members' parts are known for what they are",

@@ -1,0 +1,38 @@
+# InventCraft standard parts library
+# id: din-976-1
+# name: Threaded Rod
+# standard: DIN 976-1
+# category: Fasteners/Threaded Rods
+# kind: rod
+# source: FreeCAD Fasteners Workbench, FsData table ThreadedRoddef
+# licence: LGPL-2.1-or-later
+# lengths: 100 250 500 1000 2000 3000
+size,d
+M1.6,1.6
+M2,2
+M2.5,2.5
+M3,3
+M3.5,3.5
+M4,4
+M5,5
+M6,6
+M8,8
+M10,10
+M12,12
+M14,14
+M16,16
+M18,18
+M20,20
+M22,22
+M24,24
+M27,27
+M30,30
+M33,33
+M36,36
+M42,42
+M45,45
+M48,48
+M52,52
+M56,56
+M60,60
+M64,64

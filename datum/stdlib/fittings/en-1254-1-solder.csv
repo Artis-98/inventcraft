@@ -1,0 +1,25 @@
+# InventCraft standard parts library
+# id: en-1254-1-solder
+# name: Solder Fittings for Copper Tube
+# standard: EN 1254-1
+# category: Piping/Fittings
+# kind: socket
+# source: EN 1254-1 capillary depths L; s, R, zt and zc typical of the makers' 90 degree elbows, tees and couplings, check against yours
+# licence: CC0-1.0
+size,d,L,s,R,zt,zc
+6,6,5.8,0.8,6,4.8,1
+8,8,6.8,0.8,8,5.8,1
+10,10,7.8,0.9,10,6.9,1
+12,12,8.6,1,12,8,1
+15,15,10.6,1.1,15,9.6,1
+16,16,10.6,1.1,16,10.1,1
+18,18,12.6,1.2,18,11.2,1
+22,22,15.4,1.4,22,13.4,1
+28,28,18.4,1.6,28,16.6,1
+35,35,23,1.9,35,20.4,1
+42,42,27.4,2.2,42,24.2,1
+54,54,32.4,2.7,54,30.7,1
+64,64,32.4,3.1,64,36.1,1
+76.1,76.1,33.5,3.5,76.1,42.5,1
+88.9,88.9,37.5,4.1,88.9,49.6,1
+108,108,47.5,4.8,108,59.8,1

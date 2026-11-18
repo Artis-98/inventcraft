@@ -1,0 +1,17 @@
+# InventCraft standard parts library
+# id: iso-7044
+# name: All Metal Flange Lock Nut
+# standard: ISO 7044
+# category: Fasteners/Nuts/Flange
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO7044def
+# licence: LGPL-2.1-or-later
+size,d,s,m,dc,c
+M5,5,8,6.2,11.8,1
+M6,6,10,7.3,14.2,1.1
+M8,8,13,9.4,17.9,1.2
+M10,10,15,11.4,21.8,1.5
+M12,12,18,13.8,26,1.8
+M14,14,21,15.9,29.9,2.1
+M16,16,24,18.3,34.5,2.4
+M20,20,30,22.4,42.8,3

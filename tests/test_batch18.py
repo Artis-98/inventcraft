@@ -211,10 +211,12 @@ def darkest(name):
     return best
 
 
+# a drawn icon: the rendered ones (extrude and the other solids) carry a
+# dark scheme render of their own, which test_icon_renders checks
 icons.use_theme("light")
-light_ink = darkest("extrude")
+light_ink = darkest("line")
 icons.use_theme("dark")
-dark_ink = darkest("extrude")
+dark_ink = darkest("line")
 icons.use_theme("light")
 check("light icons are drawn in dark lines", light_ink < 90, light_ink)
 check("dark icons in light ones", dark_ink > light_ink + 60,

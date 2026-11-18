@@ -1,0 +1,28 @@
+# InventCraft standard parts library
+# id: iso-7091
+# name: Plain Washer, grade C
+# standard: ISO 7091
+# category: Fasteners/Washers
+# kind: washer
+# source: FreeCAD Fasteners Workbench, FsData table ISO7091def
+# licence: LGPL-2.1-or-later
+size,d,d1,d2,h
+M1.6,1.6,1.8,4,0.3
+M2,2,2.4,5,0.3
+M2.5,2.5,2.9,6,0.5
+M3,3,3.4,7,0.5
+M4,4,4.5,9,0.8
+M5,5,5.5,10,1
+M6,6,6.6,12,1.6
+M8,8,9,16,1.6
+M10,10,11,20,2
+M12,12,13.5,24,2.5
+M16,16,17.5,30,3
+M20,20,22,37,3
+M24,24,26,44,4
+M30,30,33,56,4
+M36,36,39,66,5
+M42,42,45,78,8
+M48,48,52,92,8
+M56,56,62,105,10
+M64,64,70,115,10

@@ -1,0 +1,21 @@
+# InventCraft standard parts library
+# id: astm-b280-coil
+# name: ACR Copper Tube, Coils
+# standard: ASTM B280
+# category: Piping/Copper
+# kind: pipe
+# source: ASTM B280 dimensions, annealed coils; r a bend radius to start from, 3.5 x d
+# licence: CC0-1.0
+size,d,t,r
+1/8 in,3.17,0.76,12
+3/16 in,4.76,0.76,17
+1/4 in,6.35,0.76,23
+5/16 in,7.94,0.81,28
+3/8 in,9.52,0.81,34
+1/2 in,12.7,0.81,45
+5/8 in,15.88,0.89,56
+3/4 in,19.05,1.07,67
+7/8 in,22.22,1.14,78
+1-1/8 in,28.57,1.27,101
+1-3/8 in,34.92,1.4,123
+1-5/8 in,41.27,1.52,145

@@ -1,0 +1,17 @@
+# InventCraft standard parts library
+# id: iso-10663
+# name: Hex Flange Nut, fine thread
+# standard: ISO 10663
+# category: Fasteners/Nuts/Flange
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO10663def
+# licence: LGPL-2.1-or-later
+size,d,s,m,dc,c
+M8x1,8,13,8,17.9,1.2
+M10x1.25,10,15,10,21.8,1.5
+M10x1,10,15,10,21.8,1.5
+M12x1.25,12,18,12,26,1.8
+M12x1.5,12,18,12,26,1.8
+M14x1.5,14,21,14,29.9,2.1
+M16x1.5,16,24,16,34.5,2.4
+M20x1.5,20,30,20,42.8,3

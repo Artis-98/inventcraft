@@ -104,8 +104,9 @@ def entry_for(key):
 
 
 tops = [name for name, _ in shown()]
-check("it opens on the top folders: profiles, fasteners and those to come",
-      tops[:2] == ["Structural Shapes", "Fasteners"]
+check("it opens on the top folders: profiles, piping, fasteners and those "
+      "to come",
+      tops[:3] == ["Structural Shapes", "Piping", "Fasteners"]
       and "Online libraries" in tops and "Bearings" in tops, tops)
 check("nothing to place until a part is picked",
       not dialog.place.isEnabled())
@@ -113,7 +114,8 @@ check("Back and Up have nowhere to go yet",
       not dialog.back.isEnabled() and not dialog.up.isEnabled())
 
 dialog._double_clicked(entry_for("Structural Shapes"))
-categories = sorted({f.category or "Custom" for f in frames.families()})
+categories = sorted({f.category or "Custom" for f in frames.families()
+                     if f.kind != "pipe"})
 check("a double-click goes into a folder: the Frame Generator's categories",
       sorted(name for name, _ in shown()) == categories, shown())
 check("and says where it is", "Structural Shapes" in dialog.where.text())
@@ -136,9 +138,12 @@ dialog.go_back()
 check("Back goes to where it was", any(key == square.id
                                        for _, key in shown()), shown())
 
-dialog.open_folder("Fasteners/Bolts")
+dialog.open_folder("Fasteners/Bolts/Socket Head")
 check("the tree's folders open the same way",
-      {key for _, key in shown()} == {"iso-4017", "iso-4762"}, shown())
+      {"iso-4762", "din-7984"} <= {key for _, key in shown()}, shown())
+check("and hold only what goes there",
+      all(sp.family(key).category == "Fasteners/Bolts/Socket Head"
+          for _, key in shown()), shown())
 dialog.open_folder("Fasteners")
 check("fasteners hold bolts, nuts and washers", {"Bolts", "Nuts",
                                                  "Washers"}

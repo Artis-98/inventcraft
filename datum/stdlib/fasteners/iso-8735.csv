@@ -1,0 +1,20 @@
+# InventCraft standard parts library
+# id: iso-8735
+# name: Parallel Pin with internal thread, hardened
+# standard: ISO 8735
+# category: Fasteners/Pins/Parallel
+# kind: pin
+# source: FreeCAD Fasteners Workbench, FsData table ISO8735def
+# licence: LGPL-2.1-or-later
+# lengths: 10 16 18 22 24 26 28 30 32 35 40 45 50 55 60 65 70 75 80 85 90 95 100 120 140 180 200
+size,d,c,lmin,lmax
+6,6,2.1,16,60
+8,8,2.6,18,80
+10,10,3,22,100
+12,12,3.8,26,120
+16,16,4.6,32,180
+20,20,6,40,200
+25,25,6,50,200
+30,30,7,60,200
+40,40,8,80,200
+50,50,10,100,200

@@ -37,6 +37,23 @@ The exact versions are recorded in the `*.dist-info` folders under
 `_internal/`. Each project publishes its own source; if you would rather
 have it from us, write to <ic@iiteg.com>.
 
+## The standard parts library
+
+The fastener, bearing and profile tables in `datum/stdlib` are not
+DATUM's own code and are not under its MIT licence. Each file names its
+source and licence; `datum/stdlib/README.md` lists them, and the full
+texts are in `datum/stdlib/LICENSES/`.
+
+| Source | What came from it | Licence |
+| --- | --- | --- |
+| **FreeCAD Fasteners Workbench** (shaise and contributors) | Bolt, screw, nut, washer, pin and retaining ring dimensions | LGPL-2.1-or-later |
+| **FreeCAD BIM profiles** (the FreeCAD project) | Steel profile sizes and thicknesses | LGPL-2.1-or-later |
+| **cq_warehouse** (Gumyr) | Ball bearing bore, outside diameter and width | Apache-2.0 |
+
+The tables are plain CSV files beside the program, so they can be read,
+changed or replaced like any other file. None of them was taken from a
+commercial CAD program's library.
+
 ## Trademarks
 
 Autodesk, Inventor, SolidWorks and Windows belong to their respective

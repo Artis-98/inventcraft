@@ -1,0 +1,40 @@
+# InventCraft standard parts library
+# id: iso-15-deep-groove
+# name: Deep Groove Ball Bearing, open
+# standard: ISO 15
+# category: Bearings/Ball Bearings
+# kind: bearing
+# source: cq_warehouse, single_row_deep_groove_ball_bearing_parameters.csv, d D B and designation only
+# licence: Apache-2.0
+size,d,D,B
+623,3,10,4
+618/4,4,9,2.5
+619/4,4,11,4
+604,4,12,4
+624,4,13,5
+634,4,16,5
+618/5,5,11,3
+619/5,5,13,4
+* 625,5,16,5
+* 635,5,19,6
+618/6,6,13,3.5
+619/6,6,15,5
+* 626,6,19,6
+618/7,7,14,3.5
+619/7,7,17,5
+* 607,7,19,6
+* 627,7,22,7
+618/8,8,16,4
+619/8,8,19,6
+* 608,8,22,7
+* 628,8,24,8
+618/9,9,17,4
+619/9,9,20,6
+* 609,9,24,7
+* 629,9,26,8
+61800,10,19,5
+61900,10,22,6
+* 6000,10,26,8
+16100,10,28,8
+* 6200,10,30,9
+* 6300,10,35,11

@@ -1158,6 +1158,8 @@ class SketchEditor(QtCore.QObject):
 
         if self._dim_target is not None:
             self._retarget(self._dim_target, self._cursor)
+            if self._dim_target.get("kind") == "angle":
+                self._retarget_angle(self._dim_target, self._cursor)
             self._dim_offset = self._dimension_offset(self._dim_target,
                                                       self._cursor)
         else:
@@ -2863,7 +2865,8 @@ class SketchEditor(QtCore.QObject):
                 angle = self._angle_between(first, second)
             return {"kind": "angle", "points": [],
                     "entities": [first, second], "axial": False,
-                    "current": angle}
+                    "current": angle, "flip": False,
+                    "pair": (first, second)}
 
         return None
 
@@ -2936,8 +2939,10 @@ class SketchEditor(QtCore.QObject):
         vx, vy = self._line_direction(second)
         return abs(ux * vy - uy * vx) <= math.sin(math.radians(tolerance_deg))
 
-    def _angle_between(self, first: int, second: int) -> float:
-        """The directed angle from the first line to the second, 0 to 360.
+    def _angle_between(self, first: int, second: int,
+                       flip: bool = False) -> float:
+        """The directed angle from the first line to the second, 0 to 360;
+        to the second turned end for end when ``flip``.
 
         Directed, because that is what the constraint holds: folding it to
         the acute angle for display would mean typing the number shown and
@@ -2946,8 +2951,48 @@ class SketchEditor(QtCore.QObject):
         """
         ux, uy = self._line_direction(first)
         vx, vy = self._line_direction(second)
+        if flip:
+            vx, vy = -vx, -vy
         return math.degrees(math.atan2(ux * vy - uy * vx,
                                        ux * vx + uy * vy)) % 360.0
+
+    def _retarget_angle(self, target: Dict[str, Any],
+                        cursor: Tuple[float, float]) -> None:
+        """Which of the angles where two lines cross is dimensioned: the
+        one between the arms on the cursor's side, as Inventor does, so a
+        corner of 89 degrees reads 89 and not the 91 beside it.  Which way
+        each line was drawn no longer matters."""
+        pair = target.get("pair")
+        if not pair or len(pair) != 2:
+            return
+        s = self.sketch
+        try:
+            a, b = (s.points[i] for i in s.entities[pair[0]].points)
+            c, d = (s.points[i] for i in s.entities[pair[1]].points)
+        except (KeyError, IndexError):
+            return
+        ux, uy = self._line_direction(pair[0])
+        vx, vy = self._line_direction(pair[1])
+        cross = ux * vy - uy * vx
+        if abs(cross) < 1e-9:
+            return
+        # where the two lines, run on, cross
+        t = ((c.x - a.x) * vy - (c.y - a.y) * vx) / cross
+        x, y = a.x + ux * t, a.y + uy * t
+        wx, wy = cursor[0] - x, cursor[1] - y
+        # the cursor as so much of each line's direction: their signs say
+        # which arms it sits between
+        alpha = (wx * vy - wy * vx) / cross
+        beta = (ux * wy - uy * wx) / cross
+        flip = alpha * beta < 0
+        first, second = pair
+        angle = self._angle_between(first, second, flip)
+        if angle > 180.0:
+            first, second = second, first
+            angle = self._angle_between(first, second, flip)
+        target["entities"] = [first, second]
+        target["flip"] = flip
+        target["current"] = angle
 
     # -- which linear dimension the placement is asking for ------------------
 
@@ -3118,7 +3163,8 @@ class SketchEditor(QtCore.QObject):
             self._apply_scaled_dimension(target, offset, text, factor)
             return
         cid = self._add_dimension(target["kind"], target["points"],
-                                  target["entities"], target["current"], text)
+                                  target["entities"], target["current"], text,
+                                  flip=bool(target.get("flip")))
         if cid is not None:
             self.sketch.constraints[cid].label_offset = offset
             self._touch()
@@ -3199,7 +3245,7 @@ class SketchEditor(QtCore.QObject):
         self.render()
 
     def _add_dimension(self, kind: str, points, entities, current: float,
-                       text: str) -> Optional[int]:
+                       text: str, flip: bool = False) -> Optional[int]:
         """Create a driving dimension, backing out if it over-constrains."""
         text = (text or "").strip()
         if not text:
@@ -3214,6 +3260,7 @@ class SketchEditor(QtCore.QObject):
         cid = self.sketch.add_constraint(kind, points=list(points or []),
                                          entities=list(entities or []),
                                          value=value, expression=expression)
+        self.sketch.constraints[cid].flip = flip
         self.solve()
         if self.sketch.solve_message.startswith("over"):
             self.sketch.remove_constraint(cid)
@@ -4119,7 +4166,8 @@ class SketchEditor(QtCore.QObject):
                 if len(c.entities) == 1:
                     ux, uy = self._line_direction(c.entities[0])
                     return math.degrees(math.atan2(uy, ux)) % 360.0
-                return self._angle_between(c.entities[0], c.entities[1])
+                return self._angle_between(c.entities[0], c.entities[1],
+                                           getattr(c, "flip", False))
             a = s.points[c.points[0]]
             b = s.points[c.points[1]]
             if c.kind == "distance_x":
@@ -4467,7 +4515,8 @@ class SketchEditor(QtCore.QObject):
         ghost = Constraint(id=-1, kind=target["kind"],
                            points=list(target["points"]),
                            entities=list(target["entities"]),
-                           value=target["current"])
+                           value=target["current"],
+                           flip=bool(target.get("flip")))
         self._render_dimension(ghost, self._dim_offset, preview=True)
 
     def _preview_circle(self, centre, radius, colour) -> None:

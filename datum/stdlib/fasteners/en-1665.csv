@@ -1,0 +1,18 @@
+# InventCraft standard parts library
+# id: en-1665
+# name: Hex Flange Bolt, heavy series
+# standard: EN 1665
+# category: Fasteners/Bolts/Hex Flange
+# kind: hex_bolt
+# source: FreeCAD Fasteners Workbench, FsData table EN1665def
+# licence: LGPL-2.1-or-later
+# lengths: 10 12 16 20 25 30 35 40 45 50 55 60 65 70 80 90 100 110 120 130 140 150 160 180 200
+size,d,s,k,dc,c,lmin,lmax
+M5,5,8,5.8,11.8,1,10,50
+M6,6,10,6.6,14.2,1.1,12,60
+M8,8,13,8.1,18,1.2,16,80
+M10,10,16,10.4,22.3,1.5,20,100
+M12,12,18,11.8,26.6,1.8,25,120
+M14,14,21,13.7,30.5,2.1,30,140
+M16,16,24,15.4,35,2.4,35,160
+M20,20,30,18.9,43,3,65,200

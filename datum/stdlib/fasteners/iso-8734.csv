@@ -1,0 +1,23 @@
+# InventCraft standard parts library
+# id: iso-8734
+# name: Dowel Pin, hardened
+# standard: ISO 8734
+# category: Fasteners/Pins/Parallel
+# kind: pin
+# source: FreeCAD Fasteners Workbench, FsData table ISO8734def
+# licence: LGPL-2.1-or-later
+# lengths: 3 4 5 6 8 10 12 14 16 18 20 22 24 26 28 30 32 35 40 45 50 55 60 65 70 75 80 85 90 95 100
+size,d,c,lmin,lmax
+1,1,0.2,3,10
+1.5,1.5,0.3,4,16
+2,2,0.35,5,20
+2.5,2.5,0.4,6,24
+3,3,0.5,8,30
+4,4,0.63,10,40
+5,5,0.8,12,50
+6,6,1.2,14,60
+8,8,1.6,18,80
+10,10,2,22,100
+12,12,2.5,26,100
+16,16,3,40,100
+20,20,3.5,50,100

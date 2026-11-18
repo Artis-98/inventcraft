@@ -112,7 +112,7 @@ class ConstraintDialog(QtWidgets.QDialog):
 
         header = QtWidgets.QHBoxLayout()
         badge = QtWidgets.QLabel()
-        badge.setPixmap(icons.pixmap("c_coincident", 22,
+        badge.setPixmap(icons.pixmap("c3d_mate", 22,
                                      self.devicePixelRatioF()))
         header.addWidget(badge)
         caption = QtWidgets.QLabel("Place Constraint")

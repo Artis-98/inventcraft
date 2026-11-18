@@ -21,37 +21,6 @@ from typing import Any, Dict, List, Optional, Tuple
 PROFILE = "profile"
 FASTENER = "fastener"
 
-# The head and shank of a bolt, a nut, a washer: (size, then the columns).
-# Values from the standards' nominal dimensions, in mm.
-HEX_BOLT_ISO_4017 = [            # s across flats, k head height
-    ["M3", 3.0, 5.5, 2.0], ["M4", 4.0, 7.0, 2.8], ["M5", 5.0, 8.0, 3.5],
-    ["M6", 6.0, 10.0, 4.0], ["M8", 8.0, 13.0, 5.3], ["M10", 10.0, 16.0, 6.4],
-    ["M12", 12.0, 18.0, 7.5], ["M16", 16.0, 24.0, 10.0],
-    ["M20", 20.0, 30.0, 12.5], ["M24", 24.0, 36.0, 15.0],
-]
-SOCKET_HEAD_ISO_4762 = [         # dk head diameter, k head height, s key
-    ["M3", 3.0, 5.5, 3.0, 2.5], ["M4", 4.0, 7.0, 4.0, 3.0],
-    ["M5", 5.0, 8.5, 5.0, 4.0], ["M6", 6.0, 10.0, 6.0, 5.0],
-    ["M8", 8.0, 13.0, 8.0, 6.0], ["M10", 10.0, 16.0, 10.0, 8.0],
-    ["M12", 12.0, 18.0, 12.0, 10.0], ["M16", 16.0, 24.0, 16.0, 14.0],
-    ["M20", 20.0, 30.0, 20.0, 17.0], ["M24", 24.0, 36.0, 24.0, 19.0],
-]
-HEX_NUT_ISO_4032 = [             # s across flats, m height
-    ["M3", 3.0, 5.5, 2.4], ["M4", 4.0, 7.0, 3.2], ["M5", 5.0, 8.0, 4.7],
-    ["M6", 6.0, 10.0, 5.2], ["M8", 8.0, 13.0, 6.8], ["M10", 10.0, 16.0, 8.4],
-    ["M12", 12.0, 18.0, 10.8], ["M16", 16.0, 24.0, 14.8],
-    ["M20", 20.0, 30.0, 18.0], ["M24", 24.0, 36.0, 21.5],
-]
-WASHER_ISO_7089 = [              # d1 hole, d2 outside, h thickness
-    ["M3", 3.2, 7.0, 0.5], ["M4", 4.3, 9.0, 0.8], ["M5", 5.3, 10.0, 1.0],
-    ["M6", 6.4, 12.0, 1.6], ["M8", 8.4, 16.0, 1.6], ["M10", 10.5, 20.0, 2.0],
-    ["M12", 13.0, 24.0, 2.5], ["M16", 17.0, 30.0, 3.0],
-    ["M20", 21.0, 37.0, 3.0], ["M24", 25.0, 44.0, 4.0],
-]
-BOLT_LENGTHS = [6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65,
-                70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180, 200]
-
-
 @dataclass
 class Family:
     """A table of standard sizes of one part, as the library lists it."""
@@ -66,6 +35,10 @@ class Family:
     needs_length: bool = False
     lengths: List[float] = field(default_factory=list)
     default_length: float = 0.0
+    drive: str = ""             # hex, torx, slot, cross, or none
+    ranges: Dict[str, Tuple[float, float]] = field(default_factory=dict)
+    source: str = ""
+    licence: str = ""
 
     def sizes(self) -> List[str]:
         return [str(r[0]) for r in self.rows]
@@ -76,20 +49,46 @@ class Family:
                 return {c: float(v) for c, v in zip(self.columns, r[1:])}
         raise KeyError("%s has no size %s" % (self.name, size))
 
+    def lengths_for(self, size: str) -> List[float]:
+        """The standard lengths a size comes in: the family's, inside the
+        size's range when the standard gives one."""
+        lo, hi = self.ranges.get(size, (0.0, float("inf")))
+        return [v for v in self.lengths if lo - 1e-6 <= v <= hi + 1e-6]             or list(self.lengths)
+
+    def default_length_for(self, size: str) -> float:
+        """A length to start from: about three diameters, inside the
+        size's range."""
+        choices = self.lengths_for(size)
+        if not choices:
+            return self.default_length
+        try:
+            d = self.row(size).get("d", 0.0)
+        except KeyError:
+            d = 0.0
+        if not d or self.kind == PROFILE:
+            return self.default_length if self.default_length in choices                 else choices[len(choices) // 2]
+        return min(choices, key=lambda v: abs(v - 3.0 * d))
+
 
 def fastener_families() -> List[Family]:
-    return [
-        Family("iso-4017", "Hex Head Bolt, full thread", "ISO 4017",
-               "Fasteners/Bolts", "hex_bolt", ["d", "s", "k"],
-               HEX_BOLT_ISO_4017, True, list(BOLT_LENGTHS), 20.0),
-        Family("iso-4762", "Socket Head Cap Screw", "ISO 4762",
-               "Fasteners/Bolts", "socket_head", ["d", "dk", "k", "s"],
-               SOCKET_HEAD_ISO_4762, True, list(BOLT_LENGTHS), 20.0),
-        Family("iso-4032", "Hex Nut", "ISO 4032", "Fasteners/Nuts", "nut",
-               ["d", "s", "m"], HEX_NUT_ISO_4032),
-        Family("iso-7089", "Plain Washer", "ISO 7089", "Fasteners/Washers",
-               "washer", ["d1", "d2", "h"], WASHER_ISO_7089),
-    ]
+    """The bolts, screws, nuts, washers, pins, rings and bearings of the
+    standard library (datum/stdlib), each read once."""
+    from . import stdlib
+
+    out = []
+    for t in stdlib.fasteners() + stdlib.bearings():
+        out.append(Family(t.id, t.name, t.standard, t.category, t.kind,
+                          list(t.columns), [list(r) for r in t.rows],
+                          t.kind in NEEDS_LENGTH, list(t.lengths),
+                          20.0 if t.kind != "rod" else 1000.0, t.drive,
+                          dict(t.ranges), t.source, t.licence))
+    return out
+
+
+# what is sized by its length as well as its size
+NEEDS_LENGTH = {"hex_bolt", "square_bolt", "socket_head", "shoulder",
+                "dome", "countersunk", "cheese", "pan", "set_screw", "pin",
+                "taper_pin", "spring_pin", "headed_pin", "rod"}
 
 
 def profile_families() -> List[Family]:
@@ -100,6 +99,7 @@ def profile_families() -> List[Family]:
     out = []
     for fam in frames.families():
         out.append(Family(fam.id, fam.name, fam.standard,
+                          fam.category if fam.kind == "pipe" else
                           "Structural Shapes/" + (fam.category or "Custom"),
                           PROFILE, list(fam.columns),
                           [list(r) for r in fam.rows], True,
@@ -108,8 +108,14 @@ def profile_families() -> List[Family]:
     return out
 
 
+_fasteners: Optional[List[Family]] = None
+
+
 def families() -> List[Family]:
-    return profile_families() + fastener_families()
+    global _fasteners
+    if _fasteners is None:
+        _fasteners = fastener_families()
+    return profile_families() + list(_fasteners)
 
 
 def family(family_id: str) -> Family:
@@ -191,12 +197,10 @@ def _write_profile(path: str, fam: Family, chosen: Dict[str, Any]) -> None:
 
 
 def _fastener(fam: Family, chosen: Dict[str, Any]):
-    """A bolt, screw, nut or washer as an ordinary part: sketches extruded,
-    its sizes in the part's parameters.  The head sits on the XY plane and
-    a shank runs down -Z, so it drops onto a face head up."""
+    """A bolt, screw, nut, washer, pin, ring or bearing as an ordinary
+    part (fastener_parts.py), its sizes in the part's parameters."""
+    from . import fastener_parts
     from .document import Document
-    from .features import CUT, JOIN, ExtrudeFeature, SketchFeature
-    from .sketch import Sketch, SketchPlane
 
     dims = fam.row(chosen["size"])
     doc = Document()
@@ -205,48 +209,7 @@ def _fastener(fam: Family, chosen: Dict[str, Any]):
     length = float(chosen.get("length", 0.0))
     if fam.needs_length:
         doc.params.add("L", "%g" % length)
-
-    def plane(z: float) -> SketchPlane:
-        return SketchPlane((0.0, 0.0, z), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0),
-                           name="XY Plane")
-
-    def extrude(name, sketch, distance, operation=JOIN, flip=False):
-        feature = SketchFeature(name=name)
-        feature.sketch = sketch
-        doc.add_feature(feature)
-        solid = ExtrudeFeature(name=name.replace("Sketch", "Extrusion"))
-        solid.sketch_id = feature.id
-        solid.distance = distance
-        solid.operation = operation
-        solid.reversed = flip
-        doc.add_feature(solid)
-
-    hexagon = 1.1547005383792515      # across corners over across flats
-    if fam.kind in ("hex_bolt", "socket_head"):
-        shank = Sketch(plane(0.0), "Shank Sketch")
-        shank.add_circle((0.0, 0.0), dims["d"] / 2.0)
-        extrude("Shank Sketch", shank, "L", flip=True)
-        head = Sketch(plane(0.0), "Head Sketch")
-        if fam.kind == "hex_bolt":
-            head.add_polygon((0.0, 0.0), dims["s"] * hexagon / 2.0, 6)
-        else:
-            head.add_circle((0.0, 0.0), dims["dk"] / 2.0)
-        extrude("Head Sketch", head, "k")
-        if fam.kind == "socket_head":
-            key = Sketch(plane(dims["k"]), "Socket Sketch")
-            key.add_polygon((0.0, 0.0), dims["s"] * hexagon / 2.0, 6)
-            extrude("Socket Sketch", key, "%g" % (dims["k"] * 0.6), CUT,
-                    flip=True)
-    elif fam.kind == "nut":
-        body = Sketch(plane(0.0), "Nut Sketch")
-        body.add_polygon((0.0, 0.0), dims["s"] * hexagon / 2.0, 6)
-        body.add_circle((0.0, 0.0), dims["d"] / 2.0)
-        extrude("Nut Sketch", body, "m")
-    elif fam.kind == "washer":
-        body = Sketch(plane(0.0), "Washer Sketch")
-        body.add_circle((0.0, 0.0), dims["d2"] / 2.0)
-        body.add_circle((0.0, 0.0), dims["d1"] / 2.0)
-        extrude("Washer Sketch", body, "h")
+    fastener_parts.build(doc, fam.kind, fam.drive, dims, length)
     doc.material = "Steel, Mild"
     doc.properties["Description"] = description(chosen)
     doc.properties["Part Number"] = part_name(chosen)

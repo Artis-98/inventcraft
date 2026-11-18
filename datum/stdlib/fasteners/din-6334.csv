@@ -1,0 +1,15 @@
+# InventCraft standard parts library
+# id: din-6334
+# name: Long Hex Coupling Nut
+# standard: DIN 6334
+# category: Fasteners/Nuts/Hex
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table DIN6334def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M6,6,10,18
+M8,8,13,24
+M10,10,17,30
+M12,12,19,36
+M16,16,24,48
+M20,20,30,54

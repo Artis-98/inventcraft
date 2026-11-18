@@ -1,0 +1,22 @@
+# InventCraft standard parts library
+# id: iso-7719
+# name: All Metal Lock Nut
+# standard: ISO 7719
+# category: Fasteners/Nuts/Lock
+# kind: nut
+# source: FreeCAD Fasteners Workbench, FsData table ISO7719def
+# licence: LGPL-2.1-or-later
+size,d,s,m
+M5,5,8,5.3
+M6,6,10,5.9
+M8,8,13,7.1
+M10,10,16,9
+M12,12,18,11.6
+M14,14,21,13.2
+M16,16,24,15.2
+M18,18,27,17
+M20,20,30,19
+M22,22,34,21
+M24,24,36,23
+M30,30,46,26.9
+M36,36,55,32.5

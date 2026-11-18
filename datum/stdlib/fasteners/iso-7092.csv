@@ -1,0 +1,24 @@
+# InventCraft standard parts library
+# id: iso-7092
+# name: Plain Washer, small series
+# standard: ISO 7092
+# category: Fasteners/Washers
+# kind: washer
+# source: FreeCAD Fasteners Workbench, FsData table ISO7092def
+# licence: LGPL-2.1-or-later
+size,d,d1,d2,h
+M1.6,1.6,1.7,3.5,0.3
+M2,2,2.2,4.5,0.3
+M2.5,2.5,2.7,5,0.5
+M3,3,3.2,6,0.5
+M4,4,4.3,8,0.5
+M5,5,5.3,9,1
+M6,6,6.4,11,1.6
+M8,8,8.4,15,1.6
+M10,10,10.5,18,1.6
+M12,12,13,20,2
+M16,16,17,28,2.5
+M20,20,21,34,3
+M24,24,25,39,4
+M30,30,31,50,4
+M36,36,37,60,5

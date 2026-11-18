@@ -1,0 +1,20 @@
+# InventCraft standard parts library
+# id: iso-14580
+# name: Hexalobular Cheese Head Screw
+# standard: ISO 14580
+# category: Fasteners/Screws/Cheese Head
+# kind: cheese
+# drive: torx
+# source: FreeCAD Fasteners Workbench, FsData table ISO14580def
+# licence: LGPL-2.1-or-later
+# lengths: 3 4 5 6 8 10 12 14 16 20 25 30 35 40 45 50 55 60 65 70 75 80
+size,d,dk,k,s,t,lmin,lmax
+M2,2,3.8,1.55,1.75,0.8,3,20
+M2.5,2.5,4.5,1.85,2.4,0.9,3,25
+M3,3,5.5,2.4,2.8,1.2,4,30
+M3.5,3.5,6,2.6,3.35,1.3,5,35
+M4,4,7,3.1,3.95,1.5,5,40
+M5,5,8.5,3.65,4.5,1.7,6,50
+M6,6,10,4.4,5.6,2.1,8,60
+M8,8,13,5.8,7.95,2.9,10,80
+M10,10,16,6.9,8.95,3.3,12,80

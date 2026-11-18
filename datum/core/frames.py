@@ -125,6 +125,181 @@ def equal_angle(b: float, t: float, r1: float, r2: float) -> Any:
     return BRepBuilderAPI_MakeFace(_wire(segs), True).Face()
 
 
+def _filleted(points, radii) -> Any:
+    """A closed polygon on XY, each corner rounded at its radius: convex
+    corners and the concave roots of a rolled section alike."""
+    n = len(points)
+    segs = []
+    starts, ends = [], []
+    for i in range(n):
+        p = points[i]
+        a, b = points[i - 1], points[(i + 1) % n]
+        r = radii[i] if radii else 0.0
+        u1 = (a[0] - p[0], a[1] - p[1])
+        u2 = (b[0] - p[0], b[1] - p[1])
+        l1, l2 = math.hypot(*u1), math.hypot(*u2)
+        u1 = (u1[0] / l1, u1[1] / l1)
+        u2 = (u2[0] / l2, u2[1] / l2)
+        cos_full = max(-1.0, min(1.0, u1[0] * u2[0] + u1[1] * u2[1]))
+        half = math.acos(cos_full) / 2.0
+        if r <= 1e-9 or half < 1e-6 or abs(half - math.pi / 2) < 1e-9:
+            starts.append(p)
+            ends.append(p)
+            segs.append(None)
+            continue
+        d = min(r / math.tan(half), 0.499 * l1, 0.499 * l2)
+        r = d * math.tan(half)
+        t1 = (p[0] + u1[0] * d, p[1] + u1[1] * d)
+        t2 = (p[0] + u2[0] * d, p[1] + u2[1] * d)
+        bis = (u1[0] + u2[0], u1[1] + u2[1])
+        lb = math.hypot(*bis)
+        bis = (bis[0] / lb, bis[1] / lb)
+        c = (p[0] + bis[0] * r / math.sin(half),
+             p[1] + bis[1] * r / math.sin(half))
+        mid = (c[0] - bis[0] * r, c[1] - bis[1] * r)
+        starts.append(t1)
+        ends.append(t2)
+        segs.append(("arc", t1, mid, t2))
+    out = []
+    for i in range(n):
+        if segs[i] is not None:
+            out.append(segs[i])
+        out.append(("line", ends[i], starts[(i + 1) % n]))
+    return _wire(out)
+
+
+def _face(outer, inner=None) -> Any:
+    """A face from its outline, with a hole if ``inner`` is given."""
+    maker = BRepBuilderAPI_MakeFace(outer, True)
+    if inner is None:
+        return maker.Face()
+    from OCP.TopoDS import TopoDS
+    maker.Add(TopoDS.Wire_s(inner.Reversed()))
+    from OCP.ShapeFix import ShapeFix_Face
+    fixer = ShapeFix_Face(maker.Face())
+    fixer.FixOrientation()
+    fixer.Perform()
+    return fixer.Face()
+
+
+def _circle(d: float) -> Any:
+    from OCP.gp import gp_Ax2, gp_Circ, gp_Dir
+    edge = BRepBuilderAPI_MakeEdge(gp_Circ(gp_Ax2(gp_Pnt(0, 0, 0),
+                                                   gp_Dir(0, 0, 1)),
+                                            d / 2.0)).Edge()
+    return BRepBuilderAPI_MakeWire(edge).Wire()
+
+
+def _need(cond: bool, what: str) -> None:
+    if not cond:
+        raise KernelError(what)
+
+
+# where along a tapered flange's outstand, from the web, its thickness is
+# given: just short of halfway, which is where DIN 1026-1 puts it (half the
+# flange width from the channel's back).  Checked on the areas DIN 1025-1
+# and DIN 1026-1 publish, IPN 200 and 400 and UPN 120 and 200, all within
+# half a percent; measured halfway every one came out 1.5% heavy
+TAPER_AT = 0.44
+
+
+def i_beam(h: float, b: float, tw: float, tf: float, r: float = 0.0,
+           slope: float = 0.0, r2: float = 0.0) -> Any:
+    """An I or H section about the origin: depth ``h``, flange ``b``, web
+    ``tw``, flange ``tf``, root radius ``r``.  ``slope`` is the flange's
+    inner taper in percent (14 for IPN, 0 for IPE and HE), ``tf`` then
+    measured TAPER_AT along the flange outstand, and ``r2`` the toe
+    radius."""
+    _need(h > 2 * tf and b > tw and tw > 0 and tf > 0,
+          "an I section needs flanges and a web that fit")
+    k = slope / 100.0
+    out = (b - tw) / 2.0
+    tip = tf - k * out * (1.0 - TAPER_AT)   # inner face at the flange tip
+    root = tf + k * out * TAPER_AT          # and where it meets the web
+    _need(tip > 0, "the flange taper leaves no flange at the tip")
+    x, w, y = b / 2.0, tw / 2.0, h / 2.0
+    pts = [(-x, -y), (x, -y), (x, -y + tip), (w, -y + root),
+           (w, y - root), (x, y - tip), (x, y), (-x, y), (-x, y - tip),
+           (-w, y - root), (-w, -y + root), (-x, -y + tip)]
+    rr = [0, 0, r2, r, r, r2, 0, 0, r2, r, r, r2]
+    return _face(_filleted(pts, rr))
+
+
+def channel(h: float, b: float, tw: float, tf: float, r: float = 0.0,
+            slope: float = 0.0, r2: float = 0.0) -> Any:
+    """A channel, its back on the Y axis and the flanges to +X: depth
+    ``h``, flange ``b``, web ``tw``, flange ``tf`` (halfway along the
+    outstand if tapered), root ``r``, ``slope`` in percent, toe ``r2``."""
+    _need(h > 2 * tf and b > tw and tw > 0 and tf > 0,
+          "a channel needs flanges and a web that fit")
+    k = slope / 100.0
+    out = b - tw
+    tip = tf - k * out * (1.0 - TAPER_AT)
+    root = tf + k * out * TAPER_AT
+    _need(tip > 0, "the flange taper leaves no flange at the tip")
+    y = h / 2.0
+    pts = [(0, -y), (b, -y), (b, -y + tip), (tw, -y + root),
+           (tw, y - root), (b, y - tip), (b, y), (0, y)]
+    rr = [0, 0, r2, r, r, r2, 0, 0]
+    return _face(_filleted(pts, rr))
+
+
+def tee(h: float, b: float, tw: float, tf: float, r: float = 0.0,
+        r2: float = 0.0) -> Any:
+    """A T section: flange ``b`` x ``tf`` along the top, stem ``tw`` down
+    to a depth ``h``, root radius ``r``, toe radius ``r2``."""
+    _need(h > tf and b > tw and tw > 0 and tf > 0,
+          "a T section needs a flange and a stem that fit")
+    x, w = b / 2.0, tw / 2.0
+    pts = [(-w, 0), (w, 0), (w, h - tf), (x, h - tf), (x, h), (-x, h),
+           (-x, h - tf), (-w, h - tf)]
+    rr = [r2, r2, r, r2, 0, 0, r2, r]
+    return _face(_filleted(pts, rr))
+
+
+def unequal_angle(a: float, b: float, t: float, r1: float = 0.0,
+                  r2: float = 0.0) -> Any:
+    """An angle with legs ``a`` up the Y axis and ``b`` along X from the
+    heel at the origin, ``t`` thick, root ``r1``, toes ``r2``."""
+    _need(t > 0 and t < a and t < b,
+          "an angle's legs must be longer than they are thick")
+    pts = [(0, 0), (b, 0), (b, t), (t, t), (t, a), (0, a)]
+    # a toe is rounded on its inner corner only, as the standards draw it
+    rr = [0, 0, r2, r1, r2, 0]
+    return _face(_filleted(pts, rr))
+
+
+def rect_tube(h: float, b: float, t: float, ro: float = 0.0) -> Any:
+    """A rectangular hollow section about the origin: ``b`` wide along X,
+    ``h`` tall, wall ``t``, outside corner ``ro``, inside ``ro - t``."""
+    _need(t > 0 and 2 * t < min(h, b),
+          "a tube needs a wall thinner than half its side")
+    x, y = b / 2.0, h / 2.0
+    xi, yi = x - t, y - t
+    ri = max(ro - t, 0.0)
+    outer = _filleted([(-x, -y), (x, -y), (x, y), (-x, y)], [ro] * 4)
+    inner = _filleted([(-xi, -yi), (xi, -yi), (xi, yi), (-xi, yi)], [ri] * 4)
+    return _face(outer, inner)
+
+
+def round_tube(d: float, t: float) -> Any:
+    """A circular hollow section about the origin."""
+    _need(t > 0 and 2 * t < d, "a tube needs a wall thinner than its radius")
+    return _face(_circle(d), _circle(d - 2 * t))
+
+
+def round_bar(d: float) -> Any:
+    _need(d > 0, "a bar needs a diameter")
+    return _face(_circle(d))
+
+
+def flat_bar(b: float, t: float, r: float = 0.0) -> Any:
+    """A flat or square bar about the origin, ``b`` wide, ``t`` thick."""
+    _need(b > 0 and t > 0, "a bar needs a width and a thickness")
+    x, y = b / 2.0, t / 2.0
+    return _face(_filleted([(-x, -y), (x, -y), (x, y), (-x, y)], [r] * 4))
+
+
 # --------------------------------------------------------------- the library
 
 
@@ -174,9 +349,35 @@ class ProfileFamily:
 
 
 COLUMNS = {"angle": ["b", "t", "r1", "r2"],
-           "square_tube": ["b", "t", "ro"]}
+           "square_tube": ["b", "t", "ro"],
+           "unequal_angle": ["a", "b", "t", "r1", "r2"],
+           "i_beam": ["h", "b", "tw", "tf", "r", "slope", "r2"],
+           "channel": ["h", "b", "tw", "tf", "r", "slope", "r2"],
+           "tee": ["h", "b", "tw", "tf", "r", "r2"],
+           "rect_tube": ["h", "b", "t", "ro"],
+           "round_tube": ["d", "t"],
+           "round_bar": ["d"],
+           "flat_bar": ["b", "t", "r"],
+           "pipe": ["d", "t", "r"]}
 CATEGORIES = {"angle": "Angles", "square_tube": "Square Tubes",
+              "unequal_angle": "Angles", "i_beam": "I and H Beams",
+              "channel": "Channels", "tee": "T Sections",
+              "rect_tube": "Rectangular Tubes", "round_tube": "Round Tubes",
+              "round_bar": "Bars", "flat_bar": "Bars", "pipe": "Piping",
               "sketch": "Custom"}
+# the kinds a family of your own can be, as the New Family dialog names them
+KIND_NAMES = {"square_tube": "Square tube", "rect_tube": "Rectangular tube",
+              "round_tube": "Round tube", "angle": "Equal angle",
+              "unequal_angle": "Unequal angle", "i_beam": "I or H beam",
+              "channel": "Channel", "tee": "T section",
+              "flat_bar": "Flat or square bar", "round_bar": "Round bar",
+              "pipe": "Pipe, bent at the corners",
+              "sketch": "Sketch in a part"}
+_SHAPES = {"unequal_angle": unequal_angle, "i_beam": i_beam,
+           "channel": channel, "tee": tee, "rect_tube": rect_tube,
+           "round_tube": round_tube, "round_bar": round_bar,
+           "flat_bar": flat_bar,
+           "pipe": lambda d, t, r=0.0: round_tube(d, t)}
 
 
 def builtin_families() -> List[ProfileFamily]:
@@ -192,7 +393,24 @@ def builtin_families() -> List[ProfileFamily]:
                       COLUMNS["square_tube"],
                       [list(r) for r in tables.SQUARE_HOLLOW_DIN_EN_10219_2],
                       builtin=True),
-    ]
+    ] + _catalogue()
+
+
+_CATALOGUE: Optional[List[ProfileFamily]] = None
+
+
+def _catalogue() -> List[ProfileFamily]:
+    """The standard library's steel shapes (datum/stdlib/profiles), kept
+    apart from the two above so those keep their ids."""
+    global _CATALOGUE
+    if _CATALOGUE is None:
+        from . import stdlib
+        _CATALOGUE = [ProfileFamily(t.id, t.name, t.standard, t.category,
+                                    t.kind, list(COLUMNS[t.kind]),
+                                    [list(r) for r in t.rows], builtin=True)
+                      for t in stdlib.profiles()
+                      if t.columns == COLUMNS.get(t.kind)]
+    return _CATALOGUE
 
 
 def library_folder() -> str:
@@ -314,6 +532,9 @@ def profile_face(kind: str, dims: Dict[str, float], source: str = ""):
                            dims.get("r2", 0.0))
     if kind == "square_tube":
         return square_tube(dims["b"], dims["t"], dims.get("ro", 0.0))
+    if kind in _SHAPES:
+        return _SHAPES[kind](**{k: float(v) for k, v in dims.items()
+                        if k in COLUMNS[kind]})
     if kind == "sketch":
         doc = _open_part(source)
         for name, value in dims.items():
@@ -377,6 +598,16 @@ class Member:
     material: str = ""
     part: str = ""              # the member's part file, from the frame's
     occurrence: int = 0
+    # a pipe's: its bend radius (0 for its size's own) and insulation, a
+    # thickness and material, made a part of its own beside the tube
+    bend_radius: float = 0.0
+    insulation: float = 0.0
+    insulation_material: str = ""
+    insulation_part: str = ""
+    insulation_occurrence: int = 0
+    # a pipe's route when it runs through more than one sketch: its lines
+    # as [sketch, line] pairs, in the order they are walked
+    segments: List[List[int]] = field(default_factory=list)
     error: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -386,7 +617,13 @@ class Member:
                 "anchor": self.anchor, "offset_a": self.offset_a,
                 "offset_b": self.offset_b, "rotate": self.rotate,
                 "mirror": self.mirror, "material": self.material,
-                "part": self.part, "occurrence": self.occurrence}
+                "part": self.part, "occurrence": self.occurrence,
+                "bend_radius": self.bend_radius,
+                "insulation": self.insulation,
+                "insulation_material": self.insulation_material,
+                "insulation_part": self.insulation_part,
+                "insulation_occurrence": self.insulation_occurrence,
+                "segments": [list(k) for k in self.segments]}
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Member":
@@ -402,7 +639,16 @@ class Member:
                    mirror=bool(d.get("mirror", False)),
                    material=str(d.get("material", "")),
                    part=str(d.get("part", "")),
-                   occurrence=int(d.get("occurrence", 0)))
+                   occurrence=int(d.get("occurrence", 0)),
+                   bend_radius=float(d.get("bend_radius", 0.0)),
+                   insulation=float(d.get("insulation", 0.0)),
+                   insulation_material=str(d.get("insulation_material",
+                                                 "")),
+                   insulation_part=str(d.get("insulation_part", "")),
+                   insulation_occurrence=int(d.get("insulation_occurrence",
+                                                   0)),
+                   segments=[[int(a), int(b)]
+                             for a, b in d.get("segments", [])])
 
 
 @dataclass
@@ -415,12 +661,15 @@ class FrameDefinition:
     sketch_name: str = ""
     members: List[Member] = field(default_factory=list)
     treatments: List["Treatment"] = field(default_factory=list)
+    # the pipe fittings put in where pipes meet: {key, part, occurrence}
+    fittings: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {"skeleton": self.skeleton, "sketch": self.sketch,
                 "sketch_name": self.sketch_name,
                 "members": [m.to_dict() for m in self.members],
-                "treatments": [t.to_dict() for t in self.treatments]}
+                "treatments": [t.to_dict() for t in self.treatments],
+                "fittings": [dict(f) for f in self.fittings]}
 
     def member(self, member_id: int) -> Optional[Member]:
         return next((m for m in self.members if m.id == member_id), None)
@@ -435,7 +684,8 @@ class FrameDefinition:
                    sketch_name=str(d.get("sketch_name", "")),
                    members=[Member.from_dict(m) for m in d.get("members", [])],
                    treatments=[Treatment.from_dict(t)
-                               for t in d.get("treatments", [])])
+                               for t in d.get("treatments", [])],
+                   fittings=[dict(f) for f in d.get("fittings", [])])
 
 
 def skeleton_sketches(path: str) -> Dict[int, Tuple[Any, str, Dict[int, Any]]]:
@@ -962,7 +1212,7 @@ def sync(frame_doc) -> List[str]:
     by_id = {o.id: o for o in frame_doc.occurrences}
     frame_doc.frame_changed = False
     geos = member_geometries(fd, sketches, problems)
-    ends = resolve(fd, geos, problems)
+    ends = resolve(fd, straight(geos), problems)
     for member in fd.members:
         if member.id not in geos:
             continue
@@ -973,8 +1223,14 @@ def sync(frame_doc) -> List[str]:
             if not member.part:
                 member.part = member_part_name(member, fam) + ".icpart"
             path = os.path.join(base, member.part) if base else member.part
-            if write_member_part(path, member, fam, length,
-                                 ends.get(member.id)):
+            if is_pipe(geo):
+                from . import piping_parts
+                if piping_parts.write_pipe_part(path, member, geo):
+                    frame_doc.frame_changed = True
+                if piping_parts.sync_insulation(frame_doc, member, geo):
+                    frame_doc.frame_changed = True
+            elif write_member_part(path, member, fam, length,
+                                   ends.get(member.id)):
                 frame_doc.frame_changed = True
             occurrence = by_id.get(member.occurrence)
             if occurrence is None:
@@ -989,6 +1245,13 @@ def sync(frame_doc) -> List[str]:
         except (KernelError, KeyError, ValueError) as exc:
             member.error = str(exc)
             problems.append("member %d: %s" % (member.id, exc))
+    try:
+        from . import piping_parts
+        if piping_parts.sync_fittings(frame_doc,
+                                      getattr(fd, "planned_fittings", [])):
+            frame_doc.frame_changed = True
+    except (KernelError, KeyError, ValueError) as exc:
+        problems.append("fittings: %s" % exc)
     return problems
 
 
@@ -1005,6 +1268,15 @@ def member_geometries(fd: FrameDefinition, sketches, problems: List[str]
             if found is None:
                 raise KernelError("its sketch is gone from the skeleton")
             plane, _name, lines = found
+            if fam.kind == "pipe":
+                if member.segments:
+                    out[member.id] = pipe_geometry(
+                        member, fam, all_lines(sketches), plane.normal,
+                        [tuple(k) for k in member.segments])
+                else:
+                    out[member.id] = pipe_geometry(member, fam, lines,
+                                                   plane.normal)
+                continue
             start, end = run_of(lines, member.lines)
             if math.dist(start, end) < 1e-6:
                 raise KernelError("its line has no length")
@@ -1013,7 +1285,90 @@ def member_geometries(fd: FrameDefinition, sketches, problems: List[str]
         except (KernelError, KeyError, ValueError) as exc:
             member.error = str(exc)
             problems.append("member %d: %s" % (member.id, exc))
+    fit_pipes(fd, out, problems)
     return out
+
+
+def fit_pipes(fd: FrameDefinition, geos: Dict[int, "MemberGeometry"],
+              problems: List[str]) -> None:
+    """The fittings where separate pipes meet, kept on the frame as
+    ``planned_fittings``, and each pipe cut back into its sockets."""
+    from . import piping, piping_fittings
+    fd.planned_fittings = []
+    if not any(is_pipe(g) for g in geos.values()):
+        return
+    fd.planned_fittings, trims = piping_fittings.plan(geos, problems)
+    for mid, back in trims.items():
+        geo = geos[mid]
+        try:
+            pts = piping_fittings.trim(geo.local_points, back.get("a", 0.0),
+                                       back.get("b", 0.0))
+            geo.route = piping.route(pts, geo.route.radius)
+            geo.length = geo.route.length
+        except KernelError as exc:
+            geo.member.error = str(exc)
+            problems.append("member %d: %s" % (mid, exc))
+
+
+def all_lines(sketches) -> Dict[Tuple[int, int], Any]:
+    """Every line of every sketch of a skeleton, by (sketch, line): what a
+    pipe running from one sketch into another is routed through."""
+    return {(sid, lid): ends for sid, found in sketches.items()
+            for lid, ends in found[2].items()}
+
+
+def pipe_geometry(member: Member, fam: "ProfileFamily", lines, normal,
+                  keys=None) -> "MemberGeometry":
+    """A pipe as the skeleton places it: its part sits on the run's
+    first point, Z up its first leg, and its route is in the part's own
+    coordinates.  ``keys`` are its lines in ``lines`` when not
+    ``member.lines``."""
+    from . import piping
+    points = piping.run_points(lines, list(keys) if keys is not None
+                               else member.lines)
+    member.anchor, member.offset_a, member.offset_b = "mc", 0.0, 0.0
+    geo = MemberGeometry(member, fam, points[0], points[1], normal)
+    local = [geo.to_local(p) for p in points]
+    geo.local_points = local
+    geo.route = piping.route(local, piping.radius_of(member, geo.dims))
+    geo.length = geo.route.length
+    return geo
+
+
+def is_pipe(geo) -> bool:
+    return getattr(geo, "route", None) is not None
+
+
+def straight(geos: Dict[int, "MemberGeometry"]
+             ) -> Dict[int, "MemberGeometry"]:
+    """The members end treatments work on: all but the pipes."""
+    return {k: g for k, g in geos.items() if not is_pipe(g)}
+
+
+def skeleton_path(frame_doc) -> str:
+    fd = frame_doc.frame
+    base = frame_doc.base_dir
+    return os.path.normpath(os.path.join(base, fd.skeleton)) \
+        if base and not os.path.isabs(fd.skeleton) else fd.skeleton
+
+
+def geometry_solid(geo: "MemberGeometry", ends: Optional[Dict[str, Any]]
+                   = None, insulation: bool = False):
+    """A member's solid in its part's coordinates: a pipe bent along its
+    route (or its insulation), any other member its extruded profile."""
+    if is_pipe(geo):
+        from . import piping
+        d, t = geo.dims["d"], geo.dims["t"]
+        if insulation:
+            thk = geo.member.insulation
+            return piping.tube_solid(geo.route.points, d + 2 * thk, thk,
+                                     geo.route.radius)
+        return piping.tube_solid(geo.route.points, d, t, geo.route.radius)
+    e = ends or {}
+    return member_solid(geo.fam.kind, geo.dims, geo.fam.source,
+                        geo.member.mirror, geo.length,
+                        e.get("extend_a", 0.0), e.get("extend_b", 0.0),
+                        e.get("cuts", []), e.get("notches", []))
 
 
 _FRAME_CACHE: Dict[str, Tuple[float, Optional[FrameDefinition]]] = {}
@@ -1062,8 +1417,8 @@ def is_member_part(path: str) -> bool:
         return held[1]
     try:
         features = (fileformat.read(path).geometry or {}).get("features", [])
-        found = any(isinstance(f, dict) and f.get("type") in ("frame_member", "frame_ends")
-                    for f in features)
+        found = any(isinstance(f, dict) and f.get("type") in (
+            "frame_member", "frame_ends", "pipe_run") for f in features)
     except Exception:
         found = False
     _MEMBER_CACHE[key] = (stamp, found)
@@ -1097,11 +1452,25 @@ def frame_folder(parent, number: int) -> str:
     return os.path.join(parent.base_dir, parent.title, "Frame%04d" % number)
 
 
+def member_runs(fam: "ProfileFamily", lines, line_ids: Sequence[int],
+                merge: bool) -> List[List[int]]:
+    """The members picked lines make: a pipe's lines meeting end to end
+    are one run; others one member a line, or straight runs merged."""
+    if fam.kind == "pipe":
+        from . import piping
+        return piping.runs(lines, list(line_ids)) if merge \
+            else [[i] for i in line_ids]
+    return mergeable_runs(lines, list(line_ids)) if merge \
+        else [[i] for i in line_ids]
+
+
 def insert(parent, skeleton_occurrence, sketch_id: int, line_ids,
            family_id: str, size: str, anchor: str = "mc",
            offset_a: float = 0.0, offset_b: float = 0.0, rotate: float = 0.0,
            mirror: bool = False, merge: bool = False, material: str = "",
-           frame_occurrence=None):
+           frame_occurrence=None, bend_radius: float = 0.0,
+           insulation: float = 0.0, insulation_material: str = "",
+           segments=None):
     """Insert Frame: members on the picked skeleton lines.  The first
     insert on a skeleton makes the frame assembly, beside the parent in a
     folder of its own, and places it in the parent following the
@@ -1135,17 +1504,33 @@ def insert(parent, skeleton_occurrence, sketch_id: int, line_ids,
             skeleton=os.path.relpath(skeleton, folder).replace(os.sep, "/"),
             sketch=sketch_id, sketch_name=sketches[sketch_id][1])
     fd = frame_doc.frame
-    lines = sketches[sketch_id][2]
-    runs = mergeable_runs(lines, list(line_ids)) if merge \
-        else [[i] for i in line_ids]
+    if segments is not None:
+        # a pipe through lines of any of the skeleton's sketches, given as
+        # (sketch, line): each run is one member, its route kept whole
+        keys = [tuple(int(c) for c in k) for k in segments]
+        runs = member_runs(fam, all_lines(sketches), keys, merge)
+    else:
+        lines = sketches[sketch_id][2]
+        runs = member_runs(fam, lines, list(line_ids), merge)
     next_id = max([m.id for m in fd.members] + [0]) + 1
     for run in runs:
-        fd.members.append(Member(id=next_id, sketch=sketch_id, lines=run,
+        route: List[List[int]] = []
+        home = sketch_id
+        if segments is not None:
+            home = run[0][0]
+            route = [list(k) for k in run] \
+                if any(k[0] != home for k in run) else []
+            run = [k[1] for k in run if k[0] == home] if not route \
+                else [k[1] for k in run]
+        fd.members.append(Member(id=next_id, sketch=home, lines=run,
+                                 segments=route,
                                  family=family_id,
                                  size=size, anchor=anchor,
                                  offset_a=offset_a, offset_b=offset_b,
                                  rotate=rotate, mirror=mirror,
-                                 material=material))
+                                 material=material, bend_radius=bend_radius,
+                                 insulation=insulation,
+                                 insulation_material=insulation_material))
         next_id += 1
     problems = sync(frame_doc)
     frame_doc.save(frame_doc.path)
@@ -1233,6 +1618,7 @@ class MemberGeometry:
         import numpy as np
         self.member = member
         self.fam = fam
+        self.route = None           # a pipe's bends, from pipe_geometry
         self.start = tuple(float(c) for c in start)
         self.end = tuple(float(c) for c in end)
         self.length = math.dist(self.start, self.end)
@@ -1537,7 +1923,8 @@ def member_solid(kind, dims, source, mirror, length, extend_a=0.0,
 # ----------------------------------------------- changing a frame after
 
 CHANGEABLE = ("family", "size", "anchor", "offset_a", "offset_b", "rotate",
-              "mirror", "material")
+              "mirror", "material", "bend_radius", "insulation",
+              "insulation_material")
 
 
 def change_members(frame_doc, member_ids: Sequence[int], **fields
@@ -1575,6 +1962,18 @@ def change_members(frame_doc, member_ids: Sequence[int], **fields
                 frame_doc.remove_occurrence(member.occurrence)
             member.occurrence = 0
             member.part = part
+            if member.insulation_occurrence:
+                # made again under its new name by the sync
+                frame_doc.remove_occurrence(member.insulation_occurrence)
+                member.insulation_occurrence = 0
+                old_ins = os.path.join(base, member.insulation_part) \
+                    if base else member.insulation_part
+                member.insulation_part = ""
+                try:
+                    if os.path.exists(old_ins):
+                        os.remove(old_ins)
+                except OSError:
+                    pass
             held = _live(old, object)
             try:
                 if os.path.exists(old) and os.path.normcase(old) \
@@ -1588,6 +1987,28 @@ def change_members(frame_doc, member_ids: Sequence[int], **fields
     problems = sync(frame_doc)
     frame_doc.save(frame_doc.path)
     return problems
+
+
+def meeting_pairs(frame_doc, member_ids: Sequence[int]) -> List[int]:
+    """Miter every corner: of the picked members, each two whose lines
+    meet end to end at an angle, as one list two by two, the way a miter
+    takes them.  Six sides of a hexagon picked give its six corners."""
+    fd = frame_doc.frame
+    if fd is None:
+        return []
+    geos = straight(member_geometries(fd, skeleton_sketches(
+        skeleton_path(frame_doc)), []))
+    picked = [m for m in dict.fromkeys(member_ids) if m in geos]
+    out: List[int] = []
+    for i, a in enumerate(picked):
+        for b in picked[i + 1:]:
+            ga, gb = geos[a], geos[b]
+            if abs(_dot(ga.dir, gb.dir)) > 1 - 1e-9:
+                continue            # in one line, or side by side
+            if any(math.dist(p, q) < 1e-3 for p in (ga.start, ga.end)
+                   for q in (gb.start, gb.end)):
+                out += [a, b]
+    return out
 
 
 def add_treatment(frame_doc, kind: str, members: Sequence[int],
@@ -1662,18 +2083,17 @@ def member_world_solids(frame_doc, member_ids: Optional[Sequence[int]] = None,
         if base and not os.path.isabs(fd.skeleton) else fd.skeleton
     problems: List[str] = []
     geos = member_geometries(fd, skeleton_sketches(skeleton), problems)
-    ends = resolve(fd, geos, problems)
+    ends = resolve(fd, straight(geos), problems)
     out = {}
     for mid in (member_ids if member_ids is not None else list(geos)):
         geo = geos.get(mid)
         if geo is None:
             continue
-        e = ends.get(mid, {})
         try:
-            solid = member_solid(geo.fam.kind, geo.dims, geo.fam.source,
-                                 geo.member.mirror, geo.length,
-                                 e.get("extend_a", 0.0), e.get("extend_b", 0.0),
-                                 e.get("cuts", []), e.get("notches", []))
+            solid = geometry_solid(geo, ends.get(mid, {}))
+            if is_pipe(geo) and geo.member.insulation > 0:
+                solid = kernel.compound([solid, geometry_solid(
+                    geo, insulation=True)])
         except KernelError:
             continue
         out[mid] = solid.Moved(geo.placement.location())
@@ -1684,7 +2104,8 @@ def preview_solids(parent, skeleton_occurrence, line_ids_by_sketch,
                    family_id: str, size: str, anchor: str = "mc",
                    offset_a: float = 0.0, offset_b: float = 0.0,
                    rotate: float = 0.0, mirror: bool = False,
-                   merge: bool = False):
+                   merge: bool = False, bend_radius: float = 0.0,
+                   insulation: float = 0.0):
     """The members Insert Frame would make, as solids where they would
     sit in the parent assembly, nothing written."""
     skeleton = parent.component_path(skeleton_occurrence)
@@ -1693,23 +2114,47 @@ def preview_solids(parent, skeleton_occurrence, line_ids_by_sketch,
     fam.row(size)
     out = []
     location = skeleton_occurrence.placement.location()
+    if fam.kind == "pipe":
+        lines = all_lines(sketches)
+        keys = [(sid, lid) for sid, ids in line_ids_by_sketch.items()
+                for lid in ids if (sid, lid) in lines]
+        for run in member_runs(fam, lines, keys, merge):
+            member = Member(id=0, sketch=run[0][0], family=family_id,
+                            size=size, bend_radius=bend_radius,
+                            insulation=insulation)
+            try:
+                plane = sketches[run[0][0]][0]
+                geo = pipe_geometry(member, fam, lines, plane.normal, run)
+                solid = geometry_solid(geo)
+                if insulation > 0:
+                    solid = kernel.compound([solid, geometry_solid(
+                        geo, insulation=True)])
+            except (KernelError, KeyError, ValueError):
+                continue
+            out.append(solid.Moved(geo.placement.location()).Moved(location))
+        return out
     for sketch_id, line_ids in line_ids_by_sketch.items():
         found = sketches.get(sketch_id)
         if found is None:
             continue
         plane, _name, lines = found
-        runs = mergeable_runs(lines, list(line_ids)) if merge \
-            else [[i] for i in line_ids]
-        for run in runs:
+        for run in member_runs(fam, lines, list(line_ids), merge):
             member = Member(id=0, sketch=sketch_id, lines=run,
                             family=family_id, size=size, anchor=anchor,
                             offset_a=offset_a, offset_b=offset_b,
-                            rotate=rotate, mirror=mirror)
+                            rotate=rotate, mirror=mirror,
+                            bend_radius=bend_radius, insulation=insulation)
             try:
-                start, end = run_of(lines, run)
-                geo = MemberGeometry(member, fam, start, end, plane.normal)
-                solid = member_solid(fam.kind, geo.dims, fam.source, mirror,
-                                     geo.length)
+                if fam.kind == "pipe":
+                    geo = pipe_geometry(member, fam, lines, plane.normal)
+                else:
+                    start, end = run_of(lines, run)
+                    geo = MemberGeometry(member, fam, start, end,
+                                         plane.normal)
+                solid = geometry_solid(geo)
+                if is_pipe(geo) and insulation > 0:
+                    solid = kernel.compound([solid, geometry_solid(
+                        geo, insulation=True)])
             except (KernelError, KeyError, ValueError):
                 continue
             out.append(solid.Moved(geo.placement.location()).Moved(location))
@@ -1729,6 +2174,13 @@ def member_axes(frame_doc) -> Dict[int, Tuple[Any, Any, float]]:
     out = {}
     for mid, geo in member_geometries(fd, skeleton_sketches(skeleton),
                                       []).items():
+        if is_pipe(geo):
+            # picked by its longest leg
+            pts = geo.route.points
+            a, b = max(zip(pts, pts[1:]), key=lambda ab: math.dist(*ab))
+            out[mid] = (geo.to_world(a), geo.to_world(b),
+                        geo.dims["d"] / 2.0 + geo.member.insulation)
+            continue
         x0, y0, _z0, x1, y1, _z1 = kernel.bounding_box(geo.face)
         cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
         reach = max(math.hypot(x - cx, y - cy) for x, y in geo.points)
