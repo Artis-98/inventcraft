@@ -217,7 +217,7 @@ class _HoldInput(QtCore.QObject):
     back, because they could change the model the worker is building. The
     view keeps its middle and right buttons and the wheel, which only move
     the camera; its left button, which selects, waits with the rest.
-    Anything marked datum_live, a cLogic form, keeps all of its input.
+    Anything marked datum_live, an icLogic form, keeps all of its input.
     """
 
     BLOCKED = (
@@ -740,10 +740,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(self.reload_components)
         panel.add_small("params", "Parameters", "Named parameters (Ctrl+P)"
                         ).clicked.connect(self.edit_parameters)
-        panel.add_small("properties", "dProperties",
+        panel.add_small("properties", "icProperties",
                         "Title, part number, units, mass and bounding box"
                         ).clicked.connect(self.show_properties)
-        panel.add_small("auto", "cLogic", "Rules that drive this assembly"
+        panel.add_small("auto", "icLogic", "Rules that drive this assembly"
                         ).clicked.connect(self.show_rules)
 
         # --------------------------------------------------------------- CAM
@@ -817,7 +817,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(self.cam_ui.regenerate)
         panel.add_small("params", "Parameters", "Named parameters (Ctrl+P)"
                         ).clicked.connect(self.edit_parameters)
-        panel.add_small("auto", "cLogic", "Rules that drive this sheet"
+        panel.add_small("auto", "icLogic", "Rules that drive this sheet"
                         ).clicked.connect(self.show_rules)
 
         panel = cam.add_panel("Parts")
@@ -1012,10 +1012,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.drawing_update_button.clicked.connect(
             lambda: ui.rebuild(force=True))
         panel = tools.add_panel("Manage")
-        panel.add_small("properties", "dProperties",
+        panel.add_small("properties", "icProperties",
                         "Title, part number, units, mass and bounding box"
                         ).clicked.connect(self.show_properties)
-        panel.add_small("auto", "cLogic", "Rules that drive this drawing"
+        panel.add_small("auto", "icLogic", "Rules that drive this drawing"
                         ).clicked.connect(self.show_rules)
         panel = tools.add_panel("Output")
         panel.add_big("export_pdf", "Export\nPDF", "Every sheet, at true size"
@@ -1050,9 +1050,13 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = inspect.add_panel("Measure")
         panel.add_big("measure", "Measure", "Measure faces, edges and distances"
                       ).clicked.connect(self.open_measure)
-        panel.add_big("properties", "dProperties",
+        panel.add_big("properties", "icProperties",
                       "Title, part number, units, mass and bounding box"
                       ).clicked.connect(self.show_properties)
+        panel.add_big("update", "Update\nMass",
+                      "Work out the physical properties now: of the part, "
+                      "or of every part in the assembly"
+                      ).clicked.connect(self.update_mass)
 
         panel = inspect.add_panel("Selection Filter")
         for key, icon_name, label in (("solid", "select_body", "Body"),
@@ -1067,7 +1071,7 @@ class MainWindow(QtWidgets.QMainWindow):
         panel = manage.add_panel("Parameters")
         panel.add_big("params", "Parameters", "Named parameters (Ctrl+P)"
                       ).clicked.connect(self.edit_parameters)
-        panel.add_big("auto", "cLogic",
+        panel.add_big("auto", "icLogic",
                       "Rules that drive this document"
                       ).clicked.connect(self.show_rules)
         panel.add_big("code", "Code\nFeature",
@@ -1106,15 +1110,21 @@ class MainWindow(QtWidgets.QMainWindow):
                         "Look straight at the selected face"
                         ).clicked.connect(self.normal_to_selected_face)
 
+        # One visual style at a time, picked from a list under one button,
+        # as Inventor's Visual Style is: four toggles that could all be on
+        # at once said nothing about which one the view was in.
         panel = view.add_panel("Appearance")
-        for key, icon_name, label in (("shaded_edges", "shaded_edges",
-                                       "Shaded + Edges"),
-                                      ("shaded", "shaded", "Shaded"),
-                                      ("wireframe", "wireframe", "Wireframe"),
-                                      ("xray", "xray", "X-Ray")):
-            b = panel.add_small(icon_name, label, checkable=True)
-            b.clicked.connect(lambda _=False, k=key:
-                              self.viewport.set_display_mode(k))
+        self.style_button = panel.add_split(
+            [("shaded_edges", "shaded_edges", "Shaded", "with Edges"),
+             ("shaded", "shaded", "Shaded", "no edges"),
+             ("wireframe", "wireframe", "Wireframe", "edges only"),
+             ("xray", "xray", "X-Ray", "see through")],
+            "Visual style of the model")
+        self.style_button.set_current(self.viewport.display_mode)
+        self.style_button.chosen.connect(self.set_visual_style)
+        render = panel.add_big("render", "Render",
+                               "A quick ray traced picture of the model")
+        render.clicked.connect(self.render_picture)
 
         panel = view.add_panel("Display")
         self.ortho_btn = panel.add_small("ortho", "Orthographic", checkable=True)
@@ -1138,6 +1148,49 @@ class MainWindow(QtWidgets.QMainWindow):
             "spacemouse", "Space\nMouse", "3Dconnexion settings",
             checkable=True)
         self.spacemouse_btn.clicked.connect(self._spacemouse_clicked)
+
+    def update_mass(self) -> None:
+        """Inventor's Update for physical properties."""
+        from ..core import units as unitlib
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+        try:
+            if self.in_assembly and self.assembly is not None:
+                props = self.assembly_ui.update_mass()
+                target = self.assembly
+            elif self.in_part and self.document.shape is not None:
+                props = self.document.mass_properties()
+                target = self.document
+            else:
+                return
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        self.properties.update_from(self._material_target()
+                                    if not self.in_assembly else target)
+        if hasattr(self, "doc_properties"):
+            try:
+                self.doc_properties.update_from(target)
+            except Exception:
+                pass
+        if props:
+            unit = unitlib.known(getattr(target, "units", "mm") or "mm")
+            self.status_message.setStyleSheet("")
+            self.status_message.setText(
+                "Mass updated: %s." % unitlib.mass_text(props["mass_g"],
+                                                         unit, 4))
+
+    def set_visual_style(self, key: str) -> None:
+        """Shaded with edges, shaded, wireframe or X-ray: one of them."""
+        self.viewport.set_display_mode(key)
+        button = getattr(self, "style_button", None)
+        if button is not None and button.current != key:
+            button.set_current(key)
+
+    def render_picture(self) -> None:
+        """Ray trace what is on screen into a picture, to look at and save."""
+        from .render_ui import RenderDialog
+        dialog = RenderDialog(self.viewport, self)
+        dialog.show()
+        dialog.start()
 
     def _show_frame_time(self, ms: float) -> None:
         label = getattr(self, "status_frame", None)
@@ -1173,7 +1226,7 @@ class MainWindow(QtWidgets.QMainWindow):
         item("export", "Export...", "", self.export_geometry)
         menu.addSeparator()
         item("params", "Parameters...", "Ctrl+P", self.edit_parameters)
-        item("properties", "dProperties...", "", self.show_properties)
+        item("properties", "icProperties...", "", self.show_properties)
         item("projects", "Projects...", "", self.choose_project)
         item("preferences", "Preferences...", "", self.edit_preferences)
         item("check_updates", "Check for Updates...", "",
@@ -1214,7 +1267,7 @@ class MainWindow(QtWidgets.QMainWindow):
         dock.setMinimumWidth(230)
         self.browser_dock = dock
 
-        # cLogic sits above the tree, where iLogic sits in Inventor, and
+        # icLogic sits above the tree, where iLogic sits in Inventor, and
         # starts hidden: most documents have no rules and a panel for
         # nothing is a panel in the way.
         self.rules_panel = RulesPanel(self)
@@ -1223,7 +1276,7 @@ class MainWindow(QtWidgets.QMainWindow):
         core_rules.show_form = (
             lambda document, title, controls:
             open_form(self, document, title, controls))
-        rules_dock = QtWidgets.QDockWidget("cLogic", self)
+        rules_dock = QtWidgets.QDockWidget("icLogic", self)
         rules_dock.setObjectName("RulesDock")
         rules_dock.setWidget(self.rules_panel)
         rules_dock.setFeatures(QtWidgets.QDockWidget.DockWidgetMovable
@@ -1242,6 +1295,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # at rather than something you watch.  It is still built, just not
         # docked, so everything that feeds it keeps working.
         self.properties = PropertiesPanel(self)
+        self.properties.update_requested.connect(self.update_mass)
         # It is a child of the window but no longer in any layout, and Qt
         # draws a visible child with no layout at 0,0 - which put it over
         # the quick access icons as a strip of half-clipped text.  It
@@ -1531,7 +1585,7 @@ class MainWindow(QtWidgets.QMainWindow):
             % (unitlib.LABELS[unit], unit))
 
     def change_units(self, unit: str) -> None:
-        """Change the active document's unit, from dProperties or the
+        """Change the active document's unit, from icProperties or the
         status bar, asking how first when it is a part.
 
         A part can be converted, which keeps its size, or keep its
@@ -1708,7 +1762,30 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _copy_shortcut(self) -> None:
         if self.in_assembly:
-            self.assembly_ui.copy_selected()
+            if self.assembly_ui.selected_occurrences():
+                self.assembly_ui.copy_selected()
+            else:
+                self.copy_document()
+        elif self.in_part and not self.editor.active and not self.in_place:
+            self.copy_document()
+
+    def copy_document(self) -> None:
+        """The part or assembly open now on the clipboard, to paste into
+        an assembly as a component (Ctrl+C at the top of its tree)."""
+        from .assembly_ui import put_on_clipboard
+
+        doc = self.assembly if self.in_assembly else self.document
+        path = getattr(doc, "path", "") or ""
+        if not path or not os.path.exists(path):
+            self.status_message.setStyleSheet("color: %s;" % C.warn)
+            self.status_message.setText(
+                "Save it first: what is pasted into an assembly is its file.")
+            return
+        put_on_clipboard([{"path": os.path.abspath(path)}])
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Copied %s. Ctrl+V in an assembly places it."
+            % os.path.basename(path))
 
     def _paste_shortcut(self) -> None:
         if self.in_assembly:
@@ -1755,6 +1832,7 @@ class MainWindow(QtWidgets.QMainWindow):
         b.visibility_toggled.connect(lambda _fid: (
             self._draw_visible_sketches(), self._update_title()))
         b.properties_requested.connect(self.show_properties)
+        b.copy_requested.connect(self.copy_document)
         b.open_location_requested.connect(
             lambda: self.open_file_location(self.document.path))
 
@@ -2013,6 +2091,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewport.orient_cube()
         restored = self.viewport.restore_camera(entry.camera) if keep_camera \
             else False
+        if entry.doc_type == fileformat.ASSEMBLY:
+            # parts changed in their own tabs come along on the way back
+            # in, so the assembly shows what was just done to them rather
+            # than waiting on Local Update
+            self._take_part_edits(entry)
         self.rebuild(keep_camera=restored)
         self._restore_section(entry)
         if not restored:
@@ -2694,7 +2777,7 @@ class MainWindow(QtWidgets.QMainWindow):
         has = not self.on_start_page and self.session.active is not None
         needs_document = ("Save", "Save As...", "Versions...", "Import...",
                           "Export...",
-                          "Parameters...", "dProperties...",
+                          "Parameters...", "icProperties...",
                           "Save as Template...")
         for action in self.file_menu.actions():
             label = i18n.english(action.text()).split("\t")[0]
@@ -3015,6 +3098,19 @@ class MainWindow(QtWidgets.QMainWindow):
             "Local Update - nothing has changed in the parts this uses")
         self.status_update.setText("Out of date: %s" % names if stale else "")
 
+    def _take_part_edits(self, entry) -> List[str]:
+        """Let the edits of open parts into one document; their names."""
+        stale = self.session.stale_sources(entry)
+        if not stale:
+            return []
+        self.session.publish_all()
+        library = getattr(entry.document, "library", None)
+        if library is not None:
+            for source in stale:
+                if source.path:
+                    library.forget(source.path)
+        return sorted({s.label for s in stale})
+
     def local_update(self) -> None:
         """Take the edits made in other tabs into this document.
 
@@ -3026,22 +3122,14 @@ class MainWindow(QtWidgets.QMainWindow):
         entry = self.session.active
         if entry is None or entry.is_part:
             return
-        stale = self.session.stale_sources(entry)
-        if not stale:
+        names = self._take_part_edits(entry)
+        if not names:
             self.status_message.setStyleSheet("")
             self.status_message.setText("Already up to date.")
             return
-
-        self.session.publish_all()
-        library = getattr(entry.document, "library", None)
-        if library is not None:
-            for source in stale:
-                if source.path:
-                    library.forget(source.path)
         self.rebuild(keep_camera=True)
         self.status_message.setStyleSheet("")
-        self.status_message.setText(
-            "Updated with %s." % ", ".join(sorted({s.label for s in stale})))
+        self.status_message.setText("Updated with %s." % ", ".join(names))
 
     def _thumbnail(self) -> Optional[bytes]:
         """Render the viewport to a 256x256 PNG for the archive."""
@@ -5141,7 +5229,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_message.setText("Bill of Materials updated.")
 
     def show_properties(self) -> None:
-        """dProperties: what a document says about itself, its units, and
+        """icProperties: what a document says about itself, its units, and
         its mass, volume and bounding box, in a window of their own.
 
         These used to sit permanently under the tree taking a third of it,
@@ -5150,7 +5238,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         if getattr(self, "properties_window", None) is None:
             window = QtWidgets.QDialog(self)
-            window.setWindowTitle("dProperties")
+            window.setWindowTitle("icProperties")
             window.setMinimumWidth(320)
             layout = QtWidgets.QVBoxLayout(window)
             layout.setContentsMargins(0, 0, 0, 0)
@@ -5973,7 +6061,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.rules_panel.set_document(self.active_document)
 
     def show_rules(self) -> None:
-        """Open the cLogic panel on whatever document is in front."""
+        """Open the icLogic panel on whatever document is in front."""
         self.rules_panel.set_document(self.active_document)
         self.rules_dock.show()
         self.rules_dock.raise_()
@@ -6078,7 +6166,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Wait for a worker without the window going dead.
 
         The window keeps painting, the view keeps panning, orbiting and
-        zooming, and a cLogic form keeps taking slider drags. What could
+        zooming, and an icLogic form keeps taking slider drags. What could
         change the model underneath the rebuild, a click in the tree, the
         ribbon, a key, waits until it is done: it is a moment, and the
         alternative is a rebuild answering a question nobody is asking
@@ -6160,7 +6248,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """A document just arrived: run it, or say plainly why not.
 
         Trusted, its on-open rules run. Not trusted but carrying code, the
-        cLogic panel opens on it so the reason its code features show as
+        icLogic panel opens on it so the reason its code features show as
         failed, and the button that fixes that, are both in front of you
         rather than somewhere you would have to know to look.
         """
@@ -6179,7 +6267,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_message.setStyleSheet("color: %s;" % C.warn)
             self.status_message.setText(
                 "This document carries code that has not been allowed to "
-                "run. Allow it in the cLogic panel if you trust where it "
+                "run. Allow it in the icLogic panel if you trust where it "
                 "came from.")
         QtCore.QTimer.singleShot(0, warn)
 

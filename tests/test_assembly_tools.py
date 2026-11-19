@@ -426,10 +426,12 @@ check("and knows which component is live",
       tree.active == first.id, tree.active)
 
 live = next(r for r in rows if r.data(0, ROLE_ID) == first.id)
-feature_rows = [live.child(i) for i in range(live.childCount())]
-check("the live part shows its features in place",
-      [r.data(0, ROLE_KIND) for r in feature_rows] == ["feature"],
-      [r.data(0, ROLE_KIND) for r in feature_rows])
+child_rows = [live.child(i) for i in range(live.childCount())]
+feature_rows = [r for r in child_rows if r.data(0, ROLE_KIND) == "feature"]
+check("the live part shows its bodies, states and features in place",
+      [r.data(0, ROLE_KIND) for r in child_rows]
+      == ["bodies", "states", "feature"],
+      [r.data(0, ROLE_KIND) for r in child_rows])
 check("and they know which component they belong to",
       feature_rows[0].data(0, ROLE_OWNER) == first.id if feature_rows else False)
 check("only the live one is unfolded",

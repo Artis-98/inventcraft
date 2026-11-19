@@ -1,6 +1,6 @@
 """The urgent ones for 0.3.0, found while building DIAL in 0.2.8.
 
-The window drags by its title bar again.  dLogic is cLogic.  Delete takes
+The window drags by its title bar again.  dLogic is icLogic.  Delete takes
 every selected relationship.  A pick on an imported part lands where it
 was picked, every pick counts, and a big assembly solves only what a
 change touches.  Dialogs stay in front and Esc reaches them.  Section View
@@ -112,7 +112,7 @@ else:
     print("  (Windows only)")
 
 # ------------------------------------------------------------------ #259
-print("dLogic is cLogic")
+print("dLogic is icLogic")
 shown = []
 for root, _dirs, names in os.walk(os.path.join(REPO, "datum")):
     for name in names:
@@ -122,7 +122,7 @@ for root, _dirs, names in os.walk(os.path.join(REPO, "datum")):
                     shown.append(name)
 check("the old name is gone from the program", not shown, shown)
 docks = [d.windowTitle() for d in win.findChildren(QtWidgets.QDockWidget)]
-check("the panel is called cLogic", "cLogic" in docks, docks)
+check("the panel is called icLogic", "icLogic" in docks, docks)
 check("and so is its guide",
       os.path.exists(os.path.join(REPO, "docs", "CLOGIC.md")))
 

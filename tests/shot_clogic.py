@@ -1,4 +1,4 @@
-"""Screenshot cLogic: the stair sample, its code, a rule and its form.
+"""Screenshot icLogic: the stair sample, its code, a rule and its form.
 
     python tests/shot_clogic.py OUT_DIR
 """

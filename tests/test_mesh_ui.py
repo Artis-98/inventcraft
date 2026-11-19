@@ -279,8 +279,21 @@ check("a rebuild with the panel hidden works nothing out", not calls,
       len(calls))
 win.show_properties()
 pump()
-check("opening the panel works it out", len(calls) >= 1)
-check("  and shows it", win.properties.table.rowCount() > 0)
+heavy = win.properties._waiting(document)
+if heavy:
+    # a heavy body waits for Update, as Inventor's physical properties do
+    check("opening the panel on a heavy body says N/A",
+          not calls and win.properties.update_btn.isVisibleTo(win.properties)
+          and any(win.properties.table.item(r, 1).text() == "N/A"
+                  for r in range(win.properties.table.rowCount())))
+    win.properties.update_btn.click()
+    pump()
+check("Update (or opening, on a light body) works it out", len(calls) >= 1)
+check("  and shows it", win.properties.table.rowCount() > 0
+      and all(win.properties.table.item(r, 1).text() != "N/A"
+              for r in range(win.properties.table.rowCount())))
+check("  with no Update waiting on a light body",
+      heavy or not win.properties.update_btn.isVisibleTo(win.properties))
 win.properties_window.close()
 pump()
 

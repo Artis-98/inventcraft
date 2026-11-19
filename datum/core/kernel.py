@@ -341,6 +341,18 @@ def geometry_properties(shape: TopoDS_Shape) -> Dict[str, Any]:
     }
 
 
+def face_count(shape: TopoDS_Shape, stop: int = 0) -> int:
+    """How many faces a shape has, counting no further than ``stop``."""
+    from OCP.TopExp import TopExp_Explorer
+    n, ex = 0, TopExp_Explorer(shape, TopAbs_FACE)
+    while ex.More():
+        n += 1
+        if stop and n >= stop:
+            break
+        ex.Next()
+    return n
+
+
 def centre_of_mass(shape: TopoDS_Shape) -> Tuple[float, float, float]:
     props = GProp_GProps()
     BRepGProp.VolumeProperties_s(shape, props)

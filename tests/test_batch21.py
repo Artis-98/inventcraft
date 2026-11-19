@@ -2,7 +2,7 @@
 
 #13 the Dimension tool raised on every mouse move after the first pick,
 and the error box came back as fast as it was closed.  #7 a Linux copy
-trusted no certificates off Ubuntu.  #9 dProperties had no way to close
+trusted no certificates off Ubuntu.  #9 icProperties had no way to close
 it.  #8 nowhere said which version this is.
 """
 
@@ -187,7 +187,7 @@ check("Windows keeps its own store", update._context().verify_mode
       == ssl.CERT_REQUIRED)
 
 # ==========================================================================
-print("#9: dProperties closes")
+print("#9: icProperties closes")
 
 win.new_document(prompt=False)
 pump()

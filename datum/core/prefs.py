@@ -114,7 +114,7 @@ class Preferences:
     light_colours: Dict[str, str] = field(default_factory=dict)
     # the other schemes' colours, by scheme
     theme_colours: Dict[str, Dict[str, str]] = field(default_factory=dict)
-    # folders whose documents may run their cLogic without asking.  Kept
+    # folders whose documents may run their icLogic without asking.  Kept
     # here, on this machine, because a file must never vouch for itself.
     trusted_folders: List[str] = field(default_factory=list)
     orbit: str = ORBIT_FREE

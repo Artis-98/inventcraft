@@ -262,7 +262,7 @@ check("and it is the active one", win.in_part)
 plate_entry = win.session.by_path(PLATE)
 check("it is the plate", win.session.active is plate_entry)
 check("the status explains Local Update",
-      "Local Update" in win.status_message.text(), win.status_message.text())
+      "go back" in win.status_message.text(), win.status_message.text())
 
 print("asking again goes back to the same tab, not a second copy")
 win.activate(assembly_entry)
@@ -295,28 +295,14 @@ check("the part itself is thicker",
 
 win.activate(assembly_entry)
 pump()
-check("the assembly knows it is behind", win.qat_update.isEnabled())
-check("the status bar says which part",
-      "plate" in win.status_update.text(), win.status_update.text())
-check("the tab is flagged too",
-      win.session.is_stale(assembly_entry))
-
 placed = win.assembly.occurrences[0]
-check("but the assembly has NOT changed under us",
-      abs(kernel.bounding_box(placed.shape)[5] - 3.0) < 1e-6,
-      kernel.bounding_box(placed.shape)[5])
-
-win.local_update()
-pump()
-placed = win.assembly.occurrences[0]
-check("Local Update takes the change",
+check("back in the assembly the change is already there",
       abs(kernel.bounding_box(placed.shape)[5] - 25.0) < 1e-6,
       kernel.bounding_box(placed.shape)[5])
-check("the button goes dark again", not win.qat_update.isEnabled())
-check("and the status bar clears", not win.status_update.text(),
+check("so nothing is left to update", not win.qat_update.isEnabled())
+check("and the status bar is quiet", not win.status_update.text(),
       win.status_update.text())
-check("it says what it did", "Updated with" in win.status_message.text(),
-      win.status_message.text())
+check("the tab is not flagged", not win.session.is_stale(assembly_entry))
 
 print("and it works without the part ever being saved")
 check("the part is still unsaved", win.session.by_path(PLATE).modified)
@@ -338,10 +324,7 @@ win.rebuild()
 pump()
 win.activate(assembly_entry)
 pump()
-check("out of date again", win.qat_update.isEnabled())
-win.local_update()
-pump()
-check("and the placed body followed",
+check("the placed body followed on the way back",
       abs(kernel.bounding_box(win.assembly.occurrences[0].shape)[5] - 40.0)
       < 1e-6, kernel.bounding_box(win.assembly.occurrences[0].shape)[5])
 
@@ -355,7 +338,6 @@ win.document.features[1].distance = "3"
 win.rebuild()
 pump()
 win.activate(assembly_entry)
-win.local_update()
 pump()
 
 win.new_cam()

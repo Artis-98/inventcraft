@@ -2,7 +2,7 @@
 
 What has to hold: the model that comes back is the model a rebuild here
 would have made; the window keeps turning over while it waits; nothing
-that could change the model gets in while it waits, except a cLogic form,
+that could change the model gets in while it waits, except a icLogic form,
 whose last value is built as soon as the first build lands; and a worker
 dying in the middle costs a slower rebuild, never a wrong or missing one.
 """

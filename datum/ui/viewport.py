@@ -96,9 +96,9 @@ SELECTION_MODES = {
     # first saying which; OCCT happily has both modes live at once and
     # resolves it by what is nearest the cursor.
     "assembly": (SEL_FACE, SEL_EDGE),
-    # Project Geometry takes an edge, or a whole face's outline: an edge
-    # wins where the cursor is on one, the face everywhere else on it
-    "project": (SEL_EDGE, SEL_FACE),
+    # Project Geometry takes a corner as a point, an edge, or a whole
+    # face's outline: whichever is nearest the cursor, a corner first
+    "project": (SEL_VERTEX, SEL_EDGE, SEL_FACE),
     # a model dimension: corners, edges or faces, whichever is nearest
     "annotate": (SEL_VERTEX, SEL_EDGE, SEL_FACE),
     # Measure takes a point, an edge or a face, whichever is nearest
@@ -2473,7 +2473,16 @@ class Viewport(QtWidgets.QWidget):
             self.redraw()
             return
 
-        size = 32.0
+        # The axes keep one size on screen whatever the model is: a
+        # fixed length in millimetres dwarfed a small part and vanished
+        # next to a big one.  Zoom persistence about the origin counts
+        # the length in screen pixels instead.
+        from OCP.Graphic3d import (Graphic3d_TransformPers,
+                                   Graphic3d_TransModeFlags)
+        size = self.ORIGIN_AXIS_PIXELS
+        pers = Graphic3d_TransformPers(
+            Graphic3d_TransModeFlags.Graphic3d_TMF_ZoomPers,
+            gp_Pnt(0, 0, 0))
         axes = (
             ((1, 0, 0), "#d1544f"),
             ((0, 1, 0), "#6fbf5f"),
@@ -2488,6 +2497,7 @@ class Viewport(QtWidgets.QWidget):
             ais.SetColor(_col(colour))
             ais.SetWidth(1.3)
             ais.SetInfiniteState(True)
+            ais.SetTransformPersistence(pers)
             ctx.Display(ais, False)
             ctx.Deactivate(ais)
             self._origin_ais.append(ais)
@@ -3922,6 +3932,9 @@ class Viewport(QtWidgets.QWidget):
                 pass
         self._part_cuts = {}
 
+    # half length of each origin axis, in screen pixels
+    ORIGIN_AXIS_PIXELS = 45.0
+
     # the cut face's stripes: one dark line across a light tile, at 45
     # degrees, repeated; about this many across the model's biggest size
     HATCH_LINES = 28
@@ -4193,6 +4206,11 @@ class Viewport(QtWidgets.QWidget):
                 # a click that has not really moved is still a click, so
                 # selecting a loose part does not nudge it
                 return
+            # the hover highlight is drawn where the part was, and would
+            # stay hanging there while the part itself follows the cursor
+            if self.context.HasDetected():
+                self.context.ClearDetected(False)
+            self._lit_owner = None
             self._drag_component(dx, dy)
             self._last_pos = pos
             return
@@ -4528,6 +4546,98 @@ class Viewport(QtWidgets.QWidget):
             return False
         self.view.Redraw()
         return bool(self.view.Dump(path))
+
+    def render_image(self, path: str, width: int = 0, height: int = 0,
+                     shadows: bool = True, reflections: bool = False,
+                     edges: bool = False, white: bool = False) -> bool:
+        """A ray traced picture of the model as it is framed now.
+
+        OpenCASCADE's own ray tracer on the graphics card: real shadows,
+        reflections if asked, smoothed edges.  The cube, the navigation
+        buttons, the origin and the corner axes are taken off for it and
+        put back after, and the view is left exactly as it was.
+        """
+        if not self._ready:
+            return False
+        from OCP.Graphic3d import Graphic3d_RenderingMode
+        from OCP.Image import Image_AlienPixMap
+        from OCP.V3d import V3d_ImageDumpOptions
+        from OCP.Quantity import Quantity_Color, Quantity_TOC_RGB
+        from OCP.TCollection import TCollection_AsciiString as _TAS
+
+        ctx, view = self.context, self.view
+        params = view.ChangeRenderingParams()
+        # the method is read as a flag: pybind hands the enum back by
+        # reference, so a copy of it changed along with the setting
+        was_traced = (params.Method
+                      == Graphic3d_RenderingMode.Graphic3d_RM_RAYTRACING)
+        kept = (int(params.RaytracingDepth), bool(params.IsShadowEnabled),
+                bool(params.IsReflectionEnabled),
+                bool(params.IsAntialiasingEnabled),
+                bool(params.IsTransparentShadowEnabled))
+        # everything drawn in screen space or about the origin goes
+        hidden = []
+        try:
+            from OCP.AIS import AIS_ListOfInteractive
+            shown = AIS_ListOfInteractive()
+            ctx.DisplayedObjects(shown)
+            for obj in shown:
+                if obj.TransformPersistence() is not None \
+                        or obj in self._origin_ais:
+                    hidden.append(obj)
+        except Exception:
+            hidden = [o for o in [self._cube] + list(self._origin_ais)
+                      if o is not None]
+        mode = self.display_mode
+        ok = False
+        try:
+            for obj in hidden:
+                ctx.Erase(obj, False)
+            view.TriedronErase()
+            if white:
+                view.SetBgGradientColors(
+                    Quantity_Color(1, 1, 1, Quantity_TOC_RGB),
+                    Quantity_Color(1, 1, 1, Quantity_TOC_RGB),
+                    Aspect_GradientFillMethod.Aspect_GradientFillMethod_Vertical,
+                    False)
+            if not edges and mode == "shaded_edges":
+                self.display_mode = "shaded"
+                self._apply_display_mode()
+            params.Method = Graphic3d_RenderingMode.Graphic3d_RM_RAYTRACING
+            params.RaytracingDepth = 4 if reflections else 2
+            params.IsShadowEnabled = shadows
+            params.IsTransparentShadowEnabled = shadows
+            params.IsReflectionEnabled = reflections
+            params.IsAntialiasingEnabled = True
+            view.Redraw()
+            image = Image_AlienPixMap()
+            options = V3d_ImageDumpOptions()
+            win_w, win_h = view.Window().Size()
+            options.Width = int(width or win_w)
+            options.Height = int(height or win_h)
+            ok = bool(view.ToPixMap(image, options)) and bool(
+                image.Save(_TAS(path)))
+        finally:
+            params.Method = (
+                Graphic3d_RenderingMode.Graphic3d_RM_RAYTRACING if was_traced
+                else Graphic3d_RenderingMode.Graphic3d_RM_RASTERIZATION)
+            (params.RaytracingDepth, params.IsShadowEnabled,
+             params.IsReflectionEnabled, params.IsAntialiasingEnabled,
+             params.IsTransparentShadowEnabled) = kept
+            if self.display_mode != mode:
+                self.display_mode = mode
+                self._apply_display_mode()
+            if white:
+                self.apply_background()
+            for obj in hidden:
+                ctx.Display(obj, False)
+            for obj in self._origin_ais:
+                ctx.Deactivate(obj)
+            view.TriedronDisplay(
+                Aspect_TypeOfTriedronPosition.Aspect_TOTP_LEFT_LOWER,
+                _col(C.axis_label), 0.09)
+            self.redraw()
+        return ok
         
     def shutdown(self) -> None:
         """Let go of the 3D view before Qt takes its window away.

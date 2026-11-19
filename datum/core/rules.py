@@ -1,4 +1,4 @@
-"""cLogic: rules that drive a document, and code that builds one.
+"""icLogic: rules that drive a document, and code that builds one.
 
 Inventor has iLogic, and the reason people ask for it is not the language,
 it is that a model can be told how to behave rather than only what shape

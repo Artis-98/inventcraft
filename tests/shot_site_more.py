@@ -5,7 +5,7 @@ Usage:  python tests/shot_site_more.py [out_dir [name ...]]
 Run one picture per process for clean tabs: sketch, inplace, clogic, cam.
 
 shot_site.py takes the assembly and the part; this takes the sketch, a
-part edited in place, cLogic and the CAM sheet, from the samples in this
+part edited in place, icLogic and the CAM sheet, from the samples in this
 repository, opened in the real window.  Dialogs and the heads-up boxes are
 separate windows, so they are painted onto the picture where they sit.
 """

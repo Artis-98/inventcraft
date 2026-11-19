@@ -226,12 +226,18 @@ def project(shape: Optional[TopoDS_Shape],
             up: Sequence[float] = (0.0, 0.0, 1.0),
             hidden: bool = True,
             tangents: bool = True,
-            hatch: Optional[Sequence] = None) -> Projection:
+            hatch: Optional[Sequence] = None,
+            fast: bool = False) -> Projection:
     """Flatten a shape into drawing lines, seen from ``direction``.
 
     The result is centred on the projected geometry rather than on the
     model's origin, so a view lands where it is put and not wherever the
     part happens to sit in space.
+
+    ``fast`` works on a coarse tessellation instead of the real curves
+    (``HLRBRep_PolyAlgo``): rough round the curves, many times quicker on
+    a big model.  Inventor's way with a view being placed: a quick draft
+    while it is set up, the real lines once it is.
     """
     if shape is None or shape.IsNull():
         return Projection(error="there is no geometry to draw")
@@ -239,15 +245,23 @@ def project(shape: Optional[TopoDS_Shape],
     # an unmarked seam would be drawn as a line down every cylinder
     kernel.mark_seams(shape)
     frame = camera(direction, up)
-    try:
-        algo = HLRBRep_Algo()
-        algo.Add(shape)
-        algo.Projector(HLRAlgo_Projector(frame))
-        algo.Update()
-        algo.Hide()
-        result = HLRBRep_HLRToShape(algo)
-    except Exception as exc:
-        return Projection(error="could not project this shape: %s" % exc)
+    if fast:
+        try:
+            result = _fast_hlr(shape, frame)
+        except Exception:
+            result = None
+        if result is None:
+            fast = False
+    if not fast:
+        try:
+            algo = HLRBRep_Algo()
+            algo.Add(shape)
+            algo.Projector(HLRAlgo_Projector(frame))
+            algo.Update()
+            algo.Hide()
+            result = HLRBRep_HLRToShape(algo)
+        except Exception as exc:
+            return Projection(error="could not project this shape: %s" % exc)
 
     wanted = [(result.VCompound(), VISIBLE),
               (result.OutLineVCompound(), OUTLINE)]
@@ -266,14 +280,17 @@ def project(shape: Optional[TopoDS_Shape],
     # HLR hands back its result already flattened onto the projection plane,
     # in the frame's own coordinates: X across the page, Y up it, Z zero.
     lines: List[Polyline] = []
+    flatten = _flatten_poly if fast else _flatten
     for compound, kind in wanted:
         if compound is None or compound.IsNull():
             continue
         for edge in kernel.explore(compound, TopAbs_EDGE):
-            for points in _flatten(edge):
+            for points in flatten(edge):
                 if len(points) >= 2:
                     lines.append(Polyline(points, kind))
 
+    if fast:
+        lines = _chain(lines)
     lines.extend(hatched)
     if not lines:
         return Projection(error="nothing is visible from this direction")
@@ -289,6 +306,85 @@ def project(shape: Optional[TopoDS_Shape],
     half_h = (max(ys) - min(ys)) / 2.0
     return Projection(lines=lines, centre=(cx, cy),
                       box=(-half_w, -half_h, half_w, half_h))
+
+
+# how coarse the draft tessellation is, as a share of the model's size
+FAST_DEFLECTION = 0.004
+
+
+def _fast_hlr(shape: TopoDS_Shape, frame: gp_Ax2):
+    """Hidden lines from the tessellation, for a draft of a view."""
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.HLRBRep import HLRBRep_PolyAlgo, HLRBRep_PolyHLRToShape
+
+    box = kernel.bounding_box(shape)
+    size = max(box[3] - box[0], box[4] - box[1], box[5] - box[2], 1.0)
+    # meshes a body only where it has none fine enough already, which a
+    # model shown on screen nearly always has
+    BRepMesh_IncrementalMesh(shape, size * FAST_DEFLECTION, False, 0.5, True)
+    algo = HLRBRep_PolyAlgo(shape)
+    algo.Projector(HLRAlgo_Projector(frame))
+    algo.Update()
+    result = HLRBRep_PolyHLRToShape()
+    result.Update(algo)
+    return result
+
+
+def _chain(lines: List[Polyline]) -> List[Polyline]:
+    """Join a draft's loose segments end to end into polylines, so the
+    sheet has hundreds of lines to draw rather than tens of thousands."""
+    def key(p):
+        return (round(p[0], 4), round(p[1], 4))
+
+    out: List[Polyline] = []
+    for kind in KINDS:
+        segs = [line.points for line in lines if line.kind == kind]
+        if not segs:
+            continue
+        ends: Dict[Tuple[float, float], List[int]] = {}
+        for i, s in enumerate(segs):
+            ends.setdefault(key(s[0]), []).append(i)
+            ends.setdefault(key(s[-1]), []).append(i)
+        used = [False] * len(segs)
+
+        def take(at):
+            for j in ends.get(key(at), ()):
+                if not used[j]:
+                    used[j] = True
+                    s = segs[j]
+                    return s if key(s[0]) == key(at) else s[::-1]
+            return None
+
+        for i, s in enumerate(segs):
+            if used[i]:
+                continue
+            used[i] = True
+            path = list(s)
+            while True:
+                nxt = take(path[-1])
+                if nxt is None:
+                    break
+                path.extend(nxt[1:])
+            while True:
+                prv = take(path[0])
+                if prv is None:
+                    break
+                path[:0] = prv[::-1][:-1]
+            out.append(Polyline(path, kind))
+    return out
+
+
+def _flatten_poly(edge) -> List[List[Tuple[float, float]]]:
+    """A draft edge is already straight segments: its two ends."""
+    from OCP.BRep import BRep_Tool as _T
+    from OCP.TopExp import TopExp
+    from OCP.TopoDS import TopoDS as _D
+    edge = _D.Edge_s(edge)
+    first, last = TopExp.FirstVertex_s(edge), TopExp.LastVertex_s(edge)
+    if first.IsNull() or last.IsNull():
+        return _flatten(edge)
+    a, b = _T.Pnt_s(first), _T.Pnt_s(last)
+    return [[(a.X(), a.Y()), (b.X(), b.Y())]]
 
 
 def _face_loops(face, frame: gp_Ax2) -> List[List[Tuple[float, float]]]:

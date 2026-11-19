@@ -1,4 +1,4 @@
-"""cLogic in the window: the panel, the editors, the triggers.
+"""icLogic in the window: the panel, the editors, the triggers.
 
 The core holds the promises about what code may do. These hold the ones
 about what a person sees: that a file with code in it says so the moment
@@ -66,7 +66,7 @@ check("its code features have not run",
       all("trusted" in f.error for f in doc.features
           if isinstance(f, CodeFeature)),
       [f.error for f in doc.features])
-check("the cLogic panel opened by itself", win.rules_dock.isVisible())
+check("the icLogic panel opened by itself", win.rules_dock.isVisible())
 check("  on this document", panel._document is doc)
 check("  with the warning showing", panel.banner.isVisible())
 check("  naming what it carries",

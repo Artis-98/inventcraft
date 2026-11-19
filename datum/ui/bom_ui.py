@@ -5,7 +5,7 @@ placed in it directly, parts and sub-assemblies, each counted.  Parts Only
 is what it is made of: every part, however deep, counted right through, a
 bolt in a sub-assembly used twice counted twice over.
 
-Every column a part's dProperties hold can be shown, and changed in the
+Every column a part's icProperties hold can be shown, and changed in the
 table: what is typed goes back into the part, into the open document if
 it is open, into its file if not.  Which columns show is picked from a
 list and kept with the assembly, so the table stays as tidy as wanted.
@@ -24,7 +24,7 @@ from . import icons
 from .panels import DocumentProperties
 from .theme import C
 
-# what each property is called, as the dProperties window calls it
+# what each property is called, as the icProperties window calls it
 FIELD_LABELS: Dict[str, str] = dict(DocumentProperties.FIELDS)
 
 # columns that are not properties: worked out, not typed
@@ -171,7 +171,7 @@ class BomDialog(QtWidgets.QDialog):
 
     def available(self) -> List[str]:
         """Every column there is to show: the worked out ones, every fixed
-        dProperties field, and every property any part has of its own."""
+        icProperties field, and every property any part has of its own."""
         out = [ITEM, THUMBNAIL, QTY, MATERIAL, MASS]
         out += [bom.PROP + key for key, _label in DocumentProperties.FIELDS]
         for rows in self.rows.values():

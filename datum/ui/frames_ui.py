@@ -605,8 +605,9 @@ class InsertFrameDialog(PickingDialog):
         self._reach = {}
         self._picked = [k for k in self._picked if k in self._lines]
         if not self._lines:
-            self.message.setText("Place a skeleton first: a part with a "
-                                 "sketch of lines in it, the sketch visible.")
+            self.message.setText("Place a part first: its edges, or the "
+                                 "lines of a sketch in it, the sketch "
+                                 "visible.")
         self._changed()
 
     def candidates(self) -> Dict[Any, Any]:

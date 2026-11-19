@@ -3784,6 +3784,11 @@ class SketchEditor(QtCore.QObject):
         """
         if not self.active or sub_shape is None:
             return 0
+        from OCP.TopAbs import TopAbs_VERTEX
+        if sub_shape.ShapeType() == TopAbs_VERTEX:
+            # a corner comes in as a point of its own, not the lines
+            # meeting at it
+            return self._project_vertex(sub_shape)
         self.begin_change()
         # where it came from: given for a line of another sketch, found on
         # the body for a model edge
@@ -3795,6 +3800,22 @@ class SketchEditor(QtCore.QObject):
         else:
             self.discard_change()
         return made
+
+    def _project_vertex(self, vertex) -> int:
+        """A model corner onto the sketch: one pinned point where it falls,
+        nothing when a point is there already."""
+        from OCP.BRep import BRep_Tool
+        from OCP.TopoDS import TopoDS
+        p = BRep_Tool.Pnt_s(TopoDS.Vertex_s(vertex))
+        x, y = self.sketch.plane.to_2d((p.X(), p.Y(), p.Z()))
+        if any(math.hypot(q.x - x, q.y - y) < 1e-9
+               for q in self.sketch.points.values()):
+            return 0
+        self.begin_change()
+        pid = self.sketch.add_point(x, y)
+        self.sketch.points[pid].fixed = True
+        self._touch()
+        return 1
 
     def project_datum(self, kind: str, geometry, size: float) -> int:
         """Project an origin or work axis, plane or point onto the sketch.

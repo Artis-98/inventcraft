@@ -3008,7 +3008,7 @@ class CodeFeature(Feature):
         if not ctx.code_allowed:
             raise FeatureError(
                 "%s is code, and code does not run until this document is "
-                "trusted.  Allow it from the cLogic panel." % self.name)
+                "trusted.  Allow it from the icLogic panel." % self.name)
         from .rules import run_code
 
         self.output = ""

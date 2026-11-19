@@ -599,6 +599,48 @@ class PlacementDialog(QtWidgets.QDialog):
         super().keyPressEvent(event)
 
 
+# the clipboard format for components: their files and where they sat
+CLIP_MIME = "application/x-inventcraft-components"
+_PLACEABLE_EXTS = (".icpart", ".icasm", ".pdat", ".adat",
+                   ".step", ".stp", ".iges", ".igs")
+
+
+def put_on_clipboard(entries: List[Dict[str, Any]]) -> None:
+    """Components on the system clipboard: our own format with their
+    placements, and the files themselves, so Explorer can paste them
+    too."""
+    data = QtCore.QMimeData()
+    data.setData(CLIP_MIME, json.dumps(entries).encode("utf-8"))
+    seen, urls = set(), []
+    for entry in entries:
+        key = os.path.normcase(entry["path"])
+        if key not in seen:
+            seen.add(key)
+            urls.append(QtCore.QUrl.fromLocalFile(entry["path"]))
+    data.setUrls(urls)
+    QtWidgets.QApplication.clipboard().setMimeData(data)
+
+
+def read_clipboard() -> List[Dict[str, Any]]:
+    """What can be pasted into an assembly: copied components, or part,
+    assembly and STEP files copied anywhere."""
+    data = QtWidgets.QApplication.clipboard().mimeData()
+    if data is None:
+        return []
+    if data.hasFormat(CLIP_MIME):
+        try:
+            entries = json.loads(bytes(data.data(CLIP_MIME)).decode("utf-8"))
+            return [e for e in entries if isinstance(e, dict) and e.get("path")]
+        except (ValueError, TypeError):
+            return []
+    out = []
+    for url in data.urls() if data.hasUrls() else []:
+        path = url.toLocalFile()
+        if path and os.path.splitext(path)[1].lower() in _PLACEABLE_EXTS:
+            out.append({"path": os.path.abspath(path)})
+    return out
+
+
 class AssemblyController(QtCore.QObject):
     """Everything the main window does while an assembly is open."""
 
@@ -648,6 +690,9 @@ class AssemblyController(QtCore.QObject):
         b.replace_requested.connect(self.replace_component)
         b.change_size_requested.connect(self.change_size)
         b.properties_requested.connect(self.component_properties)
+        b.copy_requested.connect(
+            lambda oid: self.copy_selected() if oid
+            else self.host.copy_document())
         b.open_location_requested.connect(self.component_location)
         b.constraint_activated.connect(self.edit_constraint)
         b.constraint_selected.connect(self._constraint_selected)
@@ -662,6 +707,14 @@ class AssemblyController(QtCore.QObject):
         b.item_clicked.connect(self._item_clicked)
         b.plane_action_requested.connect(
             lambda what, fid: self.host.plane_action(what, fid))
+        # the part edited in place: its solids and model states
+        b.body_visibility_requested.connect(
+            lambda what, name: self.host.set_body_visibility(what, name))
+        b.solid_rename_requested.connect(
+            lambda name, label: self.host.rename_solid(name, label))
+        b.model_state_requested.connect(
+            lambda what, name, new: self.host.model_state_action(
+                what, name, new))
 
         v = self.viewport
         v.component_drag_started.connect(self._drag_started)
@@ -961,7 +1014,45 @@ class AssemblyController(QtCore.QObject):
                 out[(occurrence.id, sketch_id, eid)] = (
                     occurrence.placement.apply_point(plane.to_3d(a.x, a.y)),
                     occurrence.placement.apply_point(plane.to_3d(b.x, b.y)))
+        # and the straight edges of every part placed here: a frame or a
+        # pipe can be put along a block's edges, from corner to corner
+        from ..core import frames
+        for occurrence, part in self._component_parts():
+            for sid, (_plane, _name, lines) in frames.model_edges(
+                    part).items():
+                for lid, (a, b) in lines.items():
+                    out[(occurrence.id, sid, lid)] = (
+                        occurrence.placement.apply_point(a),
+                        occurrence.placement.apply_point(b))
         return out
+
+    def _component_parts(self):
+        """(occurrence, part document) for every part shown here that is
+        not itself a frame's member or a pipe."""
+        from ..core import frames
+        doc = self.document
+        if doc is None:
+            return
+        host = self.host
+        for occurrence in doc.occurrences:
+            if occurrence.suppressed or not occurrence.visible:
+                continue
+            path = doc.component_path(occurrence)
+            if not path or fileformat.is_assembly(path):
+                continue
+            try:
+                if frames.is_member_part(path):
+                    continue
+            except Exception:
+                pass
+            part = None
+            live = getattr(host, "_live_document", None)
+            if live is not None:
+                part = live(path)
+            if part is None and hasattr(host, "component_document"):
+                part = host.component_document(path)
+            if part is not None and getattr(part, "shape", None) is not None:
+                yield occurrence, part
 
     def draw_component_sketches(self) -> None:
         """Into the overlay, so it goes with the assembly's pictures when
@@ -1098,6 +1189,37 @@ class AssemblyController(QtCore.QObject):
         if report.missing:
             QtWidgets.QMessageBox.warning(self.host, "Place Component",
                                           report.message)
+
+    def _clear_group(self, arrivals: List[Occurrence]) -> None:
+        """Move pasted components along X together, just far enough not to
+        sit inside what is already there; left alone if they do not."""
+        doc = self.document
+
+        def box(occurrences):
+            out = None
+            for occurrence in occurrences:
+                placed = occurrence.placed() if occurrence.shape else None
+                if placed is None:
+                    continue
+                try:
+                    b = kernel.bounding_box(placed)
+                except Exception:
+                    continue
+                out = list(b) if out is None else [
+                    min(out[0], b[0]), min(out[1], b[1]), min(out[2], b[2]),
+                    max(out[3], b[3]), max(out[4], b[4]), max(out[5], b[5])]
+            return out
+
+        others = [o for o in doc.occurrences if o not in arrivals]
+        theirs, ours = box(others), box(arrivals)
+        if theirs is None or ours is None:
+            return
+        if any(ours[i] > theirs[i + 3] or ours[i + 3] < theirs[i]
+               for i in range(3)):
+            return
+        shift = theirs[3] + PLACE_GAP - ours[0]
+        for occurrence in arrivals:
+            occurrence.placement.position[0] += shift
 
     def _spread(self, arrivals: List[Occurrence]) -> None:
         """Set new components down in a row rather than inside each other.
@@ -1531,7 +1653,7 @@ class AssemblyController(QtCore.QObject):
         return doc.component_path(occurrence) or ""
 
     def component_properties(self, occurrence_id: int) -> None:
-        """dProperties of the assembly (0), or of the file a component places.
+        """icProperties of the assembly (0), or of the file a component places.
 
         A component's properties belong to its own file, so that file is
         opened in its tab, where they can be edited and saved, with the
@@ -1581,8 +1703,8 @@ class AssemblyController(QtCore.QObject):
         if already is None:
             self.host.status_message.setStyleSheet("")
             self.host.status_message.setText(
-                "Editing %s. Come back to the assembly and press Local "
-                "Update to take your changes." % os.path.basename(path))
+                "Editing %s. Your changes show in the assembly when you "
+                "go back to it." % os.path.basename(path))
 
     def _occurrence_selected(self, occurrence_id: int) -> None:
         doc = self.document
@@ -1739,47 +1861,119 @@ class AssemblyController(QtCore.QObject):
         return list(self.browser.selected_occurrence_ids()
                     or self.viewport.selected_components())
 
+    def update_mass(self):
+        """Weigh every part in the assembly, each in its own material.
+
+        Parts open in a tab are weighed as they are there, saved or not;
+        the rest from their files.  The answer is kept on the assembly
+        until its shape changes, and icProperties shows it.
+        """
+        from ..core import bom
+        from ..core.document import measure_everywhere
+
+        doc = self.document
+        if doc is None or doc.shape is None:
+            return None
+        library = getattr(doc, "library", None)
+        total, parts, missing = 0.0, 0, 0
+        for row in bom.rows_for(doc, doc.base_dir or "", library,
+                                recurse=True):
+            live = self.host._live_document(row.path) if row.path else None
+            each = None
+            if live is not None and hasattr(live, "known_volume"):
+                each = (live.mass_properties() or {}).get("mass_g")
+            elif row.path:
+                each = bom.mass_grams(row.path, library)
+            parts += row.quantity
+            if each is None:
+                missing += row.quantity
+                continue
+            total += each * row.quantity
+        measure_everywhere(doc.shape)
+        props = kernel.geometry_properties(doc.shape)
+        props["mass_g"] = total
+        doc._mass_update = (doc.shape, props, parts, missing)
+        return props
+
     def copy_selected(self) -> None:
-        """Remember what is selected, for pasting."""
+        """Put what is selected on the clipboard, for pasting here or in
+        another assembly."""
         picked = self.selected_occurrences()
         doc = self.document
         if doc is None or not picked:
             return
-        self._clipboard = []
+        entries = []
         for oid in picked:
             occurrence = doc.occurrence(oid)
-            if occurrence is not None:
-                self._clipboard.append(
-                    (copy.deepcopy(occurrence.ref),
-                     copy.deepcopy(occurrence.placement)))
+            path = doc.component_path(occurrence) if occurrence else None
+            if not path:
+                continue
+            entries.append({
+                "path": os.path.abspath(path),
+                "label": occurrence.ref.label or "",
+                "name": occurrence.name,
+                "position": list(occurrence.placement.position),
+                "rotation": list(occurrence.placement.rotation),
+            })
+        if not entries:
+            return
+        put_on_clipboard(entries)
+        self._clipboard = entries
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
-            "Copied %d component(s)." % len(self._clipboard))
+            "Copied %d component(s)." % len(entries))
 
     def paste(self) -> None:
-        """Place another of whatever was copied.
+        """Place whatever was copied: components from this assembly or
+        another, a part copied from its own tab, or files copied in
+        Explorer.
 
-        The copy arrives beside the original rather than exactly on top of
-        it, because two bodies in the same place look like one body and
-        the first thing anybody would do is drag them apart.
+        Copied components keep where they were to one another.  The group
+        is moved along as one only when it would land inside something
+        already here, which is always so when pasting into the assembly
+        it came from: two bodies in the same place look like one body.
         """
         doc = self.document
-        if doc is None or not self._clipboard:
+        entries = read_clipboard()
+        if doc is None or not entries:
             return
+        own = os.path.normcase(os.path.abspath(doc.path)) if doc.path else ""
+        entries = [e for e in entries
+                   if os.path.normcase(e["path"]) != own
+                   and os.path.exists(e["path"])]
+        if not entries:
+            return
+        from ..core import standard_parts
+        foreign = [e for e in entries if os.path.splitext(e["path"])[1]
+                   .lower() in standard_parts.FOREIGN]
+        if foreign:
+            # a STEP file becomes a part of its own first, as Place does
+            for entry in foreign:
+                self.place_library_file(entry["path"])
+            entries = [e for e in entries if e not in foreign]
+            if not entries:
+                return
+        self.take_over()
         doc.push_undo()
-        arrivals = []
-        for ref, placement in self._clipboard:
-            occurrence = Occurrence(
-                id=doc.new_id(), ref=copy.deepcopy(ref),
-                placement=copy.deepcopy(placement),
-                name=doc.unique_name(
-                    os.path.splitext(ref.name or ref.label or "Part")[0]))
-            doc.occurrences.append(occurrence)
+        was_empty = not doc.occurrences
+        arrivals, placed = [], []
+        for entry in entries:
+            occurrence = doc.place(entry["path"], entry.get("label", ""))
+            occurrence.grounded = was_empty and not arrivals
+            if entry.get("position") is not None:
+                occurrence.placement.position = list(entry["position"])
+                occurrence.placement.rotation = list(
+                    entry.get("rotation") or [0.0, 0.0, 0.0])
+                placed.append(occurrence)
             arrivals.append(occurrence)
         # the bodies have to be loaded before anything can be set down
         # beside anything else, so this first rebuild is what measures them
         doc.rebuild()
-        self._spread(arrivals)
+        if placed:
+            self._clear_group(placed)
+        loose = [o for o in arrivals if o not in placed]
+        if loose:
+            self._spread(loose)
         doc.modified = True
         self.rebuild()
         self.browser.select_occurrences([o.id for o in arrivals])

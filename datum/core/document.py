@@ -299,7 +299,7 @@ class Document:
         # whatever its file says, because who drew it is a fact about the
         # part and not about the machine it was opened on.
         self.properties: Dict[str, str] = prefs.prefs().stamp({})
-        # cLogic: rules belonging to this document.  They never run until
+        # icLogic: rules belonging to this document.  They never run until
         # the document is trusted, and trust is not something a file can
         # carry in from somewhere else.
         self.rules = RuleSet()
@@ -334,7 +334,7 @@ class Document:
         self._remote_shapes: Dict[str, TopoDS_Shape] = {}
         self._remote_recent: List[List[str]] = []
         # rebuilds of nearby parameter values done on spare cores while a
-        # cLogic form is open; see ahead.BuildAhead
+        # icLogic form is open; see ahead.BuildAhead
         self.ahead = None
         self._chain: Optional[str] = None
         self._applied_chain: Optional[str] = None

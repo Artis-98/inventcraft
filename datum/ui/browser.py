@@ -23,17 +23,24 @@ ORIGIN_PLANES = (("XY Plane", "XY"), ("XZ Plane", "XZ"), ("YZ Plane", "YZ"))
 ORIGIN_AXES = (("X Axis", "X"), ("Y Axis", "Y"), ("Z Axis", "Z"))
 
 
-def add_file_actions(menu: QtWidgets.QMenu, doc, properties, location
-                     ) -> None:
-    """dProperties and Open File Location, for a document or a component.
+def add_file_actions(menu: QtWidgets.QMenu, doc, properties, location,
+                     copy=None) -> None:
+    """icProperties and Open File Location, for a document or a component.
 
     The same two entries wherever a file is right-clicked in a tree: the
     part at the top of its own tree, an assembly at the top of its, and
     each component an assembly places.
     """
-    props = menu.addAction(icons.icon("properties", 16), "dProperties...")
+    props = menu.addAction(icons.icon("properties", 16), "icProperties...")
     props.setToolTip("Title, part number, material and your own properties")
     props.triggered.connect(lambda: properties())
+    if copy is not None:
+        # the file itself, to paste into an assembly as a component
+        grab = menu.addAction(icons.icon("duplicate", 16), "Copy")
+        grab.setShortcut(QtGui.QKeySequence("Ctrl+C"))
+        grab.setShortcutVisibleInContextMenu(True)
+        grab.setToolTip("Copy it, to paste into an assembly with Ctrl+V")
+        grab.triggered.connect(lambda: copy())
     path = getattr(doc, "path", "") or ""
     where = menu.addAction(icons.icon("folder_open", 16), "Open File Location")
     where.setEnabled(bool(path))
@@ -82,6 +89,7 @@ class ModelBrowser(QtWidgets.QTreeWidget):
     # the part itself, from its node at the top of the tree
     properties_requested = QtCore.Signal()
     open_location_requested = QtCore.Signal()
+    copy_requested = QtCore.Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -775,7 +783,8 @@ class ModelBrowser(QtWidgets.QTreeWidget):
         elif kind == "root":
             add_file_actions(menu, self._doc,
                              self.properties_requested.emit,
-                             self.open_location_requested.emit)
+                             self.open_location_requested.emit,
+                             self.copy_requested.emit)
         else:
             return None
 

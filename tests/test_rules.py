@@ -1,4 +1,4 @@
-"""cLogic: rules that drive a document.
+"""icLogic: rules that drive a document.
 
 The two things worth holding still are that a rule can actually move the
 model, and that it cannot move anything until somebody says it may.

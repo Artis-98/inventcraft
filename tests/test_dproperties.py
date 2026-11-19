@@ -1,4 +1,4 @@
-"""dProperties: the custom half of a part's Properties window.
+"""icProperties: the custom half of a part's Properties window.
 
 A property is only worth typing if it turns up where the part does.  So
 this follows one from the window, into the file, back out of it, into a

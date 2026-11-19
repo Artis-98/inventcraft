@@ -4,7 +4,7 @@
 #112 a feature's profile picking offers the sketches in sight, not every
      sketch in the part, but always the ones the feature itself uses;
 #113 finishing a sketch goes back to the view it was entered from;
-#114 dProperties and Open File Location from the tree and the File menu;
+#114 icProperties and Open File Location from the tree and the File menu;
 #115 two concentric circles dimension across the ring between them.
 """
 import math
@@ -234,20 +234,20 @@ win._active_dialog = None
 
 
 print()
-print("#114: dProperties and Open File Location")
+print("#114: icProperties and Open File Location")
 part = os.path.join(WORK, "Bracket.icpart")
 win.document.path = part
 win.save_document()
 pump()
 menu = win.browser.menu_for(win.browser.topLevelItem(0))
 seen = [a.text() for a in menu.actions()] if menu is not None else []
-check("right-clicking the part offers dProperties and Open File Location",
-      "dProperties..." in seen and "Open File Location" in seen, seen)
+check("right-clicking the part offers icProperties and Open File Location",
+      "icProperties..." in seen and "Open File Location" in seen, seen)
 where = next(a for a in menu.actions() if a.text() == "Open File Location")
 check("  Open File Location is live once the part has a file",
       where.isEnabled())
 labels = [a.text().split("\t")[0] for a in win.file_menu.actions()]
-check("  and the File menu has dProperties", "dProperties..." in labels,
+check("  and the File menu has icProperties", "icProperties..." in labels,
       labels)
 revealed = []
 win._reveal = revealed.append
@@ -257,7 +257,7 @@ check("Open File Location shows the part's own file",
       == os.path.normcase(os.path.abspath(part)), revealed)
 win.show_properties()
 pump()
-check("dProperties opens the properties window",
+check("icProperties opens the properties window",
       getattr(win, "properties_window", None) is not None
       and win.properties_window.isVisible())
 win.properties_window.hide()

@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from ..core import kernel
 from ..core import units as unitlib
 from ..core.document import Document
 from ..core.params import ExpressionError
@@ -434,7 +435,7 @@ class DocumentProperties(QtWidgets.QWidget):
     document without changing who you are.  A title block and a parts list
     read these fields, which is the whole reason they exist.
 
-    Below the fixed fields sit the custom ones, dProperties: any name, any
+    Below the fixed fields sit the custom ones, icProperties: any name, any
     value, kept in the same file.  A parts list can show one as a column
     and a title block can ask for one as {Model.Name}, so a supplier or a
     stock number typed once turns up everywhere the part does.
@@ -600,7 +601,17 @@ class DocumentProperties(QtWidgets.QWidget):
 
 
 class PropertiesPanel(QtWidgets.QWidget):
-    """Mass properties and bounding box of the current body."""
+    """Mass properties and bounding box of the current body.
+
+    Inventor's way with physical properties: a small part is measured as
+    it is shown, a heavy one and an assembly say N/A until Update is
+    pressed, because measuring them is seconds of work nobody may want.
+    An assembly's mass is what its parts weigh, each in its own material.
+    """
+
+    update_requested = QtCore.Signal()
+    # a part with more faces than this waits for Update
+    AUTO_FACES = 3000
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -627,6 +638,32 @@ class PropertiesPanel(QtWidgets.QWidget):
         self.table.horizontalHeader().setSectionResizeMode(
             1, QtWidgets.QHeaderView.Stretch)
         layout.addWidget(self.table, 1)
+
+        row = QtWidgets.QHBoxLayout()
+        self.update_hint = QtWidgets.QLabel("")
+        self.update_hint.setProperty("hint", True)
+        self.update_hint.setWordWrap(True)
+        self.update_btn = QtWidgets.QPushButton("Update")
+        self.update_btn.setToolTip("Work out the physical properties now")
+        self.update_btn.clicked.connect(self.update_requested.emit)
+        row.addWidget(self.update_hint, 1)
+        row.addWidget(self.update_btn)
+        layout.addLayout(row)
+
+    def _waiting(self, doc) -> bool:
+        """True when the numbers are not worked out yet and should wait
+        for Update rather than be worked out on the spot."""
+        if getattr(doc, "occurrences", None) is not None:
+            held = getattr(doc, "_mass_update", None)
+            return held is None or doc.shape is None or \
+                not kernel.same_shape(held[0], doc.shape)
+        known = getattr(doc, "known_volume", None)
+        if known is None or getattr(doc, "shape", None) is None:
+            return False
+        if known() is not None:
+            return False
+        return kernel.face_count(doc.shape, self.AUTO_FACES) \
+            >= self.AUTO_FACES
 
     def update_from(self, doc: Document) -> None:
         """Show this document's numbers, or remember to when it is seen.
@@ -671,8 +708,23 @@ class PropertiesPanel(QtWidgets.QWidget):
                 self._row(label, value)
             return
 
-        props = doc.mass_properties()
+        self.update_btn.setVisible(False)
+        self.update_hint.setText("")
         self.table.setRowCount(0)
+        if getattr(doc, "shape", None) is not None and self._waiting(doc):
+            for label in ("Bounding box", "Volume", "Surface area", "Mass",
+                          "Centre of mass"):
+                self._row(label, "N/A")
+            self.update_btn.setVisible(True)
+            self.update_hint.setText(
+                "Press Update to work out the mass of every part in it."
+                if getattr(doc, "occurrences", None) is not None else
+                "A heavy body: press Update to measure it.")
+            return
+        held = getattr(doc, "_mass_update", None)
+        props = dict(held[1]) if held is not None and \
+            getattr(doc, "occurrences", None) is not None \
+            else doc.mass_properties()
         if not props:
             self._row("Body", "none")
             return
@@ -700,6 +752,11 @@ class PropertiesPanel(QtWidgets.QWidget):
             ("Faces", str(props["faces"])),
             ("Edges", str(props["edges"])),
         ]
+        if held is not None and getattr(doc, "occurrences", None) is not None:
+            rows.insert(4, ("Parts weighed", "%d%s" % (
+                held[2], ", %d without a mass" % held[3] if held[3] else "")))
+            self.update_btn.setVisible(True)
+            self.update_btn.setText("Update")
         for label, value in rows:
             self._row(label, value)
 

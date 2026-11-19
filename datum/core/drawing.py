@@ -2015,7 +2015,9 @@ class DrawingDocument:
         out: Dict[str, Any] = {}
         for sheet in self.sheets:
             for view in sheet.views:
-                if view.projection is not None and view.projection.ok:
+                # a draft is never kept: the file would open rough
+                if view.projection is not None and view.projection.ok \
+                        and not getattr(view, "draft", False):
                     out[str(view.id)] = view.projection.to_dict()
         return {"views": out}
 

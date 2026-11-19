@@ -688,10 +688,82 @@ class FrameDefinition:
                    fittings=[dict(f) for f in d.get("fittings", [])])
 
 
+# a part's straight edges are offered as lines too, so a frame or a pipe
+# can go along a block's edges as well as a sketch's lines; past this many
+# the part is a model, not a layout, and its edges are not offered
+MODEL_EDGES_MAX = 400
+
+
+class _EdgePlane:
+    """What a member needs of a sketch plane: which way is up across it."""
+
+    def __init__(self, normal) -> None:
+        self.normal = tuple(normal)
+
+
+def model_edges(doc) -> Dict[int, Tuple[Any, str, Dict[int, Any]]]:
+    """A part's straight model edges, each as a sketch of one line, keyed
+    by minus the edge's number: (a plane, "Edge n", {1: (start, end)}).
+
+    Each takes the plane of a flat face beside it, so a tube along a
+    block's edge lies flat on that face, as one along a sketch line lies
+    on the sketch.  Numbered as the part's edges are explored, which holds
+    while the part keeps its shape and only its sizes change: a block
+    made longer keeps its members, each on its edge, longer.
+    """
+    shape = getattr(doc, "shape", None)
+    if shape is None or shape.IsNull():
+        return {}
+    from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Line, GeomAbs_Plane
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
+    from OCP.TopExp import TopExp
+    from OCP.TopTools import (TopTools_IndexedDataMapOfShapeListOfShape,
+                              TopTools_IndexedMapOfShape)
+    from OCP.TopoDS import TopoDS
+    edges = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_EDGE, edges)
+    if edges.Extent() > MODEL_EDGES_MAX:
+        return {}
+    faces_of = TopTools_IndexedDataMapOfShapeListOfShape()
+    TopExp.MapShapesAndAncestors_s(shape, TopAbs_EDGE, TopAbs_FACE, faces_of)
+    out = {}
+    for i in range(1, edges.Extent() + 1):
+        edge = TopoDS.Edge_s(edges.FindKey(i))
+        try:
+            curve = BRepAdaptor_Curve(edge)
+            if curve.GetType() != GeomAbs_Line:
+                continue
+            a = curve.Value(curve.FirstParameter())
+            b = curve.Value(curve.LastParameter())
+        except Exception:
+            continue
+        start, end = (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z())
+        if math.dist(start, end) < 1e-6:
+            continue
+        normal = None
+        if faces_of.Contains(edge):
+            for face in faces_of.FindFromKey(edge):
+                try:
+                    surface = BRepAdaptor_Surface(TopoDS.Face_s(face))
+                    if surface.GetType() == GeomAbs_Plane:
+                        d = surface.Plane().Axis().Direction()
+                        normal = (d.X(), d.Y(), d.Z())
+                        break
+                except Exception:
+                    continue
+        if normal is None:
+            run = _unit(_sub(end, start))
+            normal = (0.0, 0.0, 1.0) if abs(run[2]) < 0.9 else (1.0, 0.0, 0.0)
+        out[-i] = (_EdgePlane(normal), "Edge %d" % i, {1: (start, end)})
+    return out
+
+
 def skeleton_sketches(path: str) -> Dict[int, Tuple[Any, str, Dict[int, Any]]]:
     """Every sketch of a skeleton part as it stands now, by its feature's
     id: (its plane, its name, {line id: (start, end)} in the part's
-    coordinates)."""
+    coordinates).  The part's straight edges come too, under negative ids
+    (model_edges)."""
     doc = _open_part(path)
     out = {}
     for sketch_id, sketch in doc.all_sketches().items():
@@ -706,6 +778,7 @@ def skeleton_sketches(path: str) -> Dict[int, Tuple[Any, str, Dict[int, Any]]]:
         owner = doc.feature(sketch_id)
         out[sketch_id] = (sketch.plane, getattr(owner, "name", sketch.name),
                           lines)
+    out.update(model_edges(doc))
     return out
 
 

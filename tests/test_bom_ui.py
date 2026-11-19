@@ -2,7 +2,7 @@
 
 Model Data lists what is placed in the assembly directly, parts and
 sub-assemblies; Parts Only lists every part, counted right through the
-sub-assemblies.  Every dProperties field can be a column, picked from a
+sub-assemblies.  Every icProperties field can be a column, picked from a
 list and kept with the assembly, and what is typed in the table goes back
 into the parts: an open one in memory, a closed one into its file, its
 thumbnail and all else left as it was.
@@ -109,7 +109,7 @@ check("the usual ones to start with", headings == [
     "Item", "Thumbnail", "Part Number", "QTY", "Description", "Material",
     "Mass"], headings)
 offered = [bom_ui.heading(c) for c in dialog.available()]
-check("every dProperties field can be one", all(
+check("every icProperties field can be one", all(
     label in offered for _key, label in bom_ui.DocumentProperties.FIELDS))
 check("and a part's own property too", "Vendor" in offered, offered)
 dialog.show_column(bom.PROP + "Vendor", True)

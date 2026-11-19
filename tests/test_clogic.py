@@ -1,4 +1,4 @@
-"""cLogic, the rest of it: code features, reach, triggers, trust.
+"""icLogic, the rest of it: code features, reach, triggers, trust.
 
 test_rules.py holds the first promises: a rule moves the model and does
 nothing until it is allowed to. This holds the ones that came after, and
@@ -119,7 +119,7 @@ check("a code feature cannot set a parameter",
 
 doc, feature = code_part("result(box(1, 1, 1))", trusted=False)
 check("untrusted, it does not run", "trusted" in feature.error, feature.error)
-check("  and says how to allow it", "cLogic" in feature.error)
+check("  and says how to allow it", "icLogic" in feature.error)
 
 saved = os.path.join(WORK, "posts.icpart")
 doc, feature = code_part("result(box(3, 4, 5))")

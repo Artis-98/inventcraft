@@ -1092,3 +1092,24 @@ def _thread():
     ob = bpy.data.objects.new("Helix", cu)
     bpy.context.scene.collection.objects.link(ob)
     ob.data.materials.append(MATS["accent"])
+
+
+# --------------------------------------------------------------- render
+
+def _shadow(name, rx, ry, at, rot=0.0):
+    """A dark flat ellipse on the ground: the shadow, drawn bold."""
+    ob = cyl(name, 1.0, 0.03, at=(0, 0, 0), mat="dark", segments=48,
+             smooth=False)
+    ob.scale = (rx, ry, 1.0)
+    ob.rotation_euler = (0, 0, math.radians(rot))
+    ob.location = at
+    return ob
+
+
+@model("render")
+def _render():
+    # a ball lit from the top left by an amber lamp, its shadow thrown
+    # down to the right: what a render adds to a shaded view
+    ball("Ball", 0.9, (0, 0, 0.9))
+    _shadow("Shadow", 0.95, 0.62, (-0.5, 0.5, 0.0), rot=-45)
+    ball("Lamp", 0.34, (0.75, -0.75, 2.05), mat="accent")

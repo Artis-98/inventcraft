@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 import os
 import time
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
@@ -169,8 +169,11 @@ def auxiliary_orientation(parent_dir: Sequence[float],
 # --------------------------------------------------------------- properties
 
 
+_MEASURED: Dict[Any, Tuple[float, float]] = {}
+
+
 def model_properties(path: str, shape: Optional[TopoDS_Shape],
-                     document=None) -> Dict[str, str]:
+                     document=None, library=None) -> Dict[str, str]:
     """What a title block can ask of a model, whether part or assembly.
 
     Duck-typed on purpose: a part and an assembly answer the same questions
@@ -215,18 +218,41 @@ def model_properties(path: str, shape: Optional[TopoDS_Shape],
             out["Model.PartNumber"] = number
 
     if shape is not None and not shape.IsNull():
+        # measured once per file as it stands: every drawing rebuild asked
+        # again, and on a big assembly that was a good part of the rebuild
         try:
-            volume = kernel.volume(shape)
+            stamp = os.stat(path)
+            key = (os.path.normcase(os.path.abspath(path)),
+                   stamp.st_mtime_ns, stamp.st_size, id(shape))
+        except (OSError, TypeError):
+            key = None
+        held = _MEASURED.get(key) if key else None
+        if held is None:
+            try:
+                held = (kernel.volume(shape), kernel.surface_area(shape))
+            except Exception:
+                held = None
+            if key and held is not None:
+                if len(_MEASURED) > 256:
+                    _MEASURED.clear()
+                _MEASURED[key] = held
+        if held is not None:
+            volume, area = held
             out["Model.Volume"] = "%.1f cm3" % (volume / 1000.0)
-            density = float(getattr(document, "density", 1.0) or 1.0)
-            out["Model.Mass"] = "%.1f g" % (volume / 1000.0 * density)
-        except Exception:
-            pass
-        try:
-            out["Model.Area"] = "%.1f cm2" % (kernel.surface_area(shape)
-                                              / 100.0)
-        except Exception:
-            pass
+            out["Model.Area"] = "%.1f cm2" % (area / 100.0)
+            mass = None
+            if getattr(document, "occurrences", None) is not None:
+                # an assembly weighs what its parts weigh, each in its
+                # own material, not its volume in one density
+                try:
+                    from . import bom
+                    mass = bom.mass_grams(path, library)
+                except Exception:
+                    mass = None
+            if mass is None:
+                density = float(getattr(document, "density", 1.0) or 1.0)
+                mass = volume / 1000.0 * density
+            out["Model.Mass"] = "%.1f g" % mass
     return out
 
 
@@ -577,32 +603,55 @@ class Generator:
 
     def __init__(self, library: Optional[PartLibrary] = None) -> None:
         self.library = library or PartLibrary()
+        # plain views drawn now are drafts (hlr.project fast), marked so
+        # with view.draft for the real lines to replace them after
+        self.draft = False
 
     def rebuild(self, doc: DrawingDocument, base_dir: Optional[str] = None,
-                force: bool = False) -> DrawingReport:
+                force: bool = False, draft: bool = False,
+                handed: Optional[Dict] = None) -> DrawingReport:
+        """Fill in what needs drawing.  ``draft`` draws plain views rough
+        and quick; ``handed`` are projections already asked of the
+        workers (exact_jobs), keyed as _hand_out keys them."""
         started = time.perf_counter()
         report = DrawingReport()
         base = base_dir if base_dir is not None else doc.base_dir
 
         models: Dict[int, Tuple[Optional[TopoDS_Shape], object, str]] = {}
-        self._pending = self._hand_out(doc, base, force)
-        for sheet in doc.sheets:
-            # parents first, so a child can read what its parent resolved to
-            for view in self._in_order(sheet):
-                had = view.projection
-                self._one(doc, sheet, view, base, models, report, force)
-                if view.projection is not None and (
-                        view.projection is not had
-                        or getattr(view, "drawn_as", None) is None):
-                    view.drawn_as = self._drawn_direction(doc, sheet, view)
-            self._reanchor(doc, sheet, models, report)
-            self._recount(doc, sheet, base, models, report)
-
-        self._pending = {}
+        self.draft = draft
+        try:
+            self._pending = (dict(handed) if handed is not None
+                             else self._hand_out(doc, base, force))
+            for sheet in doc.sheets:
+                # parents first, so a child can read what its parent
+                # resolved to
+                for view in self._in_order(sheet):
+                    had = view.projection
+                    self._one(doc, sheet, view, base, models, report, force)
+                    if view.projection is not None and (
+                            view.projection is not had
+                            or getattr(view, "drawn_as", None) is None):
+                        view.drawn_as = self._drawn_direction(doc, sheet,
+                                                              view)
+                    if view.projection is not had:
+                        view.draft = getattr(view, "_drew_fast", False)
+                    view._drew_fast = False
+                self._reanchor(doc, sheet, models, report)
+                self._recount(doc, sheet, base, models, report)
+        finally:
+            self.draft = False
+            self._pending = {}
         report.duration = time.perf_counter() - started
         report.ok = not report.missing and not report.errors
         doc.last_report = report
         return report
+
+    def exact_jobs(self, doc: DrawingDocument,
+                   base_dir: Optional[str] = None) -> Dict:
+        """The real lines of every draft view, asked of the workers; the
+        futures, keyed for rebuild(handed=...).  Empty without workers."""
+        base = base_dir if base_dir is not None else doc.base_dir
+        return self._hand_out(doc, base, False, drafts=True)
 
     # -- after a view is moved --------------------------------------------
 
@@ -1002,7 +1051,7 @@ class Generator:
         return _scaled(projection, doc.view_scale(sheet, view))
 
     def _hand_out(self, doc: DrawingDocument, base: str,
-                  force: bool) -> Dict:
+                  force: bool, drafts: bool = False) -> Dict:
         """Send every plain view that needs drawing to the workers at once.
 
         Hidden line removal is the slow part of a drawing, a third of a
@@ -1014,6 +1063,9 @@ class Generator:
         """
         from . import rules, workers
 
+        if self.draft and not drafts:
+            # drafts are drawn here: quick enough, and only for a big model
+            return {}
         helpers = workers.pool()
         if helpers is None:
             return {}
@@ -1022,7 +1074,10 @@ class Generator:
             for view in self._in_order(sheet):
                 if view.kind in (SECTION, DETAIL) or view.flat:
                     continue
-                if view.projection is not None and not force:
+                if drafts:
+                    if not getattr(view, "draft", False):
+                        continue
+                elif view.projection is not None and not force:
                     continue
                 origin = doc.view_model(sheet, view)
                 if origin is None or not origin.ref.path:
@@ -1053,8 +1108,10 @@ class Generator:
                     "hidden": doc.view_display(sheet, view) == WITH_HIDDEN,
                     "tangents": self._tangents(doc, sheet, view)}))
         # one view is quicker drawn here than posted anywhere, and workers
-        # not yet running cost more to start than a few views take
-        if len(jobs) < 2 or (helpers.running == 0 and len(jobs) < 4):
+        # not yet running cost more to start than a few views take; the
+        # real lines behind a draft always go, the window is not waiting
+        if not drafts and (len(jobs) < 2
+                           or (helpers.running == 0 and len(jobs) < 4)):
             return {}
         trusted = sorted(rules.trusted_paths())
         return {key: helpers.submit("project", trusted=trusted, **args)
@@ -1131,8 +1188,12 @@ class Generator:
         else:
             direction, up = orientation_of(view)
 
+        fast = (self.draft and not view.breakout and not view.flat
+                and _big(shape))
+        view._drew_fast = fast
         projection = hlr.project(shape, direction, up, hidden=show_hidden,
-                                 tangents=self._tangents(doc, sheet, view))
+                                 tangents=self._tangents(doc, sheet, view),
+                                 fast=fast)
         if len(view.breakout) >= 3 and projection.ok:
             opened = self._break_out(doc, sheet, view, shape, direction, up,
                                      show_hidden, scale, projection)
@@ -1345,6 +1406,27 @@ def nearest_corner(target, seat: Sequence[float]) -> Tuple[float, float]:
     if not corners:
         return centre
     return min(corners, key=lambda c: math.dist(c, seat))
+
+
+# a model of at least this many faces is drafted first; below it the exact
+# lines take no longer than a draft would
+DRAFT_FACES = 150
+_FACE_COUNTS: Dict[int, int] = {}
+
+
+def _big(shape) -> bool:
+    key = id(shape)
+    if key not in _FACE_COUNTS:
+        from OCP.TopAbs import TopAbs_FACE
+        from OCP.TopExp import TopExp_Explorer
+        n, ex = 0, TopExp_Explorer(shape, TopAbs_FACE)
+        while ex.More() and n < DRAFT_FACES:
+            n += 1
+            ex.Next()
+        if len(_FACE_COUNTS) > 64:
+            _FACE_COUNTS.clear()
+        _FACE_COUNTS[key] = n
+    return _FACE_COUNTS[key] >= DRAFT_FACES
 
 
 def _scaled(projection: hlr.Projection, scale: float) -> hlr.Projection:

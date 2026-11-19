@@ -1,6 +1,6 @@
-"""Units in dProperties, and keeping the numbers through a change (#122).
+"""Units in icProperties, and keeping the numbers through a change (#122).
 
-A part's unit is picked in dProperties as well as the status bar, and
+A part's unit is picked in icProperties as well as the status bar, and
 either way it asks: convert, so the part keeps its size, or keep the
 numbers, so 25.4 mm becomes 25.4 in and the part is rescaled.  Keeping
 them has to reach every length the part holds, or a fillet loses its edge,
@@ -192,7 +192,7 @@ check("and read back", near(again.scale, INCH))
 
 # ------------------------------------------------------------- the window
 print()
-print("dProperties has the units, and asks how")
+print("icProperties has the units, and asks how")
 from datum.ui.main_window import MainWindow                        # noqa: E402
 from datum.ui.theme import stylesheet                              # noqa: E402
 
@@ -224,8 +224,8 @@ win._ask_unit_change = lambda document, old, new: answers.pop(0)
 win.show_properties()
 app.processEvents()
 combo = win.doc_properties.units_combo
-check("dProperties is what the window is called",
-      win.properties_window.windowTitle() == "dProperties")
+check("icProperties is what the window is called",
+      win.properties_window.windowTitle() == "icProperties")
 check("it shows the part's units", combo.currentData() == "mm",
       combo.currentData())
 
@@ -264,8 +264,8 @@ check("the status bar asks the same question",
       part.units == "in" and not answers and combo.currentData() == "in")
 
 labels = {b.text() for b in win.findChildren(QtWidgets.QAbstractButton)}
-check("the ribbon says dProperties",
-      any(t.replace("\n", " ") == "dProperties" for t in labels)
+check("the ribbon says icProperties",
+      any(t.replace("\n", " ") == "icProperties" for t in labels)
       and "Properties" not in labels, sorted(t for t in labels
                                              if "Prop" in t))
 

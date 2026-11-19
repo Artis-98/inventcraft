@@ -1,4 +1,4 @@
-"""Screenshot dProperties with its units, and the question changing them asks."""
+"""Screenshot icProperties with its units, and the question changing them asks."""
 import os
 import sys
 

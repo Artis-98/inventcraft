@@ -1,4 +1,4 @@
-"""cLogic: the panel of rules, and the windows you write scripts in.
+"""icLogic: the panel of rules, and the windows you write scripts in.
 
 Laid out like Inventor's iLogic browser because that is what people will
 be looking for: the document at the top, its rules under it, double-click
@@ -851,7 +851,7 @@ class RuleEditor(QtWidgets.QDialog):
         super().__init__(parent)
         self.rule = rule
         self.document = document
-        self.setWindowTitle("cLogic rule")
+        self.setWindowTitle("icLogic rule")
         self.setWindowIcon(icons.icon("auto", 24))
         self.resize(980, 680)
 
@@ -865,7 +865,7 @@ class RuleEditor(QtWidgets.QDialog):
         top.addWidget(self.name_edit, 1)
         self.button_box = QtWidgets.QCheckBox("Show as a button")
         self.button_box.setToolTip(
-            "Pin this rule to the top of the cLogic panel, one click away. "
+            "Pin this rule to the top of the icLogic panel, one click away. "
             "Made for rules that open a form.")
         self.button_box.setChecked(rule.button)
         top.addWidget(self.button_box)
@@ -950,7 +950,7 @@ class RuleEditor(QtWidgets.QDialog):
 
 
 class RulesPanel(QtWidgets.QWidget):
-    """The cLogic dock: this document, its forms, rules and code."""
+    """The icLogic dock: this document, its forms, rules and code."""
 
     changed = QtCore.Signal()          # a rule ran and moved something
 
@@ -1412,7 +1412,7 @@ class FormDialog(QtWidgets.QDialog):
         self.host = host
         self.document = document
         self.controls = list(controls)
-        self.setWindowTitle(title or "cLogic")
+        self.setWindowTitle(title or "icLogic")
         self.setWindowIcon(icons.icon("auto", 24))
         self.setMinimumWidth(380)
         # its sliders keep moving while the model rebuilds in a worker: the

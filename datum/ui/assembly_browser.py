@@ -110,6 +110,13 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     # a work plane of the part edited in place: ("offset", "redefine" or
     # "sketch", its feature id)
     plane_action_requested = QtCore.Signal(str, int)
+    # the part being edited in place: its solids and model states, the
+    # same requests the part's own tree makes
+    body_visibility_requested = QtCore.Signal(str, str)
+    solid_rename_requested = QtCore.Signal(str, str)
+    model_state_requested = QtCore.Signal(str, str, str)
+    # Copy on a component, or on the assembly at the top
+    copy_requested = QtCore.Signal(int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -396,6 +403,10 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             return
 
         live = occurrence.id == self.active
+        if live:
+            # what the part's own tree shows at the top, Solid Bodies and
+            # Model States: stepping into a part in an assembly lost both
+            self._add_part_folders(item, part, occurrence.id)
         for feature in features:
             child = QtWidgets.QTreeWidgetItem(item, [feature.name])
             child.setIcon(0, icons.icon(getattr(feature, "icon", "feature"),
@@ -413,6 +424,127 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                 # visible, but not yours to change until the part is
                 # activated, which is the rule Inventor enforces too
                 child.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
+
+    def _add_part_folders(self, item, part, owner: int) -> None:
+        """Solid Bodies and Model States of the part edited in place."""
+        bodies = [b for b in getattr(part, "bodies", []) or [] if b.valid]
+        if bodies:
+            folder = QtWidgets.QTreeWidgetItem(
+                item, [i18n.tr("Solid Bodies") + "(%d)" % len(bodies)])
+            folder.setIcon(0, icons.icon("box", 16))
+            folder.setData(0, ROLE_KIND, "bodies")
+            folder.setData(0, ROLE_OWNER, owner)
+            folder.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
+            for body in bodies:
+                label = (part.solid_label(body.name)
+                         if hasattr(part, "solid_label") else body.name)
+                shown = (part.body_visible(body.name)
+                         if hasattr(part, "body_visible") else True)
+                child = QtWidgets.QTreeWidgetItem(
+                    folder, [label if shown else label + "   (hidden)"])
+                child.setIcon(0, icons.icon("box", 16))
+                child.setData(0, ROLE_KIND, "body")
+                child.setData(0, ROLE_ID, body.name)
+                child.setData(0, ROLE_OWNER, owner)
+                if not shown:
+                    child.setForeground(
+                        0, QtGui.QBrush(QtGui.QColor(C.tree_hidden)))
+            folder.setExpanded(True)
+
+        states = getattr(part, "model_states", None)
+        if states is None:
+            return
+        folder = QtWidgets.QTreeWidgetItem(
+            item, [i18n.tr("Model States") + ": %s" % states.active])
+        folder.setIcon(0, icons.icon("params", 16))
+        folder.setData(0, ROLE_KIND, "states")
+        folder.setData(0, ROLE_OWNER, owner)
+        folder.setForeground(0, QtGui.QBrush(QtGui.QColor(C.text_dim)))
+        folder.setToolTip(0, "Variations of this part. Double-click one to "
+                             "make it the part; right-click for more.")
+        for name in states.names():
+            child = QtWidgets.QTreeWidgetItem(folder, [name])
+            child.setIcon(0, icons.icon("params", 16))
+            child.setData(0, ROLE_KIND, "state")
+            child.setData(0, ROLE_ID, name)
+            child.setData(0, ROLE_OWNER, owner)
+            if name == states.active:
+                f = child.font(0)
+                f.setBold(True)
+                child.setFont(0, f)
+                child.setText(0, "%s  (active)" % name)
+        folder.setExpanded(len(states) > 1)
+
+    def _live_part(self):
+        """The document of the component being edited in place."""
+        if self._doc is None or self.active is None \
+                or self.document_for is None:
+            return None
+        occurrence = self._doc.occurrence(self.active)
+        path = self._doc.component_path(occurrence) if occurrence else None
+        return self.document_for(path) if path else None
+
+    def _part_folder_menu(self, menu, item, kind: str) -> bool:
+        """The part tree's menus for a solid or a model state."""
+        part = self._live_part()
+        if part is None:
+            return False
+        if kind in ("states", "state"):
+            states = getattr(part, "model_states", None)
+            if states is None:
+                return False
+            name = str(item.data(0, ROLE_ID) or "")
+            emit = self.model_state_requested.emit
+            if kind == "state":
+                act = menu.addAction("Activate")
+                act.setEnabled(name != states.active)
+                act.triggered.connect(lambda: emit("activate", name, ""))
+                menu.addAction("Copy").triggered.connect(
+                    lambda: emit("copy", name, ""))
+                rename = menu.addAction("Rename...")
+                rename.setEnabled(name != "Primary")
+                rename.triggered.connect(lambda: self._rename_state(name))
+                menu.addSeparator()
+                delete = menu.addAction(icons.icon("delete", 16), "Delete")
+                delete.setEnabled(name != "Primary")
+                delete.triggered.connect(lambda: emit("delete", name, ""))
+            else:
+                menu.addAction("New Model State").triggered.connect(
+                    lambda: emit("new", "", ""))
+            return True
+        if kind == "body":
+            name = str(item.data(0, ROLE_ID))
+            shown = part.body_visible(name)
+            emit = self.body_visibility_requested.emit
+            menu.addAction(icons.icon("hide", 16),
+                           "Hide" if shown else "Show").triggered.connect(
+                lambda: emit("hide" if shown else "show", name))
+            others = menu.addAction("Hide Others")
+            others.setEnabled(len(part.bodies) > 1)
+            others.triggered.connect(lambda: emit("others", name))
+            every = menu.addAction("Show All")
+            every.setEnabled(bool(part.hidden_bodies))
+            every.triggered.connect(lambda: emit("all", name))
+            menu.addSeparator()
+            menu.addAction("Rename...").triggered.connect(
+                lambda: self._rename_solid(part, name))
+            return True
+        return False
+
+    def _rename_state(self, name: str) -> None:
+        text, ok = QtWidgets.QInputDialog.getText(
+            self, "Rename Model State", "Name:", QtWidgets.QLineEdit.Normal,
+            name)
+        if ok and text.strip() and text.strip() != name:
+            self.model_state_requested.emit("rename", name, text.strip())
+
+    def _rename_solid(self, part, name: str) -> None:
+        current = part.solid_label(name)
+        text, ok = QtWidgets.QInputDialog.getText(
+            self, "Rename Solid", "Name:", QtWidgets.QLineEdit.Normal,
+            current)
+        if ok and text.strip() and text.strip() != current:
+            self.solid_rename_requested.emit(name, text.strip())
 
     # -- expansion is remembered so a rebuild does not fold the tree up -----
 
@@ -530,6 +662,11 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
     def _double_clicked(self, item: QtWidgets.QTreeWidgetItem,
                         _col: int) -> None:
         kind = item.data(0, ROLE_KIND)
+        if kind == "state" and self.active is not None \
+                and item.data(0, ROLE_OWNER) == self.active:
+            self.model_state_requested.emit(
+                "activate", str(item.data(0, ROLE_ID)), "")
+            return
         if kind == "feature":
             if item.data(0, ROLE_OWNER) == self.active:
                 self.feature_activated.emit(int(item.data(0, ROLE_ID)))
@@ -569,6 +706,13 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             frame_oid, member_ids = self.selected_frame_members()
             self._frame_menu(menu, frame_oid, member_ids)
             menu.exec(self.viewport().mapToGlobal(pos))
+            return
+
+        if (kind in ("bodies", "body", "states", "state")
+                and self.active is not None
+                and item.data(0, ROLE_OWNER) == self.active):
+            if self._part_folder_menu(menu, item, kind):
+                menu.exec(self.viewport().mapToGlobal(pos))
             return
 
         if kind == "feature" and item.data(0, ROLE_OWNER) == self.active:
@@ -639,10 +783,14 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
             class _Placed:
                 path = self._doc.component_path(occurrence) or ""
 
+            if not item.isSelected():
+                self.clearSelection()
+                item.setSelected(True)
             add_file_actions(
                 menu, _Placed,
                 lambda: self.properties_requested.emit(oid),
-                lambda: self.open_location_requested.emit(oid))
+                lambda: self.open_location_requested.emit(oid),
+                lambda: self.copy_requested.emit(oid))
 
             menu.addSeparator()
             ground = menu.addAction("Grounded")
@@ -720,7 +868,8 @@ class AssemblyBrowser(QtWidgets.QTreeWidget):
                 add_file_actions(
                     menu, self._doc,
                     lambda: self.properties_requested.emit(0),
-                    lambda: self.open_location_requested.emit(0))
+                    lambda: self.open_location_requested.emit(0),
+                    lambda: self.copy_requested.emit(0))
                 menu.addSeparator()
             place = menu.addAction(icons.icon("place", 16),
                                    "Place Component...")

@@ -81,11 +81,19 @@ class DrawingController(QtCore.QObject):
 
     # --------------------------------------------------------------- rebuild
 
-    def rebuild(self, force: bool = False, keep_view: bool = True):
+    def rebuild(self, force: bool = False, keep_view: bool = True,
+                draft: bool = False, handed=None):
+        """Draw what needs drawing.  ``draft``: new plain views quick and
+        rough first, the real lines put in from the workers as they come
+        back, so placing a view of a big assembly does not hold the
+        window up.  Inventor draws a view being placed the same way."""
         doc = self.document
         if doc is None:
             return None
-        report = self.generator.rebuild(doc, force=force)
+        report = self.generator.rebuild(doc, force=force, draft=draft,
+                                        handed=handed)
+        if draft:
+            self._refine_soon()
         self._refresh_properties()
         self.canvas.model_properties = self._sheet_properties
         self.canvas.set_document(doc, keep_view=keep_view)
@@ -107,6 +115,67 @@ class DrawingController(QtCore.QObject):
             host.drawing_update_button.setEnabled(True)
         return report
 
+    # -- drafts made real ---------------------------------------------------
+
+    def _draft_views(self):
+        doc = self.document
+        if doc is None:
+            return []
+        return [(sheet, view) for sheet in doc.sheets for view in sheet.views
+                if getattr(view, "draft", False)]
+
+    def _refine_soon(self) -> None:
+        """Ask the workers for the real lines of every draft view."""
+        if not self._draft_views():
+            return
+        jobs = {}
+        try:
+            jobs = self.generator.exact_jobs(self.document)
+        except Exception:
+            jobs = {}
+        self._refining = (self.document, jobs)
+        timer = getattr(self, "_refine_timer", None)
+        if timer is None:
+            timer = self._refine_timer = QtCore.QTimer(self)
+            timer.setInterval(60)
+            timer.timeout.connect(self._refine_poll)
+        if jobs:
+            timer.start()
+        else:
+            # nobody to hand them to: drawn here once the draft is up
+            timer.stop()
+            QtCore.QTimer.singleShot(30, self._refine_poll)
+
+    def _refine_poll(self) -> None:
+        held = getattr(self, "_refining", None)
+        if held is None:
+            self._refine_timer.stop()
+            return
+        doc, jobs = held
+        if any(not future.done() for future in jobs.values()):
+            return
+        self._refine_timer.stop()
+        self._refining = None
+        if doc is not self.document:
+            return
+        drafts = self._draft_views()
+        if not drafts:
+            return
+        for _sheet, view in drafts:
+            view.projection = None
+        self.rebuild(handed=jobs)
+        self.canvas.update()
+
+    def refine_now(self, seconds: float = 120.0) -> None:
+        """Wait for the real lines.  For tests, exports and printing."""
+        import time
+        end = time.monotonic() + seconds
+        while getattr(self, "_refining", None) is not None \
+                and time.monotonic() < end:
+            QtWidgets.QApplication.processEvents()
+            self._refine_poll()
+            time.sleep(0.02)
+
     def _refresh_properties(self) -> None:
         """Resolve {Model.*} once per sheet, from its first base view."""
         doc = self.document
@@ -125,7 +194,7 @@ class DrawingController(QtCore.QObject):
             except Exception:
                 shape, model = None, None
             self._properties[sheet.id] = viewgen.model_properties(
-                path, shape, model)
+                path, shape, model, self.generator.library)
 
     def _sheet_properties(self, sheet: Sheet) -> Dict[str, str]:
         return self._properties.get(sheet.id, {})
@@ -511,7 +580,7 @@ class DrawingController(QtCore.QObject):
                 display="visible" if diagonal else "",
                 # Inventor names a view without writing its name on it
                 label_visible=False))
-        self.rebuild()
+        self.rebuild(draft=True)
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
             "%s placed%s." % (base.name, " with %d projection(s)"
@@ -533,7 +602,7 @@ class DrawingController(QtCore.QObject):
                      display="visible" if diagonal else "",
                      label_visible=False)
         doc.add_view(sheet, child)
-        self.rebuild()
+        self.rebuild(draft=True)
         return child
 
     def add_break(self) -> None:
@@ -624,7 +693,7 @@ class DrawingController(QtCore.QObject):
         child = View(kind=AUXILIARY, parent=parent.id, x=x, y=y,
                      radius=float(angle), label_visible=False)
         doc.add_view(sheet, child)
-        self.rebuild()
+        self.rebuild(draft=True)
         return child
 
     def add_section(self) -> None:
@@ -1515,6 +1584,7 @@ class DrawingController(QtCore.QObject):
     # --------------------------------------------------------------- output
 
     def export_pdf(self, all_sheets: bool = True) -> None:
+        self.refine_now()
         doc = self.document
         if doc is None or not doc.sheets:
             return
@@ -1537,6 +1607,7 @@ class DrawingController(QtCore.QObject):
                                          % os.path.basename(written))
 
     def export_svg(self) -> None:
+        self.refine_now()
         doc = self.document
         sheet = doc.active() if doc else None
         if sheet is None:
@@ -1557,6 +1628,7 @@ class DrawingController(QtCore.QObject):
                                          % os.path.basename(written))
 
     def export_dxf(self) -> None:
+        self.refine_now()
         from ..core.dxf import DXF_FILTER
 
         doc = self.document
@@ -1579,6 +1651,7 @@ class DrawingController(QtCore.QObject):
                                          % os.path.basename(written))
 
     def print_drawing(self) -> None:
+        self.refine_now()
         doc = self.document
         if doc is None or not doc.sheets:
             return
@@ -2390,7 +2463,13 @@ class PreviewProjections(QtCore.QObject):
     froze the window every time the cube was clicked would be worse than
     none.  So each is asked of a worker and shown when it comes back;
     until then the view shows as the box it will fill.
+
+    A preview is a draft, as Inventor's is: worked out on the tessellation
+    (hlr.project fast), rough round the curves and many times quicker on
+    a big assembly.  The real lines are made once OK is pressed.
     """
+
+    FAST = True
 
     ready = QtCore.Signal()
 
@@ -2435,7 +2514,7 @@ class PreviewProjections(QtCore.QObject):
                 self._pending[key] = helpers.submit(
                     "project", trusted=sorted(rules.trusted_paths()),
                     path=os.path.abspath(path), direction=list(direction),
-                    up=list(up), hidden=bool(hidden))
+                    up=list(up), hidden=bool(hidden), fast=self.FAST)
                 self._timer.start()
                 return
             except Exception:
@@ -2447,7 +2526,7 @@ class PreviewProjections(QtCore.QObject):
                 self.library = PartLibrary()
             shape, _model = viewgen.load_model(path, self.library)
             self._done[key] = hlr.project(shape, tuple(direction), tuple(up),
-                                          hidden=hidden)
+                                          hidden=hidden, fast=self.FAST)
         except Exception as exc:
             self._done[key] = hlr.Projection(error=str(exc))
 
