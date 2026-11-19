@@ -986,6 +986,19 @@ class Viewport(QtWidgets.QWidget):
             self._component_ais[int(item["id"])] = ais
 
         self._apply_selection_mode()
+        if getattr(self, "_section_def", None) is not None:
+            # shown again while a section is on: cut again, part by part
+            self._cut_parts()
+            held = self._clips.get("section")
+            if held is not None:
+                # one cut on the whole view only when there are no parts
+                # to cut one by one; never both
+                try:
+                    self.view.RemoveClipPlane(held)
+                except Exception:
+                    pass
+                if not self._solid_components():
+                    self.view.AddClipPlane(held)
         if not keep_camera:
             self.fit_all()
         self.redraw()
@@ -1019,6 +1032,7 @@ class Viewport(QtWidgets.QWidget):
         for ais in self._component_ais.values():
             self.context.Remove(ais, False)
         self._component_ais = {}
+        self._part_cuts = {}
         self._component_wires = set()
         self._component_locked = set()
 
@@ -3820,6 +3834,9 @@ class Viewport(QtWidgets.QWidget):
         points to.  Named, so a section view and a sketch's slice are two
         cuts that come and go apart.  Capped, so a solid cut open shows a
         face where it was cut rather than its empty inside.
+
+        In an assembly the section cuts each part with a plane of its own,
+        hatched its own way, so a shaft in its bushing reads as two parts.
         """
         if not self._ready:
             return
@@ -3827,35 +3844,86 @@ class Viewport(QtWidgets.QWidget):
         self._clips = clips
         old = clips.pop(name, None)
         if old is not None:
-            self.view.RemoveClipPlane(old)
+            try:
+                self.view.RemoveClipPlane(old)
+            except Exception:
+                pass
         if name == "section":
             self._clip = None
+            self._section_def = None
+            self._drop_part_cuts()
         if plane is not None:
             origin, normal = plane
-            clip = Graphic3d_ClipPlane(
-                gp_Pln(gp_Pnt(*origin), gp_Dir(*normal)))
-            clip.SetCapping(capping)
-            clip.SetCappingColor(_col("#8fa0b4"))
-            clip.SetUseObjectMaterial(False)
+            clip = self._make_clip(origin, normal, capping)
             if capping:
                 self._hatch_cut(clip)
-            self.view.AddClipPlane(clip)
             clips[name] = clip
             if name == "section":
                 self._clip = clip
+                self._section_def = (tuple(origin), tuple(normal), capping)
+            if name == "section" and self._solid_components():
+                self._cut_parts()
+            else:
+                self.view.AddClipPlane(clip)
         self.redraw()
+
+    @staticmethod
+    def _make_clip(origin, normal, capping):
+        clip = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*origin), gp_Dir(*normal)))
+        clip.SetCapping(capping)
+        clip.SetCappingColor(_col("#8fa0b4"))
+        clip.SetUseObjectMaterial(False)
+        return clip
+
+    def _solid_components(self):
+        wires = getattr(self, "_component_wires", set())
+        return [(oid, ais) for oid, ais in sorted(self._component_ais.items())
+                if oid not in wires]
+
+    def _cut_parts(self) -> None:
+        """The section on each part apart: the same plane, but the hatch
+        turned the other way on every other part and its spacing varied,
+        as Inventor tells the parts of an assembly section apart."""
+        self._drop_part_cuts()
+        held = getattr(self, "_section_def", None)
+        if held is None:
+            return
+        origin, normal, capping = held
+        cuts = {}
+        for i, (oid, ais) in enumerate(self._solid_components()):
+            clip = self._make_clip(origin, normal, capping)
+            if capping:
+                self._hatch_cut(clip, variant=i)
+            try:
+                ais.AddClipPlane(clip)
+            except Exception:
+                continue
+            cuts[oid] = (ais, clip)
+        self._part_cuts = cuts
+
+    def _drop_part_cuts(self) -> None:
+        for ais, clip in getattr(self, "_part_cuts", {}).values():
+            try:
+                ais.RemoveClipPlane(clip)
+            except Exception:
+                pass
+        self._part_cuts = {}
 
     # the cut face's stripes: one dark line across a light tile, at 45
     # degrees, repeated; about this many across the model's biggest size
     HATCH_LINES = 28
+    # the parts of an assembly: the angle flips on every other part, and
+    # the spacing steps through these
+    HATCH_SPACING = (1.0, 0.6, 1.6)
 
     @staticmethod
-    def _hatch_tile() -> str:
+    def _hatch_tile(flip: bool = False) -> str:
         """The stripe tile as a PNG, made once and kept in the cache."""
         folder = os.path.join(QtCore.QStandardPaths.writableLocation(
             QtCore.QStandardPaths.CacheLocation) or os.path.expanduser("~"),
             "textures")
-        path = os.path.join(folder, "section_hatch_v1.png")
+        path = os.path.join(folder, "section_hatch_v1%s.png"
+                            % ("_flip" if flip else ""))
         if not os.path.isfile(path):
             os.makedirs(folder, exist_ok=True)
             n = 64
@@ -3867,16 +3935,21 @@ class Viewport(QtWidgets.QWidget):
             pen.setWidthF(7.0)
             p.setPen(pen)
             for k in (-n, 0, n):
-                p.drawLine(QtCore.QPointF(k, n), QtCore.QPointF(k + n, 0))
+                if flip:
+                    p.drawLine(QtCore.QPointF(k, 0), QtCore.QPointF(k + n, n))
+                else:
+                    p.drawLine(QtCore.QPointF(k, n), QtCore.QPointF(k + n, 0))
             p.end()
             img.save(path)
         return path
 
-    def _hatch_cut(self, clip) -> None:
+    def _hatch_cut(self, clip, variant: Optional[int] = None) -> None:
         """Stripes on the cut face, as a drawing's section hatch, so a part
         cut open reads as solid metal cut through and not as an empty
         shell.  Sized to the model: the stripe spacing is a share of the
-        biggest size on screen, so a 10 mm pin and a 2 m frame look alike."""
+        biggest size on screen, so a 10 mm pin and a 2 m frame look alike.
+        ``variant`` is a part's place in an assembly, which picks its angle
+        and spacing."""
         try:
             from OCP.Graphic3d import Graphic3d_Texture2D
             from OCP.TCollection import TCollection_AsciiString
@@ -3889,13 +3962,18 @@ class Viewport(QtWidgets.QWidget):
                     size = max(x1 - x0, y1 - y0, z1 - z0, 1e-3)
             except Exception:
                 pass
+            flip, spacing = False, 1.0
+            if variant is not None:
+                flip = variant % 2 == 1
+                spacing = self.HATCH_SPACING[(variant // 2)
+                                             % len(self.HATCH_SPACING)]
             tex = Graphic3d_Texture2D(
-                TCollection_AsciiString(self._hatch_tile()))
+                TCollection_AsciiString(self._hatch_tile(flip)))
             tex.EnableRepeat()
             tex.DisableModulate()
             # one tile is one stripe, and a scale of s makes a tile 0.6 / s
             # model units wide (measured): so this many across the model
-            s = 0.6 * self.HATCH_LINES / size
+            s = 0.6 * self.HATCH_LINES / (size * spacing)
             tex.GetParams().SetScale(gp_Vec2f(s, s))
             clip.SetCappingTexture(tex)
             clip.SetCappingColor(_col("#ffffff"))

@@ -65,6 +65,45 @@ check("the stripes follow the model's size: 40 times bigger, 40 times "
 check("the stripe tile is kept in the cache",
       os.path.isfile(win.viewport._hatch_tile()))
 
+print("an assembly: each part its own hatch")
+import tempfile                                                    # noqa: E402
+from datum.core.assembly import AssemblyDocument                   # noqa: E402
+from datum.core.document import Document                           # noqa: E402
+
+work = tempfile.mkdtemp(prefix="datum_hatch_")
+paths = []
+for name, r, h in (("shaft", 10, 70), ("bushing", 18, 40)):
+    d = Document()
+    d.add_feature(PrimitiveFeature(kind="cylinder", a=str(r), b=str(h),
+                                   c="0"))
+    d.rebuild()
+    paths.append(d.save(os.path.join(work, name)))
+asm = AssemblyDocument()
+asm.path = os.path.join(work, "Bearing.icasm")
+asm.save(asm.path)
+win.open_path(asm.path)
+settle(600)
+for path in paths:
+    win.assembly_ui.place_library_file(path)
+    settle()
+vp = win.viewport
+vp.set_clip("section", ((0, 0, 0), (0, 1, 0)))
+cuts = getattr(vp, "_part_cuts", {})
+check("each part is cut with a plane of its own", len(cuts) == 2, len(cuts))
+files = {clip.CappingTexture().GetId().ToCString()
+         if hasattr(clip.CappingTexture(), "GetId") else id(clip)
+         for _ais, clip in cuts.values()}
+check("and the two are hatched apart, not alike", len(files) == 2, files)
+check("the view itself carries no cut of its own on top",
+      vp.view.ClipPlanes() is None or vp.view.ClipPlanes().Size() == 0)
+win.assembly_ui.rebuild()
+settle(400)
+check("parts shown again while the section is on are cut again",
+      len(getattr(vp, "_part_cuts", {})) == 2)
+vp.set_clip("section", None)
+check("and taking the section off takes every part's cut away",
+      not getattr(vp, "_part_cuts", {}))
+
 print()
 if FAILS:
     print("%d FAILURES: %s" % (len(FAILS), ", ".join(FAILS)))
