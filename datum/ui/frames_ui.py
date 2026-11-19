@@ -101,6 +101,26 @@ def frame_location(doc, frame_oid: int):
         else TopLoc_Location()
 
 
+def frame_folder_of(doc, frame_oid: int) -> str:
+    """The folder a frame's files are in: its assembly and its members',
+    fittings' and insulation's parts."""
+    if frame_oid == SELF:
+        return os.path.dirname(os.path.abspath(doc.path or "."))
+    occurrence = doc.occurrence(frame_oid)
+    path = doc.component_path(occurrence) if occurrence else None
+    return os.path.dirname(os.path.abspath(path)) if path else ""
+
+
+def frame_step(doc, *frame_oids: int, new_folders=()) -> None:
+    """One undo step before a frame edit, with the frames' folders in it,
+    so Ctrl+Z puts the frame's own files back as well as the assembly;
+    ``new_folders`` are folders the edit will make, taken away again on
+    undo."""
+    folders = [f for f in (frame_folder_of(doc, oid) for oid in frame_oids)
+               if f] + [f for f in new_folders if f]
+    doc.push_undo(list(dict.fromkeys(folders)))
+
+
 def frame_changed(host, frame_doc) -> None:
     """The view brought up to a frame just changed: the frame itself
     built again when it is open, then the assembly round it."""
@@ -882,7 +902,18 @@ class InsertFrameDialog(PickingDialog):
                 groups.setdefault((oid, sid), []).append(lid)
         problems: List[str] = []
         made = []
-        doc.push_undo()
+        # the step holds every frame these lines go into: the ones there
+        # already, and the folder of the one an insert makes
+        existing = [o.id for o in doc.occurrences
+                    if any(o.follows == oid for oid, _s in groups)
+                    and o.id in frame_ids(doc)]
+        number = 1
+        while os.path.exists(frames.frame_folder(doc, number)):
+            number += 1
+        frame_step(doc, *existing,
+                   new_folders=[frames.frame_folder(doc, number)]
+                   if len(existing) < len({oid for oid, _s in groups})
+                   else [])
         for (oid, sid), line_ids in groups.items():
             segments = routes.get((oid, sid)) if pipe else None
             if segments:
@@ -932,6 +963,7 @@ class InsertFrameDialog(PickingDialog):
             return True
         try:
             frame_doc = load_frame(self.doc, self.frame_oid)
+            frame_step(self.doc, self.frame_oid)
             problems = frames.change_members(frame_doc, self.picked_members(),
                                              **changes)
         except (ValueError, KeyError, kernel.KernelError) as exc:
@@ -1351,6 +1383,7 @@ class EndTreatmentDialog(PickingDialog):
             return False
         try:
             frame_doc = load_frame(self.doc, self.frame_oid)
+            frame_step(self.doc, self.frame_oid)
             _t, problems = frames.add_treatment(frame_doc, self.kind,
                                                 members, others, **params)
         except (ValueError, KeyError, kernel.KernelError) as exc:
@@ -1377,6 +1410,7 @@ class EndTreatmentDialog(PickingDialog):
 def remove_end_treatments(host, frame_oid: int, member_ids) -> int:
     """Remove End Treatments on members picked in the tree."""
     frame_doc = load_frame(host.assembly, frame_oid)
+    frame_step(host.assembly, frame_oid)
     gone = frames.remove_treatments(frame_doc, list(member_ids))
     frame_changed(host, frame_doc)
     return gone

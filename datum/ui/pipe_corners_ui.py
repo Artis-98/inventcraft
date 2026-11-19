@@ -201,6 +201,7 @@ class PipeCornersMode(QtCore.QObject):
             return
         self.active = True
         self._changes = []
+        self._stepped = False
         viewport = self.host.viewport
         viewport.escape_pressed.connect(self.cancel)
         viewport.enter_pressed.connect(self.accept)
@@ -235,19 +236,17 @@ class PipeCornersMode(QtCore.QObject):
         """Put every corner back as it was when Pipe Corners opened."""
         if not self.active:
             return
-        from ..core import pipe_corners
-        from .frames_ui import frame_changed, load_frame
         changes, self._changes = list(self._changes), []
-        touched = {}
-        for fid, point, was in reversed(changes):
-            try:
-                frame_doc = load_frame(self.host.assembly, fid)
-                pipe_corners.set_corner(frame_doc, point, was)
-                touched[fid] = frame_doc
-            except (ValueError, KeyError, kernel.KernelError):
-                pass
-        for frame_doc in touched.values():
-            frame_changed(self.host, frame_doc)
+        if changes and getattr(self, "_stepped", False):
+            # back to the step taken before the first corner changed: the
+            # frames' files and the assembly as they were, and that step
+            # not left for Ctrl+Y to redo
+            doc = self.host.assembly
+            if doc.undo():
+                if doc._redo:
+                    doc._redo.pop()
+                self.host.assembly_ui.rebuild()
+        self._stepped = False
         self._close()
         self._say("Pipe Corners cancelled: the corners are as they were."
                   if changes else "")
@@ -370,6 +369,12 @@ class PipeCornersMode(QtCore.QObject):
         fid, corner, _at = self._corners[index]
         if want == corner.now:
             return True
+        if not getattr(self, "_stepped", False):
+            # the whole Pipe Corners session is one Ctrl+Z: the step is
+            # taken before the first corner changes, with every frame here
+            from .frames_ui import frame_ids, frame_step
+            frame_step(self.host.assembly, *frame_ids(self.host.assembly))
+            self._stepped = True
         try:
             frame_doc = load_frame(self.host.assembly, fid)
             problems = pipe_corners.set_corner(frame_doc, corner.point, want)

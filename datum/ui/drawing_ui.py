@@ -1302,7 +1302,6 @@ class DrawingController(QtCore.QObject):
         origin = block_rect(doc, sheet)[:2]
 
         def done(finished) -> None:
-            doc.push_undo()
             block.take_sketch(finished)
             self.host.status_message.setText(
                 "Title block %s changed on every sheet using it." % name)
@@ -1335,10 +1334,13 @@ class DrawingController(QtCore.QObject):
                                   view=view.id if view is not None else 0)
 
         def done(finished) -> None:
-            doc.push_undo()
-            drawn.id = doc.new_id()
+            # called once per sketch edit when the steps are laid down,
+            # so it adds the sketch only the first time
+            if not drawn.id:
+                drawn.id = doc.new_id()
             drawn.sketch = finished.to_dict()
-            sheet.sketches.append(drawn)
+            if drawn not in sheet.sketches:
+                sheet.sketches.append(drawn)
             self.browser.refresh()
         self._begin_sheet_sketch(sheet, new_sketch(),
                                  sheet.sketch_origin(drawn), done,
@@ -1356,7 +1358,6 @@ class DrawingController(QtCore.QObject):
         view = sheet.view(drawn.view) if drawn.view else None
 
         def done(finished) -> None:
-            doc.push_undo()
             drawn.sketch = finished.to_dict()
         self._begin_sheet_sketch(sheet, Sketch.from_dict(drawn.sketch),
                                  sheet.sketch_origin(drawn), done, view=view,
@@ -1423,6 +1424,9 @@ class DrawingController(QtCore.QObject):
         self._sheet_sketch = None
         editor = self.host.editor
         sketch = editor.sketch
+        # the sketch as it was before each edit, oldest first: after Finish
+        # Sketch, Ctrl+Z walks back through them one at a time, as in a part
+        steps = list(getattr(editor, "_undo_stack", []))
         editor.end()
         for signal, slot in sheet_sketch.signal_pairs(held["surface"],
                                                       editor):
@@ -1436,7 +1440,7 @@ class DrawingController(QtCore.QObject):
         self.canvas.hide_title_block = False
         self.canvas.editing_ids = ()
         if sketch is not None and (sketch.entities or sketch.texts):
-            held["done"](sketch)
+            self._lay_down_steps(held["done"], sketch, steps)
             self.document.modified = True
         host = self.host
         host.ribbon.set_tab_visible(TAB_SKETCH, False)
@@ -1444,6 +1448,23 @@ class DrawingController(QtCore.QObject):
         self.browser.refresh()
         self.canvas.update()
         host.update_title()
+
+    def _lay_down_steps(self, done, sketch, steps) -> None:
+        """The finished sketch goes on the drawing with one undo step per
+        edit made in it.  The first step is the sketch as it was opened,
+        which is the drawing as it is now."""
+        import json
+        from ..core.sketch import Sketch
+        doc = self.document
+        doc.push_undo()
+        final = json.loads(json.dumps(sketch.to_dict()))
+        for blob in steps[1:]:
+            state = json.loads(blob)
+            if state == final:
+                continue
+            done(Sketch.from_dict(state))
+            doc.push_undo()
+        done(sketch)
 
     def edit_border(self) -> None:
         doc = self.document

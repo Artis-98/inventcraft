@@ -24,7 +24,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from OCP.TopoDS import TopoDS_Shape
 
@@ -1130,10 +1130,74 @@ class AssemblyDocument:
     def snapshot(self) -> str:
         return json.dumps(self.to_dict())
 
-    def push_undo(self) -> None:
-        self._undo.append(self.snapshot())
+    # An undo step is the assembly as it was, and, for an edit that writes
+    # files of its own (a frame's or a pipe's: the frame assembly and the
+    # parts of its members, fittings and insulation), those folders as they
+    # were too.  Undoing writes them back, files the edit made are taken
+    # away and files it removed come back; redo does the same the other
+    # way.  Without them, a frame edit took no step at all, so Ctrl+Z went
+    # back past it to whatever came before, several changes at once.
+
+    @staticmethod
+    def _folders_now(folders: Sequence[str]) -> Dict[str, Optional[Dict[
+            str, bytes]]]:
+        import zlib
+        out: Dict[str, Optional[Dict[str, bytes]]] = {}
+        for folder in folders:
+            if not os.path.isdir(folder):
+                out[folder] = None
+                continue
+            held = {}
+            for name in os.listdir(folder):
+                path = os.path.join(folder, name)
+                if os.path.isfile(path):
+                    with open(path, "rb") as fp:
+                        held[name] = zlib.compress(fp.read(), 3)
+            out[folder] = held
+        return out
+
+    @staticmethod
+    def _put_folders(saved: Dict[str, Optional[Dict[str, bytes]]]) -> None:
+        import shutil
+        import zlib
+        for folder, files in saved.items():
+            if files is None:
+                if os.path.isdir(folder):
+                    shutil.rmtree(folder, ignore_errors=True)
+                continue
+            os.makedirs(folder, exist_ok=True)
+            for name in os.listdir(folder):
+                path = os.path.join(folder, name)
+                if os.path.isfile(path) and name not in files:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+            for name, blob in files.items():
+                data = zlib.decompress(blob)
+                path = os.path.join(folder, name)
+                try:
+                    with open(path, "rb") as fp:
+                        if fp.read() == data:
+                            continue
+                except OSError:
+                    pass
+                with open(path, "wb") as fp:
+                    fp.write(data)
+
+    def push_undo(self, folders: Sequence[str] = ()) -> None:
+        """Keep the assembly as it is now for Ctrl+Z, and ``folders`` with
+        it when the edit about to happen writes files there."""
+        entry = (self.snapshot(), self._folders_now(list(folders))) \
+            if folders else self.snapshot()
+        self._undo.append(entry)
         del self._undo[:-60]
         self._redo.clear()
+
+    def drop_undo(self) -> None:
+        """Forget the last step without going back to it."""
+        if self._undo:
+            self._undo.pop()
 
     @property
     def can_undo(self) -> bool:
@@ -1143,20 +1207,43 @@ class AssemblyDocument:
     def can_redo(self) -> bool:
         return bool(self._redo)
 
+    def _step(self, source: list, target: list) -> None:
+        entry = source.pop()
+        if isinstance(entry, tuple):
+            snap, saved = entry
+            target.append((self.snapshot(), self._folders_now(list(saved))))
+            self._put_folders(saved)
+        else:
+            snap = entry
+            target.append(self.snapshot())
+        self.load_dict(json.loads(snap))
+        self.modified = True
+        # what was read from the files put back is read again
+        self.reload_changed = True
+
+    def _skip_same(self, stack: list) -> None:
+        """Steps that are the assembly exactly as it is now go: a dialog
+        opened and cancelled, or a constraint window closed with nothing
+        more placed, leaves one, and Ctrl+Z on it would do nothing."""
+        now = None
+        while stack and isinstance(stack[-1], str):
+            now = now or self.snapshot()
+            if stack[-1] != now:
+                break
+            stack.pop()
+
     def undo(self) -> bool:
+        self._skip_same(self._undo)
         if not self._undo:
             return False
-        self._redo.append(self.snapshot())
-        self.load_dict(json.loads(self._undo.pop()))
-        self.modified = True
+        self._step(self._undo, self._redo)
         return True
 
     def redo(self) -> bool:
+        self._skip_same(self._redo)
         if not self._redo:
             return False
-        self._undo.append(self.snapshot())
-        self.load_dict(json.loads(self._redo.pop()))
-        self.modified = True
+        self._step(self._redo, self._undo)
         return True
 
     # ------------------------------------------------------- serialisation

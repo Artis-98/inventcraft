@@ -1957,8 +1957,11 @@ class DrawingDocument:
     # ------------------------------------------------------------ edit stack
 
     def push_undo(self) -> None:
-        self._undo.append(self.snapshot())
-        del self._undo[:-60]
+        state = self.snapshot()
+        # the same state twice is one step, not two presses for nothing
+        if not self._undo or self._undo[-1] != state:
+            self._undo.append(state)
+        del self._undo[:-200]
         self._redo.clear()
 
     @property

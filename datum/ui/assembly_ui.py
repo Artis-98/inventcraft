@@ -447,6 +447,9 @@ class ConstraintDialog(QtWidgets.QDialog):
             return
         self._changed()
         committed = self.constraint
+        # each constraint placed is a step of its own: Ctrl+Z after three
+        # Applies takes them back one at a time, not all three at once
+        self.doc.push_undo()
         self._snapshot = self.doc.snapshot()
         self.constraint = AssemblyConstraint(kind=committed.kind)
         self._live = False
