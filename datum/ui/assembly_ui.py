@@ -710,6 +710,7 @@ class AssemblyController(QtCore.QObject):
                 return self.rebuild()
             applied[occurrence.id] = key
         self._draw_arrows()
+        self.draw_threads()
         return self._reported(report)
 
     def _showable(self):
@@ -821,6 +822,69 @@ class AssemblyController(QtCore.QObject):
         # the components were just rebuilt underneath them, so the arrows
         # have to be put back where the faces now are
         self._draw_arrows()
+        self.draw_threads()
+
+    def draw_threads(self) -> None:
+        """The cosmetic threads of every part placed here, read from the
+        part files (their Thread features keep where they go), each moved
+        to where its part sits; a frame's or other sub-assembly's parts
+        too, one level down."""
+        from ..core import threads
+        doc = self.document
+        if doc is None:
+            return
+        cache = getattr(self, "_thread_cache", None)
+        if cache is None:
+            cache = self._thread_cache = {}
+
+        def marks(path):
+            try:
+                stamp = os.path.getmtime(path)
+            except OSError:
+                return []
+            held = cache.get(path)
+            if held is None or held[0] != stamp:
+                held = (stamp, threads.marks_in_file(path))
+                cache[path] = held
+            return held[1]
+
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
+        wires = []
+
+        def place(path, trsf):
+            for mark in marks(path):
+                for wire in threads.helix(mark):
+                    wires.append(BRepBuilderAPI_Transform(wire, trsf,
+                                                          True).Shape())
+
+        for occurrence in doc.occurrences:
+            if occurrence.suppressed or not occurrence.visible:
+                continue
+            path = occurrence.ref.resolve(doc.base_dir) if doc.base_dir \
+                else None
+            if not path or not os.path.exists(path):
+                continue
+            trsf = occurrence.placement.trsf()
+            if fileformat.is_assembly(path):
+                try:
+                    from ..core.assembly import AssemblyDocument
+                    sub = AssemblyDocument.load(path)
+                except Exception:  # noqa: BLE001
+                    continue
+                for inner in sub.occurrences:
+                    if inner.suppressed or not inner.visible:
+                        continue
+                    ipath = inner.ref.resolve(sub.base_dir) \
+                        if sub.base_dir else None
+                    if ipath and os.path.exists(ipath) \
+                            and not fileformat.is_assembly(ipath):
+                        place(ipath, trsf.Multiplied(inner.placement.trsf()))
+            else:
+                place(path, trsf)
+        try:
+            self.viewport.set_cosmetic(wires)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _item_clicked(self, kind: str, key: str) -> None:
         """A row of the part edited in place: to its feature window."""

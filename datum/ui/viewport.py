@@ -2848,6 +2848,28 @@ class Viewport(QtWidgets.QWidget):
             self.context.Remove(obj, False)
         self._overlay = []
 
+    def set_cosmetic(self, shapes, colour: str = "#1f252c",
+                     width: float = 1.4) -> None:
+        """What is drawn on the model but is not part of it: cosmetic
+        threads.  In the model's own depth, so the solid hides the far
+        side of a thread as it would, never picked, and kept apart from
+        the overlay, so a sketch's redraw does not take them away."""
+        if not self._ready or self.context is None:
+            return
+        for obj in getattr(self, "_cosmetic", []):
+            self.context.Remove(obj, False)
+        self._cosmetic = []
+        for shape in shapes or ():
+            ais = AIS_Shape(shape)
+            ais.SetColor(_col(colour))
+            ais.SetWidth(width)
+            ais.SetZLayer(Graphic3d_ZLayerId_Default)
+            ais.SetInfiniteState(True)
+            self.context.Display(ais, False)
+            self.context.Deactivate(ais)
+            self._cosmetic.append(ais)
+        self.redraw()
+
     def clear_preview(self) -> None:
         if not self._ready:
             return

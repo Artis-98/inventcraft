@@ -28,7 +28,7 @@ from ..core.features import (
     SplitFeature, CombineFeature, EmbossFeature, SheetFaceFeature,
     FlangeFeature,
     HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
-    FrameMemberFeature,
+    FrameMemberFeature, ThreadFeature,
 )
 from ..core.naming import RefSet
 from . import icons
@@ -1753,6 +1753,183 @@ class ShellDialog(FeatureDialog):
         self.feature.thickness = self.thickness.text()
 
 
+class ThreadDialog(FeatureDialog):
+    """Inventor's Thread: pick round faces, a shaft or a hole; the size
+    is matched to the face (a 16 mm face is M16), and can be changed, or
+    made Custom at any diameter for tube that is not a standard size;
+    pitch and hand are yours.  Cosmetic: the solid stays as it is."""
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Thread", "thread", is_new, snapshot)
+
+    def build(self):
+        from ..core import threads
+        self.threads = threads
+        self.picker = SelectionField("Select faces")
+        self.picker.pick_toggled.connect(
+            lambda on: self.host.set_pick_mode("face" if on else None))
+        self.picker.cleared.connect(self._clear)
+        self.form.add("Faces", self.picker)
+        hint = QtWidgets.QLabel("A shaft or a hole. The size follows the "
+                                "face; change it if the tube is not "
+                                "standard.")
+        hint.setProperty("hint", True)
+        hint.setWordWrap(True)
+        self.form.add("", hint)
+
+        self.standard = QtWidgets.QComboBox()
+        for name in (threads.METRIC, threads.PIPE, threads.CUSTOM):
+            self.standard.addItem(name)
+        self.form.add("Type", self.standard)
+        self.size = QtWidgets.QComboBox()
+        self.form.add("Size", self.size)
+        self.diameter = QtWidgets.QDoubleSpinBox()
+        self.diameter.setRange(0.5, 1000.0)
+        self.diameter.setDecimals(3)
+        self.diameter.setSuffix(" mm")
+        self.form.add("Diameter", self.diameter)
+        self.pitch = QtWidgets.QDoubleSpinBox()
+        self.pitch.setRange(0.05, 20.0)
+        self.pitch.setDecimals(3)
+        self.pitch.setSingleStep(0.25)
+        self.pitch.setSuffix(" mm")
+        self.form.add("Pitch", self.pitch)
+        self.hand = QtWidgets.QComboBox()
+        self.hand.addItem("Right hand", False)
+        self.hand.addItem("Left hand", True)
+        self.form.add("Direction", self.hand)
+        self.full = QtWidgets.QCheckBox("Full length")
+        self.form.add("", self.full)
+        self.length = self.expression(self.feature.length)
+        self.form.add("Length", self.length)
+        self.offset = self.expression(self.feature.offset)
+        self.form.add("Offset", self.offset)
+
+        self.standard.currentIndexChanged.connect(lambda _i: self._sizes())
+        self.size.currentIndexChanged.connect(lambda _i: self._size_chosen())
+        self.full.toggled.connect(lambda on: self.length.setEnabled(not on))
+        for w in (self.diameter, self.pitch):
+            w.valueChanged.connect(lambda _v: self.preview())
+        self.hand.currentIndexChanged.connect(lambda _i: self.preview())
+        self.full.toggled.connect(lambda _on: self.preview())
+        QtCore.QTimer.singleShot(0, lambda: self.picker.set_picking(True))
+
+    # -- sizes -----------------------------------------------------------
+
+    def _sizes(self, keep: str = "") -> None:
+        std = self.standard.currentText()
+        self.size.blockSignals(True)
+        self.size.clear()
+        for s in self.threads.sizes(std):
+            self.size.addItem(s.designation, s)
+        self.size.blockSignals(False)
+        custom = std == self.threads.CUSTOM
+        self.size.setEnabled(not custom)
+        self.diameter.setEnabled(custom)
+        if keep:
+            i = self.size.findText(keep)
+            if i >= 0:
+                self.size.setCurrentIndex(i)
+        if not custom:
+            self._size_chosen()
+
+    def _size_chosen(self) -> None:
+        s = self.size.currentData()
+        if s is None:
+            return
+        self.diameter.setValue(s.diameter)
+        self.pitch.setValue(s.pitch)
+        self.preview()
+
+    def match_face(self, diameter: float) -> None:
+        """Set the size to the one a face of this diameter takes."""
+        s = self.threads.match(diameter, self.threads.METRIC)
+        if s.standard == self.threads.CUSTOM:
+            pipe = self.threads.match(diameter, self.threads.PIPE, 0.03)
+            if pipe.standard != self.threads.CUSTOM:
+                s = pipe
+        self.standard.blockSignals(True)
+        self.standard.setCurrentText(s.standard)
+        self.standard.blockSignals(False)
+        self._sizes(keep=s.designation)
+        if s.standard == self.threads.CUSTOM:
+            self.diameter.setValue(diameter)
+            self.pitch.setValue(s.pitch)
+
+    # -- picking ---------------------------------------------------------
+
+    def wants_selection(self):
+        return "face" if self.picker.picking else None
+
+    def _clear(self):
+        self.feature.refs = RefSet()
+        self.picker.set_count(0, "face")
+        self.host.viewport.clear_selection()
+        self.preview()
+
+    def on_selection(self):
+        if not self.picker.picking or self._in_selection:
+            return
+        picked = self.host.viewport.selected_faces()
+        if not picked:
+            return
+        base = self.host.pick_shape()
+        if base is None:
+            return
+        self._in_selection = True
+        try:
+            first_pick = not len(self.feature.refs)
+            fresh = RefSet()
+            fresh.capture_from(base, "face", picked)
+            for ref in fresh:
+                match = next((e for e in self.feature.refs
+                              if e.same_as(ref)), None)
+                if match is not None:
+                    self.feature.refs.refs.remove(match)
+                else:
+                    self.feature.refs.add(ref)
+            self.picker.set_count(len(self.feature.refs), "face")
+            self.host.viewport.clear_selection()
+            if first_pick:
+                mark = self.threads.mark_for_face(picked[0])
+                if mark is not None:
+                    self.match_face(2.0 * mark.radius)
+        finally:
+            self._in_selection = False
+        self.preview()
+
+    def load(self):
+        self.picker.set_count(len(self.feature.refs), "face")
+        f = self.feature
+        self.standard.setCurrentText(f.standard or self.threads.METRIC)
+        self._sizes(keep=f.designation.split("x")[0] if f.designation
+                    else "")
+        if f.diameter:
+            self.diameter.setValue(f.diameter)
+        if f.pitch:
+            self.pitch.setValue(f.pitch)
+        self.hand.setCurrentIndex(1 if f.left_hand else 0)
+        self.full.setChecked(f.full_length)
+        self.length.setEnabled(not f.full_length)
+        self.length.set_text(f.length)
+        self.offset.set_text(f.offset)
+
+    def store(self):
+        f = self.feature
+        f.standard = self.standard.currentText()
+        s = self.size.currentData()
+        f.diameter = self.diameter.value()
+        f.pitch = self.pitch.value()
+        if f.standard == self.threads.CUSTOM or s is None:
+            f.designation = "M%gx%g" % (f.diameter, f.pitch)
+        else:
+            f.designation = self.threads.designation(s, f.pitch)
+        f.left_hand = bool(self.hand.currentData())
+        f.full_length = self.full.isChecked()
+        f.length = self.length.text()
+        f.offset = self.offset.text()
+
+
 class AxisField(QtWidgets.QWidget):
     """Inventor's direction pick: quick buttons for the origin's own, or
     something picked in the view or the tree, and a flip.
@@ -3375,6 +3552,7 @@ DIALOGS = {
     FilletFeature: FilletDialog,
     ChamferFeature: ChamferDialog,
     ShellFeature: ShellDialog,
+    ThreadFeature: ThreadDialog,
     PatternFeature: PatternDialog,
     MirrorFeature: MirrorDialog,
     PrimitiveFeature: PrimitiveDialog,
@@ -3410,13 +3588,14 @@ class NewDocumentDialog(QtWidgets.QDialog):
     """
 
     KINDS = (
-        (fileformat.PART, "box", "Part",
+        # the four documents' own icons, as on the start page and the tabs
+        (fileformat.PART, "doc_part", "Part",
          "A solid, built on a feature tree"),
-        (fileformat.ASSEMBLY, "import", "Assembly",
+        (fileformat.ASSEMBLY, "doc_assembly", "Assembly",
          "Parts and sub-assemblies, placed and constrained"),
-        (fileformat.DRAWING, "dimension", "Drawing",
+        (fileformat.DRAWING, "doc_drawing", "Drawing",
          "Views, dimensions and a title block"),
-        (fileformat.CAM, "section", "CAM Sheet",
+        (fileformat.CAM, "doc_cam", "CAM Sheet",
          "Flat parts nested on stock, and the toolpaths for them"),
     )
 

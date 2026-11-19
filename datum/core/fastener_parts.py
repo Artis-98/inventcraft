@@ -16,7 +16,7 @@ flush with it, as it sits in its countersink.
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from .document import Document
 from .features import (CUT, JOIN, ExtrudeFeature, RevolveFeature,
@@ -330,3 +330,49 @@ def build(doc: Document, kind: str, drive_kind: str,
             (B, ri + w), (B, ri)])
     else:
         raise ValueError("no way to draw a %s yet" % kind)
+
+
+# ------------------------------------------------------------- threads
+#
+# What is threaded on each kind, as (from z, to z, inside): bolts and
+# screws down the shank from under the head, a shoulder screw only below
+# its shoulder, nuts through the bore.  Cosmetic, as Inventor's are: the
+# solid is plain, the thread is drawn over it (core/threads.py).
+
+def thread_span(kind: str, dims: Dict[str, float],
+                length: float) -> Optional[Tuple[float, float, bool]]:
+    if kind in ("hex_bolt", "square_bolt", "socket_head", "dome", "pan",
+                "cheese", "set_screw", "rod"):
+        return (-length, 0.0, False)
+    if kind == "countersunk":
+        return (-length, -dims.get("k", 0.0), False)
+    if kind == "shoulder":
+        return (-length - dims.get("lt", 0.0), -length, False)
+    if kind in ("nut", "square_nut"):
+        return (0.0, dims["m"], True)
+    if kind == "lock_nut":
+        return (0.0, dims["h"], True)
+    if kind == "cap_nut":
+        return (0.0, dims["m"] + 0.4 * (dims["h"] - dims["m"]), True)
+    return None
+
+
+def add_thread(doc: Document, kind: str, dims: Dict[str, float],
+               length: float) -> None:
+    """The fastener's thread, at its size and coarse pitch."""
+    from . import threads
+    from .features import ThreadFeature
+    span = thread_span(kind, dims, length)
+    d = dims.get("d", 0.0)
+    if span is None or d <= 0 or span[1] - span[0] <= 1e-6:
+        return
+    size = threads.match(d)
+    feature = ThreadFeature(name="Thread")
+    feature.standard = size.standard
+    feature.designation = size.designation
+    feature.diameter = size.diameter
+    feature.pitch = size.pitch
+    feature.marks = [threads.Mark((0.0, 0.0, span[0]), (0.0, 0.0, 1.0),
+                                  d / 2.0, span[1] - span[0], size.pitch,
+                                  span[2]).to_list()]
+    doc.add_feature(feature)

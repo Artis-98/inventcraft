@@ -110,16 +110,78 @@ class CornerChip(QtWidgets.QWidget):
         self.adjustSize()
 
 
+class CornersPanel(QtWidgets.QFrame):
+    """Pipe Corners' own little window, floating at the view's top left
+    like a feature's: what to do, and a tick to keep the changes or a
+    cross to put every corner back as it was."""
+
+    accepted = QtCore.Signal()
+    cancelled = QtCore.Signal()
+
+    def __init__(self, parent) -> None:
+        super().__init__(parent, QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint)
+        self.setObjectName("CornersPanel")
+        self.setAttribute(QtCore.Qt.WA_ShowWithoutActivating, True)
+        self.setStyleSheet(
+            "#CornersPanel { background: %s; border: 1px solid %s;"
+            " border-radius: 6px; }" % (C.panel, C.border))
+        row = QtWidgets.QHBoxLayout(self)
+        row.setContentsMargins(10, 6, 6, 6)
+        row.setSpacing(6)
+        badge = QtWidgets.QLabel()
+        badge.setPixmap(corner_icon("elbow", 20, self.devicePixelRatioF())
+                        .pixmap(20, 20))
+        row.addWidget(badge)
+        text = QtWidgets.QVBoxLayout()
+        text.setSpacing(0)
+        title = QtWidgets.QLabel("Pipe Corners")
+        title.setStyleSheet("font-weight: 600;")
+        text.addWidget(title)
+        self.hint = QtWidgets.QLabel("Pick a corner's button: bend or elbow")
+        self.hint.setProperty("hint", True)
+        text.addWidget(self.hint)
+        row.addLayout(text)
+        row.addSpacing(8)
+        self.ok = self._button("✓", "Keep the corners as they are now "
+                               "(Enter)", C.ok)
+        self.ok.clicked.connect(self.accepted)
+        row.addWidget(self.ok)
+        self.cancel = self._button("✕", "Put every corner back as it "
+                                   "was when Pipe Corners opened (Esc)",
+                                   C.error)
+        self.cancel.clicked.connect(self.cancelled)
+        row.addWidget(self.cancel)
+        self.adjustSize()
+
+    def _button(self, glyph: str, tip: str, hover: str) -> QtWidgets.QToolButton:
+        b = QtWidgets.QToolButton(self)
+        b.setText(glyph)
+        b.setToolTip(tip)
+        b.setCursor(QtCore.Qt.PointingHandCursor)
+        b.setFixedSize(28, 28)
+        b.setStyleSheet(
+            "QToolButton { border: 1px solid %s; border-radius: 4px;"
+            " font-size: 15px; font-weight: bold; color: %s; }"
+            "QToolButton:hover { background: %s; color: %s; }"
+            % (C.border, C.text_bright, hover, C.on_accent))
+        return b
+
+
 class PipeCornersMode(QtCore.QObject):
-    """Piping mode: the chips on every corner, kept over their corners."""
+    """Piping mode: the chips on every corner, kept over their corners,
+    and the panel to finish with: the tick keeps what was changed, the
+    cross undoes it, corner by corner, last first."""
 
     def __init__(self, host) -> None:
         super().__init__(host)
         self.host = host
         self.active = False
         self.chips: List[CornerChip] = []
+        self.panel: Optional[CornersPanel] = None
         self._corners: List[Tuple[int, Any, Any]] = []
         self._drawn: List[Any] = []
+        # what was changed since opening: (frame, corner point, what it was)
+        self._changes: List[Tuple[int, Any, str]] = []
         self._timer = QtCore.QTimer(self)
         self._timer.setInterval(FOLLOW_MS)
         self._timer.timeout.connect(self.follow)
@@ -128,7 +190,7 @@ class PipeCornersMode(QtCore.QObject):
 
     def toggle(self) -> bool:
         if self.active:
-            self.stop()
+            self.accept()
         else:
             self.start()
         return self.active
@@ -138,29 +200,77 @@ class PipeCornersMode(QtCore.QObject):
             self._say("Pipe Corners works in an assembly with pipes in it.")
             return
         self.active = True
+        self._changes = []
         viewport = self.host.viewport
-        viewport.escape_pressed.connect(self.stop)
+        viewport.escape_pressed.connect(self.cancel)
+        viewport.enter_pressed.connect(self.accept)
         self.reload()
         self._timer.start()
         if not self._corners:
             self._say("There are no pipe corners to choose here: Insert "
                       "Pipe first.")
-            self.stop()
+            self._close()
             return
+        window = self.host.window() if hasattr(self.host, "window") \
+            else self.host
+        self.panel = CornersPanel(window)
+        self.panel.accepted.connect(self.accept)
+        self.panel.cancelled.connect(self.cancel)
+        self.panel.show()
+        self.follow()
         self._say("Pipe corners: click a corner's button to make it a bend "
-                  "or an elbow. Esc or Pipe Corners again to finish.")
+                  "or an elbow; the tick keeps the changes, the cross puts "
+                  "them back.")
 
-    def stop(self) -> None:
+    def accept(self) -> None:
+        """Keep the corners as they are now."""
         if not self.active:
             return
+        n = len(self._changes)
+        self._close()
+        self._say("%d corner%s changed." % (n, "" if n == 1 else "s")
+                  if n else "")
+
+    def cancel(self) -> None:
+        """Put every corner back as it was when Pipe Corners opened."""
+        if not self.active:
+            return
+        from ..core import pipe_corners
+        from .frames_ui import frame_changed, load_frame
+        changes, self._changes = list(self._changes), []
+        touched = {}
+        for fid, point, was in reversed(changes):
+            try:
+                frame_doc = load_frame(self.host.assembly, fid)
+                pipe_corners.set_corner(frame_doc, point, was)
+                touched[fid] = frame_doc
+            except (ValueError, KeyError, kernel.KernelError):
+                pass
+        for frame_doc in touched.values():
+            frame_changed(self.host, frame_doc)
+        self._close()
+        self._say("Pipe Corners cancelled: the corners are as they were."
+                  if changes else "")
+
+    def stop(self) -> None:
+        """Pipe Corners closed some other way: what was done stays."""
+        self.accept()
+
+    def _close(self) -> None:
         self.active = False
         self._timer.stop()
-        try:
-            self.host.viewport.escape_pressed.disconnect(self.stop)
-        except (RuntimeError, TypeError):
-            pass
+        viewport = self.host.viewport
+        for signal, slot in ((viewport.escape_pressed, self.cancel),
+                             (viewport.enter_pressed, self.accept)):
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        if self.panel is not None:
+            self.panel.hide()
+            self.panel.deleteLater()
+            self.panel = None
         self._clear()
-        self._say("")
 
     def _say(self, text: str) -> None:
         label = getattr(self.host, "status_message", None)
@@ -226,7 +336,15 @@ class PipeCornersMode(QtCore.QObject):
         if not self.active or not viewport.isVisible():
             for chip in self.chips:
                 chip.hide()
+            if self.panel is not None:
+                self.panel.hide()
             return
+        if self.panel is not None:
+            spot = viewport.mapToGlobal(QtCore.QPoint(12, 12))
+            if self.panel.pos() != spot:
+                self.panel.move(spot)
+            if not self.panel.isVisible():
+                self.panel.show()
         w, h = viewport.width(), viewport.height()
         for chip, (_fid, _corner, at) in zip(self.chips, self._corners):
             try:
@@ -258,6 +376,8 @@ class PipeCornersMode(QtCore.QObject):
         except (ValueError, KeyError, kernel.KernelError) as exc:
             self._say(str(exc))
             return False
+        # remembered, so the cross can put it back
+        self._changes.append((fid, tuple(corner.point), corner.now))
         frame_changed(self.host, frame_doc)
         self._say("; ".join(problems) if problems else
                   "That corner is %s now." % WORDS[want].lower())

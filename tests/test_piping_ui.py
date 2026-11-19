@@ -172,29 +172,55 @@ elbow_chip = next(c for c in mode.chips if c.corner.kind == "elbow90")
 check("and its button shows the elbow, Elbow ticked in its menu",
       elbow_chip.button.menu().actions()[1].isChecked())
 if SHOTS:
+    # put together from the app's own windows, never from the screen,
+    # which shows whatever else is open on it
+    from PySide6 import QtGui
     settle(300)
-    top = win.window()
-    shot = app.primaryScreen().grabWindow(
-        0, top.x(), top.y(), top.frameGeometry().width(),
-        top.frameGeometry().height())
-    shot.save(os.path.join(SHOTS, "pipe_corners_chips.png"))
+    vp = win.viewport
+    path = os.path.join(SHOTS, "pipe_corners_chips.png")
+    vp.grab_image(path)
+    picture = QtGui.QImage(path)
+    painter = QtGui.QPainter(picture)
+    ratio = picture.width() / max(1, vp.width())
+    painter.scale(ratio, ratio)
+    for widget in [c for c in mode.chips if c.isVisible()] + (
+            [mode.panel] if mode.panel is not None else []):
+        at = vp.mapFromGlobal(widget.pos())
+        painter.drawPixmap(at, widget.grab())
     menu = mode.chips[0].button.menu()
-    menu.popup(mode.chips[0].mapToGlobal(
+    menu.adjustSize()
+    at = vp.mapFromGlobal(mode.chips[0].mapToGlobal(
         QtCore.QPoint(0, mode.chips[0].height())))
-    settle(300)
-    shot = app.primaryScreen().grabWindow(
-        0, top.x(), top.y(), top.frameGeometry().width(),
-        top.frameGeometry().height())
-    shot.save(os.path.join(SHOTS, "pipe_corners_menu.png"))
-    menu.hide()
+    painter.drawPixmap(at, menu.grab())
+    painter.end()
+    picture.save(path)
 row = mode.chips.index(elbow_chip)
 check("and back to a bend", mode.choose(row, "bend")
       and sorted(c.kind for _f, c, _a in mode._corners) == ["bend"] * 3)
+check("a little panel floats over the view while it is on, tick and cross",
+      mode.panel is not None and mode.panel.isVisible()
+      and mode.panel.ok.text() == "✓"
+      and mode.panel.cancel.text() == "✕")
 mode.choose(0, "elbow")
-win.viewport.escape_pressed.emit()
 settle(200)
-check("Esc ends piping mode, the buttons go",
-      not mode.active and not mode.chips)
+mode.panel.cancel.click()
+settle(300)
+kinds = sorted(c.kind for c in __import__(
+    "datum.core.pipe_corners", fromlist=["x"]).corners(
+    __import__("datum.ui.frames_ui", fromlist=["x"]).load_frame(
+        win.assembly, __import__("datum.ui.frames_ui", fromlist=["x"])
+        .frame_ids(win.assembly)[0])))
+check("the cross puts every corner back as it was, and closes",
+      not mode.active and mode.panel is None and kinds == ["bend"] * 3,
+      kinds)
+mode = win.pipe_corners()
+settle(300)
+mode.choose(0, "elbow")
+settle(200)
+win.viewport.enter_pressed.emit()
+settle(300)
+check("Enter (or the tick) keeps the change and closes",
+      not mode.active and not mode.chips and mode.panel is None)
 settle(200)
 
 print("the Cut List")

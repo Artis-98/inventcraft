@@ -344,6 +344,11 @@ def main(argv=None) -> int:
     # renamed shortcuts the installer would have seen to
     from .core import shellreg
     QtCore.QTimer.singleShot(3000, shellreg.settle_rename)
+    # each kind of file its own icon in Explorer, also for a copy that
+    # has only ever updated itself and so never ran the installer's
+    # registration (ui/winassoc.py)
+    from .ui import winassoc
+    QtCore.QTimer.singleShot(3500, winassoc.register_if_installed)
 
     from .core import fileformat
 

@@ -1259,11 +1259,67 @@ class Document:
     def snapshot(self) -> str:
         return json.dumps(self.to_dict(), separators=(",", ":"))
 
+    UNDO_DEPTH = 200
+
     def push_undo(self) -> None:
-        self._undo.append(self.snapshot())
-        if len(self._undo) > 80:
-            self._undo.pop(0)
+        state = self.snapshot()
+        # the same state twice is one step, not two presses for nothing
+        if not self._undo or self._undo[-1] != state:
+            self._undo.append(state)
+        del self._undo[:-self.UNDO_DEPTH]
         self._redo.clear()
+        self._settled = state
+
+    def note_change(self) -> None:
+        """Called whenever the document has been changed and built again.
+        A change made without a push_undo before it (a parameter typed in
+        the table, a value edited in place) would otherwise fold into the
+        step before it, so one Ctrl+Z took both back: here the state it
+        was changed from is kept as a step of its own."""
+        state = self.snapshot()
+        settled = getattr(self, "_settled", None)
+        if settled is None:
+            self._settled = state
+            return
+        if state == settled:
+            return
+        if not self._undo or self._undo[-1] != settled:
+            self._undo.append(settled)
+            del self._undo[:-self.UNDO_DEPTH]
+            self._redo.clear()
+        self._settled = state
+
+    def push_sketch_steps(self, feature_id: int, steps) -> int:
+        """A finished sketch's own edits, one undo step each.  ``steps``
+        are the sketch as it was before each edit, oldest first (the
+        sketch editor's undo stack), so after Finish Sketch, Ctrl+Z goes
+        back through them one at a time, as Inventor does, rather than
+        taking the whole sketch away at once.  Returns how many."""
+        base = json.loads(self.snapshot())
+        entry = next((f for f in base.get("features", [])
+                      if f.get("id") == feature_id), None)
+        if entry is None or not steps:
+            return 0
+        pushed = 0
+        final = entry.get("sketch")
+        for blob in steps:
+            sketch = json.loads(blob)
+            # a step recorded for a click that changed nothing is the
+            # finished sketch itself: undoing to it would do nothing
+            if sketch == final:
+                continue
+            entry["sketch"] = sketch
+            state = json.dumps(base, separators=(",", ":"))
+            if not self._undo or self._undo[-1] != state:
+                self._undo.append(state)
+                pushed += 1
+        del self._undo[:-self.UNDO_DEPTH]
+        self._redo.clear()
+        # what the rebuild after Finish Sketch leaves (the origin planes
+        # hidden once there is a body, say) is the settled state, not a
+        # change of its own to undo
+        self._settled = None
+        return pushed
 
     @property
     def can_undo(self) -> bool:
@@ -1279,6 +1335,9 @@ class Document:
         self._redo.append(self.snapshot())
         self.load_dict(json.loads(self._undo.pop()))
         self.modified = True
+        # the rebuild after it may write to the document; that is not a
+        # change to make a step of, nor a reason to drop the redo history
+        self._settled = None
         return True
 
     def redo(self) -> bool:
@@ -1287,6 +1346,7 @@ class Document:
         self._undo.append(self.snapshot())
         self.load_dict(json.loads(self._redo.pop()))
         self.modified = True
+        self._settled = None
         return True
 
     # -- serialisation ------------------------------------------------------

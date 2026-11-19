@@ -1007,3 +1007,30 @@ def _sweep_s():
         return (Vector((y, x, 0.4)), Vector((ty, tx, 0.0)),
                 Vector((0, 0, 1)))
     _swept_bar(at, half=0.36, n=48, profile_gap=0.5, path_r=0.065)
+
+
+@model("thread")
+def _thread():
+    # a shaft with its thread: a copper helix wound round a grey bolt
+    # shank, under a hex head, bold enough to read at 20 pixels
+    cyl("Shank", 0.42, 1.9, at=(0, 0, 0))
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.78,
+                          radius2=0.78, depth=0.5)
+    bmesh.ops.translate(bm, vec=(0, 0, 2.15), verts=bm.verts)
+    head = mesh_object("Head", bm, ["grey"])
+    bevel_mod(head, 0.03)
+    cu = bpy.data.curves.new("Helix", "CURVE")
+    cu.dimensions = "3D"
+    cu.bevel_depth = 0.085
+    cu.bevel_resolution = 3
+    sp = cu.splines.new("POLY")
+    turns, n = 5.5, 220
+    sp.points.add(n)
+    for k, spt in enumerate(sp.points):
+        t = k / n
+        a = 2 * math.pi * turns * t
+        spt.co = (0.44 * math.cos(a), 0.44 * math.sin(a), 0.1 + 1.6 * t, 1.0)
+    ob = bpy.data.objects.new("Helix", cu)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.data.materials.append(MATS["accent"])

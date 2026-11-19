@@ -29,7 +29,7 @@ from ..core.features import (
     WorkAxisFeature, SplitFeature, CombineFeature, EmbossFeature,
     SheetFaceFeature,
     FlangeFeature, HemFeature, FoldFeature, ContourFlangeFeature,
-    CornerSeamFeature,
+    CornerSeamFeature, ThreadFeature,
 )
 from ..core.naming import RefSet, ShapeRef
 from ..core.sketch import STANDARD_PLANES, Sketch, SketchPlane
@@ -531,6 +531,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         ).clicked.connect(lambda: self.new_feature(ChamferFeature))
         panel.add_small("shell", "Shell", "Hollow the body out"
                         ).clicked.connect(lambda: self.new_feature(ShellFeature))
+        panel.add_small("thread", "Thread",
+                        "A cosmetic thread on a shaft or in a hole: the size "
+                        "follows the face, pitch and hand are yours"
+                        ).clicked.connect(lambda: self.new_feature(ThreadFeature))
         panel.add_small("split", "Split",
                         "Split faces, or cut a solid in two, along a plane "
                         "or a flat face").clicked.connect(
@@ -3353,6 +3357,13 @@ class MainWindow(QtWidgets.QMainWindow):
         entry = self.session.by_document(self.document)
         if entry is not None:
             entry.note_change()
+        # a change that took no undo step of its own gets one here; not
+        # while a feature dialog is open (its preview changes are one step,
+        # pushed when it opened) nor while sketching (the sketch keeps its
+        # own steps, handed over at Finish Sketch)
+        if getattr(self, "_active_dialog", None) is None \
+                and not self.editor.active:
+            self.document.note_change()
         # a box drag selects in a part as it does in an assembly, and it
         # is always drawn, even where it takes nothing
         self.viewport.box_select_enabled = True
@@ -3366,6 +3377,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 appearance=self.document.material_appearance)
         self._draw_visible_planes()
         self._draw_visible_sketches()
+        self._draw_threads()
         self._refresh_trees()
         self.properties.update_from(self.document)
         self._update_title()
@@ -3543,6 +3555,17 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.viewport.show_planes(self.document.visible_planes(),
                                   self._picker_size())
+
+    def _draw_threads(self) -> None:
+        """The part's cosmetic threads, drawn over their faces."""
+        from ..core import threads
+        wires = []
+        try:
+            for mark in threads.marks_of(self.document):
+                wires += threads.helix(mark)
+        except Exception:  # noqa: BLE001
+            wires = []
+        self.viewport.set_cosmetic(wires)
 
     def _draw_visible_sketches(self) -> None:
         """Show finished sketches faintly, the way Inventor keeps them around.
@@ -3732,7 +3755,8 @@ class MainWindow(QtWidgets.QMainWindow):
                        "them" if wanted == 2 else "one"))
                 return
         if cls in (FilletFeature, ChamferFeature, ShellFeature, PatternFeature,
-                   MirrorFeature, MoveFeature) and self.document.shape is None:
+                   MirrorFeature, MoveFeature, ThreadFeature) \
+                and self.document.shape is None:
             QtWidgets.QMessageBox.information(
                 self, cls.type_name.title(),
                 "There is no body yet. Create one first.")
@@ -4691,8 +4715,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ribbon.set_hint("")
             self.status_sketch.setText("")
             return
+        # the sketch's own edits become the part's undo steps, one each, so
+        # after Finish Sketch Ctrl+Z goes back through them one at a time
+        # rather than taking the whole sketch away (or, for a sketch opened
+        # to edit, skipping past it to whatever came before)
+        steps = list(getattr(self.editor, "_undo_stack", []))
+        sketch_id = self._sketch_feature_id
         self.editor.end()
         self._sketch_feature_id = None
+        if sketch_id is not None:
+            self.document.push_sketch_steps(sketch_id, steps)
         self.document.rollback_index = getattr(self, "_saved_rollback", None)
         self.ribbon.show_tab(TAB_SHEET if self._is_sheet_metal()
                              else TAB_MODEL)

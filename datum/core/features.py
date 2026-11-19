@@ -3761,6 +3761,79 @@ class PipeFittingFeature(Feature):
                         for s in data.get("sockets", [])]
 
 
+@dataclass
+class ThreadFeature(Feature):
+    """Inventor's Thread: a cosmetic thread on round faces, shafts or
+    holes.  The solid is left as it is; the thread is drawn over the face,
+    and the size, pitch and hand are kept for drawings and the BOM.
+
+    The size is matched to the face when it is picked (a 16 mm face is
+    M16) and can be changed, or made Custom at any diameter, for tube that
+    is not quite a standard size and is tapped anyway.  A thread with no
+    faces picked keeps the marks it was given: that is how the standard
+    parts library puts threads on its bolts and nuts.
+    """
+
+    type_name: str = "thread"
+    icon: str = "thread"
+    name: str = "Thread"
+    refs: "RefSet" = field(default_factory=lambda: RefSet())
+    standard: str = "ISO Metric"
+    designation: str = ""
+    diameter: float = 0.0
+    pitch: float = 0.0
+    left_hand: bool = False
+    full_length: bool = True
+    length: str = "10"
+    offset: str = "0"
+    marks: List[List[float]] = field(default_factory=list)
+
+    def build(self, ctx: BuildContext) -> None:
+        from . import threads
+        if not len(self.refs):
+            return                  # given its marks, by the library
+        body = ctx.require_shape(self.name)
+        targets, lost = self.refs.resolve_all(body)
+        if lost and not targets:
+            raise FeatureError("%s: its faces no longer exist" % self.name)
+        offset = ctx.evaluate(self.offset, "%s offset" % self.name)
+        length = None if self.full_length else ctx.evaluate(
+            self.length, "%s length" % self.name)
+        marks = []
+        for face in targets:
+            m = threads.mark_for_face(face, offset, length,
+                                      self.pitch or 1.0, self.left_hand)
+            if m is None:
+                raise FeatureError("%s: a thread goes on a round face"
+                                   % self.name)
+            marks.append(m.to_list())
+        self.marks = marks
+
+    def summary(self) -> str:
+        hand = " LH" if self.left_hand else ""
+        return "%s: %s%s" % (self.name, self.designation or "thread", hand)
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"refs": self.refs.to_list(), "standard": self.standard,
+                "designation": self.designation, "diameter": self.diameter,
+                "pitch": self.pitch, "left_hand": self.left_hand,
+                "full_length": self.full_length, "length": self.length,
+                "offset": self.offset,
+                "marks": [list(m) for m in self.marks]}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.refs = RefSet.from_list(data.get("refs", []))
+        self.standard = str(data.get("standard", "ISO Metric"))
+        self.designation = str(data.get("designation", ""))
+        self.diameter = float(data.get("diameter", 0.0))
+        self.pitch = float(data.get("pitch", 0.0))
+        self.left_hand = bool(data.get("left_hand", False))
+        self.full_length = bool(data.get("full_length", True))
+        self.length = str(data.get("length", "10"))
+        self.offset = str(data.get("offset", "0"))
+        self.marks = [[float(c) for c in m] for m in data.get("marks", [])]
+
+
 FEATURE_TYPES: Dict[str, type] = {
     cls.type_name: cls for cls in (
         SketchFeature, WorkPlaneFeature, WorkAxisFeature,
@@ -3771,6 +3844,6 @@ FEATURE_TYPES: Dict[str, type] = {
         SplitFeature, EmbossFeature, SheetFaceFeature, FlangeFeature,
         HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
         FrameMemberFeature, FrameEndsFeature, CombineFeature,
-        PipeRunFeature, PipeFittingFeature,
+        PipeRunFeature, PipeFittingFeature, ThreadFeature,
     )
 }

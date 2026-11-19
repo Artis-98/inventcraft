@@ -210,6 +210,7 @@ def _fastener(fam: Family, chosen: Dict[str, Any]):
     if fam.needs_length:
         doc.params.add("L", "%g" % length)
     fastener_parts.build(doc, fam.kind, fam.drive, dims, length)
+    fastener_parts.add_thread(doc, fam.kind, dims, length)
     doc.material = "Steel, Mild"
     doc.properties["Description"] = description(chosen)
     doc.properties["Part Number"] = part_name(chosen)
