@@ -75,7 +75,7 @@ def place(ob, at=(0, 0, 0), rot=(0, 0, 0)):
 
 
 def curved_arrow(centre, radius, start_deg, end_deg, z=0.0, thick=0.06,
-                 head=0.18, mat="dark", plane="XY"):
+                 head=0.18, mat="dark", plane="XY", point=None):
     """An arc of arrow round ``centre``, its head at the end."""
     n = 32
 
@@ -86,7 +86,12 @@ def curved_arrow(centre, radius, start_deg, end_deg, z=0.0, thick=0.06,
             return Vector((centre[0] + x, centre[1] + y, centre[2] + z))
         return Vector((centre[0] + x, centre[1] + z, centre[2] + y))
     # the shaft stops short of the end, where the head takes over
-    stop = end_deg - math.copysign(12.0, end_deg - start_deg)
+    gap = 12.0
+    if point is not None:
+        # a longer head takes more of the arc: as much as it is long
+        tip = max(head * 1.5, 0.24) * point
+        gap = math.degrees(tip / radius) * 0.85
+    stop = end_deg - math.copysign(gap, end_deg - start_deg)
     cu = bpy.data.curves.new("Arc", "CURVE")
     cu.dimensions = "3D"
     cu.bevel_depth = thick
@@ -99,7 +104,8 @@ def curved_arrow(centre, radius, start_deg, end_deg, z=0.0, thick=0.06,
     bpy.context.scene.collection.objects.link(ob)
     ob.data.materials.append(MATS[mat])
     arrow(p3(stop - math.copysign(2.0, end_deg - start_deg)), p3(end_deg),
-          radius=thick, head=head, mat=mat)
+          radius=thick, head=head, mat=mat,
+          **({} if point is None else {"point": point}))
     return ob
 
 
@@ -441,12 +447,14 @@ def _pattern_circ():
     # accent, the axis up the middle and an arrow over them the way it goes
     n, r = 6, 1.0
     for k in range(n):
-        a = 2 * math.pi * k / n + math.radians(225)
+        a = 2 * math.pi * k / n + math.radians(165)
         box_object("Block", 0.45, 0.45, 0.45,
                    (r * math.cos(a), r * math.sin(a), 0.0),
                    mat="grey" if k == 0 else "accent")
     cyl("Axis", 0.07, 1.2, at=(0, 0, 0.0), mat="dark", segments=16)
-    curved_arrow((0, 0, 0.0), r, 235, 335, z=0.85, thick=0.08)
+    # above the back of the ring, from the first block on, sharp headed
+    curved_arrow((0, 0, 0.0), r, 170, 290, z=0.95, thick=0.07,
+                 head=0.16, point=2.8)
 
 
 # --------------------------------------------------------------- views

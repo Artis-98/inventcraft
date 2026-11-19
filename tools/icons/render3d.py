@@ -178,7 +178,7 @@ def boolean(ob, tool, op="DIFFERENCE"):
     return b
 
 
-def arrow(start, end, radius=0.06, head=0.17, mat="dark"):
+def arrow(start, end, radius=0.06, head=0.17, mat="dark", point=1.6):
     """A shaft and a cone head from ``start`` to ``end``."""
     # big wide heads on thin shafts: at toolbar size it is the head that
     # says which way, and a fat shaft only blurs it
@@ -189,7 +189,8 @@ def arrow(start, end, radius=0.06, head=0.17, mat="dark"):
     length = d.length
     rot = d.to_track_quat("Z", "Y").to_matrix().to_4x4()
     # a short arrow is all head (a curved arrow's tip is one)
-    tip_len = min(head * 1.6, length)
+    # ``point``: how long the head is for how wide; more is sharper
+    tip_len = min(head * point, length)
     made = []
     if length - tip_len > 1e-3:
         bm = bmesh.new()
