@@ -26,8 +26,8 @@ SETTINGS_ENABLED = "update/check_on_start"
 SETTINGS_SKIPPED = "update/skipped_version"
 SETTINGS_LAST = "update/last_check"
 
-# Long enough that it is not pestering a server on every launch, short
-# enough that a fix put out on Monday is on the bench by Tuesday.
+# Every start asks (the feed is one small signed file, fetched off the main
+# thread); a copy left open for days asks again this often.
 CHECK_INTERVAL = 6 * 60 * 60
 
 
@@ -233,6 +233,10 @@ class UpdateController(QtCore.QObject):
         self.release = None
         self.plan = None
         self.worker: Optional[Worker] = None
+        # a copy left open for days still hears about a new version
+        self.timer = QtCore.QTimer(self)
+        self.timer.setInterval(CHECK_INTERVAL * 1000)
+        self.timer.timeout.connect(self._periodic)
 
         self.banner.download_requested.connect(self.start_download)
         self.banner.apply_requested.connect(self.restart_now)
@@ -273,7 +277,16 @@ class UpdateController(QtCore.QObject):
         allowed, _why = update.can_update()
         if not allowed:
             return
-        if not self._due():
+        self.timer.start()
+        self.check(quiet=True)
+
+    def _periodic(self) -> None:
+        """The check again while the window stays open, unless one is
+        already offered, downloading or waiting for a restart: the banner
+        showing it must not be cleared by a check finding nothing new."""
+        if not self.enabled or self.release is not None                 or update.pending():
+            return
+        if self.worker is not None and self.worker.isRunning():
             return
         self.check(quiet=True)
 

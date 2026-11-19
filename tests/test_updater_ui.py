@@ -136,6 +136,31 @@ check("and the reason mentions source", "source" in why, why)
 
 
 # ==========================================================================
+print("every start asks, however recently the last one did")
+
+import time as _time                                          # noqa: E402
+asked = []
+held_can, held_check = update.can_update, win.updater.check
+update.can_update = lambda: (True, "")
+win.updater.check = lambda quiet=False: asked.append(quiet)
+win.updater.settings.setValue("update/last_check", _time.time())
+win.updater.on_start()
+check("a check a minute after the last one still goes out", asked == [True],
+      asked)
+check("and it asks again while the window stays open",
+      win.updater.timer.isActive())
+win.updater._periodic()
+check("the timer's check goes out too", asked == [True, True], asked)
+win.updater.release = object()
+win.updater._periodic()
+check("but not over an update already offered", asked == [True, True],
+      asked)
+win.updater.release = None
+win.updater.timer.stop()
+update.can_update, win.updater.check = held_can, held_check
+
+
+# ==========================================================================
 print("a staged update is announced on the next start")
 
 staged = tempfile.mkdtemp(prefix="datum_ui_update_")
