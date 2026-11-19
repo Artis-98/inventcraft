@@ -3837,11 +3837,71 @@ class Viewport(QtWidgets.QWidget):
             clip.SetCapping(capping)
             clip.SetCappingColor(_col("#8fa0b4"))
             clip.SetUseObjectMaterial(False)
+            if capping:
+                self._hatch_cut(clip)
             self.view.AddClipPlane(clip)
             clips[name] = clip
             if name == "section":
                 self._clip = clip
         self.redraw()
+
+    # the cut face's stripes: one dark line across a light tile, at 45
+    # degrees, repeated; about this many across the model's biggest size
+    HATCH_LINES = 28
+
+    @staticmethod
+    def _hatch_tile() -> str:
+        """The stripe tile as a PNG, made once and kept in the cache."""
+        folder = os.path.join(QtCore.QStandardPaths.writableLocation(
+            QtCore.QStandardPaths.CacheLocation) or os.path.expanduser("~"),
+            "textures")
+        path = os.path.join(folder, "section_hatch_v1.png")
+        if not os.path.isfile(path):
+            os.makedirs(folder, exist_ok=True)
+            n = 64
+            img = QtGui.QImage(n, n, QtGui.QImage.Format_RGB32)
+            img.fill(QtGui.QColor("#b4c0cc"))
+            p = QtGui.QPainter(img)
+            p.setRenderHint(QtGui.QPainter.Antialiasing)
+            pen = QtGui.QPen(QtGui.QColor("#56606c"))
+            pen.setWidthF(7.0)
+            p.setPen(pen)
+            for k in (-n, 0, n):
+                p.drawLine(QtCore.QPointF(k, n), QtCore.QPointF(k + n, 0))
+            p.end()
+            img.save(path)
+        return path
+
+    def _hatch_cut(self, clip) -> None:
+        """Stripes on the cut face, as a drawing's section hatch, so a part
+        cut open reads as solid metal cut through and not as an empty
+        shell.  Sized to the model: the stripe spacing is a share of the
+        biggest size on screen, so a 10 mm pin and a 2 m frame look alike."""
+        try:
+            from OCP.Graphic3d import Graphic3d_Texture2D
+            from OCP.TCollection import TCollection_AsciiString
+            from OCP.gp import gp_Vec2f
+            size = 100.0
+            try:
+                box = self.view.View().MinMaxValues(False)
+                if not box.IsVoid():
+                    x0, y0, z0, x1, y1, z1 = box.Get()
+                    size = max(x1 - x0, y1 - y0, z1 - z0, 1e-3)
+            except Exception:
+                pass
+            tex = Graphic3d_Texture2D(
+                TCollection_AsciiString(self._hatch_tile()))
+            tex.EnableRepeat()
+            tex.DisableModulate()
+            # one tile is one stripe, and a scale of s makes a tile 0.6 / s
+            # model units wide (measured): so this many across the model
+            s = 0.6 * self.HATCH_LINES / size
+            tex.GetParams().SetScale(gp_Vec2f(s, s))
+            clip.SetCappingTexture(tex)
+            clip.SetCappingColor(_col("#ffffff"))
+        except Exception:
+            # a plain cap is still a cap
+            pass
 
     def clip_plane(self, name: str):
         """The cut a name holds now, or None."""
