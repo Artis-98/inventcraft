@@ -191,7 +191,7 @@ def builtin_appearances() -> List[Appearance]:
         Appearance("Paint, Machine Yellow", "Paint", "#e3a615", 0.44, False),
         Appearance("Paint, Machine Charcoal", "Paint", "#3a4046", 0.58, False),
 
-        Appearance("Glass, Clear", "Glass", "#cfe0e6", 0.05, False, 0.28),
+        Appearance("Glass, Clear", "Glass", "#c4d9df", 0.05, False, 0.14),
         Appearance("Acrylic, Frosted", "Glass", "#dde4e7", 0.55, False, 0.62),
         Appearance("Rubber, Black", "Rubber", "#232528", 0.88, False),
         Appearance("Concrete", "Stone", "#a8a49c", 0.78, False),

@@ -1,0 +1,36 @@
+# InventCraft standard parts library
+# id: en-10305-4-hydraulic
+# name: Seamless Steel Tube for Hydraulic Lines
+# standard: EN 10305-4
+# category: Piping/Steel
+# kind: pipe
+# source: EN 10305-4 outside diameters and walls, the sizes stockists carry; r a bend radius to start from, 3 x d
+# licence: CC0-1.0
+size,d,t,r
+6x1,6,1,18
+8x1,8,1,24
+8x1.5,8,1.5,24
+10x1,10,1,30
+10x1.5,10,1.5,30
+12x1.5,12,1.5,36
+12x2,12,2,36
+15x1.5,15,1.5,45
+15x2,15,2,45
+16x2,16,2,48
+18x1.5,18,1.5,54
+18x2,18,2,54
+20x2,20,2,60
+20x2.5,20,2.5,60
+22x2,22,2,66
+22x2.5,22,2.5,66
+25x2.5,25,2.5,75
+25x3,25,3,75
+28x2,28,2,84
+28x3,28,3,84
+30x3,30,3,90
+30x4,30,4,90
+32x3,32,3,96
+35x3,35,3,105
+38x4,38,4,114
+42x3,42,3,126
+42x4,42,4,126

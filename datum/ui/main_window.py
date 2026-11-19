@@ -6069,7 +6069,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _rules_changed(self) -> None:
         """A rule moved something, so the model has to catch up."""
         if self.in_assembly:
-            self.assembly_ui.rebuild()
+            # Form sliders edit parameters before requesting this redraw.
+            # Apply their watched placement rules before showing components;
+            # what only moved is shifted, not drawn again
+            self.run_rules()
+            self.assembly_ui.follow()
         elif self.in_part:
             self.rebuild(keep_camera=True)
 

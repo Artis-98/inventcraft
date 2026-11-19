@@ -769,6 +769,42 @@ class AssemblyController(QtCore.QObject):
         self.draw_threads()
         return self._reported(report)
 
+    def follow(self) -> AssemblyReport:
+        """Catch the picture up with a rule that moved components.
+
+        An icLogic form's slider runs the rule on every move, and the rule
+        usually only places things.  Drawing every component afresh for
+        that took most of a second on a few hundred parts; when every body
+        is the one already on screen, the pictures are shifted instead, as
+        a solve's are.  Anything else, a body that changed or a component
+        shown or hidden, gets the full rebuild.
+        """
+        doc = self.document
+        if doc is None:
+            return AssemblyReport()
+        drawn = getattr(self, "_drawn", None)
+        shapes = getattr(self, "_drawn_shapes", None)
+        if not drawn or not shapes or set(drawn) != self._showable() or any(
+                doc.occurrence(oid) is None
+                or doc.occurrence(oid).shape is not shapes.get(oid)
+                for oid in drawn):
+            return self.rebuild()
+        applied = self._applied
+        for occurrence in doc.occurrences:
+            if occurrence.id not in drawn:
+                continue
+            now = occurrence.placement
+            key = (tuple(now.position), tuple(now.rotation))
+            if applied.get(occurrence.id) == key:
+                continue
+            trsf = now.trsf().Multiplied(drawn[occurrence.id].trsf().Inverted())
+            if not self.viewport.move_component(occurrence.id, trsf):
+                return self.rebuild()
+            applied[occurrence.id] = key
+        self._draw_arrows()
+        self.draw_threads()
+        return self._reported(getattr(doc, "last_report", None) or AssemblyReport())
+
     def _showable(self):
         """The components that should be on screen, by id."""
         doc = self.document
@@ -871,6 +907,10 @@ class AssemblyController(QtCore.QObject):
                        for item in items}
         self._applied = {oid: (tuple(p.position), tuple(p.rotation))
                          for oid, p in self._drawn.items()}
+        # and with which body, so a rule that only moved things can be
+        # followed by shifting pictures; see follow()
+        self._drawn_shapes = {item["id"]: doc.occurrence(item["id"]).shape
+                              for item in items}
         if held:
             self.viewport.select_components(held)
         self.viewport.show_planes(self.visible_planes(), self._plane_size())
@@ -906,6 +946,39 @@ class AssemblyController(QtCore.QObject):
 
         from OCP.BRepBuilderAPI import BRepBuilderAPI_Transform
         wires = []
+        subs = getattr(self, "_thread_subs", None)
+        if subs is None:
+            subs = self._thread_subs = {}
+
+        def inside(path):
+            """A sub-assembly's threaded parts and where they sit in it,
+            read once per change of its file: an icLogic slider redraws
+            these on every move, and reading each sub-assembly again every
+            time cost a tenth of a second on a machine of eighty of them."""
+            try:
+                stamp = os.path.getmtime(path)
+            except OSError:
+                return []
+            held = subs.get(path)
+            if held is None or held[0] != stamp:
+                found = []
+                try:
+                    from ..core.assembly import AssemblyDocument
+                    sub = AssemblyDocument.load(path)
+                except Exception:  # noqa: BLE001
+                    sub = None
+                for inner in (sub.occurrences if sub is not None else ()):
+                    if inner.suppressed or not inner.visible:
+                        continue
+                    ipath = inner.ref.resolve(sub.base_dir) \
+                        if sub.base_dir else None
+                    if ipath and os.path.exists(ipath) \
+                            and not fileformat.is_assembly(ipath) \
+                            and marks(ipath):
+                        found.append((ipath, inner.placement.trsf()))
+                held = (stamp, found)
+                subs[path] = held
+            return held[1]
 
         def place(path, trsf):
             for mark in marks(path):
@@ -922,19 +995,8 @@ class AssemblyController(QtCore.QObject):
                 continue
             trsf = occurrence.placement.trsf()
             if fileformat.is_assembly(path):
-                try:
-                    from ..core.assembly import AssemblyDocument
-                    sub = AssemblyDocument.load(path)
-                except Exception:  # noqa: BLE001
-                    continue
-                for inner in sub.occurrences:
-                    if inner.suppressed or not inner.visible:
-                        continue
-                    ipath = inner.ref.resolve(sub.base_dir) \
-                        if sub.base_dir else None
-                    if ipath and os.path.exists(ipath) \
-                            and not fileformat.is_assembly(ipath):
-                        place(ipath, trsf.Multiplied(inner.placement.trsf()))
+                for ipath, inner in inside(path):
+                    place(ipath, trsf.Multiplied(inner))
             else:
                 place(path, trsf)
         try:
