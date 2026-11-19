@@ -35,7 +35,7 @@ from . import icons
 from .theme import C
 from .widgets import ExpressionEdit, FormRows, SegmentedControl, SelectionField
 
-OP_ICONS = {JOIN: "extrude", CUT: "hole", INTERSECT: "shell",
+OP_ICONS = {JOIN: "extrude", CUT: "hole", INTERSECT: "intersect",
             NEW_BODY: "box"}
 
 # the order is Inventor's, and it is the order of how often you want each:
