@@ -1466,8 +1466,12 @@ class Document:
         return written
 
     @classmethod
-    def load(cls, path: str) -> "Document":
-        """Open an InventCraft part and rebuild it."""
+    def load(cls, path: str, build: bool = True) -> "Document":
+        """Open an InventCraft part and rebuild it.
+
+        ``build`` False reads it without building: for looking at what a
+        part holds (the Frame Generator asking whether a member's part is
+        already as it should be) building it is all cost and no use."""
         opened = fileformat.read(path, expected_type=fileformat.PART)
         doc = cls()
         doc.load_dict(opened.geometry)
@@ -1477,5 +1481,6 @@ class Document:
         doc.modified = opened.migrated_from is not None
         doc.migrated_from = opened.migrated_from
         doc.thumbnail = opened.thumbnail
-        doc.rebuild()
+        if build:
+            doc.rebuild()
         return doc

@@ -2341,6 +2341,8 @@ class Viewport(QtWidgets.QWidget):
     def redraw(self) -> None:
         if not self._ready or self.view is None:
             return
+        # a full frame may change what is lit up: the next hover draws
+        self._lit_owner = None
         if getattr(self, "_frame_depth", 0):
             # inside one_frame: drawn once, when it is done
             self._frame_dirty = True
@@ -3543,7 +3545,18 @@ class Viewport(QtWidgets.QWidget):
         except Exception:
             pass
         if redraw:
-            self.view.RedrawImmediate()
+            # only when what is lit up changed: moving across one face
+            # redrew the whole model at the screen's rate for nothing,
+            # holding the window up on every frame and the card busy
+            try:
+                now = ctx.DetectedOwner() if ctx.HasDetected() else None
+            except Exception:
+                now = object()
+            if now is None or now is not getattr(self, "_lit_owner", None):
+                if now is not None or getattr(self, "_lit_owner",
+                                              None) is not None:
+                    self.view.RedrawImmediate()
+            self._lit_owner = now
 
     def ray_at(self, x: int, y: int) -> Optional[Tuple[Tuple[float, float, float],
                                                        Tuple[float, float, float]]]:

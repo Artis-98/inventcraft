@@ -1818,8 +1818,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _spacemouse_connected(self, name: str) -> None:
         self.spacemouse_btn.setChecked(True)
         self.spacemouse_btn.setToolTip("%s - click for settings" % name)
-        self.status_message.setStyleSheet("")
-        self.status_message.setText("%s connected." % name)
+        # found in the background now, a moment after start: it must not
+        # write over what the status bar is telling about real work
+        if not self.status_message.text().strip():
+            self.status_message.setStyleSheet("")
+            self.status_message.setText("%s connected." % name)
 
     def _spacemouse_disconnected(self) -> None:
         self.spacemouse_btn.setChecked(False)

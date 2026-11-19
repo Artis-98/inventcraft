@@ -1112,7 +1112,8 @@ def write_member_part(path: str, member: Member, fam: ProfileFamily,
     doc, current = _live(path, Document), None
     if doc is None and os.path.exists(path):
         try:
-            doc = Document.load(path)
+            # only looked at; built below if it has to change
+            doc = Document.load(path, build=False)
         except Exception:
             doc = None
     if doc is None:

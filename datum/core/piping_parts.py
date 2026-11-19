@@ -31,7 +31,7 @@ def _write(path: str, role: str, member, geo, d: float, t: float,
     doc = _live(path, Document)
     if doc is None and os.path.exists(path):
         try:
-            doc = Document.load(path)
+            doc = Document.load(path, build=False)
         except Exception:
             doc = None
     if doc is None:
@@ -125,7 +125,7 @@ def write_fitting_part(path: str, fitting) -> bool:
     doc = None
     if os.path.exists(path):
         try:
-            doc = Document.load(path)
+            doc = Document.load(path, build=False)
         except Exception:
             doc = None
     if doc is None:

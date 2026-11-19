@@ -304,8 +304,14 @@ class SpaceMouse(QtCore.QObject):
         opened_tdx = self.tdx.open()
         if not available() and not opened_tdx:
             return False
-        self._try_open()
-        self._timer.start()
+        # the first look off the drawing thread too: listing HID devices
+        # held the window up for half a second while it opened
+        if available():
+            self._rescan_in_background()
+        # polled only while there is something to poll: a 60 a second timer
+        # with no puck plugged in kept the processor from ever resting
+        if self.is_connected:
+            self._timer.start()
         self._rescan.start()
         if opened_tdx and not self.interfaces:
             self.connected.emit(self.summary())
@@ -394,6 +400,8 @@ class SpaceMouse(QtCore.QObject):
                 self.product = (entry.get("product_string")
                                 or "3Dconnexion device")
 
+        if self.interfaces and not self._timer.isActive():
+            self._timer.start()
         if first and self.interfaces:
             self.connected.emit(self.summary())
 
@@ -451,7 +459,11 @@ class SpaceMouse(QtCore.QObject):
     # ---------------------------------------------------------------- polling
 
     def _poll(self) -> None:
-        if not self.settings.enabled or not self.is_connected:
+        if not self.is_connected:
+            # nothing left to read: rest until a rescan opens one again
+            self._timer.stop()
+            return
+        if not self.settings.enabled:
             return
 
         # 3DxWare first: when it is running it owns the puck, and whatever it
