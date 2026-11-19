@@ -1637,6 +1637,83 @@ def _render(name: str) -> Optional[str]:
     return path if os.path.exists(path) else None
 
 
+# the copper the renders are made with (tools/icons/render3d.py ACCENT)
+_RENDER_ACCENT = "#c48c14"
+_tinted: Dict[Tuple[str, str], QtGui.QImage] = {}
+
+
+def _tint_render(path: str) -> QtGui.QImage:
+    """A render with its copper turned to the scheme's accent.
+
+    The renders are made once, in copper; the drawn icons take each
+    scheme's accent as they are read, so these have to as well or a blue
+    scheme has copper buttons.  What is copper is found by its hue and how
+    strong it is; it takes the accent's colour at its own brightness, so
+    the shading and the highlights stay as they were rendered.
+    """
+    key = (path, _ACCENT)
+    held = _tinted.get(key)
+    if held is not None:
+        return held
+    image = QtGui.QImage(path)
+    target = QtGui.QColor(_ACCENT)
+    base = QtGui.QColor(_RENDER_ACCENT)
+    if image.isNull() or abs(target.hsvHueF() - base.hsvHueF()) < 0.02 \
+            and abs(target.hsvSaturationF() - base.hsvSaturationF()) < 0.15:
+        _tinted[key] = image
+        return image
+    try:
+        import numpy as np
+    except ImportError:
+        _tinted[key] = image
+        return image
+    image = image.convertToFormat(QtGui.QImage.Format_ARGB32)
+    w, h = image.width(), image.height()
+    raw = np.frombuffer(image.constBits(), dtype=np.uint8,
+                        count=image.sizeInBytes())
+    arr = raw.reshape(h, image.bytesPerLine())[:, :w * 4].reshape(
+        h, w, 4).astype(np.float32) / 255.0
+    # ARGB32 is B, G, R, A in memory on a little endian machine
+    b, g, r, a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
+    mx = np.maximum(np.maximum(r, g), b)
+    mn = np.minimum(np.minimum(r, g), b)
+    span = mx - mn
+    sat = np.where(mx > 1e-6, span / np.maximum(mx, 1e-6), 0.0)
+    hue = np.zeros_like(mx)
+    nz = span > 1e-6
+    rc = np.where(nz, (mx - r) / np.maximum(span, 1e-6), 0)
+    gc = np.where(nz, (mx - g) / np.maximum(span, 1e-6), 0)
+    bc = np.where(nz, (mx - b) / np.maximum(span, 1e-6), 0)
+    hue = np.where(r == mx, bc - gc,
+                   np.where(g == mx, 2.0 + rc - bc, 4.0 + gc - rc))
+    hue = (hue / 6.0) % 1.0
+    # copper and its highlights: orange to yellow, with some colour in it
+    centre = base.hsvHueF()
+    dist = np.abs(((hue - centre + 0.5) % 1.0) - 0.5)
+    weight = np.clip((sat - 0.18) / 0.18, 0.0, 1.0) * \
+        np.clip((0.09 - dist) / 0.04, 0.0, 1.0) * nz
+    # the accent at the pixel's own brightness, its colour kept as strong
+    # relative to copper's as the pixel's was
+    tr, tg, tb = target.redF(), target.greenF(), target.blueF()
+    tmax = max(tr, tg, tb, 1e-6)
+    scale = mx / tmax
+    strength = np.clip(sat / max(base.hsvSaturationF(), 1e-6), 0.0, 1.0)
+    grey = mx
+    nr = grey + (tr * scale - grey) * strength
+    ng = grey + (tg * scale - grey) * strength
+    nb = grey + (tb * scale - grey) * strength
+    out = arr.copy()
+    out[..., 2] = r + (np.clip(nr, 0, 1) - r) * weight
+    out[..., 1] = g + (np.clip(ng, 0, 1) - g) * weight
+    out[..., 0] = b + (np.clip(nb, 0, 1) - b) * weight
+    out[..., 3] = a
+    data = (out * 255.0 + 0.5).astype(np.uint8).tobytes()
+    tinted = QtGui.QImage(data, w, h, w * 4,
+                          QtGui.QImage.Format_ARGB32).copy()
+    _tinted[key] = tinted
+    return tinted
+
+
 def pixmap(name: str, size: int = 24, ratio: float = 1.0) -> QtGui.QPixmap:
     px = QtGui.QPixmap(int(size * ratio), int(size * ratio))
     px.setDevicePixelRatio(ratio)
@@ -1645,7 +1722,7 @@ def pixmap(name: str, size: int = 24, ratio: float = 1.0) -> QtGui.QPixmap:
     painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
     rendered = _render(name)
     if rendered is not None:
-        image = QtGui.QImage(rendered)
+        image = _tint_render(rendered)
         if not image.isNull():
             # scaled down in one go, averaging, so a 256 pixel render
             # stays crisp at 16 and does not shimmer
