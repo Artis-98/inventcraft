@@ -446,7 +446,8 @@ def main() -> int:
     parser.add_argument("version", nargs="?",
                         help="the version to release, e.g. 0.2.1")
     parser.add_argument("--notes", default="",
-                        help="what changed, shown in the update banner")
+                        help="what changed, shown in the update banner: "
+                             "the text, or a file holding it")
     parser.add_argument("--minimum", default="0.0.0",
                         help="oldest version that can patch forward to this")
     parser.add_argument("--make-key", action="store_true",
@@ -457,6 +458,11 @@ def main() -> int:
                         help="add the Linux build GitHub made for this "
                              "version to the feed, and stop")
     args = parser.parse_args()
+    # a notes file is read: 0.4.2 and 0.4.3 shipped "build/notes-0.4.x.md"
+    # as their What's New, the path itself, for want of this
+    if args.notes and os.path.isfile(args.notes):
+        with open(args.notes, encoding="utf-8") as handle:
+            args.notes = handle.read().strip()
 
     if args.make_key:
         make_key()
