@@ -325,6 +325,48 @@ def _combine():
         p.use_smooth = False
 
 
+def ring(name, r, z, at=(0, 0), thick=0.03, mat="dark"):
+    """A thin round wire: a cylinder's edge drawn as a line."""
+    cu = bpy.data.curves.new(name, "CURVE")
+    cu.dimensions = "3D"
+    cu.bevel_depth = thick
+    cu.bevel_resolution = 3
+    sp = cu.splines.new("POLY")
+    n = 64
+    sp.points.add(n)
+    for i in range(n + 1):
+        t = 2 * math.pi * i / n
+        sp.points[i].co = (at[0] + r * math.cos(t), at[1] + r * math.sin(t),
+                           z, 1.0)
+    ob = bpy.data.objects.new(name, cu)
+    bpy.context.scene.collection.objects.link(ob)
+    cu.materials.append(MATS[mat])
+    return ob
+
+
+@model("intersect")
+def _intersect():
+    # the block and the boss of Combine drawn only as their edges, and
+    # what they share solid in the accent: only the overlap is kept
+    bx, by, bz, bat = 1.7, 1.2, 0.9, (0, 0.2, 0)
+    r, h, cat = 0.55, 1.7, (0.15, -0.35, 0.0)
+    ob = box_object("Kept", bx, by, bz, bat, mat="accent", bevel=0)
+    tool = cyl("Tool", r, h, at=cat, mat="accent")
+    boolean(ob, tool, "INTERSECT")
+    tool.hide_render = True
+    bevel_mod(ob, 0.03)
+    for p in ob.data.polygons:
+        p.use_smooth = False
+    edges_of_box(bx, by, bz, bat, r=0.022, mat="grey")
+    ring("Top", r, h, cat[:2], thick=0.022, mat="grey")
+    ring("Bottom", r, 0.0, cat[:2], thick=0.022, mat="grey")
+    # the two lines down its sides as seen from the icon view (45 degrees)
+    k = r * math.sqrt(0.5)
+    for sx, sy in ((-k, k), (k, -k)):
+        cyl("Side", 0.022, h, at=(cat[0] + sx, cat[1] + sy, 0.0),
+            mat="grey", segments=12)
+
+
 @model("split")
 def _split():
     coloured_box("Half A", 1.7, 0.8, 1.2, (0, 0.45, 0),
@@ -381,22 +423,30 @@ def _mirror():
 
 @model("pattern")
 def _pattern():
-    box_object("Plate", 2.4, 1.7, 0.2)
-    for i, x in enumerate((-0.75, 0.0, 0.75)):
-        for j, y in enumerate((-0.4, 0.4)):
-            cyl("Boss", 0.22, 0.45, at=(x, y, 0.2),
-                mat="grey" if (i, j) == (0, 0) else "accent")
+    # a square of the same block: the first one grey, the copies in the
+    # accent, and over the first row and column an arrow each way it goes
+    step = 0.8
+    for i in range(3):
+        for j in range(3):
+            box_object("Block", 0.5, 0.5, 0.5, (i * step, j * step, 0.0),
+                       mat="grey" if (i, j) == (0, 0) else "accent")
+    z = 0.9
+    arrow((0.0, 0.0, z), (2 * step + 0.2, 0.0, z), radius=0.08)
+    arrow((0.0, 0.0, z), (0.0, 2 * step + 0.2, z), radius=0.08)
 
 
 @model("pattern_circ")
 def _pattern_circ():
-    cyl("Disc", 1.1, 0.22)
-    for k in range(6):
-        a = math.radians(60 * k + 15)
-        cyl("Boss", 0.2, 0.42, at=(0.75 * math.cos(a), 0.75 * math.sin(a),
-                                    0.22),
-            mat="grey" if k == 0 else "accent")
-    cyl("Axis", 0.05, 1.3, at=(0, 0, -0.2), mat="dark", segments=16)
+    # the same block round an axis: the first one grey, the copies in the
+    # accent, the axis up the middle and an arrow over them the way it goes
+    n, r = 6, 1.0
+    for k in range(n):
+        a = 2 * math.pi * k / n + math.radians(225)
+        box_object("Block", 0.45, 0.45, 0.45,
+                   (r * math.cos(a), r * math.sin(a), 0.0),
+                   mat="grey" if k == 0 else "accent")
+    cyl("Axis", 0.07, 1.2, at=(0, 0, 0.0), mat="dark", segments=16)
+    curved_arrow((0, 0, 0.0), r, 235, 335, z=0.85, thick=0.08)
 
 
 # --------------------------------------------------------------- views
