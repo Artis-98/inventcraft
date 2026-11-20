@@ -16,6 +16,14 @@ MIT licensed
 
 ![InventCraft](docs/screenshot.png)
 
+![A walking excavator designed in InventCraft](docs/walking-excavator.jpg)
+
+The walking excavator above is built entirely in InventCraft, from
+[`examples/build_walking_excavator.py`](examples/build_walking_excavator.py):
+parallelogram legs, steered wheels, a fabricated boom, a bucket rolled from
+one plate, a cab framed by the Frame Generator, and icLogic forms that drive
+every joint. See [its README](examples/walking-excavator/README.md).
+
 ## Running it from source
 
 ```bash
