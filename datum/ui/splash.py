@@ -83,14 +83,19 @@ class Splash(QtWidgets.QWidget):
         p.drawText(QtCore.QPointF(x + 82, y + 44), "InventCraft")
         small = QtGui.QFont("Segoe UI", 10)
         p.setFont(small)
-        p.setPen(QtGui.QColor(255, 255, 255, 170))
-        p.drawText(QtCore.QPointF(x + 84, y + 70), "by")
+        # "by IITEG", quietly: smaller and dimmer than the name
+        p.setFont(QtGui.QFont("Segoe UI", 8))
+        p.setPen(QtGui.QColor(255, 255, 255, 110))
+        p.drawText(QtCore.QPointF(x + 84, y + 68), "by")
         if not self.maker.isNull():
             # the IITEG wordmark itself, not the name set in a font
-            lh = 15.0
+            lh = 9.0
             lw = lh * self.maker.width() / self.maker.height()
-            p.drawPixmap(QtCore.QRectF(x + 104, y + 58, lw, lh), self.maker,
+            p.setOpacity(0.5)
+            p.drawPixmap(QtCore.QRectF(x + 99, y + 60, lw, lh), self.maker,
                          QtCore.QRectF(self.maker.rect()))
+            p.setOpacity(1.0)
+        p.setFont(small)
         p.setPen(YELLOW)
         ver = QtGui.QFont("Segoe UI", 13)
         ver.setWeight(QtGui.QFont.DemiBold)
