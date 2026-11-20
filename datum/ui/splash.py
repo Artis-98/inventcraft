@@ -32,6 +32,7 @@ class Splash(QtWidgets.QWidget):
         self.status = "Starting"
         self.machine = QtGui.QPixmap(os.path.join(BRAND, "splash-excavator.png"))
         self.logo = QtGui.QPixmap(os.path.join(BRAND, "inventcraft-128.png"))
+        self.maker = QtGui.QPixmap(os.path.join(BRAND, "iiteg-logo-white.png"))
         screen = QtGui.QGuiApplication.primaryScreen()
         if screen is not None:
             box = screen.availableGeometry()
@@ -83,7 +84,13 @@ class Splash(QtWidgets.QWidget):
         small = QtGui.QFont("Segoe UI", 10)
         p.setFont(small)
         p.setPen(QtGui.QColor(255, 255, 255, 170))
-        p.drawText(QtCore.QPointF(x + 84, y + 66), "by IITEG")
+        p.drawText(QtCore.QPointF(x + 84, y + 70), "by")
+        if not self.maker.isNull():
+            # the IITEG wordmark itself, not the name set in a font
+            lh = 15.0
+            lw = lh * self.maker.width() / self.maker.height()
+            p.drawPixmap(QtCore.QRectF(x + 104, y + 58, lw, lh), self.maker,
+                         QtCore.QRectF(self.maker.rect()))
         p.setPen(YELLOW)
         ver = QtGui.QFont("Segoe UI", 13)
         ver.setWeight(QtGui.QFont.DemiBold)
@@ -97,7 +104,7 @@ class Splash(QtWidgets.QWidget):
         credit = QtGui.QFont("Segoe UI", 8)
         p.setFont(credit)
         p.drawText(QtCore.QPointF(x, panel.bottom() - 26),
-                   "Walking excavator modelled in InventCraft")
+                   "Walking excavator designed in InventCraft")
         # the machine, in front of the panel and out over its edge
         if not self.machine.isNull():
             h = self.H - 6
