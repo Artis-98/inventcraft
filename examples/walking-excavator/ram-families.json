@@ -1,0 +1,104 @@
+{
+ "leg": {
+  "barrel": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg lift ram barrel.icpart",
+  "gland": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg lift ram gland.icpart",
+  "rod": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg lift ram rod.icpart",
+  "closed": 970,
+  "stroke": 561,
+  "min_span": 970,
+  "max_span": 1531,
+  "eye_w": 60.0,
+  "pin": 25.0,
+  "eye_r": 45.0,
+  "outer": 63.8,
+  "span": [
+   978.2731793298423,
+   1522.3995676481788
+  ]
+ },
+ "spread": {
+  "barrel": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg spread ram barrel.icpart",
+  "gland": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg spread ram gland.icpart",
+  "rod": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg spread ram rod.icpart",
+  "closed": 464,
+  "stroke": 144,
+  "min_span": 464,
+  "max_span": 608,
+  "eye_w": 40.0,
+  "pin": 20.0,
+  "eye_r": 35.0,
+  "outer": 43.0,
+  "span": [
+   472.9997417732036,
+   600.5767420635661
+  ]
+ },
+ "steer": {
+  "barrel": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering ram barrel.icpart",
+  "gland": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering ram gland.icpart",
+  "rod": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering ram rod.icpart",
+  "closed": 265,
+  "stroke": 75,
+  "min_span": 265,
+  "max_span": 340,
+  "eye_w": 30.0,
+  "pin": 12.0,
+  "eye_r": 20.0,
+  "outer": 33.0,
+  "span": [
+   273.99255981731216,
+   332.04976032405006
+  ]
+ },
+ "boom": {
+  "barrel": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram barrel.icpart",
+  "gland": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram gland.icpart",
+  "rod": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram rod.icpart",
+  "closed": 986,
+  "stroke": 425,
+  "min_span": 986,
+  "max_span": 1411,
+  "eye_w": 70.0,
+  "pin": 30.0,
+  "eye_r": 55.0,
+  "outer": 75.4,
+  "span": [
+   994.4203032922034,
+   1402.4840835945345
+  ]
+ },
+ "dipper": {
+  "barrel": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper ram barrel.icpart",
+  "gland": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper ram gland.icpart",
+  "rod": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper ram rod.icpart",
+  "closed": 1146,
+  "stroke": 538,
+  "min_span": 1146,
+  "max_span": 1684,
+  "eye_w": 70.0,
+  "pin": 30.0,
+  "eye_r": 55.0,
+  "outer": 69.6,
+  "span": [
+   1154.2566743700713,
+   1675.6423932372481
+  ]
+ },
+ "bucket": {
+  "barrel": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket ram barrel.icpart",
+  "gland": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket ram gland.icpart",
+  "rod": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket ram rod.icpart",
+  "closed": 835,
+  "stroke": 402,
+  "min_span": 835,
+  "max_span": 1237,
+  "eye_w": 60.0,
+  "pin": 30.0,
+  "eye_r": 45.0,
+  "outer": 58.0,
+  "span": [
+   843.9252641464363,
+   1229.7773857664736
+  ]
+ }
+}

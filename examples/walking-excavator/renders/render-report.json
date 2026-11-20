@@ -1,0 +1,265 @@
+{
+  "assembly": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\Walking Excavator.icasm",
+  "renderer": "InventCraft / OpenCascade",
+  "requested_width": 3840,
+  "requested_height": 2160,
+  "bounds_mm": [
+    -2258.882447281925,
+    -2961.574651639198,
+    -30.965478438470555,
+    4537.86029966263,
+    2961.574651639198,
+    3926.899636026326
+  ],
+  "images": [
+    {
+      "name": "hero",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\hero.png",
+      "camera": [
+        [
+          12910.415934658318,
+          9292.837111948395,
+          7523.669345962964
+        ],
+        [
+          1139.4889261903518,
+          0.0,
+          1947.9670787939276
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        5437.3941975556445,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.2760514018691589
+    },
+    {
+      "name": "overview",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\overview.png",
+      "camera": [
+        [
+          -8513.429871242044,
+          10788.556303012676,
+          8761.79211227562
+        ],
+        [
+          1139.4889261903518,
+          0.0,
+          1947.9670787939276
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        5437.3941975556445,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.24602803738317758
+    },
+    {
+      "name": "side",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\side.png",
+      "camera": [
+        [
+          1139.4889261903522,
+          15886.029415790754,
+          3854.290608688818
+        ],
+        [
+          1139.4889261903522,
+          0.0,
+          1947.9670787939276
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        5437.3941975556445,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.2376557632398754
+    },
+    {
+      "name": "cab-frame-glass",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\cab-frame-glass.png",
+      "camera": [
+        [
+          10535.342543214629,
+          11823.284040921906,
+          7476.304606816769
+        ],
+        [
+          355.99837872900025,
+          446.3699747320861,
+          2686.0250000000024
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        3034.5000003400082,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.48695482866043616
+    },
+    {
+      "name": "leg-and-wheel",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\leg-and-wheel.png",
+      "camera": [
+        [
+          6583.449588115892,
+          15897.15480525017,
+          5869.119768250838
+        ],
+        [
+          1564.6095806958183,
+          1557.6119269071023,
+          850.2797608307646
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        4163.68055182415,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.3283489096573209
+    },
+    {
+      "name": "boom-hydraulics",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\boom-hydraulics.png",
+      "camera": [
+        [
+          4899.552452123955,
+          -14722.117136005378,
+          10413.160081737267
+        ],
+        [
+          1475.8685120366522,
+          -1027.381375656165,
+          2881.0554135452003
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        4037.5551424396936,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.40330996884735204
+    },
+    {
+      "name": "tiltrotator-bucket",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\tiltrotator-bucket.png",
+      "camera": [
+        [
+          11443.308720644702,
+          -15626.984566688063,
+          5114.017743969448
+        ],
+        [
+          3911.2040524526337,
+          -1932.24880633885,
+          1690.3338038821448
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        3464.21282277163,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.359696261682243
+    },
+    {
+      "name": "chassis-hips",
+      "file": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\chassis-hips.png",
+      "camera": [
+        [
+          7320.531768355249,
+          9116.846116771036,
+          12333.740340125243
+        ],
+        [
+          27.054874938419744,
+          0.0,
+          1393.5249999999996
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        4543.545621340956,
+        true
+      ],
+      "mode": "native ray trace",
+      "shadows": true,
+      "reflections": false,
+      "white": true,
+      "ok": true,
+      "width": 3840,
+      "height": 2160,
+      "nonwhite_fraction": 0.35233644859813085
+    }
+  ],
+  "completed": true
+}

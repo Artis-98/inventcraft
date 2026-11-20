@@ -1,0 +1,1164 @@
+{
+ "parts": {
+  "Attachment pin": {
+   "ok": true,
+   "mass_kg": 9.562,
+   "material": "Steel, Mild"
+  },
+  "Boom 14mm web": {
+   "ok": true,
+   "mass_kg": 94.604,
+   "material": "Steel, Mild"
+  },
+  "Boom bottom cap 12mm": {
+   "ok": true,
+   "mass_kg": 59.217,
+   "material": "Steel, Mild"
+  },
+  "Boom dipper pin": {
+   "ok": true,
+   "mass_kg": 27.206,
+   "material": "Steel, Mild"
+  },
+  "Boom dipper ram lug 18mm": {
+   "ok": true,
+   "mass_kg": 6.86,
+   "material": "Steel, Mild"
+  },
+  "Boom foot boss": {
+   "ok": true,
+   "mass_kg": 62.571,
+   "material": "Steel, Mild"
+  },
+  "Boom foot pin": {
+   "ok": true,
+   "mass_kg": 33.582,
+   "material": "Steel, Mild"
+  },
+  "Boom foot tower 30mm": {
+   "ok": true,
+   "mass_kg": 47.291,
+   "material": "Steel, Mild"
+  },
+  "Boom hardline L": {
+   "ok": true,
+   "mass_kg": 2.388,
+   "material": "Steel, Mild"
+  },
+  "Boom hardline R": {
+   "ok": true,
+   "mass_kg": 2.388,
+   "material": "Steel, Mild"
+  },
+  "Boom hardline saddle 1000": {
+   "ok": true,
+   "mass_kg": 0.215,
+   "material": "Steel, Mild"
+  },
+  "Boom hardline saddle 1900": {
+   "ok": true,
+   "mass_kg": 0.215,
+   "material": "Steel, Mild"
+  },
+  "Boom hardline saddle 560": {
+   "ok": true,
+   "mass_kg": 0.215,
+   "material": "Steel, Mild"
+  },
+  "Boom lift ram lug 18mm": {
+   "ok": true,
+   "mass_kg": 3.818,
+   "material": "Steel, Mild"
+  },
+  "Boom ram barrel": {
+   "ok": true,
+   "mass_kg": 36.171,
+   "material": "Steel, Mild"
+  },
+  "Boom ram base lug 18mm": {
+   "ok": true,
+   "mass_kg": 3.014,
+   "material": "Steel, Mild"
+  },
+  "Boom ram gland": {
+   "ok": true,
+   "mass_kg": 5.872,
+   "material": "Steel, Mild"
+  },
+  "Boom ram pin": {
+   "ok": true,
+   "mass_kg": 2.87,
+   "material": "Steel, Mild"
+  },
+  "Boom ram rod": {
+   "ok": true,
+   "mass_kg": 24.753,
+   "material": "Steel, Mild"
+  },
+  "Boom tip boss ring": {
+   "ok": true,
+   "mass_kg": 3.637,
+   "material": "Steel, Mild"
+  },
+  "Boom tip closure plate": {
+   "ok": true,
+   "mass_kg": 6.492,
+   "material": "Steel, Mild"
+  },
+  "Boom top cap 12mm": {
+   "ok": true,
+   "mass_kg": 62.327,
+   "material": "Steel, Mild"
+  },
+  "Bucket cutting edge 40mm bevelled": {
+   "ok": true,
+   "mass_kg": 11.276,
+   "material": "Steel, Mild"
+  },
+  "Bucket hitch bracket 22mm": {
+   "ok": true,
+   "mass_kg": 2.109,
+   "material": "Steel, Mild"
+  },
+  "Bucket hitch pin": {
+   "ok": true,
+   "mass_kg": 8.596,
+   "material": "Steel, Mild"
+  },
+  "Bucket link 16mm": {
+   "ok": true,
+   "mass_kg": 2.807,
+   "material": "Steel, Mild"
+  },
+  "Bucket link pin": {
+   "ok": true,
+   "mass_kg": 7.087,
+   "material": "Steel, Mild"
+  },
+  "Bucket lip bar 45x60": {
+   "ok": true,
+   "mass_kg": 15.852,
+   "material": "Steel, Mild"
+  },
+  "Bucket mouth rim 25mm": {
+   "ok": true,
+   "mass_kg": 17.915,
+   "material": "Steel, Mild"
+  },
+  "Bucket ram barrel": {
+   "ok": true,
+   "mass_kg": 18.336,
+   "material": "Steel, Mild"
+  },
+  "Bucket ram gland": {
+   "ok": true,
+   "mass_kg": 3.34,
+   "material": "Steel, Mild"
+  },
+  "Bucket ram pin": {
+   "ok": true,
+   "mass_kg": 2.648,
+   "material": "Steel, Mild"
+  },
+  "Bucket ram rod": {
+   "ok": true,
+   "mass_kg": 14.088,
+   "material": "Steel, Mild"
+  },
+  "Bucket side cutter 20mm": {
+   "ok": true,
+   "mass_kg": 3.667,
+   "material": "Steel, Mild"
+  },
+  "Bucket side plate 20mm": {
+   "ok": true,
+   "mass_kg": 76.666,
+   "material": "Steel, Mild"
+  },
+  "Bucket tooth": {
+   "ok": true,
+   "mass_kg": 9.365,
+   "material": "Steel, Mild"
+  },
+  "Bucket wear strip": {
+   "ok": true,
+   "mass_kg": 3.025,
+   "material": "Steel, Mild"
+  },
+  "Bucket wrap plate 12mm rolled": {
+   "ok": true,
+   "mass_kg": 128.859,
+   "material": "Steel, Mild"
+  },
+  "Cab dash column": {
+   "ok": true,
+   "mass_kg": 25.055,
+   "material": "ABS"
+  },
+  "Cab display": {
+   "ok": true,
+   "mass_kg": 9.004,
+   "material": "Steel, Mild"
+  },
+  "Cab door glass 8mm": {
+   "ok": true,
+   "mass_kg": 20.051,
+   "material": "Glass"
+  },
+  "Cab door glass seal": {
+   "ok": true,
+   "mass_kg": 1.696,
+   "material": "Rubber, EPDM"
+  },
+  "Cab floor plate 8mm": {
+   "ok": true,
+   "mass_kg": 54.554,
+   "material": "Steel, Mild"
+  },
+  "Cab left rear glass 8mm": {
+   "ok": true,
+   "mass_kg": 8.188,
+   "material": "Glass"
+  },
+  "Cab left rear glass seal": {
+   "ok": true,
+   "mass_kg": 1.148,
+   "material": "Rubber, EPDM"
+  },
+  "Cab left rear panel 4mm": {
+   "ok": true,
+   "mass_kg": 4.377,
+   "material": "Steel, Mild"
+  },
+  "Cab rear glass 8mm": {
+   "ok": true,
+   "mass_kg": 9.714,
+   "material": "Glass"
+  },
+  "Cab rear glass seal": {
+   "ok": true,
+   "mass_kg": 1.101,
+   "material": "Rubber, EPDM"
+  },
+  "Cab rear lower panel 4mm": {
+   "ok": true,
+   "mass_kg": 16.504,
+   "material": "Steel, Mild"
+  },
+  "Cab right glass 8mm": {
+   "ok": true,
+   "mass_kg": 24.912,
+   "material": "Glass"
+  },
+  "Cab right glass seal": {
+   "ok": true,
+   "mass_kg": 1.75,
+   "material": "Rubber, EPDM"
+  },
+  "Cab right lower panel 4mm": {
+   "ok": true,
+   "mass_kg": 12.704,
+   "material": "Steel, Mild"
+  },
+  "Cab roof 4mm flanged": {
+   "ok": true,
+   "mass_kg": 45.311,
+   "material": "Steel, Mild"
+  },
+  "Cab rubber mount": {
+   "ok": true,
+   "mass_kg": 0.169,
+   "material": "Rubber, EPDM"
+  },
+  "Cab windscreen 8mm": {
+   "ok": true,
+   "mass_kg": 20.946,
+   "material": "Glass"
+  },
+  "Cab windscreen seal": {
+   "ok": true,
+   "mass_kg": 1.72,
+   "material": "Rubber, EPDM"
+  },
+  "Carrier cheek 25mm": {
+   "ok": true,
+   "mass_kg": 33.061,
+   "material": "Steel, Mild"
+  },
+  "Carrier kingpin arm 40mm RH": {
+   "ok": true,
+   "mass_kg": 11.058,
+   "material": "Steel, Mild"
+  },
+  "Carrier kingpin arm 40mm": {
+   "ok": true,
+   "mass_kg": 11.058,
+   "material": "Steel, Mild"
+  },
+  "Carrier steering ram lug 12mm RH": {
+   "ok": true,
+   "mass_kg": 0.341,
+   "material": "Steel, Mild"
+  },
+  "Carrier steering ram lug 12mm": {
+   "ok": true,
+   "mass_kg": 0.341,
+   "material": "Steel, Mild"
+  },
+  "Carrier upright 30mm RH": {
+   "ok": true,
+   "mass_kg": 33.982,
+   "material": "Steel, Mild"
+  },
+  "Carrier upright 30mm": {
+   "ok": true,
+   "mass_kg": 33.982,
+   "material": "Steel, Mild"
+  },
+  "Chassis bottom plate 20mm": {
+   "ok": true,
+   "mass_kg": 232.662,
+   "material": "Steel, Mild"
+  },
+  "Chassis front wall 12mm bent": {
+   "ok": true,
+   "mass_kg": 61.172,
+   "material": "Steel, Mild"
+  },
+  "Chassis rear wall 12mm bent": {
+   "ok": true,
+   "mass_kg": 61.172,
+   "material": "Steel, Mild"
+  },
+  "Chassis spread ram lug 18mm": {
+   "ok": true,
+   "mass_kg": 0.788,
+   "material": "Steel, Mild"
+  },
+  "Chassis top plate 20mm": {
+   "ok": true,
+   "mass_kg": 225.56,
+   "material": "Steel, Mild"
+  },
+  "Counterweight casting": {
+   "ok": true,
+   "mass_kg": 1911.418,
+   "material": "Steel, Mild"
+  },
+  "Coupler ear boss": {
+   "ok": true,
+   "mass_kg": 6.969,
+   "material": "Steel, Mild"
+  },
+  "Coupler pin bush": {
+   "ok": true,
+   "mass_kg": 7.675,
+   "material": "Steel, Mild"
+  },
+  "Coupler side plate 20mm": {
+   "ok": true,
+   "mass_kg": 15.985,
+   "material": "Steel, Mild"
+  },
+  "Coupler web 16mm": {
+   "ok": true,
+   "mass_kg": 2.577,
+   "material": "Steel, Mild"
+  },
+  "Dipper 12mm web": {
+   "ok": true,
+   "mass_kg": 53.931,
+   "material": "Steel, Mild"
+  },
+  "Dipper bottom cap 10mm": {
+   "ok": true,
+   "mass_kg": 27.223,
+   "material": "Steel, Mild"
+  },
+  "Dipper bucket ram lug 16mm": {
+   "ok": true,
+   "mass_kg": 3.829,
+   "material": "Steel, Mild"
+  },
+  "Dipper heel closure plate": {
+   "ok": true,
+   "mass_kg": 4.78,
+   "material": "Steel, Mild"
+  },
+  "Dipper heel pin": {
+   "ok": true,
+   "mass_kg": 5.311,
+   "material": "Steel, Mild"
+  },
+  "Dipper heel spacer": {
+   "ok": true,
+   "mass_kg": 1.633,
+   "material": "Steel, Mild"
+  },
+  "Dipper idler boss": {
+   "ok": true,
+   "mass_kg": 8.561,
+   "material": "Steel, Mild"
+  },
+  "Dipper ram barrel": {
+   "ok": true,
+   "mass_kg": 37.402,
+   "material": "Steel, Mild"
+  },
+  "Dipper ram gland": {
+   "ok": true,
+   "mass_kg": 4.994,
+   "material": "Steel, Mild"
+  },
+  "Dipper ram rod": {
+   "ok": true,
+   "mass_kg": 25.246,
+   "material": "Steel, Mild"
+  },
+  "Dipper root boss": {
+   "ok": true,
+   "mass_kg": 39.395,
+   "material": "Steel, Mild"
+  },
+  "Dipper tip closure plate": {
+   "ok": true,
+   "mass_kg": 3.162,
+   "material": "Steel, Mild"
+  },
+  "Dipper top cap 10mm": {
+   "ok": true,
+   "mass_kg": 26.758,
+   "material": "Steel, Mild"
+  },
+  "Door hinge knuckle": {
+   "ok": true,
+   "mass_kg": 0.631,
+   "material": "Steel, Mild"
+  },
+  "Engine hood 3mm bent": {
+   "ok": true,
+   "mass_kg": 78.905,
+   "material": "Steel, Mild"
+  },
+  "Engine power pack envelope": {
+   "ok": true,
+   "mass_kg": 408.24,
+   "material": "Aluminium 6061"
+  },
+  "Exhaust stack": {
+   "ok": true,
+   "mass_kg": 4.04,
+   "material": "Steel, Mild"
+  },
+  "Hip bracket bottom plate 25mm": {
+   "ok": true,
+   "mass_kg": 14.793,
+   "material": "Steel, Mild"
+  },
+  "Hip bracket cheek 25mm": {
+   "ok": true,
+   "mass_kg": 41.644,
+   "material": "Steel, Mild"
+  },
+  "Hip bracket top plate 25mm": {
+   "ok": true,
+   "mass_kg": 12.63,
+   "material": "Steel, Mild"
+  },
+  "Hip spread ram lug 18mm": {
+   "ok": true,
+   "mass_kg": 1.121,
+   "material": "Steel, Mild"
+  },
+  "Hip swivel pin": {
+   "ok": true,
+   "mass_kg": 33.227,
+   "material": "Steel, Mild"
+  },
+  "Hip swivel tube": {
+   "ok": true,
+   "mass_kg": 39.192,
+   "material": "Steel, Mild"
+  },
+  "Hood front closure 3mm": {
+   "ok": true,
+   "mass_kg": 14.62,
+   "material": "Steel, Mild"
+  },
+  "Hydraulic hub motor housing": {
+   "ok": true,
+   "mass_kg": 34.038,
+   "material": "Steel, Mild"
+  },
+  "Hydraulic rotary union": {
+   "ok": true,
+   "mass_kg": 80.484,
+   "material": "Steel, Mild"
+  },
+  "Hydraulic tank filler cap": {
+   "ok": true,
+   "mass_kg": 1.571,
+   "material": "Steel, Mild"
+  },
+  "Idler link 16mm": {
+   "ok": true,
+   "mass_kg": 3.031,
+   "material": "Steel, Mild"
+  },
+  "Idler pin": {
+   "ok": true,
+   "mass_kg": 6.11,
+   "material": "Steel, Mild"
+  },
+  "Joystick grip": {
+   "ok": true,
+   "mass_kg": 0.213,
+   "material": "Rubber, EPDM"
+  },
+  "LED work lamp": {
+   "ok": true,
+   "mass_kg": 8.841,
+   "material": "Steel, Mild"
+  },
+  "Leg 14mm web": {
+   "ok": true,
+   "mass_kg": 44.575,
+   "material": "Steel, Mild"
+  },
+  "Leg bottom cap 14mm": {
+   "ok": true,
+   "mass_kg": 35.761,
+   "material": "Steel, Mild"
+  },
+  "Leg circuit manifold": {
+   "ok": true,
+   "mass_kg": 47.558,
+   "material": "Steel, Mild"
+  },
+  "Leg distal pin": {
+   "ok": true,
+   "mass_kg": 16.972,
+   "material": "Steel, Mild"
+  },
+  "Leg lift pin": {
+   "ok": true,
+   "mass_kg": 19.063,
+   "material": "Steel, Mild"
+  },
+  "Leg lift ram barrel": {
+   "ok": true,
+   "mass_kg": 25.355,
+   "material": "Steel, Mild"
+  },
+  "Leg lift ram base lug 18mm": {
+   "ok": true,
+   "mass_kg": 2.361,
+   "material": "Steel, Mild"
+  },
+  "Leg lift ram gland": {
+   "ok": true,
+   "mass_kg": 4.188,
+   "material": "Steel, Mild"
+  },
+  "Leg lift ram rod lug 18mm": {
+   "ok": true,
+   "mass_kg": 1.935,
+   "material": "Steel, Mild"
+  },
+  "Leg lift ram rod": {
+   "ok": true,
+   "mass_kg": 20.092,
+   "material": "Steel, Mild"
+  },
+  "Leg link 10mm web": {
+   "ok": true,
+   "mass_kg": 18.632,
+   "material": "Steel, Mild"
+  },
+  "Leg link bottom cap 10mm": {
+   "ok": true,
+   "mass_kg": 26.065,
+   "material": "Steel, Mild"
+  },
+  "Leg link pin": {
+   "ok": true,
+   "mass_kg": 12.259,
+   "material": "Steel, Mild"
+  },
+  "Leg link root boss": {
+   "ok": true,
+   "mass_kg": 8.268,
+   "material": "Steel, Mild"
+  },
+  "Leg link tip boss": {
+   "ok": true,
+   "mass_kg": 8.268,
+   "material": "Steel, Mild"
+  },
+  "Leg link top cap 10mm": {
+   "ok": true,
+   "mass_kg": 26.065,
+   "material": "Steel, Mild"
+  },
+  "Leg root boss": {
+   "ok": true,
+   "mass_kg": 44.169,
+   "material": "Steel, Mild"
+  },
+  "Leg spread ram barrel": {
+   "ok": true,
+   "mass_kg": 6.903,
+   "material": "Steel, Mild"
+  },
+  "Leg spread ram gland": {
+   "ok": true,
+   "mass_kg": 1.793,
+   "material": "Steel, Mild"
+  },
+  "Leg spread ram rod": {
+   "ok": true,
+   "mass_kg": 3.787,
+   "material": "Steel, Mild"
+  },
+  "Leg tip boss": {
+   "ok": true,
+   "mass_kg": 30.58,
+   "material": "Steel, Mild"
+  },
+  "Leg top cap 14mm": {
+   "ok": true,
+   "mass_kg": 35.497,
+   "material": "Steel, Mild"
+  },
+  "Lift ram pin": {
+   "ok": true,
+   "mass_kg": 1.873,
+   "material": "Steel, Mild"
+  },
+  "Linkage joint pin": {
+   "ok": true,
+   "mass_kg": 7.087,
+   "material": "Steel, Mild"
+  },
+  "Linkage spacer sleeve": {
+   "ok": true,
+   "mass_kg": 1.581,
+   "material": "Steel, Mild"
+  },
+  "Mirror arm": {
+   "ok": true,
+   "mass_kg": 0.488,
+   "material": "Steel, Mild"
+  },
+  "Mirror head": {
+   "ok": true,
+   "mass_kg": 13.39,
+   "material": "Steel, Mild"
+  },
+  "Operator seat base": {
+   "ok": true,
+   "mass_kg": 60.171,
+   "material": "ABS"
+  },
+  "Operator seat": {
+   "ok": true,
+   "mass_kg": 3.563,
+   "material": "Elastomeric Foam"
+  },
+  "Quick coupler hook 20mm": {
+   "ok": true,
+   "mass_kg": 2.056,
+   "material": "Steel, Mild"
+  },
+  "Quick coupler plate 25mm": {
+   "ok": true,
+   "mass_kg": 21.828,
+   "material": "Steel, Mild"
+  },
+  "Radiator cowl 3mm bent": {
+   "ok": true,
+   "mass_kg": 36.224,
+   "material": "Steel, Mild"
+  },
+  "Radiator grille 3mm": {
+   "ok": true,
+   "mass_kg": 7.584,
+   "material": "Steel, Mild"
+  },
+  "Rotator hydraulic motor": {
+   "ok": true,
+   "mass_kg": 8.825,
+   "material": "Steel, Mild"
+  },
+  "Rotator mount plate 30mm": {
+   "ok": true,
+   "mass_kg": 15.971,
+   "material": "Steel, Mild"
+  },
+  "Rotator output flange": {
+   "ok": true,
+   "mass_kg": 20.042,
+   "material": "Steel, Mild"
+  },
+  "Seat console L": {
+   "ok": true,
+   "mass_kg": 24.915,
+   "material": "ABS"
+  },
+  "Seat console R": {
+   "ok": true,
+   "mass_kg": 24.915,
+   "material": "ABS"
+  },
+  "Side cutter bolt M20": {
+   "ok": true,
+   "mass_kg": 0.071,
+   "material": "Steel, Mild"
+  },
+  "Slew bearing inner race": {
+   "ok": true,
+   "mass_kg": 52.715,
+   "material": "Steel, Mild"
+  },
+  "Slew bearing outer race": {
+   "ok": true,
+   "mass_kg": 60.947,
+   "material": "Steel, Mild"
+  },
+  "Slew bolt M20": {
+   "ok": true,
+   "mass_kg": 0.258,
+   "material": "Steel, Mild"
+  },
+  "Slew pedestal flange 20mm": {
+   "ok": true,
+   "mass_kg": 50.78,
+   "material": "Steel, Mild"
+  },
+  "Slew pedestal tube 25mm": {
+   "ok": true,
+   "mass_kg": 161.854,
+   "material": "Steel, Mild"
+  },
+  "Spread ram pin": {
+   "ok": true,
+   "mass_kg": 1.037,
+   "material": "Steel, Mild"
+  },
+  "Steering arm 12mm": {
+   "ok": true,
+   "mass_kg": 1.034,
+   "material": "Steel, Mild"
+  },
+  "Steering kingpin": {
+   "ok": true,
+   "mass_kg": 7.304,
+   "material": "Steel, Mild"
+  },
+  "Steering knuckle RH": {
+   "ok": true,
+   "mass_kg": 24.722,
+   "material": "Steel, Mild"
+  },
+  "Steering knuckle": {
+   "ok": true,
+   "mass_kg": 24.722,
+   "material": "Steel, Mild"
+  },
+  "Steering ram barrel": {
+   "ok": true,
+   "mass_kg": 2.413,
+   "material": "Steel, Mild"
+  },
+  "Steering ram gland": {
+   "ok": true,
+   "mass_kg": 0.987,
+   "material": "Steel, Mild"
+  },
+  "Steering ram pin": {
+   "ok": true,
+   "mass_kg": 0.345,
+   "material": "Steel, Mild"
+  },
+  "Steering ram rod": {
+   "ok": true,
+   "mass_kg": 1.225,
+   "material": "Steel, Mild"
+  },
+  "Swivel thrust washer": {
+   "ok": true,
+   "mass_kg": 1.48,
+   "material": "Steel, Mild"
+  },
+  "Tilt yoke plate 30mm": {
+   "ok": true,
+   "mass_kg": 13.805,
+   "material": "Steel, Mild"
+  },
+  "Tiltrotator rotary tilt actuator": {
+   "ok": true,
+   "mass_kg": 31.206,
+   "material": "Steel, Mild"
+  },
+  "Tiltrotator rotator housing": {
+   "ok": true,
+   "mass_kg": 73.725,
+   "material": "Steel, Mild"
+  },
+  "Travel pedal": {
+   "ok": true,
+   "mass_kg": 1.423,
+   "material": "Steel, Mild"
+  },
+  "Tyre 1400x650 balloon": {
+   "ok": true,
+   "mass_kg": 247.774,
+   "material": "Rubber, EPDM"
+  },
+  "Upper deck plate 30mm": {
+   "ok": true,
+   "mass_kg": 1095.5,
+   "material": "Steel, Mild"
+  },
+  "Wheel hub": {
+   "ok": true,
+   "mass_kg": 70.875,
+   "material": "Steel, Mild"
+  },
+  "Wheel nut M20": {
+   "ok": true,
+   "mass_kg": 0.062,
+   "material": "Steel, Mild"
+  },
+  "Wheel rim 30in dished": {
+   "ok": true,
+   "mass_kg": 190.086,
+   "material": "Steel, Mild"
+  },
+  "Wheel spindle nut": {
+   "ok": true,
+   "mass_kg": 2.619,
+   "material": "Steel, Mild"
+  },
+  "Wheel spindle": {
+   "ok": true,
+   "mass_kg": 33.11,
+   "material": "Steel, Mild"
+  },
+  "Wheel stud M20": {
+   "ok": true,
+   "mass_kg": 0.202,
+   "material": "Steel, Mild"
+  },
+  "Wiper arm": {
+   "ok": true,
+   "mass_kg": 0.762,
+   "material": "Steel, Mild"
+  },
+  "Wiper blade": {
+   "ok": true,
+   "mass_kg": 0.13,
+   "material": "Rubber, EPDM"
+  },
+  "Wiper spindle housing": {
+   "ok": true,
+   "mass_kg": 0.115,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00001": {
+   "ok": true,
+   "mass_kg": 15.493,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00002": {
+   "ok": true,
+   "mass_kg": 15.493,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00003": {
+   "ok": true,
+   "mass_kg": 10.974,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00004": {
+   "ok": true,
+   "mass_kg": 10.974,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00005": {
+   "ok": true,
+   "mass_kg": 14.018,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00006": {
+   "ok": true,
+   "mass_kg": 3.781,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00007": {
+   "ok": true,
+   "mass_kg": 15.493,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00008": {
+   "ok": true,
+   "mass_kg": 15.493,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00009": {
+   "ok": true,
+   "mass_kg": 10.974,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00010": {
+   "ok": true,
+   "mass_kg": 10.974,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00011": {
+   "ok": true,
+   "mass_kg": 10.974,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00012": {
+   "ok": true,
+   "mass_kg": 6.732,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00013": {
+   "ok": true,
+   "mass_kg": 6.732,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00014": {
+   "ok": true,
+   "mass_kg": 6.732,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00015": {
+   "ok": true,
+   "mass_kg": 6.732,
+   "material": "Steel, Mild"
+  },
+  "DIN EN 10219-2 80 x 80 x 4 00016": {
+   "ok": true,
+   "mass_kg": 6.732,
+   "material": "Steel, Mild"
+  },
+  "EN 10219-2 CHS33.7x3.2 00018": {
+   "ok": true,
+   "mass_kg": 0.101,
+   "material": "Steel, Stainless 304"
+  },
+  "EN 10219-2 CHS33.7x3.2 00019": {
+   "ok": true,
+   "mass_kg": 0.101,
+   "material": "Steel, Stainless 304"
+  },
+  "EN 10219-2 CHS33.7x3.2 00020": {
+   "ok": true,
+   "mass_kg": 0.101,
+   "material": "Steel, Stainless 304"
+  },
+  "EN 10219-2 CHS33.7x3.2 00021": {
+   "ok": true,
+   "mass_kg": 0.101,
+   "material": "Steel, Stainless 304"
+  },
+  "EN 10305-4 30x3 00017": {
+   "ok": true,
+   "mass_kg": 5.156,
+   "material": "Steel, Stainless 304"
+  }
+ },
+ "errors": [],
+ "flat_patterns": {
+  "Boom bottom cap 12mm": {
+   "bends": 1,
+   "blank_mm": [
+    272.0,
+    2310.9
+   ]
+  },
+  "Boom top cap 12mm": {
+   "bends": 1,
+   "blank_mm": [
+    272.0,
+    2432.1
+   ]
+  },
+  "Bucket wrap plate 12mm rolled": {
+   "bends": 4,
+   "blank_mm": [
+    760.0,
+    1797.6
+   ]
+  },
+  "Cab roof 4mm flanged": {
+   "bends": 4,
+   "blank_mm": [
+    988.4,
+    1466.4
+   ]
+  },
+  "Chassis front wall 12mm bent": {
+   "bends": 4,
+   "blank_mm": [
+    2027.1,
+    320.0
+   ]
+  },
+  "Chassis rear wall 12mm bent": {
+   "bends": 4,
+   "blank_mm": [
+    2027.1,
+    320.0
+   ]
+  },
+  "Dipper bottom cap 10mm": {
+   "bends": 3,
+   "blank_mm": [
+    196.0,
+    1768.9
+   ]
+  },
+  "Dipper top cap 10mm": {
+   "bends": 2,
+   "blank_mm": [
+    196.0,
+    1739.0
+   ]
+  },
+  "Engine hood 3mm bent": {
+   "bends": 2,
+   "blank_mm": [
+    2301.8,
+    1530.0
+   ]
+  },
+  "Leg bottom cap 14mm": {
+   "bends": 2,
+   "blank_mm": [
+    212.0,
+    1534.6
+   ]
+  },
+  "Leg link bottom cap 10mm": {
+   "bends": 2,
+   "blank_mm": [
+    220.0,
+    1509.2
+   ]
+  },
+  "Leg link top cap 10mm": {
+   "bends": 2,
+   "blank_mm": [
+    220.0,
+    1509.2
+   ]
+  },
+  "Leg top cap 14mm": {
+   "bends": 2,
+   "blank_mm": [
+    212.0,
+    1523.4
+   ]
+  },
+  "Radiator cowl 3mm bent": {
+   "bends": 1,
+   "blank_mm": [
+    1130.0,
+    1360.9
+   ]
+  }
+ },
+ "tubes": [
+  [
+   "Boom hardline L",
+   22.0,
+   2.5,
+   110.0,
+   1986.5,
+   1
+  ],
+  [
+   "Boom hardline R",
+   22.0,
+   2.5,
+   110.0,
+   1986.5,
+   1
+  ],
+  [
+   "Mirror arm",
+   24.0,
+   3.0,
+   60.0,
+   314.2,
+   1
+  ],
+  [
+   "EN 10305-4 30x3 00017",
+   30.0,
+   3.0,
+   90.0,
+   2532.7,
+   2
+  ]
+ ],
+ "machine": {
+  "parts_placed": 561,
+  "distinct_parts": 195,
+  "mass_kg": 12550.3
+ },
+ "cylinders": {
+  "leg": {
+   "closed_mm": 970,
+   "stroke_mm": 561,
+   "span_used_mm": [
+    978.3,
+    1522.4
+   ]
+  },
+  "spread": {
+   "closed_mm": 464,
+   "stroke_mm": 144,
+   "span_used_mm": [
+    473.0,
+    600.6
+   ]
+  },
+  "steer": {
+   "closed_mm": 265,
+   "stroke_mm": 75,
+   "span_used_mm": [
+    274.0,
+    332.0
+   ]
+  },
+  "boom": {
+   "closed_mm": 986,
+   "stroke_mm": 425,
+   "span_used_mm": [
+    994.4,
+    1402.5
+   ]
+  },
+  "dipper": {
+   "closed_mm": 1146,
+   "stroke_mm": 538,
+   "span_used_mm": [
+    1154.3,
+    1675.6
+   ]
+  },
+  "bucket": {
+   "closed_mm": 835,
+   "stroke_mm": 402,
+   "span_used_mm": [
+    843.9,
+    1229.8
+   ]
+  }
+ }
+}

@@ -1,0 +1,5 @@
+renders/blender/*.obj
+renders/blender/*.blend
+renders/blender/*.blend1
+renders/poses/
+interference.json

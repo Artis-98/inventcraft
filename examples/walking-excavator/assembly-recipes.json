@@ -1,0 +1,1737 @@
+[
+ {
+  "kind": "frame",
+  "label": "Chassis",
+  "parent": "chassis",
+  "part": "subassemblies\\Chassis.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Upper",
+  "parent": "upper",
+  "part": "subassemblies\\Upper.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Boom",
+  "parent": "boom",
+  "part": "subassemblies\\Boom.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Dipper",
+  "parent": "dipper",
+  "part": "subassemblies\\Dipper.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Tiltrotator Coupler",
+  "parent": "attachment",
+  "part": "subassemblies\\Tiltrotator Coupler.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Tiltrotator",
+  "parent": "tilt",
+  "part": "subassemblies\\Tiltrotator.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Bucket",
+  "parent": "bucket",
+  "part": "subassemblies\\Bucket.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL hip bracket",
+  "parent": "hip_FL",
+  "part": "subassemblies\\Hip Bracket.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL leg",
+  "parent": "leg_FL",
+  "part": "subassemblies\\Leg Weldment.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL leg link",
+  "parent": "link_FL",
+  "part": "subassemblies\\Leg Link.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL wheel carrier",
+  "parent": "carrier_FL",
+  "part": "subassemblies\\Wheel Carrier.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL steering knuckle",
+  "parent": "steer_FL",
+  "part": "subassemblies\\Steering Knuckle.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL wheel",
+  "parent": "wheel_FL",
+  "part": "subassemblies\\Wheel and Tyre.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL spread lug upper",
+  "parent": "hip_FL",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   440.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   3.141592653589793
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL spread lug lower",
+  "parent": "hip_FL",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   180.0
+  ],
+  "rot": [
+   3.141592653589793,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL spread lug pin",
+  "parent": "hip_FL",
+  "part": "parts\\Spread ram pin.icpart",
+  "pos": [
+   220.0,
+   -200.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FL spread lug lift pin",
+  "parent": "hip_FL",
+  "part": "parts\\Leg lift pin.icpart",
+  "pos": [
+   260.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR hip bracket",
+  "parent": "hip_FR",
+  "part": "subassemblies\\Hip Bracket.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR leg",
+  "parent": "leg_FR",
+  "part": "subassemblies\\Leg Weldment.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR leg link",
+  "parent": "link_FR",
+  "part": "subassemblies\\Leg Link.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR wheel carrier",
+  "parent": "carrier_FR",
+  "part": "subassemblies\\Wheel Carrier RH.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR steering knuckle",
+  "parent": "steer_FR",
+  "part": "subassemblies\\Steering Knuckle RH.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR wheel",
+  "parent": "wheel_FR",
+  "part": "subassemblies\\Wheel and Tyre RH.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR spread lug upper",
+  "parent": "hip_FR",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR spread lug lower",
+  "parent": "hip_FR",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   440.0,
+   0.0,
+   180.0
+  ],
+  "rot": [
+   0.0,
+   3.141592653589793,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR spread lug pin",
+  "parent": "hip_FR",
+  "part": "parts\\Spread ram pin.icpart",
+  "pos": [
+   220.0,
+   200.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "FR spread lug lift pin",
+  "parent": "hip_FR",
+  "part": "parts\\Leg lift pin.icpart",
+  "pos": [
+   260.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL hip bracket",
+  "parent": "hip_RL",
+  "part": "subassemblies\\Hip Bracket.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL leg",
+  "parent": "leg_RL",
+  "part": "subassemblies\\Leg Weldment.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL leg link",
+  "parent": "link_RL",
+  "part": "subassemblies\\Leg Link.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL wheel carrier",
+  "parent": "carrier_RL",
+  "part": "subassemblies\\Wheel Carrier RH.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL steering knuckle",
+  "parent": "steer_RL",
+  "part": "subassemblies\\Steering Knuckle RH.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL wheel",
+  "parent": "wheel_RL",
+  "part": "subassemblies\\Wheel and Tyre RH.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL spread lug upper",
+  "parent": "hip_RL",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL spread lug lower",
+  "parent": "hip_RL",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   440.0,
+   0.0,
+   180.0
+  ],
+  "rot": [
+   0.0,
+   3.141592653589793,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL spread lug pin",
+  "parent": "hip_RL",
+  "part": "parts\\Spread ram pin.icpart",
+  "pos": [
+   220.0,
+   200.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RL spread lug lift pin",
+  "parent": "hip_RL",
+  "part": "parts\\Leg lift pin.icpart",
+  "pos": [
+   260.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR hip bracket",
+  "parent": "hip_RR",
+  "part": "subassemblies\\Hip Bracket.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR leg",
+  "parent": "leg_RR",
+  "part": "subassemblies\\Leg Weldment.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR leg link",
+  "parent": "link_RR",
+  "part": "subassemblies\\Leg Link.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR wheel carrier",
+  "parent": "carrier_RR",
+  "part": "subassemblies\\Wheel Carrier.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR steering knuckle",
+  "parent": "steer_RR",
+  "part": "subassemblies\\Steering Knuckle.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR wheel",
+  "parent": "wheel_RR",
+  "part": "subassemblies\\Wheel and Tyre.icasm",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR spread lug upper",
+  "parent": "hip_RR",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   440.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   3.141592653589793
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR spread lug lower",
+  "parent": "hip_RR",
+  "part": "parts\\Hip spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   180.0
+  ],
+  "rot": [
+   3.141592653589793,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR spread lug pin",
+  "parent": "hip_RR",
+  "part": "parts\\Spread ram pin.icpart",
+  "pos": [
+   220.0,
+   -200.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "RR spread lug lift pin",
+  "parent": "hip_RR",
+  "part": "parts\\Leg lift pin.icpart",
+  "pos": [
+   260.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Idler link L",
+  "parent": "link_idler",
+  "part": "parts\\Idler link 16mm.icpart",
+  "pos": [
+   0.0,
+   128.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Idler link R",
+  "parent": "link_idler",
+  "part": "parts\\Idler link 16mm.icpart",
+  "pos": [
+   0.0,
+   -112.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Bucket link L",
+  "parent": "link_bucket",
+  "part": "parts\\Bucket link 16mm.icpart",
+  "pos": [
+   0.0,
+   146.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Bucket link R",
+  "parent": "link_bucket",
+  "part": "parts\\Bucket link 16mm.icpart",
+  "pos": [
+   0.0,
+   -130.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Linkage joint pin",
+  "parent": "link_idler",
+  "part": "parts\\Linkage joint pin.icpart",
+  "pos": [
+   320.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Bucket link pin",
+  "parent": "link_bucket",
+  "part": "parts\\Bucket link pin.icpart",
+  "pos": [
+   300.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Joint spacer L",
+  "parent": "link_idler",
+  "part": "parts\\Linkage spacer sleeve.icpart",
+  "pos": [
+   320.0,
+   34.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ]
+ },
+ {
+  "kind": "frame",
+  "label": "Joint spacer R",
+  "parent": "link_idler",
+  "part": "parts\\Linkage spacer sleeve.icpart",
+  "pos": [
+   320.0,
+   -110.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "boom ram barrel",
+  "part": "parts\\Boom ram barrel.icpart",
+  "a": "boom_a",
+  "b": "boom_b",
+  "axis": "upper_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "boom ram gland",
+  "part": "parts\\Boom ram gland.icpart",
+  "a": "boom_a",
+  "b": "boom_b",
+  "axis": "upper_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "boom ram rod",
+  "part": "parts\\Boom ram rod.icpart",
+  "a": "boom_a",
+  "b": "boom_b",
+  "axis": "upper_axis",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "dipper ram barrel",
+  "part": "parts\\Dipper ram barrel.icpart",
+  "a": "dipper_a",
+  "b": "dipper_b",
+  "axis": "upper_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "dipper ram gland",
+  "part": "parts\\Dipper ram gland.icpart",
+  "a": "dipper_a",
+  "b": "dipper_b",
+  "axis": "upper_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "dipper ram rod",
+  "part": "parts\\Dipper ram rod.icpart",
+  "a": "dipper_a",
+  "b": "dipper_b",
+  "axis": "upper_axis",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "bucket ram barrel",
+  "part": "parts\\Bucket ram barrel.icpart",
+  "a": "bucket_a",
+  "b": "bucket_b",
+  "axis": "upper_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "bucket ram gland",
+  "part": "parts\\Bucket ram gland.icpart",
+  "a": "bucket_a",
+  "b": "bucket_b",
+  "axis": "upper_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "bucket ram rod",
+  "part": "parts\\Bucket ram rod.icpart",
+  "a": "bucket_a",
+  "b": "bucket_b",
+  "axis": "upper_axis",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_FL ram barrel",
+  "part": "parts\\Leg lift ram barrel.icpart",
+  "a": "leg_FL_a",
+  "b": "leg_FL_b",
+  "axis": "leg_FL_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_FL ram gland",
+  "part": "parts\\Leg lift ram gland.icpart",
+  "a": "leg_FL_a",
+  "b": "leg_FL_b",
+  "axis": "leg_FL_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_FL ram rod",
+  "part": "parts\\Leg lift ram rod.icpart",
+  "a": "leg_FL_a",
+  "b": "leg_FL_b",
+  "axis": "leg_FL_axis",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_FR ram barrel",
+  "part": "parts\\Leg lift ram barrel.icpart",
+  "a": "leg_FR_a",
+  "b": "leg_FR_b",
+  "axis": "leg_FR_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_FR ram gland",
+  "part": "parts\\Leg lift ram gland.icpart",
+  "a": "leg_FR_a",
+  "b": "leg_FR_b",
+  "axis": "leg_FR_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_FR ram rod",
+  "part": "parts\\Leg lift ram rod.icpart",
+  "a": "leg_FR_a",
+  "b": "leg_FR_b",
+  "axis": "leg_FR_axis",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_RL ram barrel",
+  "part": "parts\\Leg lift ram barrel.icpart",
+  "a": "leg_RL_a",
+  "b": "leg_RL_b",
+  "axis": "leg_RL_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_RL ram gland",
+  "part": "parts\\Leg lift ram gland.icpart",
+  "a": "leg_RL_a",
+  "b": "leg_RL_b",
+  "axis": "leg_RL_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_RL ram rod",
+  "part": "parts\\Leg lift ram rod.icpart",
+  "a": "leg_RL_a",
+  "b": "leg_RL_b",
+  "axis": "leg_RL_axis",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_RR ram barrel",
+  "part": "parts\\Leg lift ram barrel.icpart",
+  "a": "leg_RR_a",
+  "b": "leg_RR_b",
+  "axis": "leg_RR_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_RR ram gland",
+  "part": "parts\\Leg lift ram gland.icpart",
+  "a": "leg_RR_a",
+  "b": "leg_RR_b",
+  "axis": "leg_RR_axis",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "leg_RR ram rod",
+  "part": "parts\\Leg lift ram rod.icpart",
+  "a": "leg_RR_a",
+  "b": "leg_RR_b",
+  "axis": "leg_RR_axis",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_FL ram barrel",
+  "part": "parts\\Leg spread ram barrel.icpart",
+  "a": "spread_FL_a",
+  "b": "spread_FL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_FL ram gland",
+  "part": "parts\\Leg spread ram gland.icpart",
+  "a": "spread_FL_a",
+  "b": "spread_FL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_FL ram rod",
+  "part": "parts\\Leg spread ram rod.icpart",
+  "a": "spread_FL_a",
+  "b": "spread_FL_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_FR ram barrel",
+  "part": "parts\\Leg spread ram barrel.icpart",
+  "a": "spread_FR_a",
+  "b": "spread_FR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_FR ram gland",
+  "part": "parts\\Leg spread ram gland.icpart",
+  "a": "spread_FR_a",
+  "b": "spread_FR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_FR ram rod",
+  "part": "parts\\Leg spread ram rod.icpart",
+  "a": "spread_FR_a",
+  "b": "spread_FR_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_RL ram barrel",
+  "part": "parts\\Leg spread ram barrel.icpart",
+  "a": "spread_RL_a",
+  "b": "spread_RL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_RL ram gland",
+  "part": "parts\\Leg spread ram gland.icpart",
+  "a": "spread_RL_a",
+  "b": "spread_RL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_RL ram rod",
+  "part": "parts\\Leg spread ram rod.icpart",
+  "a": "spread_RL_a",
+  "b": "spread_RL_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_RR ram barrel",
+  "part": "parts\\Leg spread ram barrel.icpart",
+  "a": "spread_RR_a",
+  "b": "spread_RR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_RR ram gland",
+  "part": "parts\\Leg spread ram gland.icpart",
+  "a": "spread_RR_a",
+  "b": "spread_RR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "spread_RR ram rod",
+  "part": "parts\\Leg spread ram rod.icpart",
+  "a": "spread_RR_a",
+  "b": "spread_RR_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_FL ram barrel",
+  "part": "parts\\Steering ram barrel.icpart",
+  "a": "steer_FL_a",
+  "b": "steer_FL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_FL ram gland",
+  "part": "parts\\Steering ram gland.icpart",
+  "a": "steer_FL_a",
+  "b": "steer_FL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_FL ram rod",
+  "part": "parts\\Steering ram rod.icpart",
+  "a": "steer_FL_a",
+  "b": "steer_FL_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_FR ram barrel",
+  "part": "parts\\Steering ram barrel.icpart",
+  "a": "steer_FR_a",
+  "b": "steer_FR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_FR ram gland",
+  "part": "parts\\Steering ram gland.icpart",
+  "a": "steer_FR_a",
+  "b": "steer_FR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_FR ram rod",
+  "part": "parts\\Steering ram rod.icpart",
+  "a": "steer_FR_a",
+  "b": "steer_FR_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_RL ram barrel",
+  "part": "parts\\Steering ram barrel.icpart",
+  "a": "steer_RL_a",
+  "b": "steer_RL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_RL ram gland",
+  "part": "parts\\Steering ram gland.icpart",
+  "a": "steer_RL_a",
+  "b": "steer_RL_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_RL ram rod",
+  "part": "parts\\Steering ram rod.icpart",
+  "a": "steer_RL_a",
+  "b": "steer_RL_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_RR ram barrel",
+  "part": "parts\\Steering ram barrel.icpart",
+  "a": "steer_RR_a",
+  "b": "steer_RR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_RR ram gland",
+  "part": "parts\\Steering ram gland.icpart",
+  "a": "steer_RR_a",
+  "b": "steer_RR_b",
+  "axis": "chassis_z",
+  "reverse": false,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ },
+ {
+  "kind": "ram",
+  "label": "steer_RR ram rod",
+  "part": "parts\\Steering ram rod.icpart",
+  "a": "steer_RR_a",
+  "b": "steer_RR_b",
+  "axis": "chassis_z",
+  "reverse": true,
+  "pos": [
+   0,
+   0,
+   0
+  ],
+  "rot": [
+   0,
+   0,
+   0
+  ]
+ }
+]

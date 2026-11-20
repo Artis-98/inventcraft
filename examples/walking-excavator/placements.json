@@ -1,0 +1,4547 @@
+[
+ {
+  "name": "Chassis top plate",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis top plate 20mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Chassis bottom plate",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis bottom plate 20mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Chassis front wall",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis front wall 12mm bent.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Chassis rear wall",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis rear wall 12mm bent.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug FL upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug FL lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   120.0,
+   180.0
+  ],
+  "rot": [
+   3.141592653589793,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base pin FL",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Spread ram pin.icpart",
+  "pos": [
+   800.0,
+   60.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug FR upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   -120.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug FR lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   180.0
+  ],
+  "rot": [
+   3.141592653589793,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base pin FR",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Spread ram pin.icpart",
+  "pos": [
+   800.0,
+   -60.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug RL upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   120.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   3.141592653589793
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug RL lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   180.0
+  ],
+  "rot": [
+   0.0,
+   3.141592653589793,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base pin RL",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Spread ram pin.icpart",
+  "pos": [
+   -800.0,
+   60.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug RR upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   3.141592653589793
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base lug RR lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Chassis spread ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   -120.0,
+   180.0
+  ],
+  "rot": [
+   0.0,
+   3.141592653589793,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Spread base pin RR",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Spread ram pin.icpart",
+  "pos": [
+   -800.0,
+   -60.0,
+   90.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Hip swivel pin FL",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip swivel pin.icpart",
+  "pos": [
+   820.0,
+   480.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Hip swivel pin FR",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip swivel pin.icpart",
+  "pos": [
+   820.0,
+   -480.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Hip swivel pin RL",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip swivel pin.icpart",
+  "pos": [
+   -820.0,
+   480.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Hip swivel pin RR",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip swivel pin.icpart",
+  "pos": [
+   -820.0,
+   -480.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew pedestal",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew pedestal tube 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Pedestal flange",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew pedestal flange 20mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bearing outer race",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bearing outer race.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   485.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   468.4740257501981,
+   125.52723687472256,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 3",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   420.0223208354528,
+   242.49999999999997,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 4",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   342.9467888754756,
+   342.9467888754756,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 5",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   242.50000000000006,
+   420.0223208354527,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 6",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   125.52723687472256,
+   468.4740257501981,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 7",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   2.969768487932332e-14,
+   485.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 8",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -125.5272368747225,
+   468.4740257501981,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 9",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -242.4999999999999,
+   420.0223208354528,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 10",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -342.94678887547553,
+   342.9467888754756,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 11",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -420.0223208354528,
+   242.49999999999997,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 12",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -468.47402575019805,
+   125.52723687472269,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 13",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -485.0,
+   5.939536975864664e-14,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 14",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -468.4740257501981,
+   -125.52723687472259,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 15",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -420.02232083545283,
+   -242.49999999999986,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 16",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -342.94678887547576,
+   -342.94678887547536,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 17",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -242.50000000000023,
+   -420.02232083545266,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 18",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -125.5272368747225,
+   -468.4740257501981,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 19",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   -8.909305463796993e-14,
+   -485.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 20",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   125.52723687472235,
+   -468.47402575019817,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 21",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   242.50000000000006,
+   -420.0223208354527,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 22",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   342.9467888754755,
+   -342.94678887547565,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 23",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   420.0223208354526,
+   -242.50000000000023,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Slew bolt 24",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bolt M20.icpart",
+  "pos": [
+   468.474025750198,
+   -125.52723687472296,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Hydraulic rotary union",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hydraulic rotary union.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Leg circuit manifold",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg circuit manifold.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "chassis"
+ },
+ {
+  "name": "Hip swivel tube",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip swivel tube.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Hip top plate",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip bracket top plate 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Hip bottom plate",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip bracket bottom plate 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Hip cheek L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip bracket cheek 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Hip cheek R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hip bracket cheek 25mm.icpart",
+  "pos": [
+   0.0,
+   -269.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Hip link pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link pin.icpart",
+  "pos": [
+   471.0,
+   0.0,
+   453.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Swivel thrust washer top",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Swivel thrust washer.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   150.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Swivel thrust washer bottom",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Swivel thrust washer.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   -159.5
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "hip"
+ },
+ {
+  "name": "Leg web L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg 14mm web.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg web R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg 14mm web.icpart",
+  "pos": [
+   0.0,
+   -226.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg top cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg top cap 14mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg bottom cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg bottom cap 14mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg root boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg root boss.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg tip boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg tip boss.icpart",
+  "pos": [
+   1500.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg link web L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link 10mm web.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg link web R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link 10mm web.icpart",
+  "pos": [
+   0.0,
+   -230.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg link top cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link top cap 10mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg link bottom cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link bottom cap 10mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg link root boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link root boss.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg link tip boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link tip boss.icpart",
+  "pos": [
+   1500.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg lift ram base lug L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg lift ram base lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg lift ram base lug R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg lift ram base lug 18mm.icpart",
+  "pos": [
+   0.0,
+   -82.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg lift ram base pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Lift ram pin.icpart",
+  "pos": [
+   100.0,
+   0.0,
+   232.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "leg"
+ },
+ {
+  "name": "Leg lift ram rod lug L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg lift ram rod lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg lift ram rod lug R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg lift ram rod lug 18mm.icpart",
+  "pos": [
+   0.0,
+   -82.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Leg lift ram rod pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Lift ram pin.icpart",
+  "pos": [
+   1350.0,
+   0.0,
+   -152.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "link"
+ },
+ {
+  "name": "Carrier cheek L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier cheek 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Carrier cheek R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier cheek 25mm.icpart",
+  "pos": [
+   0.0,
+   -269.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Carrier link pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link pin.icpart",
+  "pos": [
+   1711.0,
+   0.0,
+   453.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Carrier upright",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier upright 30mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Kingpin arm upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier kingpin arm 40mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Kingpin arm lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier kingpin arm 40mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   -360.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Steering ram lug upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier steering ram lug 12mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Steering ram lug lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier steering ram lug 12mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   -46.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Steering ram base pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering ram pin.icpart",
+  "pos": [
+   1620.0,
+   207.0,
+   245.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Carrier distal pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg distal pin.icpart",
+  "pos": [
+   1500.0,
+   15.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "carrier"
+ },
+ {
+  "name": "Steering knuckle",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering knuckle.icpart",
+  "pos": [
+   1500.0,
+   510.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Kingpin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering kingpin.icpart",
+  "pos": [
+   1500.0,
+   510.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Steering arm upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering arm 12mm.icpart",
+  "pos": [
+   1500.0,
+   510.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Steering arm lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering arm 12mm.icpart",
+  "pos": [
+   1500.0,
+   510.0,
+   -46.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Steering ram rod pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering ram pin.icpart",
+  "pos": [
+   1620.0,
+   510.0,
+   245.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Hydraulic hub motor",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hydraulic hub motor housing.icpart",
+  "pos": [
+   1500.0,
+   640.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Wheel spindle",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel spindle.icpart",
+  "pos": [
+   1500.0,
+   640.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Spindle nut",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel spindle nut.icpart",
+  "pos": [
+   1500.0,
+   640.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "steer"
+ },
+ {
+  "name": "Wheel rim",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel rim 30in dished.icpart",
+  "pos": [
+   1500.0,
+   640.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel hub",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel hub.icpart",
+  "pos": [
+   1500.0,
+   640.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   640.0,
+   -47.105066208658776
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   640.0,
+   -47.105066208658776
+  ],
+  "rot": [
+   -1.5610087355952875,
+   0.20551069879686246,
+   0.20551069879686248
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   640.0,
+   -128.69343417595167
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   640.0,
+   -128.69343417595167
+  ],
+  "rot": [
+   -1.4821898202742554,
+   0.6139431255689368,
+   0.6139431255689369
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 3",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1547.1050662086589,
+   640.0,
+   -175.7985003846104
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 3",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1547.1050662086589,
+   640.0,
+   -175.7985003846104
+  ],
+  "rot": [
+   -1.3217387414644306,
+   1.014205807383003,
+   1.014205807383003
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 4",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   640.0,
+   -175.79850038461043
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 4",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   640.0,
+   -175.79850038461043
+  ],
+  "rot": [
+   -1.0737945718874728,
+   1.3993963313029145,
+   1.3993963313029145
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 5",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   640.0,
+   -128.69343417595167
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 5",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   640.0,
+   -128.69343417595167
+  ],
+  "rot": [
+   -0.7290110664684427,
+   1.7599884037881879,
+   1.759988403788188
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 6",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   640.0,
+   -47.10506620865874
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 6",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   640.0,
+   -47.10506620865874
+  ],
+  "rot": [
+   -0.2740647404200733,
+   2.0817283791987156,
+   2.081728379198716
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 7",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   640.0,
+   47.10506620865878
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 7",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   640.0,
+   47.10506620865878
+  ],
+  "rot": [
+   -0.2740647404200733,
+   -2.0817283791987173,
+   -2.081728379198718
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 8",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   640.0,
+   128.69343417595164
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 8",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   640.0,
+   128.69343417595164
+  ],
+  "rot": [
+   -0.7290110664684422,
+   -1.7599884037881877,
+   -1.7599884037881879
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 9",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   640.0,
+   175.7985003846104
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 9",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   640.0,
+   175.7985003846104
+  ],
+  "rot": [
+   -1.0737945718874717,
+   -1.3993963313029143,
+   -1.3993963313029145
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 10",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1547.1050662086586,
+   640.0,
+   175.79850038461046
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 10",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1547.1050662086586,
+   640.0,
+   175.79850038461046
+  ],
+  "rot": [
+   -1.3217387414644302,
+   -1.0142058073830034,
+   -1.0142058073830036
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 11",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   640.0,
+   128.69343417595167
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 11",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   640.0,
+   128.69343417595167
+  ],
+  "rot": [
+   -1.4821898202742554,
+   -0.6139431255689369,
+   -0.613943125568937
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel stud 12",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   640.0,
+   47.105066208658926
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Wheel nut 12",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   640.0,
+   47.105066208658926
+  ],
+  "rot": [
+   -1.5610087355952875,
+   -0.2055106987968631,
+   -0.20551069879686315
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Tyre",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Tyre 1400x650 balloon.icpart",
+  "pos": [
+   1500.0,
+   640.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "wheel"
+ },
+ {
+  "name": "Carrier cheek L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier cheek 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Carrier cheek R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier cheek 25mm.icpart",
+  "pos": [
+   0.0,
+   -269.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Carrier link pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg link pin.icpart",
+  "pos": [
+   1711.0,
+   0.0,
+   453.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Carrier upright",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier upright 30mm RH.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Kingpin arm upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier kingpin arm 40mm RH.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Kingpin arm lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier kingpin arm 40mm RH.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   -360.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Steering ram lug upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier steering ram lug 12mm RH.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Steering ram lug lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Carrier steering ram lug 12mm RH.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   -46.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Steering ram base pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering ram pin.icpart",
+  "pos": [
+   1620.0,
+   -207.0,
+   245.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Carrier distal pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Leg distal pin.icpart",
+  "pos": [
+   1500.0,
+   -15.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "carrier_rh"
+ },
+ {
+  "name": "Steering knuckle",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering knuckle RH.icpart",
+  "pos": [
+   1500.0,
+   -510.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Kingpin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering kingpin.icpart",
+  "pos": [
+   1500.0,
+   -510.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Steering arm upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering arm 12mm.icpart",
+  "pos": [
+   1500.0,
+   -510.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Steering arm lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering arm 12mm.icpart",
+  "pos": [
+   1500.0,
+   -510.0,
+   -46.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Steering ram rod pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Steering ram pin.icpart",
+  "pos": [
+   1620.0,
+   -510.0,
+   245.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Hydraulic hub motor",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hydraulic hub motor housing.icpart",
+  "pos": [
+   1500.0,
+   -640.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Wheel spindle",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel spindle.icpart",
+  "pos": [
+   1500.0,
+   -640.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Spindle nut",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel spindle nut.icpart",
+  "pos": [
+   1500.0,
+   -640.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "steer_rh"
+ },
+ {
+  "name": "Wheel rim",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel rim 30in dished.icpart",
+  "pos": [
+   1500.0,
+   -640.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel hub",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel hub.icpart",
+  "pos": [
+   1500.0,
+   -640.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   -640.0,
+   47.105066208658776
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   -640.0,
+   47.105066208658776
+  ],
+  "rot": [
+   1.5610087355952875,
+   -0.20551069879686246,
+   0.20551069879686248
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   -640.0,
+   128.69343417595167
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   -640.0,
+   128.69343417595167
+  ],
+  "rot": [
+   1.4821898202742554,
+   -0.6139431255689368,
+   0.6139431255689369
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 3",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1547.1050662086589,
+   -640.0,
+   175.7985003846104
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 3",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1547.1050662086589,
+   -640.0,
+   175.7985003846104
+  ],
+  "rot": [
+   1.3217387414644306,
+   -1.014205807383003,
+   1.014205807383003
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 4",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   -640.0,
+   175.79850038461043
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 4",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   -640.0,
+   175.79850038461043
+  ],
+  "rot": [
+   1.0737945718874728,
+   -1.3993963313029145,
+   1.3993963313029145
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 5",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   -640.0,
+   128.69343417595167
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 5",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   -640.0,
+   128.69343417595167
+  ],
+  "rot": [
+   0.7290110664684427,
+   -1.7599884037881879,
+   1.759988403788188
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 6",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   -640.0,
+   47.10506620865874
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 6",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   -640.0,
+   47.10506620865874
+  ],
+  "rot": [
+   0.2740647404200733,
+   -2.0817283791987156,
+   2.081728379198716
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 7",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   -640.0,
+   -47.10506620865878
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 7",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1324.2014996153896,
+   -640.0,
+   -47.10506620865878
+  ],
+  "rot": [
+   0.2740647404200733,
+   2.0817283791987173,
+   -2.081728379198718
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 8",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   -640.0,
+   -128.69343417595164
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 8",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1371.3065658240484,
+   -640.0,
+   -128.69343417595164
+  ],
+  "rot": [
+   0.7290110664684422,
+   1.7599884037881877,
+   -1.7599884037881879
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 9",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   -640.0,
+   -175.7985003846104
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 9",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1452.8949337913411,
+   -640.0,
+   -175.7985003846104
+  ],
+  "rot": [
+   1.0737945718874717,
+   1.3993963313029143,
+   -1.3993963313029145
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 10",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1547.1050662086586,
+   -640.0,
+   -175.79850038461046
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 10",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1547.1050662086586,
+   -640.0,
+   -175.79850038461046
+  ],
+  "rot": [
+   1.3217387414644302,
+   1.0142058073830034,
+   -1.0142058073830036
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 11",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   -640.0,
+   -128.69343417595167
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 11",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1628.6934341759516,
+   -640.0,
+   -128.69343417595167
+  ],
+  "rot": [
+   1.4821898202742554,
+   0.6139431255689369,
+   -0.613943125568937
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel stud 12",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel stud M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   -640.0,
+   -47.105066208658926
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Wheel nut 12",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wheel nut M20.icpart",
+  "pos": [
+   1675.7985003846104,
+   -640.0,
+   -47.105066208658926
+  ],
+  "rot": [
+   1.5610087355952875,
+   0.2055106987968631,
+   -0.20551069879686315
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Tyre",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Tyre 1400x650 balloon.icpart",
+  "pos": [
+   1500.0,
+   -640.0,
+   0.0
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "wheel_rh"
+ },
+ {
+  "name": "Boom web L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom 14mm web.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom web R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom 14mm web.icpart",
+  "pos": [
+   0.0,
+   -286.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom top cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom top cap 12mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom bottom cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom bottom cap 12mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom tip closure",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom tip closure plate.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom foot boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom foot boss.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom tip ring L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom tip boss ring.icpart",
+  "pos": [
+   2600.0,
+   162.5,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom tip ring R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom tip boss ring.icpart",
+  "pos": [
+   2600.0,
+   -162.5,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom dipper pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom dipper pin.icpart",
+  "pos": [
+   2600.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom lift ram lug L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom lift ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom lift ram lug R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom lift ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   -92.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom lift ram rod pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram pin.icpart",
+  "pos": [
+   1250.0,
+   0.0,
+   -40.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom dipper ram lug L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom dipper ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom dipper ram lug R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom dipper ram lug 18mm.icpart",
+  "pos": [
+   0.0,
+   -92.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom dipper ram base pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram pin.icpart",
+  "pos": [
+   1350.0,
+   0.0,
+   720.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline L.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline saddle 560 L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline saddle 560.icpart",
+  "pos": [
+   0.0,
+   100.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline saddle 1000 L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline saddle 1000.icpart",
+  "pos": [
+   0.0,
+   100.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline saddle 1900 L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline saddle 1900.icpart",
+  "pos": [
+   0.0,
+   100.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline R.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline saddle 560 R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline saddle 560.icpart",
+  "pos": [
+   0.0,
+   -100.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline saddle 1000 R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline saddle 1000.icpart",
+  "pos": [
+   0.0,
+   -100.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Boom hardline saddle 1900 R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom hardline saddle 1900.icpart",
+  "pos": [
+   0.0,
+   -100.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "boom"
+ },
+ {
+  "name": "Dipper web L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper 12mm web.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper web R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper 12mm web.icpart",
+  "pos": [
+   0.0,
+   -208.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper top cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper top cap 10mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper bottom cap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper bottom cap 10mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper heel closure",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper heel closure plate.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper tip closure",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper tip closure plate.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper root boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper root boss.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper idler boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper idler boss.icpart",
+  "pos": [
+   1430.0,
+   0.0,
+   40.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper idler pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Idler pin.icpart",
+  "pos": [
+   1430.0,
+   0.0,
+   40.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper attachment pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Attachment pin.icpart",
+  "pos": [
+   1700.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper heel pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper heel pin.icpart",
+  "pos": [
+   -330.0,
+   0.0,
+   200.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper heel spacer L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper heel spacer.icpart",
+  "pos": [
+   -330.0,
+   37.0,
+   200.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper heel spacer R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper heel spacer.icpart",
+  "pos": [
+   -330.0,
+   -97.0,
+   200.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper bucket ram lug L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper bucket ram lug 16mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper bucket ram lug R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Dipper bucket ram lug 16mm.icpart",
+  "pos": [
+   0.0,
+   -80.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Dipper bucket ram base pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket ram pin.icpart",
+  "pos": [
+   520.0,
+   0.0,
+   335.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "dipper"
+ },
+ {
+  "name": "Coupler side plate L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Coupler side plate 20mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "attachment"
+ },
+ {
+  "name": "Coupler side plate R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Coupler side plate 20mm.icpart",
+  "pos": [
+   0.0,
+   -172.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "attachment"
+ },
+ {
+  "name": "Coupler pin bush",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Coupler pin bush.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "attachment"
+ },
+ {
+  "name": "Coupler ear boss",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Coupler ear boss.icpart",
+  "pos": [
+   60.0,
+   0.0,
+   230.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "attachment"
+ },
+ {
+  "name": "Coupler web",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Coupler web 16mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "attachment"
+ },
+ {
+  "name": "Helical rotary tilt actuator",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Tiltrotator rotary tilt actuator.icpart",
+  "pos": [
+   300.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "attachment"
+ },
+ {
+  "name": "Tilt yoke upper",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Tilt yoke plate 30mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "tilt"
+ },
+ {
+  "name": "Tilt yoke lower",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Tilt yoke plate 30mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   -254.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "tilt"
+ },
+ {
+  "name": "Rotator mount plate",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Rotator mount plate 30mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "tilt"
+ },
+ {
+  "name": "Rotator housing",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Tiltrotator rotator housing.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   1.5707963267948966,
+   0.0
+  ],
+  "group": "tilt"
+ },
+ {
+  "name": "Rotator drive motor",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Rotator hydraulic motor.icpart",
+  "pos": [
+   240.0,
+   0.0,
+   160.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "tilt"
+ },
+ {
+  "name": "Rotator output flange",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Rotator output flange.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   1.5707963267948966,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Quick coupler plate",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Quick coupler plate 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Quick coupler hook L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Quick coupler hook 20mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Quick coupler hook R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Quick coupler hook 20mm.icpart",
+  "pos": [
+   0.0,
+   -348.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket wrap",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket wrap plate 12mm rolled.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket side L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket side plate 20mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket side R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket side plate 20mm.icpart",
+  "pos": [
+   0.0,
+   -780.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket lip bar",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket lip bar 45x60.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket mouth rim L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket mouth rim 25mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket mouth rim R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket mouth rim 25mm.icpart",
+  "pos": [
+   0.0,
+   -825.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket side cutter L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket side cutter 20mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket side cutter R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket side cutter 20mm.icpart",
+  "pos": [
+   0.0,
+   -870.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 1 L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   1124.3029202335042,
+   445.0,
+   -396.2711457100858
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 1 R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   1124.3029202335042,
+   -445.0,
+   -396.2711457100858
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 2 L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   1023.6991649153553,
+   445.0,
+   -351.78649199797917
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 2 R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   1023.6991649153553,
+   -445.0,
+   -351.78649199797917
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 3 L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   923.0954095972064,
+   445.0,
+   -307.3018382858726
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 3 R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   923.0954095972064,
+   -445.0,
+   -307.3018382858726
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 4 L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   1057.295966320303,
+   445.0,
+   -399.4441769538865
+  ],
+  "rot": [
+   -1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Side cutter bolt 4 R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Side cutter bolt M20.icpart",
+  "pos": [
+   1057.295966320303,
+   -445.0,
+   -399.4441769538865
+  ],
+  "rot": [
+   1.5707963267948966,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket cutting edge",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket cutting edge 40mm bevelled.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket tooth 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket tooth.icpart",
+  "pos": [
+   0.0,
+   -300.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket tooth 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket tooth.icpart",
+  "pos": [
+   0.0,
+   -150.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket tooth 3",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket tooth.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket tooth 4",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket tooth.icpart",
+  "pos": [
+   0.0,
+   150.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket tooth 5",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket tooth.icpart",
+  "pos": [
+   0.0,
+   300.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket wear strip 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket wear strip.icpart",
+  "pos": [
+   0.0,
+   -250.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket wear strip 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket wear strip.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket wear strip 3",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket wear strip.icpart",
+  "pos": [
+   0.0,
+   250.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket hitch bracket L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket hitch bracket 22mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket hitch bracket R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket hitch bracket 22mm.icpart",
+  "pos": [
+   0.0,
+   -302.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket hitch pin 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket hitch pin.icpart",
+  "pos": [
+   400.0,
+   0.0,
+   -60.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Bucket hitch pin 2",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Bucket hitch pin.icpart",
+  "pos": [
+   400.0,
+   0.0,
+   80.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "bucket"
+ },
+ {
+  "name": "Upper deck",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Upper deck plate 30mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Slew bearing inner race",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Slew bearing inner race.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Boom foot tower L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom foot tower 30mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Boom foot tower R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom foot tower 30mm.icpart",
+  "pos": [
+   0.0,
+   -334.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Boom foot pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom foot pin.icpart",
+  "pos": [
+   650.0,
+   -300.0,
+   420.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Boom ram base lug L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram base lug 18mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Boom ram base lug R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram base lug 18mm.icpart",
+  "pos": [
+   0.0,
+   -92.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Boom ram base pin",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Boom ram pin.icpart",
+  "pos": [
+   1000.0,
+   -300.0,
+   150.0
+  ],
+  "rot": [
+   -1.5707963267948966,
+   -0.0,
+   -0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Counterweight",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Counterweight casting.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Engine hood",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Engine hood 3mm bent.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Hood front closure",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hood front closure 3mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Radiator cowl",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Radiator cowl 3mm bent.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Radiator grille",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Radiator grille 3mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Exhaust stack",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Exhaust stack.icpart",
+  "pos": [
+   -640.0,
+   -760.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Power pack",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Engine power pack envelope.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Hydraulic tank filler",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Hydraulic tank filler cap.icpart",
+  "pos": [
+   -300.0,
+   -500.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab frame skeleton",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab frame skeleton.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab mount -510 150",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab rubber mount.icpart",
+  "pos": [
+   -510.0,
+   150.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab mount -510 960",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab rubber mount.icpart",
+  "pos": [
+   -510.0,
+   960.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab mount 760 150",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab rubber mount.icpart",
+  "pos": [
+   760.0,
+   150.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab mount 760 960",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab rubber mount.icpart",
+  "pos": [
+   760.0,
+   960.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab left rear glass",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab left rear glass 8mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab left rear glass seal",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab left rear glass seal.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab door glass",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab door glass 8mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab door glass seal",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab door glass seal.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab right glass",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab right glass 8mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab right glass seal",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab right glass seal.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab windscreen",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab windscreen 8mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab windscreen seal",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab windscreen seal.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab rear glass",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab rear glass 8mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab rear glass seal",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab rear glass seal.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab left rear panel",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab left rear panel 4mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab right lower panel",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab right lower panel 4mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab rear lower panel",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab rear lower panel 4mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab floor",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab floor plate 8mm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Cab roof",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab roof 4mm flanged.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Seat base",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Operator seat base.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Seat",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Operator seat.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Console L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Seat console L.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Joystick L",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Joystick grip.icpart",
+  "pos": [
+   20.0,
+   855.0,
+   700.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Console R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Seat console R.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Joystick R",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Joystick grip.icpart",
+  "pos": [
+   20.0,
+   255.0,
+   700.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Dash column",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab dash column.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Dash display",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Cab display.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Pedal 1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Travel pedal.icpart",
+  "pos": [
+   0.0,
+   725.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Pedal -1",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Travel pedal.icpart",
+  "pos": [
+   0.0,
+   385.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Wiper spindle",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wiper spindle housing.icpart",
+  "pos": [
+   764.0,
+   555.0,
+   1610.0
+  ],
+  "rot": [
+   0.0,
+   1.5707963267948966,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Wiper arm",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wiper arm.icpart",
+  "pos": [
+   790.0,
+   555.0,
+   1610.0
+  ],
+  "rot": [
+   0.4188790204786391,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Wiper blade",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Wiper blade.icpart",
+  "pos": [
+   772.0,
+   555.0,
+   1610.0
+  ],
+  "rot": [
+   0.4188790204786391,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Mirror",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Mirror head.icpart",
+  "pos": [
+   920.0,
+   1270.0,
+   1380.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Mirror arm",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Mirror arm.icpart",
+  "pos": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Work lamp 230",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\LED work lamp.icpart",
+  "pos": [
+   640.0,
+   230.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Work lamp 880",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\LED work lamp.icpart",
+  "pos": [
+   640.0,
+   880.0,
+   0.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Door hinge 260",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Door hinge knuckle.icpart",
+  "pos": [
+   38.0,
+   1018.0,
+   260.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ },
+ {
+  "name": "Door hinge 1450",
+  "part": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\parts\\Door hinge knuckle.icpart",
+  "pos": [
+   38.0,
+   1018.0,
+   1450.0
+  ],
+  "rot": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "group": "upper"
+ }
+]

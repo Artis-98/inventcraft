@@ -1,0 +1,50 @@
+{
+ "forms": [
+  {
+   "form": "Leg controls FL",
+   "sliders": 4,
+   "moves": 8,
+   "slowest_move_s": 0.094,
+   "average_move_s": 0.079,
+   "cancel_restores": true
+  },
+  {
+   "form": "Leg controls FR",
+   "sliders": 4,
+   "moves": 8,
+   "slowest_move_s": 0.103,
+   "average_move_s": 0.081,
+   "cancel_restores": true
+  },
+  {
+   "form": "Leg controls RL",
+   "sliders": 4,
+   "moves": 8,
+   "slowest_move_s": 0.082,
+   "average_move_s": 0.079,
+   "cancel_restores": true
+  },
+  {
+   "form": "Leg controls RR",
+   "sliders": 4,
+   "moves": 8,
+   "slowest_move_s": 0.081,
+   "average_move_s": 0.078,
+   "cancel_restores": true
+  },
+  {
+   "form": "Boom and chassis controls",
+   "sliders": 9,
+   "moves": 18,
+   "slowest_move_s": 0.082,
+   "average_move_s": 0.078,
+   "cancel_restores": true
+  }
+ ],
+ "joints": {
+  "samples": 225,
+  "worst_separation_mm": 9.094947017729282e-13
+ },
+ "errors": [],
+ "ok_keeps_pose": true
+}

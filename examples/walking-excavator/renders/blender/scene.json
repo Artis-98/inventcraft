@@ -1,0 +1,52 @@
+{
+ "obj": "C:\\Users\\aa\\Downloads\\CLAUDE\\datum\\examples\\walking-excavator\\renders\\blender\\excavator.obj",
+ "materials": [
+  "c1d1f22",
+  "c2b3036",
+  "ca07c45",
+  "cb8bec4",
+  "cdde2e6",
+  "ce8471b",
+  "cf5b301",
+  "glass"
+ ],
+ "ground_z": -0.02952676104991076,
+ "target": [
+  0.15740975128301601,
+  0.0,
+  2.2770961221245645
+ ],
+ "direction": [
+  0.7356829380292479,
+  0.5808023194967746,
+  0.3484813916980648
+ ],
+ "radius": 4.500967427673226,
+ "pose": {
+  "ride_height": 804.635,
+  "chassis_pitch": 0.0,
+  "slew": 0.0,
+  "boom_angle": 62.0,
+  "dipper_angle": -118.0,
+  "bucket_curl": 75.0,
+  "attachment_tilt": 0.0,
+  "attachment_rotation": 0.0,
+  "wheel_spin": 0.0,
+  "spread_FL": 32.0,
+  "lift_FL": 4.0,
+  "steer_FL": 0.0,
+  "spin_FL": 0.0,
+  "spread_FR": 32.0,
+  "lift_FR": 4.0,
+  "steer_FR": 0.0,
+  "spin_FR": 0.0,
+  "spread_RL": 32.0,
+  "lift_RL": 4.0,
+  "steer_RL": 0.0,
+  "spin_RL": 0.0,
+  "spread_RR": 32.0,
+  "lift_RR": 4.0,
+  "steer_RR": 0.0,
+  "spin_RR": 0.0
+ }
+}
