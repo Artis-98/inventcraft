@@ -2,7 +2,7 @@
 
 Usage:  python tests/shot_ic_site.py out_dir
 
-The start page, a part with the Extrude window open, the excavator in
+The start page, a part with the Extrude window open, the walking excavator in
 Midnight Navy (dark) and Olive Moss (light), and the excavator in German.
 Each runs as its own process with its own preferences, because a scheme
 and a language are chosen when the window starts.  The rest of the site's
@@ -16,7 +16,7 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SAMPLES = os.path.join(ROOT, "examples", "excavator")
+SAMPLES = os.path.join(ROOT, "examples", "walking-excavator")
 
 if len(sys.argv) >= 3 and sys.argv[1] == "--one":
     which, out = sys.argv[2], sys.argv[3]
@@ -55,13 +55,7 @@ if len(sys.argv) >= 3 and sys.argv[1] == "--one":
             win.viewport.redraw()
         settle(200)
         chrome = win.grab()
-        if which == "extrude":
-            # the Extrude window floats over the view, so the screen is
-            # what has it
-            g = win.frameGeometry()
-            chrome = win.screen().grabWindow(0, g.x(), g.y(), g.width(),
-                                             g.height())
-        elif win.stack.currentWidget() is not win.start_page:
+        if win.stack.currentWidget() is not win.start_page:
             scratch = out + "_vp.png"
             win.viewport.grab_image(scratch)
             image = QtGui.QImage(scratch)
@@ -76,6 +70,16 @@ if len(sys.argv) >= 3 and sys.argv[1] == "--one":
                 os.remove(scratch)
             except OSError:
                 pass
+        # windows floating over it (the Extrude window) are the app's own:
+        # painted in from their own grab, never taken off the screen, which
+        # would pick up whatever else is open on the desktop
+        painter = QtGui.QPainter(chrome)
+        for top in QtWidgets.QApplication.topLevelWidgets():
+            if top is win or not top.isVisible() or not top.isWindow():
+                continue
+            painter.drawPixmap(win.mapFromGlobal(top.mapToGlobal(
+                QtCore.QPoint(0, 0))), top.grab())
+        painter.end()
         chrome.save(out)
         print("%-40s %d x %d" % (os.path.basename(out), chrome.width(),
                                  chrome.height()))
@@ -88,7 +92,7 @@ if len(sys.argv) >= 3 and sys.argv[1] == "--one":
             page._clear_recent()
             here = os.path.join(ROOT, "examples")
             for relative, kind in (
-                    ("excavator/Excavator.adat", fileformat.ASSEMBLY),
+                    ("walking-excavator/Walking Excavator.icasm", fileformat.ASSEMBLY),
                     ("railing/Stair Railing.pdat", fileformat.PART),
                     ("plywood-tote/Tote Nest.cdat", fileformat.CAM),
                     ("drawings/Side Panel.ddat", fileformat.DRAWING),
@@ -130,13 +134,22 @@ if len(sys.argv) >= 3 and sys.argv[1] == "--one":
             win.activateWindow()
             settle(500)
         else:
-            win.open_assembly(os.path.join(SAMPLES, "Excavator.adat"))
-            settle(1400)
-            win.assembly_ui.browser.expandAll()
-            win.viewport.set_view("iso")
+            from datum.core import rules
+            win.open_path(os.path.join(SAMPLES, "Walking Excavator.icasm"))
+            settle(4000)
+            rules.trust_document(win.assembly)
+            win.rules_panel.refresh()
+            win.assembly_ui.browser.expandToDepth(0)
+            vp = win.viewport
+            vp.set_show_origin(False)
+            vp.set_view("iso")
+            settle(300)
+            vp.view.SetProj(0.95, 0.75, 0.42)
+            vp.view.SetUp(0, 0, 1)
+            vp.fit_all()
             settle(450)
-            win.viewport.fit_all()
-            settle(450)
+            vp.view.SetZoom(0.95)
+            settle(300)
         shot()
         app.quit()
 

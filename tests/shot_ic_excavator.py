@@ -7,6 +7,7 @@ Usage:  python tests/shot_ic_excavator.py <picture> [out_dir]
     inplace   05_inplace.png    a cylinder barrel edited in place
     bom       06_bom.png        its bill of materials
     iclogic   27_iclogic.png    a leg's sliders driving the model
+    drawing   30_drawing_weldment.png  the boom's shop drawing
 
 One picture a process, so every one starts from a clean window.
 """
@@ -62,7 +63,8 @@ def save(name, dialog=None):
         painter.drawPixmap(win.mapFromGlobal(dialog.mapToGlobal(QtCore.QPoint(0, 0))),
                            dialog.grab())
     painter.end()
-    os.remove(scratch)
+    if os.path.exists(scratch):
+        os.remove(scratch)
     path = os.path.join(OUT, name)
     picture.save(path)
     print(name, picture.width(), "x", picture.height())
@@ -171,6 +173,17 @@ def iclogic():
     assert taken.get("ok"), "the form was not shown: %s %s" % (result.ok, result.error)
 
 
-{"part": part, "assembly": assembly, "inplace": inplace, "bom": bom, "iclogic": iclogic}[WHICH]()
+def drawing():
+    win.open_path(os.path.join(MODEL, "drawings", "Boom Weldment.icdraw"))
+    settle(5000)
+    ui = getattr(win, "drawing_ui", None)
+    if ui is not None and hasattr(ui, "fit_sheet"):
+        ui.fit_sheet()
+    settle(1500)
+    save("30_drawing_weldment.png")
+
+
+{"part": part, "assembly": assembly, "inplace": inplace, "bom": bom, "iclogic": iclogic,
+ "drawing": drawing}[WHICH]()
 win.hide()
 win.viewport.shutdown()

@@ -216,4 +216,23 @@ def install() -> None:
     QtWidgets.QDialog.exec_ = QtWidgets.QDialog.exec
 
 
+def shot_theme() -> None:
+    """Screenshots in the colour scheme the program ships with.
+
+    The module starts in the old light scheme, which is what every picture
+    came out in while nothing chose one.  DATUM_SHOT_THEME names one (or
+    "default" for the shipped default); set before the window is built,
+    as the application does at start.
+    """
+    import os
+    name = os.environ.get("DATUM_SHOT_THEME")
+    if not name:
+        return
+    from datum.ui import icons, theme
+    theme.set_theme(theme.DEFAULT_THEME if name == "default" else name)
+    icons.use_theme(theme.current_theme())
+    theme.apply_colours()
+
+
 install()
+shot_theme()
