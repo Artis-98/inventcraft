@@ -317,6 +317,18 @@ def main(argv=None) -> int:
     icons.use_theme(theme.current_theme())
     theme.apply_colours()
 
+    # the splash goes up before the modeller loads, so the wait has
+    # something on screen and something to say
+    splash = None
+    if "--glcheck" not in argv and not os.environ.get("DATUM_NO_SPLASH"):
+        try:
+            from .ui.splash import Splash
+            splash = Splash(__version__)
+            splash.show()
+            splash.message("Loading the modeller")
+        except Exception:
+            splash = None
+
     from .ui.main_window import MainWindow
     from .ui.theme import stylesheet
 
@@ -332,10 +344,14 @@ def main(argv=None) -> int:
 
     sys.excepthook = _excepthook
 
+    if splash is not None:
+        splash.message("Building the workspace")
     window = MainWindow()
     # start maximised, like every other CAD package - and it avoids the
     # viewport being sized before the window manager has settled
     window.showMaximized()
+    if splash is not None:
+        splash.finish(window)
 
     # After the window is up, never before: a staged update or a check is
     # not worth delaying the thing the person actually asked for.
