@@ -14,6 +14,8 @@ InventCraft.
 [Contributors](CONTRIBUTORS.md) &nbsp;·&nbsp;
 MIT licensed
 
+[![I did my own Inventor](https://idmo.app/badge/inventcraft)](https://idmo.app/p/inventcraft)
+
 ![InventCraft](docs/screenshot.png)
 
 ![A walking excavator designed in InventCraft](docs/walking-excavator.jpg)
