@@ -1282,9 +1282,17 @@ class Viewport(QtWidgets.QWidget):
         alive = {id(ais) for ais in solids}
         self._own_alpha = {key: held for key, held in self._own_alpha.items()
                            if key in alive and held[0] is not None}
+        edges = self.display_mode != "shaded"
         for ais in solids:
             ctx.SetDisplayMode(ais, mode, False)
-            ais.Attributes().SetFaceBoundaryDraw(self.display_mode != "shaded")
+            drawer = ais.Attributes()
+            if drawer.FaceBoundaryDraw() != edges:
+                # The edges are part of the body's picture, made when it
+                # was shown: changing the setting alone left the picture
+                # as it was, so Shaded and Shaded with Edges only took
+                # when something else happened to redraw the body.
+                drawer.SetFaceBoundaryDraw(edges)
+                ctx.Redisplay(ais, False)
             # Each body keeps its own see-through: the ghosts round a part
             # edited in place went solid the moment anything redrew the
             # part, and stayed solid, because this used to set every body
