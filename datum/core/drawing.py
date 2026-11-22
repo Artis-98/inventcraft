@@ -258,6 +258,7 @@ def default_styles() -> Dict[str, Style]:
         "border": Style("Border", 0.7, 3.5, 3.0, "#101010"),
         "section": Style("Section", 0.5, 5.0, 4.0, "#101010"),
         "hatch": Style("Hatch", 0.25, 3.5, 3.0, "#101010"),
+        "thread": Style("Thread", 0.25, 3.5, 3.0, "#101010"),
     }
 
 

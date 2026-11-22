@@ -1119,6 +1119,7 @@ class Generator:
             report.errors.append("%s: %s" % (view.label, projection.error))
             return
 
+        self._add_threads(doc, sheet, view, document, projection)
         if len(view.crop) >= 4:
             cropped = cropped_projection(projection, view.crop)
             if cropped is None:
@@ -1132,6 +1133,35 @@ class Generator:
         view.projection = projection
         doc.hashes[key] = stamp
         report.generated += 1
+
+    def _add_threads(self, doc: DrawingDocument, sheet: Sheet, view: View,
+                     document, projection: hlr.Projection) -> None:
+        """A part's cosmetic threads, drawn on its plain views as ISO
+        6410 has them.  Not on an assembly's views, where another part
+        may stand in front of them, nor on sections and details: a detail
+        takes them from its parent with the rest of its lines."""
+        if view.kind in (SECTION, DETAIL) or view.flat or view.breakout:
+            return
+        if document is None or getattr(document, "occurrences", None)                 is not None:
+            return
+        from . import threads
+        try:
+            marks = threads.marks_of(document)
+        except Exception:
+            marks = []
+        if not marks:
+            return
+        try:
+            direction, up = self._plain_direction(doc, sheet, view)
+        except Exception:
+            return
+        scale = doc.view_scale(sheet, view) or 1.0
+        hidden = doc.view_display(sheet, view) == WITH_HIDDEN
+        lines = hlr.thread_lines(marks, direction, up, projection.centre,
+                                 hidden=hidden)
+        for line in lines:
+            line.points = [(x * scale, y * scale) for x, y in line.points]
+        projection.lines.extend(lines)
 
     @staticmethod
     def _tangents(doc: DrawingDocument, sheet: Sheet, view: View) -> bool:

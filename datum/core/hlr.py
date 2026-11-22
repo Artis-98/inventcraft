@@ -41,7 +41,10 @@ VISIBLE = "visible"
 CUT = "cut"
 # a sheet metal flat pattern's bend centre lines, to be marked, not cut
 BEND = "bend"
-KINDS = (HIDDEN, SMOOTH, OUTLINE, VISIBLE, CUT, BEND)
+# a cosmetic thread as ISO 6410 draws it: thin continuous lines at the
+# root of an external thread or the crest of an internal one
+THREAD = "thread"
+KINDS = (HIDDEN, SMOOTH, OUTLINE, VISIBLE, CUT, BEND, THREAD)
 
 # how finely a curved edge is broken into straight segments, in millimetres
 # of allowed deviation.  Small enough that a 3 mm fillet still reads round.
@@ -377,6 +380,77 @@ def _hull(points: Sequence[Tuple[float, float]]) -> List[Tuple[float, float]]:
             upper.pop()
         upper.append(p)
     return lower[:-1] + upper[:-1]
+
+
+def thread_lines(marks, direction, up, centre=(0.0, 0.0),
+                 hidden: bool = True) -> List[Polyline]:
+    """Threads drawn the ISO 6410 way, in a projection's own frame
+    (model millimetres about ``centre``).
+
+    Seen from the side, an external thread is two thin lines at its root
+    diameter and a wide line across where the full thread ends; an
+    internal one is the same at its crest diameter, hidden, since a hole
+    seen from outside is. Seen end on, a thin three-quarter circle. Seen
+    at a slant, nothing: the convention has no picture for that.
+    """
+    from . import threads as _threads
+
+    frame = camera(direction, up)
+    look = _unit(direction)
+    out: List[Polyline] = []
+    for mark in marks:
+        axis = _unit(mark.axis)
+        along = abs(sum(axis[i] * look[i] for i in range(3)))
+        pitch = max(1e-3, float(mark.pitch))
+        r = float(mark.radius)
+        if mark.internal:
+            nominal = _threads.match(2.0 * r).diameter / 2.0
+            thin = max(nominal, r)
+            if thin - r < 0.1 * pitch:
+                # the face was drawn at the nominal size, not the tap
+                # drill: the crest line still has to show outside it
+                thin = r + 0.54 * pitch
+            wide = r
+        else:
+            thin = r - 0.6134 * pitch
+            wide = r
+        if thin <= 0:
+            continue
+        start = mark.origin
+        end = tuple(start[i] + axis[i] * mark.length for i in range(3))
+        a = to_paper(start, frame, centre)
+        b = to_paper(end, frame, centre)
+        if along < 0.02:
+            # the axis lies on the paper: the side view
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            span = math.hypot(dx, dy)
+            if span < 1e-9:
+                continue
+            nx, ny = -dy / span, dx / span
+            kind = HIDDEN if mark.internal else THREAD
+            if mark.internal and not hidden:
+                continue
+            for side in (1.0, -1.0):
+                out.append(Polyline(
+                    [(a[0] + nx * thin * side, a[1] + ny * thin * side),
+                     (b[0] + nx * thin * side, b[1] + ny * thin * side)],
+                    kind))
+            if not mark.internal:
+                # where the full thread stops, across the shaft
+                out.append(Polyline(
+                    [(b[0] + nx * wide, b[1] + ny * wide),
+                     (b[0] - nx * wide, b[1] - ny * wide)], VISIBLE))
+        elif along > 0.98:
+            # end on: three quarters of a circle, the gap up and right
+            cx, cy = a
+            steps = 54
+            points = []
+            for k in range(steps + 1):
+                t = math.radians(100.0 + 270.0 * k / steps)
+                points.append((cx + thin * math.cos(t),
+                               cy + thin * math.sin(t)))
+            out.append(Polyline(points, THREAD))
+    return out
 
 
 # how coarse the draft tessellation is, as a share of the model's size

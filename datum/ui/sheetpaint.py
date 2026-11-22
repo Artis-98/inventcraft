@@ -443,6 +443,7 @@ KIND_STYLES = {
     hlr.SMOOTH: ("smooth", False),
     hlr.HIDDEN: ("hidden", True),
     hlr.BEND: ("centre", "chain"),
+    hlr.THREAD: ("thread", False),
 }
 
 # ISO 128-20 line types, in pen widths
@@ -450,7 +451,8 @@ DASHED = [12.0, 3.0]
 CHAIN = [24.0, 3.0, 0.5, 3.0]
 
 # hidden first so a visible line drawn over one wins
-DRAW_ORDER = (hlr.HIDDEN, hlr.SMOOTH, hlr.OUTLINE, hlr.VISIBLE, hlr.BEND)
+DRAW_ORDER = (hlr.HIDDEN, hlr.SMOOTH, hlr.THREAD, hlr.OUTLINE, hlr.VISIBLE,
+              hlr.BEND)
 
 
 def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
