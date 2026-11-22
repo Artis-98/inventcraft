@@ -140,6 +140,24 @@ class DrawingController(QtCore.QObject):
             self.host.status_message.setText(message)
         return report
 
+    def update_view(self, view_id: int) -> None:
+        """One view, and what comes from it, drawn from its model as it
+        is now; the rest of the sheet left as it is."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        view = sheet.view(view_id) if sheet else None
+        if view is None:
+            return
+        self.generator.forget_models(doc)
+        again = [view] + _descendants(sheet, view.id)
+        report = self.generator.redraw(doc, sheet, again)
+        doc.modified = True
+        self.canvas.update()
+        self.host.status_message.setStyleSheet("")
+        self.host.status_message.setText(
+            "%s updated." % view.label if report.ok else
+            "%s: %s" % (view.label, "; ".join(report.errors[:2])))
+
     # -- drafts made real ---------------------------------------------------
 
     def _draft_views(self):
@@ -1953,6 +1971,8 @@ class DrawingController(QtCore.QObject):
             menu.addAction("Auto Balloon", self.auto_balloon)
             menu.addAction("Parts List", self.add_parts_list)
             menu.addSeparator()
+            menu.addAction("Update View",
+                           lambda: self.update_view(view.id))
             menu.addAction("View Properties...", self.view_properties)
             menu.addAction("Open Model", lambda: self.open_model(view.id))
             menu.addAction("Delete View", self.delete_view)

@@ -242,18 +242,22 @@ class Style:
 
 
 def default_styles() -> Dict[str, Style]:
-    """The pen widths an ISO drawing is made of."""
+    """The pen widths an ISO drawing is made of: ISO 128's 0.5 group,
+    wide lines 0.5 for every edge that is seen, silhouettes of curved
+    faces included, and thin lines 0.25 for hidden edges, tangent edges,
+    centre lines, dimensions and hatching.  A drawing saved with its own
+    styles keeps them."""
     return {
         "visible": Style("Visible", 0.5, 3.5, 3.0, "#101010"),
         "hidden": Style("Hidden", 0.25, 3.5, 3.0, "#404040"),
-        "outline": Style("Outline", 0.35, 3.5, 3.0, "#101010"),
-        "smooth": Style("Tangent", 0.18, 3.5, 3.0, "#606060"),
-        "centre": Style("Centre", 0.18, 3.5, 3.0, "#8a2020"),
+        "outline": Style("Outline", 0.5, 3.5, 3.0, "#101010"),
+        "smooth": Style("Tangent", 0.25, 3.5, 3.0, "#606060"),
+        "centre": Style("Centre", 0.25, 3.5, 3.0, "#8a2020"),
         "dimension": Style("Dimension", 0.25, 3.5, 3.0, "#101010"),
         "text": Style("Text", 0.25, 3.5, 3.0, "#101010"),
         "border": Style("Border", 0.7, 3.5, 3.0, "#101010"),
         "section": Style("Section", 0.5, 5.0, 4.0, "#101010"),
-        "hatch": Style("Hatch", 0.18, 3.5, 3.0, "#101010"),
+        "hatch": Style("Hatch", 0.25, 3.5, 3.0, "#101010"),
     }
 
 

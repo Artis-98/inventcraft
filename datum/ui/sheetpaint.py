@@ -218,9 +218,11 @@ def _pen(layout: Layout, style: dwg.Style, dashed: bool = False,
     pen.setCapStyle(QtCore.Qt.RoundCap)
     pen.setJoinStyle(QtCore.Qt.RoundJoin)
     if dashed:
-        # dashes are given in multiples of the pen width, so they keep their
-        # proportions at any zoom
-        pen.setDashPattern([4.0, 3.0])
+        # Dashes are given in multiples of the pen width, which is how
+        # ISO 128 gives them too, so they keep their proportions at any
+        # zoom: a dashed line 12 widths on and 3 off, a chain line 24 on,
+        # 3 off, a dot of half a width and 3 off.
+        pen.setDashPattern(CHAIN if dashed == "chain" else DASHED)
     return pen
 
 
@@ -440,8 +442,12 @@ KIND_STYLES = {
     hlr.OUTLINE: ("outline", False),
     hlr.SMOOTH: ("smooth", False),
     hlr.HIDDEN: ("hidden", True),
-    hlr.BEND: ("centre", True),
+    hlr.BEND: ("centre", "chain"),
 }
+
+# ISO 128-20 line types, in pen widths
+DASHED = [12.0, 3.0]
+CHAIN = [24.0, 3.0, 0.5, 3.0]
 
 # hidden first so a visible line drawn over one wins
 DRAW_ORDER = (hlr.HIDDEN, hlr.SMOOTH, hlr.OUTLINE, hlr.VISIBLE, hlr.BEND)
@@ -505,6 +511,13 @@ def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
         _detail_circle(painter, doc, sheet, view, layout)
 
     _view_label(painter, doc, sheet, view, layout)
+    if on_screen and view.stale and not getattr(view, "draft", False):
+        # the model changed since it was drawn: said on the view itself,
+        # with what to do about it
+        box = projection.box
+        _text(painter, layout, "Out of date – right-click, Update View",
+              view.x, view.y + box[3] + 2.0, 2.5, align="centre",
+              colour=STALE)
     if on_screen and getattr(view, "draft", False):
         # outlines for now: the real lines are being worked out
         _text(painter, layout, "Working out the lines…",

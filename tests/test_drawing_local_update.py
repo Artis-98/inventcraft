@@ -116,6 +116,27 @@ settle(100)
 view = win.drawing.active().views[0]
 check("the same length", abs(view.projection.width - 55.0) < 0.01)
 
+print("a part saved from elsewhere marks the view, and Update View fixes it")
+block_entry.document.modified = False
+win.close_key(block_entry.key)
+settle(200)
+other = Document()
+other.add_feature(PrimitiveFeature(kind="box", a="90", b="30", c="10"))
+other.rebuild()
+time.sleep(0.05)
+other.save(BLOCK)
+win.activate(drawing_entry)
+settle(200)
+ui.rebuild()
+view = win.drawing.active().views[0]
+check("the view says it is out of date", view.stale)
+ui.update_view(view.id)
+settle(100)
+view = win.drawing.active().views[0]
+check("Update View draws it as saved", not view.stale
+      and abs(view.projection.width - 90.0) < 0.01,
+      (view.stale, view.projection.width))
+
 for entry in list(win.session.documents):
     entry.document.modified = False
 win.close()
