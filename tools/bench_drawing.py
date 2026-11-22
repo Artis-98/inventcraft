@@ -105,3 +105,8 @@ timed("paint sheet (first)", paint_once)
 timed("paint sheet (again)", paint_once)
 image.save(os.path.join(WORK, "bench.png"))
 print("  picture:", os.path.join(WORK, "bench.png"))
+
+from datum.ui import drawingexport                              # noqa: E402
+pdf = os.path.join(WORK, "bench.pdf")
+timed("export PDF", lambda: drawingexport.to_pdf(doc, pdf))
+print("  PDF size %.1f MB" % (os.path.getsize(pdf) / 1e6))
