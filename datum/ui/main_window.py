@@ -739,6 +739,14 @@ class MainWindow(QtWidgets.QMainWindow):
                       ).clicked.connect(
             lambda: self.assembly_ui.save_and_replace())
 
+        panel = assemble.add_panel("Options")
+        panel.add_small("preferences", "Application Options",
+                        "Yours, on this computer").clicked.connect(
+            self.edit_preferences)
+        panel.add_small("properties", "Document Settings",
+                        "This assembly's own: units and how it is looked "
+                        "at").clicked.connect(self.document_settings)
+
         panel = assemble.add_panel("Manage")
         panel.add_big("bom", "Bill of\nMaterials",
                       "What the assembly is made of: its parts, counted, "
@@ -1029,6 +1037,13 @@ class MainWindow(QtWidgets.QMainWindow):
             "Redraw every view from the models as they are now")
         self.drawing_update_button.clicked.connect(
             lambda: ui.update_views())
+        panel = tools.add_panel("Options")
+        panel.add_small("preferences", "Application Options",
+                        "Yours, on this computer").clicked.connect(
+            self.edit_preferences)
+        panel.add_small("properties", "Document Settings",
+                        "This drawing's own: units and its standard"
+                        ).clicked.connect(self.document_settings)
         panel = tools.add_panel("Manage")
         panel.add_small("properties", "icProperties",
                         "Title, part number, units, mass and bounding box"
@@ -1096,6 +1111,16 @@ class MainWindow(QtWidgets.QMainWindow):
                       "A feature whose solid a script builds: stairs, "
                       "railings, anything a loop can describe"
                       ).clicked.connect(self.new_code_feature)
+
+        panel = manage.add_panel("Options")
+        panel.add_big("preferences", "Application\nOptions",
+                      "Yours, on this computer: who you are, the "
+                      "Templates folder, colours, the mouse"
+                      ).clicked.connect(self.edit_preferences)
+        panel.add_big("properties", "Document\nSettings",
+                      "This file's own: its units and how it is looked "
+                      "at, kept in it and in templates made from it"
+                      ).clicked.connect(self.document_settings)
 
         panel = manage.add_panel("Versions")
         panel.add_big("versions", "Versions",
@@ -1277,12 +1302,15 @@ class MainWindow(QtWidgets.QMainWindow):
         item("params", "Parameters...", "Ctrl+P", self.edit_parameters)
         item("properties", "icProperties...", "", self.show_properties)
         item("projects", "Projects...", "", self.choose_project)
-        item("preferences", "Preferences...", "", self.edit_preferences)
+        item("preferences", "Application Options...", "",
+             self.edit_preferences)
+        item("properties", "Document Settings...", "",
+             self.document_settings)
         item("check_updates", "Check for Updates...", "",
              lambda: self.updater.check(quiet=False))
         item("file", "About %s..." % APP_NAME, "", self.show_about)
         item("template", "Save as Template...", "",
-             lambda: self.drawing_ui.save_as_template())
+             self.save_as_template)
         menu.addSeparator()
         item("exit", "Exit", "", self.close)
 
@@ -2222,15 +2250,21 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         from .dialogs import NewDocumentDialog
 
-        kind = NewDocumentDialog.ask(self)
-        if kind is None:
+        picked = NewDocumentDialog.ask(self, self.project_folder())
+        if picked is None:
             return
-        {fileformat.PART: self.new_document,
-         fileformat.ASSEMBLY: self.new_assembly,
-         fileformat.DRAWING: self.new_drawing,
-         fileformat.CAM: self.new_cam}[kind]()
+        kind, template = (picked if isinstance(picked, tuple)
+                          else (picked, None))
+        if kind == fileformat.PART:
+            self.new_document(template=template, prompt=template is None)
+        elif kind == fileformat.ASSEMBLY:
+            self.new_assembly(template=template, prompt=template is None)
+        elif kind == fileformat.DRAWING:
+            self.new_drawing(template=template, prompt=template is None)
+        else:
+            self.new_cam()
 
-    def new_document(self, prompt: bool = True) -> None:
+    def new_document(self, prompt: bool = True, template=None) -> None:
         # ``prompt`` is kept for callers written when only one document could
         # be open at a time; a new document now opens beside the others, so
         # there is nothing to discard.
@@ -2238,27 +2272,23 @@ class MainWindow(QtWidgets.QMainWindow):
         # an example d1 = 50, which the first sketch dimension, also d1,
         # then disagreed with in the table.  Every dimension is a parameter
         # of its own now, so the table fills itself as the part is drawn.
-        document = self._from_template(fileformat.PART, Document, prompt)
+        document = self._from_template(fileformat.PART, Document, prompt,
+                                       template)
         if document is None:
             return
         self._adopt(document, fileformat.PART)
         self.status_message.setText(
             "New part. Start a sketch on a plane, or drop in a primitive.")
 
-    def _from_template(self, kind: str, cls, prompt: bool):
-        """A new part or assembly: from a template in the Templates folder
-        when there are any, as Inventor's New dialog offers them, or
-        blank. None when the choice is cancelled."""
+    def _from_template(self, kind: str, cls, prompt: bool, template=None):
+        """A new part or assembly from a template: the one picked in New,
+        or, from a New Part or New Assembly button, the standard one in
+        the units of Application Options, as Inventor's buttons start from
+        its default template without asking.  Blank when there is none."""
         from ..core import templates
-        found = templates.of_type(kind) if prompt else []
-        chosen = None
-        if found:
-            names = ["Blank"] + [t.name for t in found]
-            name, ok = QtWidgets.QInputDialog.getItem(
-                self, "New from template", "Template", names, 1, False)
-            if not ok:
-                return None
-            chosen = next((t for t in found if t.name == name), None)
+        chosen = template
+        if chosen is None and prompt:
+            chosen = templates.default_for(kind, prefs.prefs().units)
         if chosen is not None:
             try:
                 document = cls.load(chosen.path)
@@ -2296,16 +2326,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.status_message.setText("Repointed %d reference(s)." % fixed)
         return bool(fixed)
 
-    def new_drawing(self, prompt: bool = True) -> None:
+    def new_drawing(self, prompt: bool = True, template=None) -> None:
+        """A drawing as its template has it, sheet size and all, without
+        asking anything: the template picked in New, or the standard one
+        in the units of Application Options."""
         from ..core import templates
-        from .drawing_ui import TemplateDialog
 
-        template = None
-        if prompt:
-            dialog = TemplateDialog(self, self.project_folder())
-            if dialog.exec() != QtWidgets.QDialog.Accepted:
-                return
-            template = dialog.chosen()
+        if template is None and prompt:
+            template = templates.default_for(fileformat.DRAWING,
+                                             prefs.prefs().units,
+                                             self.project_folder())
         document = templates.new_from(template)
         if not document.properties.get("Author"):
             document.properties["Author"] = os.environ.get("USERNAME", "")
@@ -2357,9 +2387,9 @@ class MainWindow(QtWidgets.QMainWindow):
             "New CAM sheet. Set the stock and tool, then add the flat parts "
             "to cut.")
 
-    def new_assembly(self, prompt: bool = True) -> None:
+    def new_assembly(self, prompt: bool = True, template=None) -> None:
         assembly = self._from_template(fileformat.ASSEMBLY,
-                                       AssemblyDocument, prompt)
+                                       AssemblyDocument, prompt, template)
         if assembly is None:
             return
         self._adopt(assembly, fileformat.ASSEMBLY)
@@ -2817,6 +2847,34 @@ class MainWindow(QtWidgets.QMainWindow):
         self.flat_pattern_dialog = dialog
         dialog.exec()
 
+    def document_settings(self) -> None:
+        """This file's own settings: units, how it is looked at, a
+        drawing's standard."""
+        from .docsettings_ui import open_dialog
+        open_dialog(self)
+
+    def save_as_template(self) -> None:
+        """The file on screen saved into the Templates folder."""
+        if self.in_drawing:
+            self.drawing_ui.save_as_template()
+            return
+        from ..core import templates
+        document = self.active_document
+        if document is None:
+            return
+        name, ok = QtWidgets.QInputDialog.getText(
+            self, "Save as Template", "Template name:")
+        if not ok or not name.strip():
+            return
+        try:
+            written = templates.save_copy_as_template(document, name)
+        except Exception as exc:
+            QtWidgets.QMessageBox.warning(self, "Save as Template", str(exc))
+            return
+        self.status_message.setStyleSheet("")
+        self.status_message.setText("Saved the template %s"
+                                    % os.path.basename(written))
+
     def edit_preferences(self) -> None:
         """Who you are, and how you want it to look."""
         from .prefs_ui import open_dialog
@@ -2837,7 +2895,7 @@ class MainWindow(QtWidgets.QMainWindow):
         needs_document = ("Save", "Save As...", "Versions...", "Import...",
                           "Export...",
                           "Parameters...", "icProperties...",
-                          "Save as Template...")
+                          "Save as Template...", "Document Settings...")
         for action in self.file_menu.actions():
             label = i18n.english(action.text()).split("\t")[0]
             if label in needs_document:

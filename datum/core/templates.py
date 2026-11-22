@@ -47,14 +47,102 @@ def project_folder(project_dir: str) -> str:
     return os.path.join(project_dir, FOLDER) if project_dir else ""
 
 
+def default_folder() -> str:
+    """Where templates are kept when Application Options names no folder:
+    the user's Documents, as Inventor keeps its own.  DATUM_TEMPLATES_DIR
+    moves it, so tests never write into somebody's Documents."""
+    forced = os.environ.get("DATUM_TEMPLATES_DIR")
+    if forced:
+        return forced
+    return os.path.join(os.path.expanduser("~"), "Documents", "InventCraft",
+                        "Templates")
+
+
 def shared_folder() -> str:
-    """The Templates folder set in Preferences, Inventor's way, or ""."""
+    """The Templates folder: the one set in Application Options, Inventor's
+    way, or the default one, filled with the standard templates the
+    first time it is asked for."""
     try:
         from . import prefs
         folder = prefs.prefs().templates_folder
     except Exception:
-        return ""
-    return folder if folder and os.path.isdir(folder) else ""
+        folder = ""
+    if folder and os.path.isdir(folder):
+        return folder
+    folder = default_folder()
+    try:
+        seed(folder)
+    except Exception:
+        return folder if os.path.isdir(folder) else ""
+    return folder
+
+
+# The standard templates: a part and an assembly in millimetres and in
+# inches, as Inventor ships Standard (mm) and Standard (in), and a drawing
+# for each: ISO on A3, and ANSI on B, the inch sheet nearest A3.
+STANDARD_PARTS = (("Standard (mm)", "mm"), ("Standard (in)", "in"))
+STANDARD_DRAWINGS = (("ISO (mm)", "A3", "ISO", "mm"),
+                     ("ANSI (in)", "Tabloid", "ANSI", "in"))
+
+
+def seed(folder: str) -> List[str]:
+    """Write the standard templates into a folder that lacks them.  One
+    already there is never touched: it may be somebody's own."""
+    from .assembly import AssemblyDocument
+    from .document import Document
+
+    os.makedirs(folder, exist_ok=True)
+    written: List[str] = []
+    for name, unit in STANDARD_PARTS:
+        for kind, cls in ((fileformat.PART, Document),
+                          (fileformat.ASSEMBLY, AssemblyDocument)):
+            path = os.path.join(folder, name + fileformat.EXTENSIONS[kind])
+            if os.path.exists(path):
+                continue
+            document = cls()
+            document.units = unit
+            document.view.style = "shaded_edges"
+            document.view.orthographic = True
+            document.save(path)
+            written.append(path)
+    for name, size, standard, unit in STANDARD_DRAWINGS:
+        path = os.path.join(folder, name + fileformat.EXTENSIONS[
+            fileformat.DRAWING])
+        if os.path.exists(path):
+            continue
+        document = dwg.DrawingDocument()
+        document.standard = standard
+        document.units = unit
+        sheet = document.add_sheet(size)
+        sheet.name = "Sheet1"
+        document.path = path
+        document.save(path)
+        written.append(path)
+    return written
+
+
+def default_for(kind: str, units: str = "mm",
+                project_dir: str = "") -> Optional[Template]:
+    """The template a New Part, New Assembly or New Drawing button starts
+    from: the standard one in these units, else the first there is."""
+    found = by_kind(project_dir).get(kind) or []
+    inch = units in ("in", "ft")
+    wanted = ("(in)" if inch else "(mm)")
+    for template in found:
+        if wanted in template.name:
+            return template
+    return found[0] if found else None
+
+
+def by_kind(project_dir: str = "") -> "dict":
+    """Every template on offer, by document kind, for the New dialog: the
+    Templates folder's, then a project's own drawing templates, then the
+    shipped drawing templates no other has the name of."""
+    out = {fileformat.PART: of_type(fileformat.PART),
+           fileformat.ASSEMBLY: of_type(fileformat.ASSEMBLY),
+           fileformat.DRAWING: available(project_dir),
+           fileformat.CAM: of_type(fileformat.CAM)}
+    return out
 
 
 def of_type(kind: str) -> List[Template]:
@@ -188,4 +276,26 @@ def ensure_builtins() -> List[str]:
         document.path = path
         document.save(path)
         written.append(path)
+    return written
+
+
+def save_copy_as_template(document, name: str) -> str:
+    """A part or assembly written into the Templates folder as a template,
+    the open document staying the file it was."""
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("a template needs a name")
+    if any(ch in name for ch in '\\/:*?"<>|'):
+        raise ValueError('a template name cannot contain \\ / : * ? " < > |')
+    folder = shared_folder()
+    if not folder:
+        raise ValueError("there is no Templates folder")
+    kind = fileformat.ASSEMBLY if hasattr(document, "occurrences") \
+        else fileformat.PART
+    target = os.path.join(folder, name + fileformat.EXTENSIONS[kind])
+    keep = (document.path, document.modified)
+    try:
+        written = document.save(target)
+    finally:
+        document.path, document.modified = keep
     return written

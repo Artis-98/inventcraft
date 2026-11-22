@@ -74,7 +74,7 @@ class PreferencesDialog(QtWidgets.QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.prefs = core_prefs.prefs()
-        self.setWindowTitle("Preferences")
+        self.setWindowTitle("Application Options")
         self.setWindowIcon(icons.icon("edit", 24))
         self.setMinimumWidth(520)
 
@@ -83,7 +83,11 @@ class PreferencesDialog(QtWidgets.QDialog):
         root.setSpacing(9)
 
         tabs = QtWidgets.QTabWidget()
+        # Inventor's Application Options: yours, on this computer, never in
+        # a file.  A document's own settings are Document Settings.
         tabs.addTab(self._general_page(), "General")
+        tabs.addTab(self._file_page(), "File")
+        tabs.addTab(self._colours_page(), "Colours")
         tabs.addTab(self._display_page(), "Display")
         tabs.addTab(self._shortcuts_page(), "Shortcuts")
         root.addWidget(tabs, 1)
@@ -131,6 +135,24 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.company_edit.setPlaceholderText("appears in the title block")
         form.addRow("Company", self.company_edit)
 
+        from . import i18n
+        self.language_combo = QtWidgets.QComboBox()
+        for code, name in i18n.languages().items():
+            self.language_combo.addItem(name, code)
+        self.language_combo.setCurrentIndex(
+            max(0, self.language_combo.findData(self.prefs.language)))
+        self.language_combo.setToolTip(
+            "The language of the window. It changes when InventCraft is "
+            "started again; anything not yet translated stays in English.")
+        form.addRow("Language", self.language_combo)
+        return page
+
+    def _file_page(self) -> QtWidgets.QWidget:
+        page = QtWidgets.QWidget()
+        form = QtWidgets.QFormLayout(page)
+        form.setContentsMargins(12, 12, 12, 12)
+        form.setSpacing(8)
+
         from ..core import units as unitlib
         self.units_combo = QtWidgets.QComboBox()
         for key, label in unitlib.LABELS.items():
@@ -138,9 +160,10 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.units_combo.setCurrentIndex(
             max(0, self.units_combo.findData(self.prefs.units)))
         self.units_combo.setToolTip(
-            "What new parts and assemblies are drawn in. A document's own "
-            "units are changed from the unit in the status bar.")
-        form.addRow("Units for new documents", self.units_combo)
+            "What a new part or assembly is drawn in when it starts from "
+            "no template. A template's own units win; a document's are "
+            "changed in Document Settings.")
+        form.addRow("Units without a template", self.units_combo)
 
         self.versions_spin = QtWidgets.QSpinBox()
         self.versions_spin.setRange(-1, 999)
@@ -157,7 +180,9 @@ class PreferencesDialog(QtWidgets.QDialog):
         # New Drawing look for templates, a shared drive for a company
         folder_row = QtWidgets.QHBoxLayout()
         self.templates_edit = QtWidgets.QLineEdit(self.prefs.templates_folder)
-        self.templates_edit.setPlaceholderText("None: the shipped templates")
+        from ..core import templates as core_templates
+        self.templates_edit.setPlaceholderText(
+            core_templates.default_folder())
         self.templates_edit.setToolTip(
             "Part, assembly and drawing templates are offered from here, "
             "as Inventor's Templates folder is. Point it at a shared drive "
@@ -173,20 +198,9 @@ class PreferencesDialog(QtWidgets.QDialog):
         folder_row.addWidget(self.templates_edit, 1)
         folder_row.addWidget(browse)
         form.addRow("Templates folder", folder_row)
-
-        from . import i18n
-        self.language_combo = QtWidgets.QComboBox()
-        for code, name in i18n.languages().items():
-            self.language_combo.addItem(name, code)
-        self.language_combo.setCurrentIndex(
-            max(0, self.language_combo.findData(self.prefs.language)))
-        self.language_combo.setToolTip(
-            "The language of the window. It changes when InventCraft is "
-            "started again; anything not yet translated stays in English.")
-        form.addRow("Language", self.language_combo)
         return page
 
-    def _display_page(self) -> QtWidgets.QWidget:
+    def _colours_page(self) -> QtWidgets.QWidget:
         page = QtWidgets.QWidget()
         outer = QtWidgets.QVBoxLayout(page)
         outer.setContentsMargins(12, 12, 12, 12)
@@ -218,6 +232,23 @@ class PreferencesDialog(QtWidgets.QDialog):
             button.picked.connect(lambda _c: self.apply())
             self.colour_buttons[key] = button
             form.addRow(label, button)
+        outer.addLayout(form)
+        outer.addStretch(1)
+        row = QtWidgets.QHBoxLayout()
+        row.addStretch(1)
+        reset = QtWidgets.QPushButton("Reset to defaults")
+        reset.clicked.connect(self.reset_colours)
+        row.addWidget(reset)
+        outer.addLayout(row)
+        return page
+
+    def _display_page(self) -> QtWidgets.QWidget:
+        page = QtWidgets.QWidget()
+        outer = QtWidgets.QVBoxLayout(page)
+        outer.setContentsMargins(12, 12, 12, 12)
+        outer.setSpacing(8)
+        form = QtWidgets.QFormLayout()
+        form.setSpacing(8)
         self.orbit_combo = QtWidgets.QComboBox()
         self.orbit_combo.addItem("Free", core_prefs.ORBIT_FREE)
         self.orbit_combo.addItem("Turntable, Z always up",
@@ -275,12 +306,6 @@ class PreferencesDialog(QtWidgets.QDialog):
             lambda _i: self._mouse_changed(self.mouse_pan_combo))
 
         outer.addStretch(1)
-        row = QtWidgets.QHBoxLayout()
-        row.addStretch(1)
-        reset = QtWidgets.QPushButton("Reset to defaults")
-        reset.clicked.connect(self.reset_colours)
-        row.addWidget(reset)
-        outer.addLayout(row)
         return page
 
     # -- shortcuts ----------------------------------------------------------

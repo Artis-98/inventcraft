@@ -299,7 +299,8 @@ print("New asks what to make")
 asked = []
 original_ask = dialogs.NewDocumentDialog.ask
 dialogs.NewDocumentDialog.ask = staticmethod(
-    lambda parent=None: asked.append(1) or fileformat.ASSEMBLY)
+    lambda parent=None, project_dir="": asked.append(1)
+    or (fileformat.ASSEMBLY, None))
 button = next(b for b in win.findChildren(QtWidgets.QAbstractButton)
               if b.toolTip().startswith("New (Ctrl+N)"))
 button.click()

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import math
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -3750,64 +3750,121 @@ def dialog_for(host, feature: Feature, is_new: bool,
 
 
 class NewDocumentDialog(QtWidgets.QDialog):
-    """What kind of document New should make.
-
-    New used to make a part whatever you were doing, which is wrong the
-    moment there is more than one kind: somebody in an assembly pressing
-    New usually wants another assembly, or a drawing of the one they are
-    already in.
-    """
+    """Inventor's Create New File: the Templates folder, by kind, and the
+    template picked is what the new document starts as, its units, its
+    look and, for a drawing, its sheet and title block."""
 
     KINDS = (
-        # the four documents' own icons, as on the start page and the tabs
         (fileformat.PART, "doc_part", "Part",
-         "A solid, built on a feature tree"),
+         "Create 2D and 3D objects"),
         (fileformat.ASSEMBLY, "doc_assembly", "Assembly",
-         "Parts and sub-assemblies, placed and constrained"),
+         "Assemble 2D and 3D components"),
         (fileformat.DRAWING, "doc_drawing", "Drawing",
-         "Views, dimensions and a title block"),
+         "Create an annotated document"),
         (fileformat.CAM, "doc_cam", "CAM Sheet",
-         "Flat parts nested on stock, and the toolpaths for them"),
+         "Nest flat parts and cut them"),
     )
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, project_dir: str = "") -> None:
         super().__init__(parent)
-        self.setWindowTitle("New")
+        from ..core import templates
+        self.setWindowTitle("Create New File")
         self.setWindowIcon(icons.icon("new", 24))
-        self.setMinimumWidth(420)
-        self.chosen: Optional[str] = None
+        self.resize(760, 620)
+        self.chosen: Optional[Tuple[str, Any]] = None
+        self.project_dir = project_dir
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(8)
 
-        self.list = QtWidgets.QListWidget()
-        self.list.setIconSize(QtCore.QSize(28, 28))
-        self.list.setSpacing(1)
+        where = QtWidgets.QHBoxLayout()
+        self.folder = QtWidgets.QLabel(templates.shared_folder())
+        self.folder.setProperty("hint", True)
+        self.folder.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        where.addWidget(QtWidgets.QLabel("Templates:"))
+        where.addWidget(self.folder, 1)
+        opener = QtWidgets.QPushButton("Open Folder")
+        opener.setToolTip("Show the Templates folder, to add your own: any "
+                          "part, assembly or drawing saved there is offered "
+                          "here")
+        opener.clicked.connect(self._open_folder)
+        where.addWidget(opener)
+        layout.addLayout(where)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        inner = QtWidgets.QWidget()
+        sections = QtWidgets.QVBoxLayout(inner)
+        sections.setSpacing(6)
+        self.lists: List[QtWidgets.QListWidget] = []
+        found = templates.by_kind(project_dir)
         for kind, icon_name, title, hint in self.KINDS:
-            item = QtWidgets.QListWidgetItem(
-                icons.icon(icon_name, 28), "%s\n%s" % (title, hint))
-            item.setData(QtCore.Qt.UserRole, kind)
-            self.list.addItem(item)
-        self.list.setCurrentRow(0)
-        self.list.itemActivated.connect(lambda _i: self.accept())
-        layout.addWidget(self.list, 1)
+            heading = QtWidgets.QLabel("<b>%s</b> \u2013 %s" % (title, hint))
+            sections.addWidget(heading)
+            grid = QtWidgets.QListWidget()
+            grid.setViewMode(QtWidgets.QListView.IconMode)
+            grid.setIconSize(QtCore.QSize(40, 40))
+            grid.setGridSize(QtCore.QSize(110, 84))
+            grid.setResizeMode(QtWidgets.QListView.Adjust)
+            grid.setMovement(QtWidgets.QListView.Static)
+            grid.setWordWrap(True)
+            grid.setFixedHeight(100)
+            items = found.get(kind) or []
+            if not items:
+                blank = QtWidgets.QListWidgetItem(
+                    icons.icon(icon_name, 40), "Standard")
+                blank.setData(QtCore.Qt.UserRole, (kind, None))
+                grid.addItem(blank)
+            for template in items:
+                item = QtWidgets.QListWidgetItem(
+                    icons.icon(icon_name, 40), template.name)
+                item.setToolTip(template.path)
+                item.setData(QtCore.Qt.UserRole, (kind, template))
+                grid.addItem(item)
+            grid.itemClicked.connect(
+                lambda _i, g=grid: self._only(g))
+            grid.itemActivated.connect(lambda _i: self.accept())
+            sections.addWidget(grid)
+            self.lists.append(grid)
+        sections.addStretch(1)
+        scroll.setWidget(inner)
+        layout.addWidget(scroll, 1)
 
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText("Create")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        if self.lists and self.lists[0].count():
+            self.lists[0].setCurrentRow(0)
+
+    def _only(self, keep) -> None:
+        """One template picked across every kind."""
+        for grid in self.lists:
+            if grid is not keep:
+                grid.clearSelection()
+                grid.setCurrentRow(-1)
+
+    def _open_folder(self) -> None:
+        QtGui.QDesktopServices.openUrl(
+            QtCore.QUrl.fromLocalFile(self.folder.text()))
 
     def accept(self) -> None:
-        item = self.list.currentItem()
-        if item is not None:
-            self.chosen = str(item.data(QtCore.Qt.UserRole))
+        for grid in self.lists:
+            item = grid.currentItem()
+            if item is not None and item.isSelected():
+                self.chosen = item.data(QtCore.Qt.UserRole)
+                break
+        if self.chosen is None:
+            return
         super().accept()
 
     @classmethod
-    def ask(cls, parent=None) -> Optional[str]:
-        dialog = cls(parent)
+    def ask(cls, parent=None, project_dir: str = ""):
+        """(kind, template or None for blank), or None when cancelled."""
+        dialog = cls(parent, project_dir)
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return None
         return dialog.chosen

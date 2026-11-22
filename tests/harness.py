@@ -170,6 +170,11 @@ def install() -> None:
     # always have, so what they check is the model and not the timing of
     # other processes. The workers have tests of their own.
     os.environ.setdefault("DATUM_NO_WORKERS", "1")
+    # the standard templates go to a folder of the run's own, never into
+    # the Documents of whoever runs the tests
+    import tempfile as _tempfile
+    os.environ.setdefault("DATUM_TEMPLATES_DIR", os.path.join(
+        _tempfile.gettempdir(), "datum-test-templates"))
     os.environ.setdefault("DATUM_DOCUMENTS",
                           tempfile.mkdtemp(prefix="datum_documents_"))
     # and out of the real configuration: preferences, trusted folders, the

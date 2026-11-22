@@ -8,6 +8,8 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ.setdefault("DATUM_SETTINGS_ORG", "IITEG-tests")
+import tempfile                                                    # noqa: E402
+os.environ["DATUM_TEMPLATES_DIR"] = tempfile.mkdtemp(prefix="datum_tpl_")
 
 from datum.core import drawing as dwg, fileformat, prefs, templates  # noqa
 from datum.core.document import Document                        # noqa: E402
@@ -38,8 +40,16 @@ try:
           templates.available()[0].name == "IITEG")
 finally:
     prefs.prefs().templates_folder = held
-check("without a folder, only the shipped ones",
-      not templates.of_type(fileformat.PART))
+check("without a folder, the standard ones in mm and inches",
+      sorted(t.name for t in templates.of_type(fileformat.PART))
+      == ["Standard (in)", "Standard (mm)"],
+      [t.name for t in templates.of_type(fileformat.PART)])
+check("and the ISO and ANSI drawings first among drawing templates",
+      [t.name for t in templates.available()][:2] == ["ANSI (in)",
+                                                       "ISO (mm)"],
+      [t.name for t in templates.available()][:3])
+check("a New Drawing in inches starts from ANSI",
+      templates.default_for(fileformat.DRAWING, "in").name == "ANSI (in)")
 
 print()
 if FAILS:
