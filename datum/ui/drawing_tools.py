@@ -547,11 +547,13 @@ class SymbolDialog(QtWidgets.QDialog):
     """What a symbol says: a surface's roughness and process, a frame's
     characteristic, tolerance and datums, or a datum's letter."""
 
-    def __init__(self, parent, kind: str, letter: str = "A") -> None:
+    def __init__(self, parent, kind: str, letter: str = "A",
+                 note=None) -> None:
         super().__init__(parent)
         self.kind = kind
         self.setWindowTitle(SymbolTool.titles.get(kind, "Symbol"))
         form = QtWidgets.QFormLayout(self)
+        self._form = form
         if kind == dwg.SURFACE:
             self.process = QtWidgets.QComboBox(self)
             for key, label in ((dwg.SURFACE_ANY, "Basic"),
@@ -603,13 +605,76 @@ class SymbolDialog(QtWidgets.QDialog):
             self.letter = QtWidgets.QLineEdit(letter, self)
             self.letter.setMaxLength(3)
             form.addRow("Datum", self.letter)
+        # how it stands: turned, mirrored and how big (#368)
+        self.turn = QtWidgets.QDoubleSpinBox(self)
+        self.turn.setRange(-360.0, 360.0)
+        self.turn.setSingleStep(15.0)
+        self.turn.setDecimals(1)
+        self.turn.setSuffix("\u00b0")
+        self.turn.setWrapping(True)
+        self.flip = QtWidgets.QCheckBox("Mirrored", self)
+        self.grow = QtWidgets.QSpinBox(self)
+        self.grow.setRange(25, 400)
+        self.grow.setSingleStep(10)
+        self.grow.setSuffix(" %")
+        self.grow.setValue(100)
+        if kind not in (dwg.DATUM_ID, dwg.WELD):
+            form.addRow("Rotation", self.turn)
+        if kind != dwg.DATUM_ID:
+            form.addRow("", self.flip)
+        form.addRow("Size", self.grow)
+        if note is not None:
+            self._fill(note)
         buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
+    def _fill(self, note) -> None:
+        """What a placed symbol says, to be changed."""
+        self.turn.setValue(float(getattr(note, "turn", 0.0) or 0.0))
+        self.flip.setChecked(bool(getattr(note, "flip", False)))
+        self.grow.setValue(int(round((getattr(note, "scale", 1.0)
+                                      or 1.0) * 100)))
+        if self.kind == dwg.SURFACE:
+            self.value.setText(note.text)
+            index = self.process.findData(note.shape)
+            if index >= 0:
+                self.process.setCurrentIndex(index)
+        elif self.kind == dwg.FCF:
+            parts = [p.strip() for p in (note.text or "").split("|")]
+            index = self.characteristic.findData(parts[0] if parts else "")
+            if index >= 0:
+                self.characteristic.setCurrentIndex(index)
+            zone = parts[1] if len(parts) > 1 else ""
+            self.diameter.setChecked(zone.startswith("\u00d8"))
+            self.tolerance.setText(zone.lstrip("\u00d8"))
+            for edit, value in zip(self.datums, parts[2:] + ["", "", ""]):
+                edit.setText(value)
+        elif self.kind == dwg.WELD:
+            kind, size, length, flags = dwg.weld_parts(note.text)
+            index = self.weld.findData(kind)
+            if index >= 0:
+                self.weld.setCurrentIndex(index)
+            self.size.setText(size)
+            self.length.setText(length)
+            self.other.setChecked("other" in flags)
+            self.around.setChecked("all_around" in flags)
+            self.field.setChecked("field" in flags)
+        else:
+            self.letter.setText(note.text)
+
+    def stance(self) -> dict:
+        """How it stands: turn, mirror and size."""
+        return {"turn": float(self.turn.value()) % 360.0,
+                "flip": bool(self.flip.isChecked()),
+                "scale": self.grow.value() / 100.0}
+
     def values(self) -> dict:
+        return dict(self._words(), **self.stance())
+
+    def _words(self) -> dict:
         if self.kind == dwg.SURFACE:
             return {"text": self.value.text().strip(),
                     "shape": self.process.currentData()}

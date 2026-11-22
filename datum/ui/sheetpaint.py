@@ -1187,11 +1187,16 @@ def _weld(painter, doc, view, note, layout, at, colour) -> None:
     if not note.points:
         return
     style = doc.styles.get("dimension", dwg.Style())
-    h = doc.styles.get("text", dwg.Style()).text_height
+    h = doc.styles.get("text", dwg.Style()).text_height \
+        * (getattr(note, "scale", 1.0) or 1.0)
     pen = _pen(layout, style, colour=colour)
     kind, size, length, flags = dwg.weld_parts(note.text)
     p = note.points[0]
     ox, oy = (list(note.offset) + [0.0, 0.0])[:2]
+    if getattr(note, "flip", False):
+        # mirrored: the arrow comes in from the other side, and the
+        # reference line runs back the other way from its knee
+        ox = -ox
     knee = (p[0] + ox, p[1] + oy)
     way = 1.0 if ox >= 0 else -1.0
     span = 8.0 + h * 0.62 * (len(size) + len(length)) + h * 2.0
@@ -1263,15 +1268,54 @@ def _symbol(painter, doc, view, note, layout, at, colour) -> None:
         return
     style = doc.styles.get("dimension", dwg.Style())
     text_style = doc.styles.get("text", dwg.Style())
-    h = text_style.text_height
+    grow = getattr(note, "scale", 1.0) or 1.0
+    h = text_style.text_height * grow
     pen = _pen(layout, style, colour=colour)
     p = note.points[0]
     ox, oy = (list(note.offset) + [0.0, 0.0])[:2]
     base = (p[0] + ox, p[1] + oy)
+    turn = float(getattr(note, "turn", 0.0) or 0.0)
+    flip = bool(getattr(note, "flip", False))
+    cos_t, sin_t = math.cos(math.radians(turn)), math.sin(math.radians(turn))
+
+    def T(q):
+        """A point of the symbol as drawn upright, turned and mirrored
+        about where it stands (#368)."""
+        dx, dy = q[0] - base[0], q[1] - base[1]
+        if flip:
+            dx = -dx
+        return (base[0] + dx * cos_t - dy * sin_t,
+                base[1] + dx * sin_t + dy * cos_t)
 
     def line(a, b):
         painter.setPen(pen)
         painter.drawLine(QtCore.QPointF(*at(a)), QtCore.QPointF(*at(b)))
+
+    def tline(a, b):
+        line(T(a), T(b))
+
+    def cell_box(a, b):
+        corners = [T(a), T((b[0], a[1])), T(b), T((a[0], b[1]))]
+        painter.setPen(pen)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.drawPolygon(QtGui.QPolygonF(
+            [QtCore.QPointF(*at(c)) for c in corners]))
+
+    def text(words, left, right_end, y, height, centre=False):
+        """Words in the symbol's own frame, between ``left`` and
+        ``right_end`` along it on the baseline ``y``: turned with it,
+        never mirrored, and never upside down, as Inventor keeps them."""
+        middle = T(((left + right_end) / 2.0, y + height / 2.0))
+        reads = (turn + 180.0) % 360.0 - 180.0
+        if reads > 90.0:
+            reads -= 180.0
+        elif reads <= -90.0:
+            reads += 180.0
+        up = (-math.sin(math.radians(reads)), math.cos(math.radians(reads)))
+        spot = (middle[0] - up[0] * height / 2.0,
+                middle[1] - up[1] * height / 2.0)
+        _text(painter, layout, words, view.x + spot[0], view.y + spot[1],
+              height, align="centre", colour=colour, turn=reads)
 
     if note.kind == dwg.SURFACE:
         if math.hypot(ox, oy) > 1e-6:
@@ -1282,21 +1326,21 @@ def _symbol(painter, doc, view, note, layout, at, colour) -> None:
         size = h * 1.6
         left = (base[0] - size * 0.58, base[1] + size)
         right = (base[0] + size * 1.15, base[1] + size * 2.0)
-        line(base, left)
-        line(base, right)
+        tline(base, left)
+        tline(base, right)
         if note.shape == dwg.SURFACE_REMOVAL:
             # the bar that closes the triangle: machined
-            line(left, (base[0] + size * 0.58, base[1] + size))
+            tline(left, (base[0] + size * 0.58, base[1] + size))
         elif note.shape == dwg.SURFACE_NO_REMOVAL:
-            centre = at((base[0], base[1] + size * 0.62))
+            centre = at(T((base[0], base[1] + size * 0.62)))
             r = size * 0.36 * layout.scale
             painter.setPen(pen)
             painter.drawEllipse(QtCore.QPointF(*centre), r, r)
         if note.text:
             reach = len(note.text) * h * 0.62 + 1.0
-            line(right, (right[0] + reach, right[1]))
-            _text(painter, layout, note.text, view.x + right[0] + 0.6,
-                  view.y + right[1] + 0.8, h, colour=colour)
+            tline(right, (right[0] + reach, right[1]))
+            text(note.text, right[0] + 0.6, right[0] + reach - 0.4,
+                 right[1] + 0.8, h)
         return
 
     if note.kind == dwg.DATUM_ID:
@@ -1339,15 +1383,20 @@ def _symbol(painter, doc, view, note, layout, at, colour) -> None:
     tall = h * 2.4
     x = base[0]
     top, bottom = base[1] + tall / 2.0, base[1] - tall / 2.0
-    for index, cell in enumerate(cells):
-        width = tall if index == 0 else max(tall, len(cell) * h * 0.78
-                                            + 2.0)
-        a, b = at((x, top)), at((x + width, bottom))
-        painter.setPen(pen)
-        painter.drawRect(QtCore.QRectF(a[0], a[1], b[0] - a[0], b[1] - a[1]))
-        _text(painter, layout, cell, view.x + x + width / 2.0,
-              view.y + base[1] - h * 0.5, h * (1.15 if index == 0 else 1.0),
-              align="centre", colour=colour)
+    widths = [tall if index == 0 else max(tall, len(cell) * h * 0.78 + 2.0)
+              for index, cell in enumerate(cells)]
+    # A frame reads left to right whichever way it is put: mirrored, or
+    # turned past upright, it runs back from the leader with its cells
+    # taken in the other order, so the characteristic still comes first.
+    backwards = (-1.0 if flip else 1.0) * cos_t < -1e-9
+    order = list(enumerate(cells))
+    if backwards:
+        order.reverse()
+    for index, cell in order:
+        width = widths[index]
+        cell_box((x, top), (x + width, bottom))
+        text(cell, x, x + width, base[1] - h * 0.5,
+             h * (1.15 if index == 0 else 1.0), centre=True)
         x += width
 
 

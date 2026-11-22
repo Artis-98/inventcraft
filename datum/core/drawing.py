@@ -1011,6 +1011,9 @@ ANNOTATION_LABELS = {
 DIMENSIONS = (LINEAR, ALIGNED, ANGULAR, RADIUS, DIAMETER, ORDINATE)
 
 
+SYMBOLS = (SURFACE, FCF, DATUM_ID, WELD)
+
+
 @dataclass
 class Annotation:
     """Something written on a view.
@@ -1055,9 +1058,20 @@ class Annotation:
     # brought in by Retrieve Model Annotations: the id of the part's own
     # annotation it came from, so retrieving again does not repeat it
     retrieved: int = 0
+    # a symbol turned (degrees anticlockwise), mirrored, and how big it is
+    # against the drawing's text style (#368)
+    turn: float = 0.0
+    flip: bool = False
+    scale: float = 1.0
 
     def to_dict(self) -> Dict[str, Any]:
         extra = {"retrieved": self.retrieved} if self.retrieved else {}
+        if self.turn:
+            extra["turn"] = self.turn
+        if self.flip:
+            extra["flip"] = True
+        if abs(self.scale - 1.0) > 1e-9:
+            extra["scale"] = self.scale
         return {**extra, "id": self.id, "kind": self.kind, "view": self.view,
                 "font": self.font, "size": self.size, "bold": self.bold,
                 "italic": self.italic, "align": self.align,
@@ -1092,7 +1106,10 @@ class Annotation:
                    bold=bool(d.get("bold", False)),
                    italic=bool(d.get("italic", False)),
                    align=str(d.get("align", "left") or "left"),
-                   retrieved=int(d.get("retrieved", 0) or 0))
+                   retrieved=int(d.get("retrieved", 0) or 0),
+                   turn=float(d.get("turn", 0.0) or 0.0),
+                   flip=bool(d.get("flip", False)),
+                   scale=float(d.get("scale", 1.0) or 1.0))
 
     @property
     def anchored(self) -> bool:

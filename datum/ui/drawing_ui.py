@@ -1136,7 +1136,8 @@ class DrawingController(QtCore.QObject):
         return dialog.values()
 
     def add_symbol(self, sheet, view, kind: str, on, text: str = "",
-                   shape: str = ""):
+                   shape: str = "", turn: float = 0.0, flip: bool = False,
+                   scale: float = 1.0):
         """A symbol standing on a point of a view's edge."""
         doc = self.document
         # out from the view, never into it: off the side of the part the
@@ -1171,7 +1172,9 @@ class DrawingController(QtCore.QObject):
             offset = [sx * 10.0 + (8.0 if sy else 0.0),
                       sy * 10.0 + (8.0 if sx else 0.0)]
         note = Annotation(kind=kind, view=view.id, points=[list(on)],
-                          offset=offset, text=text, shape=shape)
+                          offset=offset, text=text, shape=shape,
+                          turn=float(turn), flip=bool(flip),
+                          scale=float(scale or 1.0))
         doc.push_undo()
         self._anchor_exact(doc, sheet, view, note)
         doc.add_annotation(sheet, note)
@@ -1629,6 +1632,9 @@ class DrawingController(QtCore.QObject):
         if note is None:
             return
         view = sheet.view(note.view)
+        if note.kind in dwg.SYMBOLS:
+            self.edit_symbol(note.id)
+            return
         if note.kind in (dwg.NOTE, dwg.LEADER):
             from .drawing_tools import FormatTextDialog
             dialog = FormatTextDialog(self.host, self, sheet, note)
@@ -1651,6 +1657,62 @@ class DrawingController(QtCore.QObject):
         note.text = text.strip()
         doc.modified = True
         self.rebuild()
+
+    def _symbol_note(self, note_id: int):
+        doc = self.document
+        sheet = doc.active() if doc else None
+        note = next((a for a in sheet.annotations if a.id == note_id),
+                    None) if sheet else None
+        return note if note is not None and note.kind in dwg.SYMBOLS \
+            else None
+
+    def edit_symbol(self, note_id: int) -> None:
+        """What a placed symbol says and how it stands, changed."""
+        from .drawing_tools import SymbolDialog
+        note = self._symbol_note(note_id)
+        if note is None:
+            return
+        dialog = SymbolDialog(self.host, note.kind, note.text or "A", note)
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+        values = dialog.values()
+        self.document.push_undo()
+        note.text = values.get("text", note.text)
+        if "shape" in values:
+            note.shape = values["shape"] or ""
+        note.turn = values["turn"]
+        note.flip = values["flip"]
+        note.scale = values["scale"]
+        self.document.modified = True
+        self.canvas.update()
+        self.host.update_title()
+
+    def turn_symbol(self, note_id: int, degrees: float = 90.0) -> None:
+        note = self._symbol_note(note_id)
+        if note is None:
+            return
+        self.document.push_undo()
+        note.turn = (note.turn + degrees) % 360.0
+        self.document.modified = True
+        self.canvas.update()
+
+    def flip_symbol(self, note_id: int) -> None:
+        note = self._symbol_note(note_id)
+        if note is None:
+            return
+        self.document.push_undo()
+        note.flip = not note.flip
+        self.document.modified = True
+        self.canvas.update()
+
+    def size_symbol(self, note_id: int, factor: float) -> None:
+        note = self._symbol_note(note_id)
+        if note is None:
+            return
+        self.document.push_undo()
+        note.scale = max(0.25, min(4.0, (note.scale or 1.0) * factor))
+        self.document.modified = True
+        self.canvas.update()
 
     # --------------------------------------------------------------- output
 
@@ -1859,6 +1921,18 @@ class DrawingController(QtCore.QObject):
                            lambda: self.parts_list_properties(table.id))
             menu.addAction("Delete Parts List",
                            lambda: self.delete_parts_list(table.id))
+            menu.addSeparator()
+        elif notes and self._symbol_note(notes[-1]) is not None:
+            ident = notes[-1]
+            menu.addAction("Edit Symbol...",
+                           lambda: self.edit_symbol(ident))
+            menu.addAction("Rotate 90\u00b0",
+                           lambda: self.turn_symbol(ident, 90.0))
+            menu.addAction("Flip", lambda: self.flip_symbol(ident))
+            menu.addAction("Bigger", lambda: self.size_symbol(ident, 1.25))
+            menu.addAction("Smaller", lambda: self.size_symbol(ident, 0.8))
+            menu.addAction("Delete Symbol",
+                           lambda: self.delete_annotation(ident))
             menu.addSeparator()
         elif notes:
             menu.addAction("Edit Text...",
