@@ -17,7 +17,7 @@ from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
 from OCP.TopoDS import TopoDS_Shape
 
-from . import bom, drawing, fileformat, hlr, kernel, projcache
+from . import bom, drawing, fileformat, hlr, kernel, partial, projcache
 from .drawing import (
     AUXILIARY, BASE, DETAIL, DrawingDocument, DrawingReport, PROJECTED,
     SECTION, Sheet, View, WITH_HIDDEN,
@@ -1156,6 +1156,7 @@ class Generator:
             report.errors.append(view.error)
             return
         self._shape_now = shape
+        self._path_now = os.path.normcase(os.path.abspath(path))
 
         try:
             if view.flat and view.kind == BASE:
@@ -1296,11 +1297,13 @@ class Generator:
                 except Exception:
                     continue
                 held = self.library.peek(path)
+                hidden = doc.view_display(sheet, view) == WITH_HIDDEN
+                tangents = self._tangents(doc, sheet, view)
                 if held is not None and self._known(projcache.plain_key(
-                        id(held), direction, up,
-                        doc.view_display(sheet, view) == WITH_HIDDEN,
-                        self._tangents(doc, sheet, view))):
+                        id(held), direction, up, hidden, tangents)):
                     continue        # already worked out once
+                if self._will_mend(path, direction, up, hidden, tangents):
+                    continue        # drawn here, only where it changed
                 jobs.append(((id(sheet), view.id), {
                     "path": os.path.abspath(path),
                     "direction": list(direction), "up": list(up),
@@ -1356,6 +1359,72 @@ class Generator:
             return auxiliary_orientation(pd, pu, view.radius)
         return orientation_of(view)
 
+    def _will_mend(self, path, direction, up, hidden, tangents) -> bool:
+        """Whether a view handed out would be better mended here: it was
+        drawn before and little of its model has changed."""
+        held = getattr(self, "_previous", {}) or {}
+        probe = projcache.plain_key(0, direction, up, hidden, tangents)
+        before = held.get((os.path.normcase(os.path.abspath(path)),)
+                          + tuple(probe[2:6]))
+        if before is None:
+            return False
+        try:
+            shape = self.library.shape(path)
+        except Exception:
+            return False
+        if shape is None or shape is before:
+            return False
+        if not projcache.shared().has((probe[0], id(before))
+                                      + tuple(probe[2:])):
+            return False
+        try:
+            return partial.plan(before, shape, direction, up) is not None
+        except Exception:
+            return False
+
+    def _view_key(self, key) -> Tuple:
+        """A plain view's key without the body: which model, seen how."""
+        return (getattr(self, "_path_now", ""),) + tuple(key[2:6])
+
+    def _remember(self, key, shape) -> None:
+        """The body this view of this model was last drawn exactly from,
+        for the next change to be drawn against."""
+        held = getattr(self, "_previous", None)
+        if held is None:
+            held = self._previous = {}
+        held[self._view_key(key)] = shape
+
+    def _mended(self, key, shape, direction, up):
+        """The view drawn again only round what changed since it was
+        last drawn exactly (see partial), or None to draw it whole."""
+        held = getattr(self, "_previous", {}) or {}
+        before = held.get(self._view_key(key))
+        if before is None or before is shape:
+            return None
+        cache = projcache.shared()
+        old_key = (key[0], id(before)) + tuple(key[2:])
+        old = cache.get(old_key, 1.0)
+        if old is None:
+            return None
+        try:
+            plan = partial.plan(before, shape, direction, up)
+            if plan is None:
+                return None
+            region, involved = plan
+            if region is None:
+                mended = old            # nothing in it changed
+            else:
+                mended = partial.redraw(old, shape, region, involved,
+                                        direction, up, key[4], key[5])
+        except Exception:
+            return None
+        if mended is None:
+            return None
+        cache.put(key, mended, keep=shape)
+        self._remember(key, shape)
+        # a copy to hand out, the kept one stays as it is
+        return cache.get(key, 1.0)
+
     @staticmethod
     def _known(key) -> bool:
         """Whether _kept would find the exact lines, without copying them."""
@@ -1409,6 +1478,14 @@ class Generator:
                                                   None)
                 view._drew_fast = kept[1]
                 return kept[0]
+            # the model changed a little since this view was last seen:
+            # drawn again only where it changed
+            mended = self._mended(key, shape, direction, up)
+            if mended is not None:
+                getattr(self, "_pending", {}).pop((id(sheet), view.id),
+                                                  None)
+                view._drew_fast = False
+                return _scaled(mended, scale)
         if plain:
             handed = getattr(self, "_pending", {}).pop(
                 (id(sheet), view.id), None)
@@ -1418,6 +1495,7 @@ class Generator:
                         handed.result(timeout=600))
                     if key is not None:
                         projcache.shared().put(key, lines, keep=shape)
+                        self._remember(key, shape)
                     return _scaled(lines, scale)
                 except Exception:
                     pass        # drawn here instead, as it always was
@@ -1472,6 +1550,8 @@ class Generator:
         if key is not None and projection.ok:
             projcache.shared().put(key[:-1] + (fast,), projection,
                                    keep=shape)
+            if not fast:
+                self._remember(key, shape)
         if len(view.breakout) >= 3 and projection.ok:
             opened = self._break_out(doc, sheet, view, shape, direction, up,
                                      show_hidden, scale, projection)
