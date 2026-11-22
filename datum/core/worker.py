@@ -79,7 +79,7 @@ def _project(path: str, direction, up, hidden: bool = True,
                       for line in projection.lines]}
 
 
-def _hold(path: str, trusted=()) -> Dict[str, Any]:
+def _hold(path: str, trusted=(), fresh: bool = False) -> Dict[str, Any]:
     """Load a model and keep it, for the drawing views about to be asked
     of it: a drawing opened is a view placed soon after, and loading the
     excavator is seconds a worker need not spend while somebody waits."""
@@ -91,6 +91,10 @@ def _hold(path: str, trusted=()) -> Dict[str, Any]:
         rules.trust_path(place)
     if _LIBRARY is None:
         _LIBRARY = PartLibrary()
+    if fresh:
+        # a part inside an assembly changed: the assembly's own file did
+        # not, so nothing keyed on it would notice
+        _LIBRARY.forget()
     shape = _LIBRARY.shape(path)
     return {"ok": shape is not None}
 

@@ -1010,7 +1010,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "update_views", "Update",
             "Redraw every view from the models as they are now")
         self.drawing_update_button.clicked.connect(
-            lambda: ui.rebuild(force=True))
+            lambda: ui.update_views())
         panel = tools.add_panel("Manage")
         panel.add_small("properties", "icProperties",
                         "Title, part number, units, mass and bounding box"
@@ -2096,6 +2096,15 @@ class MainWindow(QtWidgets.QMainWindow):
             # in, so the assembly shows what was just done to them rather
             # than waiting on Local Update
             self._take_part_edits(entry)
+        elif entry.doc_type == fileformat.DRAWING                 and self.session.is_stale(entry):
+            # and a sheet shows them too: its views of a part just edited
+            # are drawn again, rough first on a big model, as an assembly
+            # takes the edit on the way back in
+            names = self._take_part_edits(entry)
+            if names:
+                self.drawing_ui.update_views(
+                    "Updated with %s." % ", ".join(names))
+                self.session.record_sources(entry)
         self.rebuild(keep_camera=restored)
         self._restore_section(entry)
         if not restored:
@@ -3126,6 +3135,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if not names:
             self.status_message.setStyleSheet("")
             self.status_message.setText("Already up to date.")
+            return
+        if self.in_drawing:
+            # the views, not the part behind the window, are what is out
+            # of date on a sheet
+            self.drawing_ui.update_views(
+                "Updated with %s." % ", ".join(names))
+            self.session.record_sources(entry)
+            self._sync_update_button()
             return
         self.rebuild(keep_camera=True)
         self.status_message.setStyleSheet("")

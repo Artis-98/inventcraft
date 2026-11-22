@@ -35,6 +35,9 @@ SELECTED = C.paper_selected
 PAPER_EDGE = "#b8bec6"
 SICK = "#c8501e"
 STALE = "#b08000"
+# a view still waiting for its real lines: outlines, quietly
+DRAFT = "#aab2bc"
+DRAFT_TEXT = "#5f6b78"
 
 # A hairline still has to be visible on screen when the sheet is zoomed
 # out, so every pen is given a floor in device pixels.
@@ -464,6 +467,8 @@ def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
         style_name, dashed = KIND_STYLES.get(kind, ("visible", False))
         style = doc.styles.get(style_name, dwg.Style())
         colour = STALE if view.stale else None
+        if on_screen and getattr(view, "draft", False):
+            colour = DRAFT
         painter.setPen(_pen(layout, style, dashed, colour))
         if view.breaks:
             # a broken view: what is in a band taken out is not drawn,
@@ -500,6 +505,10 @@ def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
         _detail_circle(painter, doc, sheet, view, layout)
 
     _view_label(painter, doc, sheet, view, layout)
+    if on_screen and getattr(view, "draft", False):
+        # outlines for now: the real lines are being worked out
+        _text(painter, layout, "Working out the lines…",
+              view.x, view.y, 3.0, align="centre", colour=DRAFT_TEXT)
     if selected and on_screen:
         _highlight(painter, view, layout)
 

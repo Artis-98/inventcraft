@@ -99,7 +99,12 @@ class DrawingController(QtCore.QObject):
             self.generator.warm(doc)
         except Exception:
             pass
-        self._refresh_properties()
+        if draft:
+            # the views first: weighing a big assembly for the title block
+            # is seconds, and can come a moment after the sheet is up
+            QtCore.QTimer.singleShot(0, self._properties_later)
+        else:
+            self._refresh_properties()
         self.canvas.model_properties = self._sheet_properties
         self.canvas.set_document(doc, keep_view=keep_view)
         self.browser.set_document(doc)
@@ -118,6 +123,20 @@ class DrawingController(QtCore.QObject):
         # changed without being saved, which no file stamp shows
         if hasattr(host, "drawing_update_button"):
             host.drawing_update_button.setEnabled(True)
+        return report
+
+    def update_views(self, message: str = "") -> None:
+        """Every view drawn again from the models as they are now, with
+        the window kept: a big model goes on rough at once and the real
+        lines follow from the workers, view by view."""
+        doc = self.document
+        if doc is None:
+            return None
+        self.generator.forget_models(doc)
+        report = self.rebuild(force=True, draft=True)
+        if message:
+            self.host.status_message.setStyleSheet("")
+            self.host.status_message.setText(message)
         return report
 
     # -- drafts made real ---------------------------------------------------
@@ -218,6 +237,12 @@ class DrawingController(QtCore.QObject):
                 shape, model = None, None
             self._properties[sheet.id] = viewgen.model_properties(
                 path, shape, model, self.generator.library)
+
+    def _properties_later(self) -> None:
+        if self.document is None:
+            return
+        self._refresh_properties()
+        self.canvas.update()
 
     def _sheet_properties(self, sheet: Sheet) -> Dict[str, str]:
         return self._properties.get(sheet.id, {})

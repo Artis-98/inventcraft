@@ -646,8 +646,74 @@ class Generator:
         doc.last_report = report
         return report
 
+    def forget_models(self, doc: DrawingDocument,
+                      base_dir: Optional[str] = None) -> None:
+        """Load every model again, here and in the workers, the next
+        time a view asks.  For Update: a part placed in an assembly can
+        change while the assembly's own file does not, and the bodies
+        are kept by that file."""
+        base = base_dir if base_dir is not None else doc.base_dir
+        held = getattr(self, "_signatures", None)
+        if held is None:
+            held = self._signatures = {}
+        changed = False
+        for path in self._model_paths(doc, base):
+            now = self._signature(path)
+            key = os.path.normcase(os.path.abspath(path))
+            if held.get(key) != now:
+                held[key] = now
+                changed = True
+        if not changed and held:
+            # nothing it is made of has moved: the bodies and the lines
+            # worked out from them are still the truth
+            return
+        self.library.forget()
+        self._warmed = {}
+        self.warm(doc, base_dir, fresh=True)
+
+    def _model_paths(self, doc: DrawingDocument, base: str) -> List[str]:
+        out = []
+        for sheet in doc.sheets:
+            for view in sheet.views:
+                if view.kind != BASE or not view.ref.path:
+                    continue
+                path = view.ref.resolve(base) if base else None
+                if path and os.path.exists(path) and path not in out:
+                    out.append(path)
+        return out
+
+    def _signature(self, path: str) -> Tuple:
+        """What a model is made of as it stands: every file in it with
+        its time, and any of them open in a tab with the body the tab
+        has published."""
+        files = [path]
+        try:
+            if fileformat.is_assembly(path):
+                from .parts import leaf_parts
+                files += leaf_parts(path)
+                files += _subassemblies(path)
+        except Exception:
+            pass
+        provider = getattr(self.library, "provider", None)
+        out = []
+        for name in sorted(set(os.path.normcase(os.path.abspath(f))
+                               for f in files)):
+            try:
+                stamp = os.path.getmtime(name)
+            except OSError:
+                stamp = None
+            live = 0
+            if provider is not None:
+                try:
+                    shape = provider(name)
+                    live = id(shape) if shape is not None else 0
+                except Exception:
+                    live = 0
+            out.append((name, stamp, live))
+        return tuple(out)
+
     def warm(self, doc: DrawingDocument,
-             base_dir: Optional[str] = None) -> int:
+             base_dir: Optional[str] = None, fresh: bool = False) -> int:
         """Have every worker load the models this drawing is drawn from,
         once per model as it is on disk, so the next view placed or
         updated does not start by loading them.  How many were sent."""
@@ -680,7 +746,7 @@ class Generator:
                 if trusted is None:
                     trusted = sorted(rules.trusted_paths())
                 helpers.broadcast("hold", path=os.path.abspath(path),
-                                  trusted=trusted)
+                                  trusted=trusted, fresh=fresh)
                 count += 1
         return count
 
@@ -1021,6 +1087,16 @@ class Generator:
 
         if origin.id not in models:
             models[origin.id] = load_model(path, self.library) + (path,)
+            # what it was made of when loaded, for Update to compare with
+            held = getattr(self, "_signatures", None)
+            if held is None:
+                held = self._signatures = {}
+            mark = os.path.normcase(os.path.abspath(path))
+            if mark not in held:
+                try:
+                    held[mark] = self._signature(path)
+                except Exception:
+                    pass
         shape, document, _p = models[origin.id]
         if shape is None:
             view.error = "%s has no body to draw" % os.path.basename(path)
@@ -1130,13 +1206,8 @@ class Generator:
                 # is in the tab: a worker reads the file, which does not
                 # have what was changed since it was saved, and Update
                 # showed the old part while opening the view showed the new
-                provider = getattr(self.library, "provider", None)
-                if provider is not None:
-                    try:
-                        if provider(path) is not None:
-                            continue
-                    except Exception:
-                        pass
+                if self._live_inside(path):
+                    continue
                 try:
                     direction, up = self._plain_direction(doc, sheet, view)
                 except Exception:
@@ -1161,6 +1232,24 @@ class Generator:
         trusted = sorted(rules.trusted_paths())
         return {key: helpers.submit("project", trusted=trusted, **args)
                 for key, args in jobs}
+
+    def _live_inside(self, path: str) -> bool:
+        """Whether the model, or any part it places, is open in a tab:
+        drawn here then, from the part as the tab has it, for a worker
+        reads the file, which has not got the edit."""
+        provider = getattr(self.library, "provider", None)
+        if provider is None:
+            return False
+        try:
+            if provider(path) is not None:
+                return True
+            if not fileformat.is_assembly(path):
+                return False
+            from .parts import leaf_parts
+            return any(provider(leaf) is not None
+                       for leaf in leaf_parts(path))
+        except Exception:
+            return False
 
     def _plain_direction(self, doc: DrawingDocument, sheet: Sheet,
                          view: View):
@@ -1287,9 +1376,16 @@ class Generator:
         fast = (self.draft and not view.breakout and not view.flat
                 and _big(shape))
         view._drew_fast = fast
-        projection = hlr.project(shape, direction, up, hidden=show_hidden,
-                                 tangents=self._tangents(doc, sheet, view),
-                                 fast=fast)
+        if fast:
+            projection = hlr.outlines(shape, direction, up)
+            if not projection.ok:
+                fast = False
+                view._drew_fast = False
+        if not fast:
+            projection = hlr.project(shape, direction, up,
+                                     hidden=show_hidden,
+                                     tangents=self._tangents(doc, sheet,
+                                                             view))
         if key is not None and projection.ok:
             projcache.shared().put(key[:-1] + (fast,), projection,
                                    keep=shape)
@@ -1507,10 +1603,39 @@ def nearest_corner(target, seat: Sequence[float]) -> Tuple[float, float]:
     return min(corners, key=lambda c: math.dist(c, seat))
 
 
-# a model of at least this many faces is drafted first; below it the exact
-# lines take no longer than a draft would
-DRAFT_FACES = 150
+# A model of at least this many faces goes on as a placeholder first, the
+# outline of each of its parts, and its real lines follow from the workers.
+# Below it the exact lines are quick enough to wait for: a thousand faces
+# project in a third of a second.  Measured on the walking excavator, ten
+# thousand faces: exact 7.5 s a view, the tessellated draft that used to go
+# first 10.9 s, the outlines a few milliseconds.
+DRAFT_FACES = 2500
 _FACE_COUNTS: Dict[int, int] = {}
+
+
+def _subassemblies(path: str, depth: int = 0, seen=None) -> List[str]:
+    """The assembly files inside an assembly, read from the files."""
+    seen = set() if seen is None else seen
+    key = os.path.normcase(os.path.abspath(path))
+    if key in seen or depth > 32 or not os.path.isfile(path):
+        return []
+    seen.add(key)
+    out: List[str] = []
+    try:
+        opened = fileformat.read(path)
+        base = os.path.dirname(os.path.abspath(path))
+        for component in (opened.geometry or {}).get("components") or []:
+            place = str(component.get("path") or "")
+            if not place:
+                continue
+            if not os.path.isabs(place):
+                place = os.path.normpath(os.path.join(base, place))
+            if fileformat.is_assembly(place):
+                out.append(place)
+                out += _subassemblies(place, depth + 1, seen)
+    except Exception:
+        pass
+    return out
 
 
 def _big(shape) -> bool:

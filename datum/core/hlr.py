@@ -308,6 +308,77 @@ def project(shape: Optional[TopoDS_Shape],
                       box=(-half_w, -half_h, half_w, half_h))
 
 
+def outlines(shape: Optional[TopoDS_Shape],
+             direction: Sequence[float] = (0.0, 1.0, 0.0),
+             up: Sequence[float] = (0.0, 0.0, 1.0)) -> Projection:
+    """A placeholder for a view of a big model: each solid's box, seen
+    from ``direction``, as the outline it makes on the paper.
+
+    Nothing is hidden and nothing curved is followed, so it takes
+    milliseconds where the real lines take seconds, and it is already the
+    size and shape of the view, near enough to place and align by.
+    Drawn thin, as smooth edges are, so it does not pass for the real
+    thing.
+    """
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepBndLib import BRepBndLib
+    from OCP.TopAbs import TopAbs_SOLID
+
+    if shape is None or shape.IsNull():
+        return Projection(error="there is no geometry to draw")
+    frame = camera(direction, up)
+    solids = list(kernel.explore(shape, TopAbs_SOLID)) or [shape]
+    lines: List[Polyline] = []
+    for solid in solids:
+        box = Bnd_Box()
+        try:
+            BRepBndLib.Add_s(solid, box, True)
+        except Exception:
+            continue
+        if box.IsVoid():
+            continue
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        corners = [to_paper((x, y, z), frame)
+                   for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
+        hull = _hull(corners)
+        if len(hull) >= 2:
+            lines.append(Polyline(hull + hull[:1], SMOOTH))
+    if not lines:
+        return Projection(error="nothing is visible from this direction")
+    xs = [p[0] for line in lines for p in line.points]
+    ys = [p[1] for line in lines for p in line.points]
+    cx = (min(xs) + max(xs)) / 2.0
+    cy = (min(ys) + max(ys)) / 2.0
+    for line in lines:
+        line.points = [(x - cx, y - cy) for x, y in line.points]
+    half_w = (max(xs) - min(xs)) / 2.0
+    half_h = (max(ys) - min(ys)) / 2.0
+    return Projection(lines=lines, centre=(cx, cy),
+                      box=(-half_w, -half_h, half_w, half_h))
+
+
+def _hull(points: Sequence[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    """The convex hull, anticlockwise (Andrew's monotone chain)."""
+    pts = sorted(set((round(x, 9), round(y, 9)) for x, y in points))
+    if len(pts) <= 2:
+        return list(pts)
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower: List[Tuple[float, float]] = []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    upper: List[Tuple[float, float]] = []
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
+
+
 # how coarse the draft tessellation is, as a share of the model's size
 FAST_DEFLECTION = 0.004
 

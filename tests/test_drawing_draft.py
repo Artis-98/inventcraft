@@ -16,6 +16,9 @@ os.environ.setdefault("DATUM_SETTINGS_ORG", "IITEG-tests")
 from PySide6 import QtCore, QtWidgets                              # noqa: E402
 
 from datum.core import hlr, kernel                                 # noqa: E402
+from datum.core import views                                       # noqa: E402
+# the pins are a few hundred faces: drafted as a big model would be
+views.DRAFT_FACES = 150
 from datum.core.document import Document                           # noqa: E402
 from datum.core.features import PrimitiveFeature                   # noqa: E402
 from datum.ui.main_window import MainWindow                        # noqa: E402
@@ -103,6 +106,9 @@ if BIG:
     check("goes on as drafts", len(drafts) == 2, len(drafts))
     check("with lines to show", all(v.projection is not None
                                     and v.projection.lines for v in drafts))
+    check("as outlines, at once", took < 3.0 and all(
+        all(l.kind == hlr.SMOOTH for l in v.projection.lines)
+        for v in drafts), took)
     ui.refine_now()
     settle(100)
     still = [v for v in win.drawing.active().views
