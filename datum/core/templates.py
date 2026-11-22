@@ -169,9 +169,18 @@ def available(project_dir: str = "") -> List[Template]:
     """
     out: List[Template] = []
     seen = set()
-    for folder, builtin in ((shared_folder(), False),
-                            (project_folder(project_dir), False),
-                            (builtin_folder(), True)):
+    try:
+        from . import prefs
+        chosen = prefs.prefs().templates_folder
+    except Exception:
+        chosen = ""
+    chosen = chosen if chosen and os.path.isdir(chosen) else ""
+    # a folder set on purpose first, then the project's own, then the
+    # standard ones in the default folder, then the shipped
+    order = ((chosen, False), (project_folder(project_dir), False),
+             ("" if chosen else shared_folder(), False),
+             (builtin_folder(), True))
+    for folder, builtin in order:
         if not folder or not os.path.isdir(folder):
             continue
         for entry in sorted(os.listdir(folder)):
@@ -231,7 +240,13 @@ def save_as_template(document: "dwg.DrawingDocument", name: str,
         raise ValueError('a template name cannot contain \\ / : * ? " < > |')
     # into the shared Templates folder when one is set, so the whole
     # company gets it; the project's own otherwise
-    folder = shared_folder() or project_folder(project_dir)
+    try:
+        from . import prefs
+        chosen = prefs.prefs().templates_folder
+    except Exception:
+        chosen = ""
+    chosen = chosen if chosen and os.path.isdir(chosen) else ""
+    folder = chosen or project_folder(project_dir) or shared_folder()
     if not folder:
         raise ValueError("there is no project to save the template into")
     os.makedirs(folder, exist_ok=True)
