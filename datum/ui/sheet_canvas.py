@@ -46,6 +46,9 @@ class SheetCanvas(QtWidgets.QWidget):
     title_block_activated = QtCore.Signal()     # the title block, likewise
     border_activated = QtCore.Signal()          # the border, likewise
     grip_moved = QtCore.Signal(int, int)        # a dimension's leg, moved
+    # a detail's circle moved or resized on its parent: the detail view,
+    # and its centre and radius from before, for the undo step
+    fence_moved = QtCore.Signal(int, float, float, float)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -81,6 +84,9 @@ class SheetCanvas(QtWidgets.QWidget):
         # a selected dimension's legs can be dragged to other points: the
         # grip being dragged, and what finds a point to drop it on
         self._drag_grip: Optional[Tuple[int, int]] = None
+        # a selected detail's circle: (view id, "centre" or "edge", what
+        # it was before)
+        self._drag_fence = None
         self.grip_snap = None
 
     def set_placer(self, placer) -> None:
@@ -366,7 +372,58 @@ class SheetCanvas(QtWidgets.QWidget):
         for _note, _index, at in self._grips():
             painter.drawRect(QtCore.QRectF(at.x() - 3.5, at.y() - 3.5,
                                            7.0, 7.0))
+        for _view, which, at in self._fence_grips():
+            if which == "centre":
+                painter.drawEllipse(at, 4.5, 4.5)
+            else:
+                painter.drawRect(QtCore.QRectF(at.x() - 3.5, at.y() - 3.5,
+                                               7.0, 7.0))
         painter.restore()
+
+    def _fence_grips(self):
+        """The middle and the edge of each selected detail's circle, on
+        its parent, as (view, which, device point)."""
+        sheet = self.sheet()
+        if sheet is None:
+            return []
+        layout = self.layout()
+        out = []
+        for view_id in self.selected_views:
+            view = sheet.view(view_id)
+            if view is None or view.kind != dwg.DETAIL                     or len(view.centre) < 2:
+                continue
+            parent = sheet.view(view.parent)
+            if parent is None:
+                continue
+            cx, cy = parent.x + view.centre[0], parent.y + view.centre[1]
+            out.append((view, "centre", QtCore.QPointF(
+                *layout.to_device(cx, cy))))
+            out.append((view, "edge", QtCore.QPointF(
+                *layout.to_device(cx + view.radius, cy))))
+        return out
+
+    def _fence_at(self, pos: QtCore.QPoint):
+        for view, which, at in self._fence_grips():
+            if abs(at.x() - pos.x()) <= 7 and abs(at.y() - pos.y()) <= 7:
+                return view, which
+        return None
+
+    def _move_fence(self, pos: QtCore.QPoint) -> None:
+        sheet = self.sheet()
+        view_id, which, _before = self._drag_fence
+        view = sheet.view(view_id) if sheet else None
+        parent = sheet.view(view.parent) if view is not None else None
+        if parent is None:
+            return
+        point = self.layout().to_sheet(pos.x(), pos.y())
+        local = (point[0] - parent.x, point[1] - parent.y)
+        if which == "centre":
+            view.centre = [float(local[0]), float(local[1])]
+        else:
+            view.radius = max(1.0, math.hypot(local[0] - view.centre[0],
+                                              local[1] - view.centre[1]))
+        self._moved = True
+        self.update()
 
     def _grip_at(self, pos: QtCore.QPoint) -> Optional[Tuple[int, int]]:
         for note, index, at in self._grips():
@@ -517,6 +574,15 @@ class SheetCanvas(QtWidgets.QWidget):
         if sheet is None:
             return
         layout = self.layout()
+        fence = self._fence_at(pos)
+        if fence is not None:
+            # a detail's circle, taken by its middle or its edge
+            view, which = fence
+            self._drag_fence = (view.id, which,
+                                (view.centre[0], view.centre[1],
+                                 view.radius))
+            self._moved = False
+            return
         grip = self._grip_at(pos)
         if grip is not None:
             # a leg of the selected dimension, to be dropped on another point
@@ -568,6 +634,9 @@ class SheetCanvas(QtWidgets.QWidget):
             self.sketch_surface.move(event)
             return
 
+        if self._drag_fence is not None:
+            self._move_fence(pos)
+            return
         if self._drag_grip is not None:
             self._move_grip(pos)
             return
@@ -652,6 +721,11 @@ class SheetCanvas(QtWidgets.QWidget):
                 self.placer.release(self.layout().to_sheet(pos.x(), pos.y()),
                                     QtCore.QPointF(pos))
                 self.update()
+            return
+        if self._drag_fence is not None:
+            (view_id, _which, before), self._drag_fence =                 self._drag_fence, None
+            if self._moved:
+                self.fence_moved.emit(view_id, *before)
             return
         if self._drag_grip is not None:
             grip, self._drag_grip = self._drag_grip, None

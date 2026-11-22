@@ -1007,6 +1007,84 @@ class CropTool(ViewTool):
         painter.restore()
 
 
+class DetailTool(ViewTool):
+    """Inventor's Detail: click the view, then the middle of what to
+    enlarge, then how far round it reaches, then where the detail goes.
+    Each click can be taken back with Esc."""
+
+    name = "Detail"
+    # how much bigger than its parent a detail is drawn
+    ENLARGE = 2.0
+
+    def __init__(self, controller, sheet) -> None:
+        self.centre = None          # in the parent's own mm
+        self.radius = None
+        super().__init__(controller, sheet)
+
+    def prompt(self) -> str:
+        if self.view is None:
+            return "click the view to take a detail of."
+        if self.centre is None:
+            return "click the middle of what to enlarge."
+        if self.radius is None:
+            return "click how far round it the detail reaches."
+        return "click where the detail view goes."
+
+    def back(self) -> bool:
+        if self.radius is not None:
+            self.radius = None
+            return True
+        if self.centre is not None:
+            self.centre = None
+            return True
+        return super().back()
+
+    def pressed(self, point) -> None:
+        here = self.local(point)
+        if self.centre is None:
+            self.centre = here
+            return
+        if self.radius is None:
+            reach = math.hypot(here[0] - self.centre[0],
+                               here[1] - self.centre[1])
+            if reach < 1.0:
+                return
+            self.radius = reach
+            return
+        view, centre, radius = self.view, self.centre, self.radius
+        self.view = self.centre = self.radius = None
+        self.controller.create_detail(self.sheet, view, centre, radius,
+                                      point[0], point[1])
+
+    def paint(self, painter, layout) -> None:
+        super().paint(painter, layout)
+        if self.view is None or self.centre is None:
+            return
+        middle = self.sheet_point(self.centre)
+        radius = self.radius
+        if radius is None and self.cursor is not None:
+            here = self.local(self.cursor)
+            radius = math.hypot(here[0] - self.centre[0],
+                                here[1] - self.centre[1])
+        if not radius:
+            return
+        painter.save()
+        pen = QtGui.QPen(QtGui.QColor("#3b82d6"), 1.4)
+        painter.setPen(pen)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        c = QtCore.QPointF(*layout.to_device(*middle))
+        r = radius * layout.scale
+        painter.drawEllipse(c, r, r)
+        if self.radius is not None and self.cursor is not None:
+            # where it will go, the size it will be
+            pen.setStyle(QtCore.Qt.DashLine)
+            painter.setPen(pen)
+            at = QtCore.QPointF(*layout.to_device(*self.cursor))
+            big = r * self.ENLARGE
+            painter.drawEllipse(at, big, big)
+        painter.restore()
+
+
 class BreakTool:
     """Inventor's Break: click a view where the band to take out starts,
     then where it ends.  Spread across the page it shortens the view that

@@ -78,6 +78,7 @@ class DrawingController(QtCore.QObject):
         canvas.border_activated.connect(self.edit_border)
         canvas.grip_snap = self._grip_snap
         canvas.grip_moved.connect(self._grip_moved)
+        canvas.fence_moved.connect(self._fence_moved)
 
     # --------------------------------------------------------------- rebuild
 
@@ -788,27 +789,31 @@ class DrawingController(QtCore.QObject):
         return True
 
     def add_detail(self) -> None:
-        doc, sheet, view = self._selected_view()
-        if view is None:
-            self._complain("Select a view first, then add a detail of it.")
-            return
-        box = view.projection.box if view.projection else (-20, -20, 20, 20)
+        """Inventor's Detail: the middle and the reach are clicked on the
+        view, then where the detail goes (#367: it used to be put in the
+        middle of the view, with no say in it)."""
+        self._start_tool("DetailTool")
+
+    def create_detail(self, sheet, view, centre, radius: float,
+                      x: float, y: float, enlarge: float = 2.0):
+        """A detail of ``view``: a circle about ``centre`` in the view's
+        own millimetres, drawn ``enlarge`` times bigger at x, y."""
+        doc = self.document
         doc.push_undo()
-        letter = doc.next_letter()
-        radius = max(6.0, min(box[2] - box[0], box[3] - box[1]) * 0.22)
-        detail = View(kind=DETAIL, parent=view.id, letter=letter,
-                      centre=[(box[0] + box[2]) / 2.0,
-                              (box[1] + box[3]) / 2.0],
-                      radius=radius,
-                      scale=doc.view_scale(sheet, view) * 2.0,
-                      x=view.x + (box[2] - box[0]) / 2.0 + radius * 2.0 + 30.0,
-                      y=view.y)
+        detail = View(kind=DETAIL, parent=view.id, letter=doc.next_letter(),
+                      centre=[float(centre[0]), float(centre[1])],
+                      radius=max(1.0, float(radius)),
+                      scale=doc.view_scale(sheet, view) * enlarge,
+                      x=float(x), y=float(y))
         doc.add_view(sheet, detail)
         self.rebuild()
         if detail.error:
             self._complain("That detail did not work: %s" % detail.error)
         else:
             self.canvas.select([detail.id])
+            self.host.status_message.setText(
+                "Detail %s added." % detail.letter)
+        return detail
 
     def delete_view(self, view_id: Optional[int] = None) -> None:
         doc, sheet, view = self._selected_view(view_id)
@@ -940,6 +945,24 @@ class DrawingController(QtCore.QObject):
         item = drawpick.nearest(sheet, point, tolerance, only_view=view_id,
                                 kinds=(drawpick.POINT,))
         return item.a if item is not None else None
+
+    def _fence_moved(self, view_id: int, cx: float, cy: float,
+                     radius: float) -> None:
+        """A detail's circle was dragged on its parent: the detail drawn
+        again from where it now is, one undo step back to where it was."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        view = sheet.view(view_id) if sheet else None
+        if view is None:
+            return
+        now = (list(view.centre), view.radius)
+        view.centre, view.radius = [cx, cy], radius
+        doc.push_undo()
+        view.centre, view.radius = now
+        view.projection = None
+        doc.modified = True
+        self.rebuild()
+        self.canvas.update()
 
     def _grip_moved(self, note_id: int, index: int) -> None:
         doc = self.document
