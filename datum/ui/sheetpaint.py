@@ -862,49 +862,61 @@ def _parts_list(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
 
     Drawn from the bottom up with the heading on top, the way a parts list
     sits above a title block: adding a part pushes the table upwards into
-    empty paper instead of down through the block.
+    empty paper instead of down through the block.  A long list wrapped
+    into sections is drawn as tables side by side, the first on the left,
+    each with its own heading.
     """
-    rows = list(table.rows)
+    sections = table.sections()
     style = doc.styles.get("border", dwg.Style())
     text_style = doc.styles.get("text", dwg.Style())
     colour = SELECTED if selected else style.colour
     x0, y0 = table.origin()
-    lines = len(rows) + (1 if table.heading else 0)
-    if lines <= 0:
+    if not table.rows and not table.heading:
         return
-    width = table.width()
-    height = lines * table.row_height
-
-    painter.setPen(_pen(layout, style, colour=colour))
-    painter.setBrush(QtCore.Qt.NoBrush)
-    a = layout.to_device(x0, y0 + height)
-    b = layout.to_device(x0 + width, y0)
-    painter.drawRect(QtCore.QRectF(a[0], a[1], b[0] - a[0], b[1] - a[1]))
-
+    span = table.section_width()
     thin = doc.styles.get("dimension", dwg.Style())
-    painter.setPen(_pen(layout, thin, colour=colour))
-    for i in range(1, lines):
-        y = y0 + i * table.row_height
-        painter.drawLine(QtCore.QPointF(*layout.to_device(x0, y)),
-                         QtCore.QPointF(*layout.to_device(x0 + width, y)))
-    x = x0
-    for column in table.columns[:-1]:
-        x += table.column_width(column)
-        painter.drawLine(QtCore.QPointF(*layout.to_device(x, y0)),
-                         QtCore.QPointF(*layout.to_device(x, y0 + height)))
+    longest = max(len(rows) for rows in sections)
+    top = y0 + table.height()
+    for number, rows in enumerate(sections):
+        left = x0 + number * span
+        lines = len(rows) + (1 if table.heading else 0)
+        if lines <= 0:
+            continue
+        height = lines * table.row_height
+        # every section hangs from the same top line, headings level, and
+        # a short last one leaves its empty paper underneath
+        y0 = top - height
+        painter.setPen(_pen(layout, style, colour=colour))
+        painter.setBrush(QtCore.Qt.NoBrush)
+        a = layout.to_device(left, y0 + height)
+        b = layout.to_device(left + span, y0)
+        painter.drawRect(QtCore.QRectF(a[0], a[1], b[0] - a[0], b[1] - a[1]))
 
-    # the first row sits at the bottom, the heading at the top
-    for index, row in enumerate(rows):
-        y = y0 + (len(rows) - 1 - index) * table.row_height
-        _row_text(painter, layout, table, row, x0, y, table.text_height,
-                  text_style.colour)
-    if table.heading:
-        y = y0 + len(rows) * table.row_height
-        _row_text(painter, layout, table, None, x0, y, table.text_height,
-                  text_style.colour, bold=True)
-    if table.error and not rows:
-        _text(painter, layout, table.error, x0 + 1.6, y0 + height / 2.0,
-              table.text_height, colour=SICK)
+        painter.setPen(_pen(layout, thin, colour=colour))
+        for i in range(1, lines):
+            y = y0 + i * table.row_height
+            painter.drawLine(QtCore.QPointF(*layout.to_device(left, y)),
+                             QtCore.QPointF(*layout.to_device(left + span,
+                                                              y)))
+        x = left
+        for column in table.columns[:-1]:
+            x += table.column_width(column)
+            painter.drawLine(QtCore.QPointF(*layout.to_device(x, y0)),
+                             QtCore.QPointF(*layout.to_device(x,
+                                                              y0 + height)))
+
+        # the first row sits at the bottom, the heading at the top
+        for index, row in enumerate(rows):
+            y = y0 + (len(rows) - 1 - index) * table.row_height
+            _row_text(painter, layout, table, row, left, y,
+                      table.text_height, text_style.colour)
+        if table.heading:
+            y = y0 + len(rows) * table.row_height
+            _row_text(painter, layout, table, None, left, y,
+                      table.text_height, text_style.colour, bold=True)
+    if table.error and not table.rows:
+        _text(painter, layout, table.error, x0 + 1.6,
+              top - table.height() / 2.0, table.text_height, colour=SICK)
 
 
 def _row_text(painter, layout, table, row, x0: float, y: float,
@@ -936,7 +948,7 @@ def _elide(text: str, width_mm: float, height_mm: float) -> str:
     # a rough average character width for the font, which is enough: the
     # point is to keep a long description out of the next column, not to
     # fill the box to the last hundredth of a millimetre
-    per = height_mm * 0.58
+    per = height_mm * 0.78
     room = max(1, int(width_mm / per))
     return text if len(text) <= room else text[:max(1, room - 1)] + "…"
 

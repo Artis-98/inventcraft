@@ -1316,19 +1316,48 @@ class PartsList:
     text_height: float = 3.0
     heading: bool = True
     recurse: bool = False       # count the parts inside sub-assemblies
+    # a column no width was given for is as wide as what is in it
+    auto_width: bool = True
+    # Inventor's Table Wrapping: past this many rows the list carries on
+    # in another section beside the first, headings and all; 0 never
+    wrap_rows: int = 0
     # filled in by a rebuild
     rows: List[Any] = field(default_factory=list)
     error: str = ""
 
-    def width(self) -> float:
+    def sections(self) -> List[List[Any]]:
+        """The rows, in the sections the table is drawn in, the first
+        section first."""
+        rows = list(self.rows)
+        if self.wrap_rows <= 0 or len(rows) <= self.wrap_rows:
+            return [rows]
+        n = self.wrap_rows
+        return [rows[i:i + n] for i in range(0, len(rows), n)]
+
+    def section_width(self) -> float:
         return sum(self.column_width(c) for c in self.columns)
 
+    def width(self) -> float:
+        return self.section_width() * len(self.sections())
+
     def column_width(self, column: str) -> float:
-        return float(self.widths.get(column,
-                                     bom.DEFAULT_WIDTHS.get(column, 30.0)))
+        if column in self.widths:
+            return float(self.widths[column])
+        default = bom.DEFAULT_WIDTHS.get(column, 30.0)
+        if not self.auto_width:
+            return float(default)
+        # as wide as the widest thing in it, heading included, but never
+        # narrower than a number needs nor wider than a third of an A3
+        words = [bom.heading(column)] if self.heading else []
+        words += [row.value(column) for row in self.rows]
+        longest = max((len(str(w)) for w in words), default=0)
+        # the drawing lettering runs about 0.8 of its height a letter
+        fit = longest * self.text_height * 0.8 + 4.0
+        return float(min(140.0, max(10.0, fit)))
 
     def height(self) -> float:
-        lines = len(self.rows) + (1 if self.heading else 0)
+        longest = max((len(rows) for rows in self.sections()), default=0)
+        lines = longest + (1 if self.heading else 0)
         return max(1, lines) * self.row_height
 
     def origin(self) -> Tuple[float, float]:
@@ -1347,7 +1376,8 @@ class PartsList:
                 "corner": self.corner, "columns": list(self.columns),
                 "widths": dict(self.widths), "row_height": self.row_height,
                 "text_height": self.text_height, "heading": self.heading,
-                "recurse": self.recurse,
+                "recurse": self.recurse, "auto_width": self.auto_width,
+                "wrap_rows": self.wrap_rows,
                 # written out so a drawing opened away from its models can
                 # still show the list it had when it was last built
                 "rows": [r.to_dict() for r in self.rows]}
@@ -1366,6 +1396,10 @@ class PartsList:
                    text_height=float(d.get("text_height", base.text_height)),
                    heading=bool(d.get("heading", True)),
                    recurse=bool(d.get("recurse", False)),
+                   # a list saved before columns fitted their words keeps
+                   # the widths it was drawn with
+                   auto_width=bool(d.get("auto_width", False)),
+                   wrap_rows=int(d.get("wrap_rows", 0) or 0),
                    rows=[bom.Row.from_dict(r) for r in d.get("rows", [])])
 
 

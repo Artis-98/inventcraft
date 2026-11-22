@@ -2160,6 +2160,23 @@ class PartsListDialog(QtWidgets.QDialog):
             "instead of it")
         self.recurse.setChecked(table.recurse)
         root.addWidget(self.recurse)
+        self.auto_width = QtWidgets.QCheckBox(
+            "Columns as wide as what is in them")
+        self.auto_width.setChecked(table.auto_width)
+        root.addWidget(self.auto_width)
+        wrap = QtWidgets.QHBoxLayout()
+        self.wrap = QtWidgets.QCheckBox("Wrap into sections of")
+        self.wrap_rows = QtWidgets.QSpinBox()
+        self.wrap_rows.setRange(2, 200)
+        self.wrap_rows.setSuffix(" rows")
+        self.wrap.setChecked(table.wrap_rows > 0)
+        self.wrap_rows.setValue(table.wrap_rows or 20)
+        self.wrap_rows.setEnabled(table.wrap_rows > 0)
+        self.wrap.toggled.connect(self.wrap_rows.setEnabled)
+        wrap.addWidget(self.wrap)
+        wrap.addWidget(self.wrap_rows)
+        wrap.addStretch(1)
+        root.addLayout(wrap)
 
         root.addWidget(QtWidgets.QLabel("Columns"))
         self.columns = QtWidgets.QListWidget()
@@ -2201,6 +2218,9 @@ class PartsListDialog(QtWidgets.QDialog):
         table.text_height = self.text_height.value()
         table.heading = self.heading.isChecked()
         table.recurse = self.recurse.isChecked()
+        table.auto_width = self.auto_width.isChecked()
+        table.wrap_rows = self.wrap_rows.value() if self.wrap.isChecked() \
+            else 0
         chosen = []
         for i in range(self.columns.count()):
             item = self.columns.item(i)
