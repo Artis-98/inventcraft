@@ -1,0 +1,232 @@
+{
+  "name": "weldment_cut_list",
+  "title": "A welded table frame from a skeleton, with a cut list for the saw",
+  "tools": "default,+frames",
+  "save_as": ".icasm",
+  "prompt": "In InventCraft, design a welded table frame from a skeleton. The skeleton is one part (save it in {dir} as Skeleton.icpart) with the frame's lines in sketches: a top rectangle 800 mm (x) by 500 mm (y) whose lines are 400 mm above the floor (z = 0), and four vertical legs under its corners. Make the members from 30 x 30 x 2 square tube (DIN EN 10219-2, material Steel, Mild) with the frame tools: members on all those lines, the corners of the top rectangle mitred. Put it in an assembly. Then write the cut list for the saw to {dir}/cut_list.csv. Keep the sizes as parameters of the skeleton.",
+  "verdict": {
+    "assembly": {
+      "cut_list": {
+        "pieces": 8
+      },
+      "render": false
+    },
+    "files": [
+      "Skeleton.icpart",
+      "cut_list.csv"
+    ]
+  },
+  "reference": {
+    "calls": [
+      {
+        "tool": "new_document",
+        "args": {}
+      },
+      {
+        "tool": "build",
+        "args": {
+          "ops": [
+            {
+              "op": "parameter",
+              "name": "L",
+              "value": 800,
+              "comment": "frame length"
+            },
+            {
+              "op": "parameter",
+              "name": "W",
+              "value": 500,
+              "comment": "frame width"
+            },
+            {
+              "op": "parameter",
+              "name": "H",
+              "value": 400,
+              "comment": "leg height"
+            },
+            {
+              "op": "parameter",
+              "name": "B",
+              "value": 30,
+              "comment": "tube side"
+            },
+            {
+              "op": "workplane",
+              "id": "wt",
+              "name": "Top Level",
+              "base": "XY",
+              "offset": "H - B / 2"
+            },
+            {
+              "op": "workplane",
+              "id": "wr",
+              "name": "Back Side",
+              "base": "XZ",
+              "offset": "-W"
+            },
+            {
+              "op": "sketch",
+              "id": "top",
+              "name": "Top Frame",
+              "plane": "$wt",
+              "entities": [
+                {
+                  "rect": {
+                    "corner": [
+                      0,
+                      0
+                    ],
+                    "size": [
+                      "L",
+                      "W"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "op": "sketch",
+              "id": "fl",
+              "name": "Front Legs",
+              "plane": "XZ",
+              "entities": [
+                {
+                  "line": [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      "H - B"
+                    ]
+                  ]
+                },
+                {
+                  "line": [
+                    [
+                      "L",
+                      0
+                    ],
+                    [
+                      "L",
+                      "H - B"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "op": "sketch",
+              "id": "bl",
+              "name": "Back Legs",
+              "plane": "$wr",
+              "entities": [
+                {
+                  "line": [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0,
+                      "H - B"
+                    ]
+                  ]
+                },
+                {
+                  "line": [
+                    [
+                      "L",
+                      0
+                    ],
+                    [
+                      "L",
+                      "H - B"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {
+          "path": "{WORK}/Skeleton.icpart"
+        }
+      },
+      {
+        "tool": "new_document",
+        "args": {
+          "type": "assembly"
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {
+          "path": "{WORK}/weldment_cut_list.icasm"
+        }
+      },
+      {
+        "tool": "place_component",
+        "args": {
+          "file": "{WORK}/Skeleton.icpart",
+          "name": "Skeleton"
+        }
+      },
+      {
+        "tool": "frame_insert",
+        "args": {
+          "skeleton": "Skeleton",
+          "sketch": "Top Frame",
+          "profile": "din-en-10219-2-square",
+          "size": "30 x 30 x 2",
+          "material": "Steel, Mild"
+        }
+      },
+      {
+        "tool": "frame_insert",
+        "args": {
+          "skeleton": "Skeleton",
+          "sketch": "Front Legs",
+          "profile": "din-en-10219-2-square",
+          "size": "30 x 30 x 2",
+          "material": "Steel, Mild",
+          "frame": "Frame0001:1"
+        }
+      },
+      {
+        "tool": "frame_insert",
+        "args": {
+          "skeleton": "Skeleton",
+          "sketch": "Back Legs",
+          "profile": "din-en-10219-2-square",
+          "size": "30 x 30 x 2",
+          "material": "Steel, Mild",
+          "frame": "Frame0001:1"
+        }
+      },
+      {
+        "tool": "frame_treat",
+        "args": {
+          "frame": "Frame0001:1",
+          "kind": "miter",
+          "corners": true,
+          "sketch": "Top Frame"
+        }
+      },
+      {
+        "tool": "cut_list",
+        "args": {
+          "path": "{WORK}/cut_list.csv"
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {}
+      }
+    ]
+  }
+}

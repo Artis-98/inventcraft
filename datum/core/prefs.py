@@ -145,6 +145,10 @@ class Preferences:
     library_folders: List[str] = field(default_factory=list)
     # the standards bodies the library's Standards filter hides: ISO, DIN
     hidden_standards: List[str] = field(default_factory=list)
+    # whether AI agents may drive the open documents through the MCP bridge
+    # (ui/agent_bridge.py). Off until the person turns it on, and it is a
+    # fact about this person, so it is never written into a document.
+    allow_agents: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
@@ -165,7 +169,8 @@ class Preferences:
                 "templates_folder": self.templates_folder,
                 "language": self.language,
                 "library_folders": list(self.library_folders),
-                "hidden_standards": list(self.hidden_standards)}
+                "hidden_standards": list(self.hidden_standards),
+                "allow_agents": self.allow_agents}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Preferences":
@@ -214,6 +219,7 @@ class Preferences:
             hidden_standards=[str(f) for f in
                               data.get("hidden_standards") or [] if f]
             if isinstance(data.get("hidden_standards"), list) else [],
+            allow_agents=data.get("allow_agents") is True,
             old_versions=_count(data.get("old_versions"), 1),
             shortcuts={str(k): str(v) for k, v in
                        (data.get("shortcuts") or {}).items()

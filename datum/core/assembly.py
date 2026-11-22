@@ -90,6 +90,9 @@ def _refresh(ref: ShapeRef, shape: TopoDS_Shape,
             ref.size = fresh.size
             ref.geom = fresh.geom
             ref.resolved = True
+            # and what made it, so the constraint follows the face by that
+            # the next time the part changes a lot
+            ref.attach_roles(shape, found)
             return
 
 
@@ -209,6 +212,10 @@ class Attachment:
     # set, the constraint follows the name, which the part keeps on the
     # right face however it is remodelled
     named: str = ""
+    # how it was named when it was made, for a person or an agent to read
+    # ("Hole1.wall[0]", "origin.XY"); informational, the geometry is held
+    # by ``ref`` and ``frame``
+    text: str = ""
 
     @property
     def valid(self) -> bool:
@@ -220,6 +227,8 @@ class Attachment:
                "frame": self.frame.to_dict()}
         if self.named:
             out["named"] = self.named
+        if self.text:
+            out["text"] = self.text
         return out
 
     @classmethod
@@ -229,7 +238,8 @@ class Attachment:
                    kind=str(data.get("kind", "face")),
                    ref=ShapeRef.from_dict(raw) if raw else None,
                    frame=Frame.from_dict(data.get("frame", {})),
-                   named=str(data.get("named", "")))
+                   named=str(data.get("named", "")),
+                   text=str(data.get("text", "")))
 
 
 @dataclass
@@ -799,6 +809,20 @@ class AssemblyDocument:
             report = self._follow_adaptive(report, base_dir)
         return report
 
+    def freedom(self) -> constraints3d.Freedom:
+        """How many motions each free component still has, and which
+        constraints add nothing; read from the constraints as they stand
+        (after a rebuild or resolve), without moving anything."""
+        saved = {c.id: c.error for c in self.constraints}
+        resolved = self._resolve_constraints(AssemblyReport())
+        for constraint in self.constraints:
+            constraint.error = saved.get(constraint.id, constraint.error)
+        placements = {o.id: o.placement.copy() for o in self.active()
+                      if o.shape is not None}
+        free = [o.id for o in self.active()
+                if o.shape is not None and not o.grounded]
+        return constraints3d.freedom(placements, resolved, free)
+
     def _solve_and_place(self, report: AssemblyReport, base: Optional[str],
                          started: float) -> AssemblyReport:
         """Find the constrained geometry, solve, and put everything there."""
@@ -1076,6 +1100,9 @@ class AssemblyDocument:
         ref = (ShapeRef.capture(pool[index], kind, index)
                if index is not None
                else ShapeRef.capture(local_subshape, kind, 0))
+        if index is not None:
+            # which feature of the part made the face, where the part knows
+            ref.attach_roles(occurrence.shape, pool[index])
         attachment = Attachment(occurrence=occurrence.id, kind=kind,
                                 ref=ref, frame=frame)
         # a face the part has named is held by its name, so the constraint

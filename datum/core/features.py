@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from OCP.TopAbs import TopAbs_FACE
 from OCP.TopoDS import TopoDS, TopoDS_Shape
 
-from . import kernel
+from . import kernel, provenance
 from .kernel import KernelError
 from .naming import RefSet, ShapeRef
 from .params import ExpressionError, evaluate
@@ -63,6 +63,9 @@ class Body:
 
     name: str = "Solid1"
     shape: Optional[TopoDS_Shape] = None
+    # which feature made which of its faces; see provenance. Only ever
+    # trusted for the shape it was made for (``tags.is_for(shape)``)
+    tags: Optional["provenance.FaceTags"] = None
 
     @property
     def valid(self) -> bool:
@@ -113,6 +116,11 @@ class BuildContext:
         # feature id -> ("fillet" or "chamfer", size, edges it worked on),
         # so a pattern or mirror can do the same on its copies
         self.edge_ops: Dict[int, Tuple[str, float, List[TopoDS_Shape]]] = {}
+        # feature id -> the roles of its tool's faces, for pattern/mirror
+        self.tool_tags: Dict[int, "provenance.FaceTags"] = {}
+        # the last prism extrude_h made: (tool, history, profile), so a
+        # feature can tell its tool came straight from one
+        self.last_prism: Optional[Tuple[TopoDS_Shape, Any, TopoDS_Shape]] = None
         self.log: List[str] = []
         # the sheet metal K-factor, for a Fold's bend allowance
         self.k_factor = 0.44
@@ -202,9 +210,105 @@ class BuildContext:
                     continue
         return None
 
+    # -- provenance ---------------------------------------------------------
+
+    def tags_of(self, body: Body) -> Optional["provenance.FaceTags"]:
+        """The roles of a body's faces as it stands: its own tags if they
+        are for this very shape, else carried over by geometry."""
+        t = body.tags
+        if t is None or not provenance.ENABLED:
+            return None
+        if t.is_for(body.shape):
+            return t
+        if t.count > provenance.MAX_FACES:
+            return None
+        return t.transfer(body.shape)
+
+    def carry(self, old: Optional["provenance.FaceTags"], history,
+              result: TopoDS_Shape) -> Optional["provenance.FaceTags"]:
+        """Tags for ``result`` from the tags of what it was made from and
+        the history of the operation; a fresh set when there were none, so
+        the feature can still name its own new faces."""
+        if not provenance.ENABLED:
+            return None
+        try:
+            out = provenance.FaceTags(result)
+            if out.count > provenance.MAX_FACES:
+                return None
+            if old is not None:
+                old.fold_into(out, history)
+            return out
+        except Exception:
+            return None
+
+    def reshape(self, result: TopoDS_Shape, history,
+                extras: Sequence["provenance.FaceTags"] = ()) -> None:
+        """``ctx.shape = result`` for an operation that made it from the
+        part and some copies: the part's roles go through ``history``, and
+        so do those of the copies (``extras``, tagged on the copies' own
+        faces, which are arguments of the same operation)."""
+        body = self.live[0] if len(self.live) == 1 else (
+            self.bodies[0] if self.bodies else None)
+        old = self.tags_of(body) if body is not None else None
+        tags = self.carry(old, history, result)
+        if tags is not None:
+            for extra in extras:
+                extra.fold_into(tags, history)
+        self.shape = result
+        if self.bodies:
+            self.bodies[0].tags = tags
+
+    def copy_tags(self, source: Optional["provenance.FaceTags"],
+                  copy: TopoDS_Shape, suffix: str
+                  ) -> Optional["provenance.FaceTags"]:
+        """The roles of a transformed copy of a tagged shape: the faces of a
+        copy are in the order of the faces of the original, and each keeps
+        the original's roles, marked ``@<suffix>`` as a copy's."""
+        if source is None or not source.tags or not provenance.ENABLED:
+            return None
+        out = provenance.FaceTags(copy)
+        if out.count != source.count:
+            return None
+        for i, roles in source.tags.items():
+            out.tags[i] = {"%s@%s" % (r, suffix) for r in roles}
+        return out
+
+    def settle(self) -> None:
+        """After a feature: a body it changed without saying how keeps the
+        roles of the faces it did not change, and every body is made known
+        to the registry that references look roles up in."""
+        for body in self.bodies:
+            t = body.tags
+            if t is not None and body.shape is not None \
+                    and not t.is_for(body.shape):
+                try:
+                    body.tags = self.tags_of(body)
+                except Exception:
+                    body.tags = None
+            provenance.register(body.shape, body.tags)
+
+    def _merge(self, shape: TopoDS_Shape,
+               tags: Optional["provenance.FaceTags"], tool: TopoDS_Shape,
+               tool_tags: Optional["provenance.FaceTags"], op: str):
+        """``kernel.combine`` and the roles of what it makes."""
+        result, hist = kernel.combine_h(shape, tool, op)
+        if not provenance.ENABLED or (not tags and not tool_tags):
+            return result, None
+        try:
+            out = provenance.FaceTags(result)
+            if out.count > provenance.MAX_FACES:
+                return result, None
+            for t in (tags, tool_tags):
+                if t:
+                    t.fold_into(out, hist)
+            return result, out
+        except Exception:
+            return result, None
+
     def apply(self, tool: TopoDS_Shape, op: str, feature_id: int,
               target: str = "", name: str = "",
-              targets: Sequence[str] = ()) -> None:
+              targets: Sequence[str] = (),
+              tool_tags: Optional["provenance.FaceTags"] = None) -> None:
         """Combine a tool solid into the part according to ``op``.
 
         The very first solid in an empty part becomes a body whatever the
@@ -218,26 +322,31 @@ class BuildContext:
         actually meets is the one that changes.
         """
         self.tools[feature_id] = (tool, op)
+        if tool_tags is not None:
+            self.tool_tags[feature_id] = tool_tags
+        own = tool_tags if (tool_tags is not None and provenance.ENABLED
+                            and tool_tags.is_for(tool)) else None
 
         if not self.live:
-            self.bodies = [Body(name or self.next_name(), tool)]
+            self.bodies = [Body(name or self.next_name(), tool, own)]
             return
 
         if op == NEW_BODY:
-            self.bodies.append(Body(name or self.next_name(), tool))
+            self.bodies.append(Body(name or self.next_name(), tool, own))
             return
 
         if targets:
-            self._apply_to(tool, op, list(targets))
+            self._apply_to(tool, op, list(targets), own)
             return
 
         body = self.body(target) if target else None
         if body is None:
             body = self._touching(tool) or self.live[0]
-        body.shape = kernel.combine(body.shape, tool, op)
+        body.shape, body.tags = self._merge(body.shape, self.tags_of(body),
+                                            tool, own, op)
 
     def _apply_to(self, tool: TopoDS_Shape, op: str,
-                  targets: List[str]) -> None:
+                  targets: List[str], own=None) -> None:
         chosen = []
         for name in targets:
             body = self.body(name)
@@ -248,15 +357,18 @@ class BuildContext:
                 chosen.append(body)
         if op == JOIN:
             first = chosen[0]
-            merged = kernel.combine(first.shape, tool, JOIN)
+            merged, tags = self._merge(first.shape, self.tags_of(first),
+                                       tool, own, JOIN)
             for other in chosen[1:]:
-                merged = kernel.combine(merged, other.shape, JOIN)
-            first.shape = merged
+                merged, tags = self._merge(merged, tags, other.shape,
+                                           self.tags_of(other), JOIN)
+            first.shape, first.tags = merged, tags
             # the others are part of the first now
             self.bodies = [b for b in self.bodies if b not in chosen[1:]]
             return
         for body in chosen:
-            body.shape = kernel.combine(body.shape, tool, op)
+            body.shape, body.tags = self._merge(
+                body.shape, self.tags_of(body), tool, own, op)
 
     def _touching(self, tool: TopoDS_Shape) -> Optional[Body]:
         """The body this tool actually meets, when there is more than one.
@@ -737,6 +849,8 @@ class WorkPlaneFeature(Feature):
     #   "line_point"    square to a line, through a point
     #   "line_plane"    through a line, at ``angle`` to a plane or face it
     #                   runs parallel to
+    #   "placed"        by numbers or expressions: through ``origin``,
+    #                   square to ``normal``, X along ``xdir``
     # ``refs`` are what was picked, in order; each one of
     #   {"sketch": id, "entity": id}   a line of a sketch
     #   {"sketch": id, "point": id}    a point of a sketch
@@ -745,6 +859,9 @@ class WorkPlaneFeature(Feature):
     # so the plane follows them.  ``offset`` moves it along its normal.
     mode: str = "offset"
     refs: List[Dict[str, Any]] = field(default_factory=list)
+    origin: Tuple[str, str, str] = ("0", "0", "0")
+    normal: Tuple[str, str, str] = ("0", "0", "1")
+    xdir: Tuple[str, str, str] = ("1", "0", "0")
 
     @property
     def base_label(self) -> str:
@@ -771,6 +888,9 @@ class WorkPlaneFeature(Feature):
         return ctx.planes.get(self.base) or STANDARD_PLANES["XY"]
 
     def build(self, ctx: BuildContext) -> None:
+        if self.mode == "placed":
+            ctx.planes[self.name] = self._placed(ctx)
+            return
         if self.mode != "offset":
             plane = self._from_picks(ctx)
             d = ctx.evaluate(self.offset or "0", "%s offset" % self.name)
@@ -852,6 +972,23 @@ class WorkPlaneFeature(Feature):
         b = curve.Value(curve.LastParameter())
         return ("line", (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z()))
 
+    def _placed(self, ctx: BuildContext) -> SketchPlane:
+        def three(texts, what):
+            if len(texts) != 3:
+                raise FeatureError("%s: its %s needs X, Y and Z"
+                                   % (self.name, what))
+            return tuple(ctx.evaluate(v or "0", "%s %s" % (self.name, what))
+                         for v in texts)
+        origin = three(self.origin, "origin")
+        normal = three(self.normal, "normal")
+        xdir = three(self.xdir, "X direction")
+        if math.hypot(*normal) < 1e-9:
+            raise FeatureError("%s: its normal has no length" % self.name)
+        if self.flip:
+            normal = tuple(-c for c in normal)
+        # SketchPlane squares X up to the normal, and picks one if it cannot
+        return SketchPlane(origin, normal, xdir, self.name)
+
     def _from_picks(self, ctx: BuildContext) -> SketchPlane:
         import numpy as np
         got = [self._resolve(ctx, r) for r in self.refs]
@@ -919,7 +1056,8 @@ class WorkPlaneFeature(Feature):
     def made_from(self) -> str:
         return {"two_lines": "two lines", "three_points": "three points",
                 "line_point": "square to a line through a point",
-                "line_plane": "a line at an angle to a plane"
+                "line_plane": "a line at an angle to a plane",
+                "placed": "a point and a normal"
                 }.get(self.mode, self.base_label)
 
     def summary(self) -> str:
@@ -935,6 +1073,9 @@ class WorkPlaneFeature(Feature):
         if self.mode != "offset":
             d["mode"] = self.mode
             d["refs"] = [dict(r) for r in self.refs]
+        if self.mode == "placed":
+            d.update(origin=list(self.origin), normal=list(self.normal),
+                     xdir=list(self.xdir))
         return d
 
     def load_fields(self, data: Dict[str, Any]) -> None:
@@ -946,6 +1087,10 @@ class WorkPlaneFeature(Feature):
             self.face_ref = ShapeRef.from_dict(data["face_ref"])
         self.mode = str(data.get("mode", "offset"))
         self.refs = [dict(r) for r in data.get("refs", [])]
+        for key, default in (("origin", (0, 0, 0)), ("normal", (0, 0, 1)),
+                             ("xdir", (1, 0, 0))):
+            setattr(self, key,
+                    tuple(str(v) for v in data.get(key, default)))
 
 
 @dataclass
@@ -1176,6 +1321,7 @@ class ExtrudeFeature(Feature):
         normal = plane.normal
         taper = ctx.evaluate(self.taper, "%s taper" % self.name)
         sign = -1.0 if self.reversed else 1.0
+        ctx.last_prism = None
         try:
             tool = self._tool(ctx, profile, plane, normal, taper, sign)
             if square is not None:
@@ -1184,7 +1330,36 @@ class ExtrudeFeature(Feature):
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
 
         ctx.apply(tool, self.operation, self.id, name=self.body_name,
-                  targets=self.solids)
+                  targets=self.solids,
+                  tool_tags=self._roles(ctx, tool, plane, sign))
+
+    def _roles(self, ctx: BuildContext, tool: TopoDS_Shape,
+               plane: SketchPlane, sign: float):
+        """What each face of the tool is to this feature: its caps, and the
+        side swept from each sketch entity. From the prism's own history
+        when the tool is one, else read off the tool against the sketch."""
+        if not provenance.ENABLED:
+            return None
+        try:
+            ids = self.profiles.sketch_ids() or (
+                [self.sketch_id] if self.sketch_id else [])
+            sketch = ctx.sketches.get(ids[0]) if ids else None
+            made = ctx.last_prism
+            if made is not None and made[0] is tool:
+                return provenance.tag_prism(tool, made[1], made[2], self.id,
+                                            sketch, plane)
+            return provenance.classify_extrusion(tool, self.id, sketch,
+                                                 plane, sign)
+        except Exception:
+            return None
+
+    def _prism(self, ctx: BuildContext, profile: TopoDS_Shape,
+               normal: Sequence[float], distance: float,
+               taper: float) -> TopoDS_Shape:
+        """kernel.extrude, remembering its history for ``_roles``."""
+        tool, hist = kernel.extrude_h(profile, normal, distance, taper)
+        ctx.last_prism = (tool, hist, profile)
+        return tool
 
     def _tool(self, ctx: BuildContext, profile: TopoDS_Shape,
               plane: SketchPlane, normal: Sequence[float], taper: float,
@@ -1202,14 +1377,14 @@ class ExtrudeFeature(Feature):
             reach = _through_all_reach(ctx.shape, plane)
             profile = kernel.translate(
                 profile, [-normal[i] * reach for i in range(3)])
-            return kernel.extrude(profile, normal, 2 * reach, 0.0)
+            return self._prism(ctx, profile, normal, 2 * reach, 0.0)
         d = ctx.evaluate(self.distance, "%s distance" % self.name)
         if d <= 0:
             raise FeatureError("%s: distance must be positive" % self.name)
         if self.extent == "symmetric":
             profile = kernel.translate(
                 profile, [-normal[i] * d / 2.0 for i in range(3)])
-            return kernel.extrude(profile, normal, d, taper)
+            return self._prism(ctx, profile, normal, d, taper)
         if self.extent == "asymmetric":
             # Inventor's Asymmetric: each way its own distance and taper
             d2 = ctx.evaluate(self.distance2, "%s distance B" % self.name)
@@ -1222,7 +1397,7 @@ class ExtrudeFeature(Feature):
             return kernel.boolean(ahead, behind, "join")
         if self.from_ref or self.from_plane:
             return self._from_distance(ctx, profile, normal, d * sign, taper)
-        return kernel.extrude(profile, normal, d * sign, taper)
+        return self._prism(ctx, profile, normal, d * sign, taper)
 
     # -- what an end of it is ----------------------------------------------
 
@@ -1817,12 +1992,19 @@ class RevolveFeature(Feature):
             origin, axis_dir = (self._axis(sketch) if sketch is not None
                                 else (plane.origin, plane.xdir))
         try:
-            tool = kernel.revolve(profile, origin, axis_dir, angle)
+            tool, hist = kernel.revolve_h(profile, origin, axis_dir, angle)
         except KernelError as exc:
             raise FeatureError("%s: %s (does the profile cross the axis?)"
                                % (self.name, exc)) from exc
+        tags = None
+        if provenance.ENABLED:
+            try:
+                tags = provenance.tag_prism(tool, hist, profile, self.id,
+                                            sketch, plane)
+            except Exception:
+                tags = None
         ctx.apply(tool, self.operation, self.id, name=self.body_name,
-                  targets=self.solids)
+                  targets=self.solids, tool_tags=tags)
 
     def _axis(self, sketch: Sketch) -> Tuple[Sequence[float], Sequence[float]]:
         plane = sketch.plane
@@ -1918,11 +2100,21 @@ class SweepFeature(Feature):
                                           self.sketch_id)
         try:
             path = self.path_wire(ctx)
-            tool = kernel.sweep(profile, path)
+            tool, hist = kernel.sweep_h(profile, path)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        tags = None
+        if provenance.ENABLED:
+            try:
+                ids = self.profiles.sketch_ids() or (
+                    [self.sketch_id] if self.sketch_id else [])
+                tags = provenance.tag_prism(
+                    tool, hist, profile, self.id,
+                    ctx.sketches.get(ids[0]) if ids else None, _plane)
+            except Exception:
+                tags = None
         ctx.apply(tool, self.operation, self.id, name=self.body_name,
-                  targets=self.solids)
+                  targets=self.solids, tool_tags=tags)
 
     def summary(self) -> str:
         return "%s: along a path, %s" % (self.name, self.output_summary())
@@ -1987,12 +2179,26 @@ class LoftFeature(Feature):
         if len(profiles) < 2:
             raise FeatureError("%s: pick at least two sections" % self.name)
 
+        if not self.closed and self.operation != NEW_BODY:
+            raise FeatureError(
+                "%s: closed=false makes an open surface, which cannot %s a "
+                "solid; set closed=true (the default) to cap the ends"
+                % (self.name, self.operation))
+
         try:
-            tool = kernel.loft(profiles, self.closed, self.ruled)
+            tool, hist = kernel.loft_h(profiles, self.closed, self.ruled)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
+        tags = None
+        if provenance.ENABLED:
+            try:
+                first = ctx.sketches.get(self.sections[0])
+                tags = provenance.tag_prism(tool, hist, profiles[0], self.id,
+                                            first, first.plane)
+            except Exception:
+                tags = None
         ctx.apply(tool, self.operation, self.id, name=self.body_name,
-                  targets=self.solids)
+                  targets=self.solids, tool_tags=tags)
 
     def summary(self) -> str:
         return "%s: %d sections, %s" % (self.name, len(self.sections),
@@ -2049,7 +2255,9 @@ class HoleFeature(Feature):
         if sketch is None:
             raise FeatureError("%s: its sketch is missing or suppressed" % self.name)
 
-        centres = [sketch.points[pid] for pid in self.centres(sketch)]
+        pids = self.centres(sketch)
+        centres = [sketch.points[pid] for pid in pids]
+        parts: list = []
         if not centres:
             raise FeatureError("%s: place points or circles in the sketch to "
                                "mark hole centres" % self.name)
@@ -2096,16 +2304,39 @@ class HoleFeature(Feature):
             if head is not None:
                 tool = kernel.boolean(tool, head, "join")
             tools.append(tool)
+            if provenance.ENABLED:
+                try:
+                    pid = pids[len(tools) - 1]
+                    parts.append(_hole_roles(
+                        tool, self.id, pid, dia / 2.0,
+                        self._head_radius(ctx),
+                        plane, drill, base))
+                except Exception:
+                    pass
 
         # separate holes do not touch, so a compound is fine here
         combined = kernel.compound(tools) if len(tools) > 1 else tools[0]
+        tags = None
+        if parts:
+            tags = provenance.FaceTags(combined)
+            for part in parts:
+                tags.absorb(part)
         targets = list(self.solids)
         if not targets and len(ctx.live) > 1:
             # none picked: every solid a hole goes into, not just the one,
             # a sketch of holes over two plates drills both
             targets = [b.name for b in ctx.live
                        if any(_overlaps(b.shape, t) for t in tools)]
-        ctx.apply(combined, "cut", self.id, targets=targets)
+        ctx.apply(combined, "cut", self.id, targets=targets, tool_tags=tags)
+
+    def _head_radius(self, ctx: BuildContext) -> float:
+        """The radius of the counterbore or countersink, 0 for neither."""
+        if self.hole_type not in ("counterbore", "countersink"):
+            return 0.0
+        try:
+            return ctx.evaluate(self.cb_diameter, "%s head" % self.name) / 2.0
+        except FeatureError:
+            return 0.0
 
     def summary(self) -> str:
         depth = "through" if self.through else self.depth
@@ -2132,6 +2363,46 @@ class HoleFeature(Feature):
         self.cs_angle = str(data.get("cs_angle", "90"))
         self.flip = bool(data.get("flip", False))
         self.points = [int(p) for p in data.get("points") or []]
+
+
+def _hole_roles(tool: TopoDS_Shape, fid: int, pid: int, radius: float,
+                head_radius: float, plane: SketchPlane, drill,
+                base) -> "provenance.FaceTags":
+    """The faces of one hole's tool: its bore, its counterbore, the shoulder
+    between them, the cone of a countersink, and the floor of a blind one,
+    each named for the sketch point the hole is at."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_SurfaceType as S
+    from . import provenance as prov
+
+    tags = prov.FaceTags(tool)
+    along = []
+    for f in kernel.faces(tool):
+        surface = BRepAdaptor_Surface(f)
+        kind = surface.GetType()
+        if kind == S.GeomAbs_Cylinder:
+            r = surface.Cylinder().Radius()
+            if abs(r - radius) < 1e-6 * max(1.0, radius):
+                tags.add(f, prov.role_name(fid, "wall:p%d" % pid))
+            elif head_radius and abs(r - head_radius) < 1e-6 * max(
+                    1.0, head_radius):
+                tags.add(f, prov.role_name(fid, "cbore:p%d" % pid))
+        elif kind == S.GeomAbs_Cone:
+            tags.add(f, prov.role_name(fid, "csink:p%d" % pid))
+        elif kind == S.GeomAbs_Plane:
+            centre = kernel.shape_centre(f)
+            depth = sum((centre[i] - base[i]) * drill[i] for i in range(3))
+            along.append((depth, f))
+    if along:
+        # the plane the furthest in is the floor of a blind hole; one in
+        # between is the shoulder of a counterbore
+        along.sort(key=lambda a: a[0])
+        far = along[-1]
+        tags.add(far[1], prov.role_name(fid, "floor:p%d" % pid))
+        for depth, f in along[:-1]:
+            if depth > 1e-6:
+                tags.add(f, prov.role_name(fid, "shoulder:p%d" % pid))
+    return tags
 
 
 def hole_centres(sketch) -> Dict[int, str]:
@@ -2295,6 +2566,52 @@ class ImportFeature(Feature):
 # ==========================================================================
 
 
+def _rounded(ctx: BuildContext, old, hist, result: TopoDS_Shape,
+             edge_list, fid: int):
+    """Tags after a fillet or chamfer: what was there is carried over, and
+    the face made from each edge is ``face:<k>`` for the k-th edge."""
+    tags = ctx.carry(old, hist, result)
+    if tags is None:
+        return None
+    try:
+        for k, edge in enumerate(edge_list):
+            between = provenance.edge_key(old, edge)
+            for face in hist.generated(edge):
+                if face.ShapeType() == TopAbs_FACE:
+                    tags.add(face, provenance.role_name(fid, "face:%d" % k))
+                    if between:
+                        # named for the edge it rounds, by the faces it lay
+                        # between: unlike "the k-th edge", that does not
+                        # move when a feature before it adds an edge
+                        tags.add(face, provenance.role_name(
+                            fid, "edge:" + between))
+    except Exception:
+        pass
+    return tags
+
+
+def _queried_edges(body: TopoDS_Shape, query: Any, name: str) -> list:
+    """The edges an edge query finds on the body as it is now."""
+    from . import edgequery
+
+    try:
+        return edgequery.edges(body, query)
+    except edgequery.QueryError as exc:
+        raise FeatureError("%s: %s" % (name, exc)) from exc
+
+
+def _query_text(query: Any) -> str:
+    """A query in a few words, for the browser's tooltip."""
+    parts = query if isinstance(query, list) else [query]
+    words = []
+    for q in parts:
+        if isinstance(q, dict):
+            words.append(" ".join("%s %s" % (k, v) for k, v in q.items()))
+        else:
+            words.append(str(q))
+    return "edges where " + "; or ".join(words)
+
+
 @dataclass
 class FilletFeature(Feature):
     type_name: str = "fillet"
@@ -2303,6 +2620,8 @@ class FilletFeature(Feature):
     radius: str = "2"
     refs: RefSet = field(default_factory=RefSet)
     all_edges: bool = False
+    # edges picked by a rule rather than a click; see edgequery
+    query: Any = None
 
     def build(self, ctx: BuildContext) -> None:
         body = ctx.require_shape(self.name)
@@ -2310,6 +2629,8 @@ class FilletFeature(Feature):
 
         if self.all_edges:
             targets = kernel.edges(body)
+        elif self.query is not None:
+            targets = _queried_edges(body, self.query, self.name)
         else:
             targets, lost = self.refs.resolve_all(body)
             if lost and not targets:
@@ -2324,25 +2645,33 @@ class FilletFeature(Feature):
             # a modifying feature belongs to whichever body owns the edges
             # it was pointed at, not to "the" body
             owner = ctx.require_body(self.name, targets[0])
-            owner.shape = kernel.fillet(
-                owner.shape, [TopoDS.Edge_s(e) for e in targets], r)
+            old = ctx.tags_of(owner)
+            edge_list = [TopoDS.Edge_s(e) for e in targets]
+            result, hist = kernel.fillet_h(owner.shape, edge_list, r)
+            owner.tags = _rounded(ctx, old, hist, result, edge_list, self.id)
+            owner.shape = result
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
         if not self.all_edges:
             ctx.edge_ops[self.id] = ("fillet", r, list(targets))
 
     def summary(self) -> str:
-        n = "all edges" if self.all_edges else "%d edge(s)" % len(self.refs)
+        n = ("all edges" if self.all_edges else _query_text(self.query)
+             if self.query is not None else "%d edge(s)" % len(self.refs))
         return "%s: R%s on %s" % (self.name, self.radius, n)
 
     def field_dict(self) -> Dict[str, Any]:
-        return {"radius": self.radius, "refs": self.refs.to_list(),
-                "all_edges": self.all_edges}
+        out = {"radius": self.radius, "refs": self.refs.to_list(),
+               "all_edges": self.all_edges}
+        if self.query is not None:
+            out["query"] = self.query
+        return out
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.radius = str(data.get("radius", "2"))
         self.refs = RefSet.from_list(data.get("refs", []))
         self.all_edges = bool(data.get("all_edges", False))
+        self.query = data.get("query")
 
 
 @dataclass
@@ -2353,6 +2682,8 @@ class ChamferFeature(Feature):
     distance: str = "1"
     refs: RefSet = field(default_factory=RefSet)
     all_edges: bool = False
+    # edges picked by a rule rather than a click; see edgequery
+    query: Any = None
 
     def build(self, ctx: BuildContext) -> None:
         body = ctx.require_shape(self.name)
@@ -2360,6 +2691,8 @@ class ChamferFeature(Feature):
 
         if self.all_edges:
             targets = kernel.edges(body)
+        elif self.query is not None:
+            targets = _queried_edges(body, self.query, self.name)
         else:
             targets, lost = self.refs.resolve_all(body)
             if lost:
@@ -2370,25 +2703,33 @@ class ChamferFeature(Feature):
 
         try:
             owner = ctx.require_body(self.name, targets[0])
-            owner.shape = kernel.chamfer(
-                owner.shape, [TopoDS.Edge_s(e) for e in targets], d)
+            old = ctx.tags_of(owner)
+            edge_list = [TopoDS.Edge_s(e) for e in targets]
+            result, hist = kernel.chamfer_h(owner.shape, edge_list, d)
+            owner.tags = _rounded(ctx, old, hist, result, edge_list, self.id)
+            owner.shape = result
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
         if not self.all_edges:
             ctx.edge_ops[self.id] = ("chamfer", d, list(targets))
 
     def summary(self) -> str:
-        n = "all edges" if self.all_edges else "%d edge(s)" % len(self.refs)
+        n = ("all edges" if self.all_edges else _query_text(self.query)
+             if self.query is not None else "%d edge(s)" % len(self.refs))
         return "%s: %s on %s" % (self.name, self.distance, n)
 
     def field_dict(self) -> Dict[str, Any]:
-        return {"distance": self.distance, "refs": self.refs.to_list(),
-                "all_edges": self.all_edges}
+        out = {"distance": self.distance, "refs": self.refs.to_list(),
+               "all_edges": self.all_edges}
+        if self.query is not None:
+            out["query"] = self.query
+        return out
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.distance = str(data.get("distance", "1"))
         self.refs = RefSet.from_list(data.get("refs", []))
         self.all_edges = bool(data.get("all_edges", False))
+        self.query = data.get("query")
 
 
 @dataclass
@@ -2514,7 +2855,10 @@ class MirrorFeature(Feature):
             return
         if self.scope == "body":
             copy = kernel.mirror(body, plane)
-            ctx.shape = kernel.boolean(body, copy, "join")
+            result, hist = kernel.boolean_h(body, copy, "join")
+            whole = provenance.for_shape(body)
+            extra = ctx.copy_tags(whole, copy, "%d" % self.id)
+            ctx.reshape(result, hist, [extra] if extra is not None else [])
             remember_tools(ctx, self.id, [(copy, JOIN)])
             return
 
@@ -2534,8 +2878,11 @@ class MirrorFeature(Feature):
                 continue
             tool, op = entry
             copy = kernel.mirror(tool, plane)
-            ctx.shape = kernel.boolean(ctx.shape, copy,
-                                       op if op != "new" else "join")
+            result, hist = kernel.boolean_h(ctx.shape, copy,
+                                            op if op != "new" else "join")
+            extra = ctx.copy_tags(ctx.tool_tags.get(fid), copy,
+                                  "%d" % self.id)
+            ctx.reshape(result, hist, [extra] if extra is not None else [])
             made.append((copy, op))
         if not made and not replayed:
             raise FeatureError("%s: no source features to mirror" % self.name)
@@ -2866,8 +3213,13 @@ class PatternFeature(Feature):
                 continue
             tool, op = entry
             moved = [transform(tool) for transform in placements[1:]]
-            ctx.shape = kernel.boolean_many(ctx.shape, moved,
-                                            op if op != "new" else "join")
+            result, hist = kernel.boolean_many_h(
+                ctx.shape, moved, op if op != "new" else "join")
+            source = ctx.tool_tags.get(_fid)
+            extras = [t for t in (
+                ctx.copy_tags(source, copy, "%d.%d" % (self.id, k))
+                for k, copy in enumerate(moved, start=1)) if t is not None]
+            ctx.reshape(result, hist, extras)
             made.extend((copy, op) for copy in moved)
         if missed:
             ctx.log.append("%s: %d copied fillet(s) or chamfer(s) found no "
@@ -3201,11 +3553,14 @@ class CodeFeature(Feature):
     body_name: str = ""
 
     def build(self, ctx: BuildContext) -> None:
-        if not ctx.code_allowed:
+        from .rules import WAITING_FOR_TRUST, code_trusted, run_code
+        # trusted with its document, or on its own by the hash of this
+        # exact source (an agent's feature, say), never by the file
+        if not ctx.code_allowed and not code_trusted(self.source):
             raise FeatureError(
-                "%s is code, and code does not run until this document is "
-                "trusted.  Allow it from the icLogic panel." % self.name)
-        from .rules import run_code
+                "%s %s: it is code, and code does not run until this "
+                "document, or this feature's source, is trusted.  Allow it "
+                "from the icLogic panel." % (self.name, WAITING_FOR_TRUST))
 
         self.output = ""
         solid, self.output = run_code(self.source, ctx.scope, self.name)

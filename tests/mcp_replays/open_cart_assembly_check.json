@@ -1,0 +1,41 @@
+{
+ "name": "open the weld cart assembly, check it and list its BOM",
+ "calls": [
+  {
+   "tool": "open_document",
+   "args": {
+    "path": "{EXAMPLES}/weld-cart/Welding Cart.icasm"
+   }
+  },
+  {
+   "tool": "assembly_check",
+   "args": {},
+   "expect": {
+    "fields": {
+     "dof": 1,
+     "failed": [],
+     "ok": true
+    },
+    "contains": "Gas Bottle:1"
+   }
+  },
+  {
+   "tool": "bom",
+   "args": {
+    "structure": "flat"
+   },
+   "expect": {
+    "contains": "Caster Plate"
+   }
+  },
+  {
+   "tool": "bom",
+   "args": {
+    "structure": "structured"
+   },
+   "expect": {
+    "contains": "children"
+   }
+  }
+ ]
+}

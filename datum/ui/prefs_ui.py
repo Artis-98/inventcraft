@@ -90,6 +90,7 @@ class PreferencesDialog(QtWidgets.QDialog):
         tabs.addTab(self._colours_page(), "Colours")
         tabs.addTab(self._display_page(), "Display")
         tabs.addTab(self._shortcuts_page(), "Shortcuts")
+        tabs.addTab(self._ai_page(), "AI")
         root.addWidget(tabs, 1)
 
         where = QtWidgets.QLabel("Kept in %s" % core_prefs.config_path())
@@ -308,6 +309,42 @@ class PreferencesDialog(QtWidgets.QDialog):
         outer.addStretch(1)
         return page
 
+    # -- AI -----------------------------------------------------------------
+
+    def _ai_page(self) -> QtWidgets.QWidget:
+        """Whether an AI agent may drive the documents open in this window."""
+        from ..bridge import pairing
+
+        page = QtWidgets.QWidget()
+        outer = QtWidgets.QVBoxLayout(page)
+        outer.setContentsMargins(12, 12, 12, 12)
+        outer.setSpacing(8)
+        note = QtWidgets.QLabel(
+            "An AI agent (Claude Code, or any MCP client, through the "
+            "InventCraft MCP server) can edit the documents open in this "
+            "window while you watch. Every change is one undo step, a copy "
+            "of the document is saved first, and you can press Stop in the "
+            "status bar at any time. Code the agent writes never runs "
+            "unless you read it and allow it.")
+        note.setWordWrap(True)
+        note.setProperty("hint", True)
+        outer.addWidget(note)
+        self.agents_box = QtWidgets.QCheckBox("Allow agents")
+        self.agents_box.setChecked(self.prefs.allow_agents)
+        self.agents_box.setToolTip(
+            "Off by default. Turning it on makes a new secret each time, "
+            "in the file below; only programs that can read it can pair.")
+        outer.addWidget(self.agents_box)
+        where = QtWidgets.QLabel(
+            "Pairing secret, readable only by you, removed when this is "
+            "turned off or the program closes:\n%s" % pairing.pairing_path())
+        where.setWordWrap(True)
+        where.setProperty("hint", True)
+        where.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+        outer.addWidget(where)
+        outer.addStretch(1)
+        return page
+
     # -- shortcuts ----------------------------------------------------------
 
     def _shortcuts_page(self) -> QtWidgets.QWidget:
@@ -450,6 +487,7 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.prefs.old_versions = self.versions_spin.value()
         self.prefs.templates_folder = self.templates_edit.text().strip()
         self.prefs.language = self.language_combo.currentData() or "en"
+        self.prefs.allow_agents = self.agents_box.isChecked()
         from . import shortcuts
         self.prefs.shortcuts = shortcuts.changes(self.shortcut_keys())
         # only what differs from the shipped palette is written, so a

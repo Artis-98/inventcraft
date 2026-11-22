@@ -1,0 +1,1759 @@
+{
+ "excavator/Arm.pdat": {
+  "faces": 32,
+  "ok": true,
+  "seconds": 0.7411,
+  "solids": 1,
+  "volume": 88362441.3009
+ },
+ "excavator/Blade Arm.pdat": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.1273,
+  "solids": 1,
+  "volume": 8671064.6809
+ },
+ "excavator/Boom.pdat": {
+  "faces": 36,
+  "ok": true,
+  "seconds": 0.7949,
+  "solids": 1,
+  "volume": 169440087.1241
+ },
+ "excavator/Bucket Link.pdat": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0541,
+  "solids": 1,
+  "volume": 4326376.3912
+ },
+ "excavator/Bucket Ram Barrel.pdat": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.5461,
+  "solids": 1,
+  "volume": 3737290.4405
+ },
+ "excavator/Bucket Ram Rod.pdat": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.1646,
+  "solids": 1,
+  "volume": 1257553.995
+ },
+ "excavator/Bucket Tooth.pdat": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0292,
+  "solids": 1,
+  "volume": 1801920.0
+ },
+ "excavator/Bucket.pdat": {
+  "faces": 31,
+  "ok": true,
+  "seconds": 0.2927,
+  "solids": 1,
+  "volume": 83456756.0149
+ },
+ "excavator/Cab Frame.pdat": {
+  "faces": 34,
+  "ok": true,
+  "seconds": 0.7381,
+  "solids": 1,
+  "volume": 102844800.0
+ },
+ "excavator/Cab Glazing.pdat": {
+  "faces": 20,
+  "ok": true,
+  "seconds": 0.0934,
+  "solids": 2,
+  "volume": 39936000.0
+ },
+ "excavator/Counterweight.pdat": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.034,
+  "solids": 1,
+  "volume": 226560000.0
+ },
+ "excavator/Dozer Blade.pdat": {
+  "faces": 15,
+  "ok": true,
+  "seconds": 0.1452,
+  "solids": 1,
+  "volume": 20622420.6577
+ },
+ "excavator/Drive Sprocket.pdat": {
+  "faces": 90,
+  "ok": true,
+  "seconds": 1.2015,
+  "solids": 1,
+  "volume": 17524282.4423
+ },
+ "excavator/Exhaust Stack.pdat": {
+  "faces": 5,
+  "ok": true,
+  "seconds": 0.0323,
+  "solids": 1,
+  "volume": 1774597.7254
+ },
+ "excavator/House.pdat": {
+  "faces": 46,
+  "ok": true,
+  "seconds": 0.8966,
+  "solids": 1,
+  "volume": 234214917.4013
+ },
+ "excavator/Idler Link.pdat": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0519,
+  "solids": 1,
+  "volume": 4250903.0461
+ },
+ "excavator/Idler Wheel.pdat": {
+  "faces": 12,
+  "ok": true,
+  "seconds": 0.127,
+  "solids": 1,
+  "volume": 18598605.5004
+ },
+ "excavator/Pivot Pin.pdat": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0788,
+  "solids": 1,
+  "volume": 3137119.0257
+ },
+ "excavator/Ram Barrel.pdat": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.4027,
+  "solids": 1,
+  "volume": 8602679.6417
+ },
+ "excavator/Ram Pin.pdat": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0801,
+  "solids": 1,
+  "volume": 1580145.7065
+ },
+ "excavator/Ram Rod.pdat": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.1795,
+  "solids": 1,
+  "volume": 3236695.8508
+ },
+ "excavator/Rubber Track.pdat": {
+  "faces": 165,
+  "ok": true,
+  "seconds": 1.3872,
+  "solids": 1,
+  "volume": 64868374.2686
+ },
+ "excavator/Seat.pdat": {
+  "faces": 15,
+  "ok": true,
+  "seconds": 0.1786,
+  "solids": 1,
+  "volume": 83616000.0
+ },
+ "excavator/Slew Ring.pdat": {
+  "faces": 16,
+  "ok": true,
+  "seconds": 0.1361,
+  "solids": 1,
+  "volume": 14800042.9911
+ },
+ "excavator/Track Frame.pdat": {
+  "faces": 48,
+  "ok": true,
+  "seconds": 0.5192,
+  "solids": 1,
+  "volume": 364692939.9336
+ },
+ "excavator/Work Light.pdat": {
+  "faces": 13,
+  "ok": true,
+  "seconds": 0.0649,
+  "solids": 1,
+  "volume": 1128109.8723
+ },
+ "plywood-tote/Base.pdat": {
+  "faces": 30,
+  "ok": true,
+  "seconds": 0.1125,
+  "solids": 1,
+  "volume": 364032.0
+ },
+ "plywood-tote/End Panel.pdat": {
+  "faces": 50,
+  "ok": true,
+  "seconds": 0.5044,
+  "solids": 1,
+  "volume": 167749.3944
+ },
+ "plywood-tote/Side Panel.pdat": {
+  "faces": 38,
+  "ok": true,
+  "seconds": 0.3058,
+  "solids": 1,
+  "volume": 329803.9755
+ },
+ "railing/Stair Railing.pdat": {
+  "faces": 0,
+  "ok": false,
+  "seconds": 0.0253,
+  "solids": 0,
+  "volume": 0.0
+ },
+ "walking-excavator/parts/Attachment pin.icpart": {
+  "faces": 5,
+  "ok": true,
+  "seconds": 0.0342,
+  "solids": 1,
+  "volume": 1218150.457
+ },
+ "walking-excavator/parts/Boom 14mm web.icpart": {
+  "faces": 12,
+  "ok": true,
+  "seconds": 0.0481,
+  "solids": 1,
+  "volume": 12051477.4704
+ },
+ "walking-excavator/parts/Boom bottom cap 12mm.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.0465,
+  "solids": 1,
+  "volume": 7543594.9421
+ },
+ "walking-excavator/parts/Boom dipper pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0351,
+  "solids": 1,
+  "volume": 3465670.9742
+ },
+ "walking-excavator/parts/Boom dipper ram lug 18mm.icpart": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.0584,
+  "solids": 1,
+  "volume": 873945.8149
+ },
+ "walking-excavator/parts/Boom foot boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0335,
+  "solids": 1,
+  "volume": 7970883.4382
+ },
+ "walking-excavator/parts/Boom foot pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0303,
+  "solids": 1,
+  "volume": 4277961.1707
+ },
+ "walking-excavator/parts/Boom foot tower 30mm.icpart": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.0471,
+  "solids": 1,
+  "volume": 6024378.4712
+ },
+ "walking-excavator/parts/Boom hardline L.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0986,
+  "solids": 1,
+  "volume": 304230.9012
+ },
+ "walking-excavator/parts/Boom hardline R.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0336,
+  "solids": 1,
+  "volume": 304230.9012
+ },
+ "walking-excavator/parts/Boom hardline saddle 1000.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0314,
+  "solids": 1,
+  "volume": 27407.3959
+ },
+ "walking-excavator/parts/Boom hardline saddle 1900.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0435,
+  "solids": 1,
+  "volume": 27388.6154
+ },
+ "walking-excavator/parts/Boom hardline saddle 560.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.031,
+  "solids": 1,
+  "volume": 27407.3959
+ },
+ "walking-excavator/parts/Boom lift ram lug 18mm.icpart": {
+  "faces": 13,
+  "ok": true,
+  "seconds": 0.0445,
+  "solids": 1,
+  "volume": 486317.1773
+ },
+ "walking-excavator/parts/Boom ram barrel.icpart": {
+  "faces": 84,
+  "ok": true,
+  "seconds": 0.805,
+  "solids": 1,
+  "volume": 4607734.6703
+ },
+ "walking-excavator/parts/Boom ram base lug 18mm.icpart": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.0381,
+  "solids": 1,
+  "volume": 383930.1341
+ },
+ "walking-excavator/parts/Boom ram gland.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0377,
+  "solids": 1,
+  "volume": 748034.9925
+ },
+ "walking-excavator/parts/Boom ram pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0291,
+  "solids": 1,
+  "volume": 365547.3436
+ },
+ "walking-excavator/parts/Boom ram rod.icpart": {
+  "faces": 30,
+  "ok": true,
+  "seconds": 0.1638,
+  "solids": 1,
+  "volume": 3153311.6692
+ },
+ "walking-excavator/parts/Boom tip boss ring.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.031,
+  "solids": 1,
+  "volume": 463324.4407
+ },
+ "walking-excavator/parts/Boom tip closure plate.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0337,
+  "solids": 1,
+  "volume": 826993.5
+ },
+ "walking-excavator/parts/Boom top cap 12mm.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.0432,
+  "solids": 1,
+  "volume": 7939685.9212
+ },
+ "walking-excavator/parts/Bucket cutting edge 40mm bevelled.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0272,
+  "solids": 1,
+  "volume": 1436400.0
+ },
+ "walking-excavator/parts/Bucket hitch bracket 22mm.icpart": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.0382,
+  "solids": 1,
+  "volume": 268685.6237
+ },
+ "walking-excavator/parts/Bucket hitch pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0511,
+  "solids": 1,
+  "volume": 1095025.1578
+ },
+ "walking-excavator/parts/Bucket link 16mm.icpart": {
+  "faces": 15,
+  "ok": true,
+  "seconds": 0.0682,
+  "solids": 1,
+  "volume": 357576.0651
+ },
+ "walking-excavator/parts/Bucket link pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0376,
+  "solids": 1,
+  "volume": 902759.6874
+ },
+ "walking-excavator/parts/Bucket lip bar 45x60.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0368,
+  "solids": 1,
+  "volume": 2019380.5208
+ },
+ "walking-excavator/parts/Bucket mouth rim 25mm.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0388,
+  "solids": 1,
+  "volume": 2282203.4496
+ },
+ "walking-excavator/parts/Bucket ram barrel.icpart": {
+  "faces": 87,
+  "ok": true,
+  "seconds": 0.8695,
+  "solids": 1,
+  "volume": 2335854.2877
+ },
+ "walking-excavator/parts/Bucket ram gland.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0329,
+  "solids": 1,
+  "volume": 425450.7297
+ },
+ "walking-excavator/parts/Bucket ram pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0336,
+  "solids": 1,
+  "volume": 337273.0097
+ },
+ "walking-excavator/parts/Bucket ram rod.icpart": {
+  "faces": 28,
+  "ok": true,
+  "seconds": 0.1622,
+  "solids": 1,
+  "volume": 1794633.8771
+ },
+ "walking-excavator/parts/Bucket side cutter 20mm.icpart": {
+  "faces": 9,
+  "ok": true,
+  "seconds": 0.0305,
+  "solids": 1,
+  "volume": 467094.2436
+ },
+ "walking-excavator/parts/Bucket side plate 20mm.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.054,
+  "solids": 1,
+  "volume": 9766310.659
+ },
+ "walking-excavator/parts/Bucket tooth.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.065,
+  "solids": 1,
+  "volume": 1193015.4496
+ },
+ "walking-excavator/parts/Bucket wear strip.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0326,
+  "solids": 1,
+  "volume": 385400.6759
+ },
+ "walking-excavator/parts/Bucket wrap plate 12mm rolled.icpart": {
+  "faces": 38,
+  "ok": true,
+  "seconds": 0.0901,
+  "solids": 1,
+  "volume": 16415208.1028
+ },
+ "walking-excavator/parts/Cab dash column.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0294,
+  "solids": 1,
+  "volume": 24091114.9781
+ },
+ "walking-excavator/parts/Cab display.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0439,
+  "solids": 1,
+  "volume": 1147055.5737
+ },
+ "walking-excavator/parts/Cab door glass 8mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0402,
+  "solids": 1,
+  "volume": 8020305.2741
+ },
+ "walking-excavator/parts/Cab door glass seal.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.0726,
+  "solids": 1,
+  "volume": 1475084.1776
+ },
+ "walking-excavator/parts/Cab floor plate 8mm.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0312,
+  "solids": 1,
+  "volume": 6949600.0
+ },
+ "walking-excavator/parts/Cab frame skeleton.icpart": {
+  "faces": 0,
+  "ok": true,
+  "seconds": 0.0264,
+  "solids": 0,
+  "volume": 0.0
+ },
+ "walking-excavator/parts/Cab left rear glass 8mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0385,
+  "solids": 1,
+  "volume": 3275345.2741
+ },
+ "walking-excavator/parts/Cab left rear glass seal.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.0587,
+  "solids": 1,
+  "volume": 997964.1776
+ },
+ "walking-excavator/parts/Cab left rear panel 4mm.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0319,
+  "solids": 1,
+  "volume": 557600.0
+ },
+ "walking-excavator/parts/Cab rear glass 8mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0419,
+  "solids": 1,
+  "volume": 3885585.2741
+ },
+ "walking-excavator/parts/Cab rear glass seal.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.0483,
+  "solids": 1,
+  "volume": 957644.1776
+ },
+ "walking-excavator/parts/Cab rear lower panel 4mm.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0307,
+  "solids": 1,
+  "volume": 2102400.0
+ },
+ "walking-excavator/parts/Cab right glass 8mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0372,
+  "solids": 1,
+  "volume": 9964625.2741
+ },
+ "walking-excavator/parts/Cab right glass seal.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.1153,
+  "solids": 1,
+  "volume": 1522124.1776
+ },
+ "walking-excavator/parts/Cab right lower panel 4mm.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0303,
+  "solids": 1,
+  "volume": 1618400.0
+ },
+ "walking-excavator/parts/Cab roof 4mm flanged.icpart": {
+  "faces": 46,
+  "ok": true,
+  "seconds": 0.3841,
+  "solids": 1,
+  "volume": 5772107.3281
+ },
+ "walking-excavator/parts/Cab rubber mount.icpart": {
+  "faces": 5,
+  "ok": true,
+  "seconds": 0.0409,
+  "solids": 1,
+  "volume": 147083.0849
+ },
+ "walking-excavator/parts/Cab windscreen 8mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0472,
+  "solids": 1,
+  "volume": 8378385.2741
+ },
+ "walking-excavator/parts/Cab windscreen seal.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.1282,
+  "solids": 1,
+  "volume": 1495244.1776
+ },
+ "walking-excavator/parts/Carrier cheek 25mm.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.0644,
+  "solids": 1,
+  "volume": 4211634.7644
+ },
+ "walking-excavator/parts/Carrier kingpin arm 40mm RH.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0677,
+  "solids": 1,
+  "volume": 1408643.551
+ },
+ "walking-excavator/parts/Carrier kingpin arm 40mm.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0496,
+  "solids": 1,
+  "volume": 1408643.551
+ },
+ "walking-excavator/parts/Carrier steering ram lug 12mm RH.icpart": {
+  "faces": 9,
+  "ok": true,
+  "seconds": 0.0495,
+  "solids": 1,
+  "volume": 43456.3448
+ },
+ "walking-excavator/parts/Carrier steering ram lug 12mm.icpart": {
+  "faces": 9,
+  "ok": true,
+  "seconds": 0.0359,
+  "solids": 1,
+  "volume": 43456.3448
+ },
+ "walking-excavator/parts/Carrier upright 30mm RH.icpart": {
+  "faces": 13,
+  "ok": true,
+  "seconds": 0.0645,
+  "solids": 1,
+  "volume": 4328976.4245
+ },
+ "walking-excavator/parts/Carrier upright 30mm.icpart": {
+  "faces": 13,
+  "ok": true,
+  "seconds": 0.0479,
+  "solids": 1,
+  "volume": 4328976.4245
+ },
+ "walking-excavator/parts/Chassis bottom plate 20mm.icpart": {
+  "faces": 50,
+  "ok": true,
+  "seconds": 0.1288,
+  "solids": 1,
+  "volume": 29638501.8123
+ },
+ "walking-excavator/parts/Chassis front wall 12mm bent.icpart": {
+  "faces": 38,
+  "ok": true,
+  "seconds": 0.1089,
+  "solids": 1,
+  "volume": 7792560.5031
+ },
+ "walking-excavator/parts/Chassis rear wall 12mm bent.icpart": {
+  "faces": 38,
+  "ok": true,
+  "seconds": 0.0934,
+  "solids": 1,
+  "volume": 7792560.5031
+ },
+ "walking-excavator/parts/Chassis spread ram lug 18mm.icpart": {
+  "faces": 9,
+  "ok": true,
+  "seconds": 0.0311,
+  "solids": 1,
+  "volume": 100442.3751
+ },
+ "walking-excavator/parts/Chassis top plate 20mm.icpart": {
+  "faces": 51,
+  "ok": true,
+  "seconds": 0.1475,
+  "solids": 1,
+  "volume": 28733723.1281
+ },
+ "walking-excavator/parts/Counterweight casting.icpart": {
+  "faces": 12,
+  "ok": true,
+  "seconds": 0.226,
+  "solids": 1,
+  "volume": 243492796.2509
+ },
+ "walking-excavator/parts/Coupler ear boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0365,
+  "solids": 1,
+  "volume": 887741.7016
+ },
+ "walking-excavator/parts/Coupler pin bush.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0446,
+  "solids": 1,
+  "volume": 977719.9311
+ },
+ "walking-excavator/parts/Coupler side plate 20mm.icpart": {
+  "faces": 19,
+  "ok": true,
+  "seconds": 0.0745,
+  "solids": 1,
+  "volume": 2036354.0789
+ },
+ "walking-excavator/parts/Coupler web 16mm.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0272,
+  "solids": 1,
+  "volume": 328320.0
+ },
+ "walking-excavator/parts/Dipper 12mm web.icpart": {
+  "faces": 20,
+  "ok": true,
+  "seconds": 0.0698,
+  "solids": 1,
+  "volume": 6870254.7762
+ },
+ "walking-excavator/parts/Dipper bottom cap 10mm.icpart": {
+  "faces": 30,
+  "ok": true,
+  "seconds": 0.1003,
+  "solids": 1,
+  "volume": 3467955.0134
+ },
+ "walking-excavator/parts/Dipper bucket ram lug 16mm.icpart": {
+  "faces": 12,
+  "ok": true,
+  "seconds": 0.0506,
+  "solids": 1,
+  "volume": 487711.36
+ },
+ "walking-excavator/parts/Dipper heel closure plate.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0814,
+  "solids": 1,
+  "volume": 608859.1984
+ },
+ "walking-excavator/parts/Dipper heel pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0555,
+  "solids": 1,
+  "volume": 676565.0163
+ },
+ "walking-excavator/parts/Dipper heel spacer.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0406,
+  "solids": 1,
+  "volume": 208018.5155
+ },
+ "walking-excavator/parts/Dipper idler boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0306,
+  "solids": 1,
+  "volume": 1090566.8189
+ },
+ "walking-excavator/parts/Dipper ram barrel.icpart": {
+  "faces": 87,
+  "ok": true,
+  "seconds": 0.9075,
+  "solids": 1,
+  "volume": 4764592.4907
+ },
+ "walking-excavator/parts/Dipper ram gland.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0327,
+  "solids": 1,
+  "volume": 636214.4003
+ },
+ "walking-excavator/parts/Dipper ram rod.icpart": {
+  "faces": 28,
+  "ok": true,
+  "seconds": 0.1548,
+  "solids": 1,
+  "volume": 3216005.4357
+ },
+ "walking-excavator/parts/Dipper root boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0344,
+  "solids": 1,
+  "volume": 5018505.3916
+ },
+ "walking-excavator/parts/Dipper tip closure plate.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0527,
+  "solids": 1,
+  "volume": 402808.8034
+ },
+ "walking-excavator/parts/Dipper top cap 10mm.icpart": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.0606,
+  "solids": 1,
+  "volume": 3408699.4802
+ },
+ "walking-excavator/parts/Door hinge knuckle.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0233,
+  "solids": 1,
+  "volume": 80386.7587
+ },
+ "walking-excavator/parts/Engine hood 3mm bent.icpart": {
+  "faces": 190,
+  "ok": true,
+  "seconds": 7.9497,
+  "solids": 1,
+  "volume": 10051652.0127
+ },
+ "walking-excavator/parts/Engine power pack envelope.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0152,
+  "solids": 1,
+  "volume": 151200000.0
+ },
+ "walking-excavator/parts/Exhaust stack.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0264,
+  "solids": 1,
+  "volume": 514592.8767
+ },
+ "walking-excavator/parts/Hip bracket bottom plate 25mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0419,
+  "solids": 1,
+  "volume": 1884460.4716
+ },
+ "walking-excavator/parts/Hip bracket cheek 25mm.icpart": {
+  "faces": 17,
+  "ok": true,
+  "seconds": 0.0538,
+  "solids": 1,
+  "volume": 5305006.2524
+ },
+ "walking-excavator/parts/Hip bracket top plate 25mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0416,
+  "solids": 1,
+  "volume": 1608870.3392
+ },
+ "walking-excavator/parts/Hip spread ram lug 18mm.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0468,
+  "solids": 1,
+  "volume": 142782.6942
+ },
+ "walking-excavator/parts/Hip swivel pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0341,
+  "solids": 1,
+  "volume": 4232722.2365
+ },
+ "walking-excavator/parts/Hip swivel tube.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0282,
+  "solids": 1,
+  "volume": 4992604.9079
+ },
+ "walking-excavator/parts/Hood front closure 3mm.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0408,
+  "solids": 1,
+  "volume": 1862388.584
+ },
+ "walking-excavator/parts/Hydraulic hub motor housing.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.028,
+  "solids": 1,
+  "volume": 4336101.83
+ },
+ "walking-excavator/parts/Hydraulic rotary union.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0319,
+  "solids": 1,
+  "volume": 10252718.5247
+ },
+ "walking-excavator/parts/Hydraulic tank filler cap.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0249,
+  "solids": 1,
+  "volume": 200171.8119
+ },
+ "walking-excavator/parts/Idler link 16mm.icpart": {
+  "faces": 15,
+  "ok": true,
+  "seconds": 0.0559,
+  "solids": 1,
+  "volume": 386062.6546
+ },
+ "walking-excavator/parts/Idler pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0317,
+  "solids": 1,
+  "volume": 778352.6183
+ },
+ "walking-excavator/parts/Joystick grip.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0269,
+  "solids": 1,
+  "volume": 185178.0374
+ },
+ "walking-excavator/parts/LED work lamp.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0365,
+  "solids": 1,
+  "volume": 1126274.3339
+ },
+ "walking-excavator/parts/Leg 14mm web.icpart": {
+  "faces": 16,
+  "ok": true,
+  "seconds": 0.0743,
+  "solids": 1,
+  "volume": 5678386.0884
+ },
+ "walking-excavator/parts/Leg bottom cap 14mm.icpart": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.0631,
+  "solids": 1,
+  "volume": 4555483.5676
+ },
+ "walking-excavator/parts/Leg circuit manifold.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0407,
+  "solids": 1,
+  "volume": 6058402.8276
+ },
+ "walking-excavator/parts/Leg distal pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0304,
+  "solids": 1,
+  "volume": 2162004.2707
+ },
+ "walking-excavator/parts/Leg lift pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0265,
+  "solids": 1,
+  "volume": 2428442.7436
+ },
+ "walking-excavator/parts/Leg lift ram barrel.icpart": {
+  "faces": 84,
+  "ok": true,
+  "seconds": 1.0379,
+  "solids": 1,
+  "volume": 3229892.9776
+ },
+ "walking-excavator/parts/Leg lift ram base lug 18mm.icpart": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.0437,
+  "solids": 1,
+  "volume": 300790.2675
+ },
+ "walking-excavator/parts/Leg lift ram gland.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0502,
+  "solids": 1,
+  "volume": 533445.6161
+ },
+ "walking-excavator/parts/Leg lift ram rod lug 18mm.icpart": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.0457,
+  "solids": 1,
+  "volume": 246525.7098
+ },
+ "walking-excavator/parts/Leg lift ram rod.icpart": {
+  "faces": 30,
+  "ok": true,
+  "seconds": 0.1667,
+  "solids": 1,
+  "volume": 2559511.6411
+ },
+ "walking-excavator/parts/Leg link 10mm web.icpart": {
+  "faces": 16,
+  "ok": true,
+  "seconds": 0.0611,
+  "solids": 1,
+  "volume": 2373526.7603
+ },
+ "walking-excavator/parts/Leg link bottom cap 10mm.icpart": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.0546,
+  "solids": 1,
+  "volume": 3320361.3087
+ },
+ "walking-excavator/parts/Leg link pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0576,
+  "solids": 1,
+  "volume": 1561614.4987
+ },
+ "walking-excavator/parts/Leg link root boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0789,
+  "solids": 1,
+  "volume": 1053207.6274
+ },
+ "walking-excavator/parts/Leg link tip boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.1827,
+  "solids": 1,
+  "volume": 1053207.6274
+ },
+ "walking-excavator/parts/Leg link top cap 10mm.icpart": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.0697,
+  "solids": 1,
+  "volume": 3320361.3087
+ },
+ "walking-excavator/parts/Leg root boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0543,
+  "solids": 1,
+  "volume": 5626581.1328
+ },
+ "walking-excavator/parts/Leg spread ram barrel.icpart": {
+  "faces": 87,
+  "ok": true,
+  "seconds": 1.0448,
+  "solids": 1,
+  "volume": 879368.4388
+ },
+ "walking-excavator/parts/Leg spread ram gland.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0357,
+  "solids": 1,
+  "volume": 228372.3393
+ },
+ "walking-excavator/parts/Leg spread ram rod.icpart": {
+  "faces": 28,
+  "ok": true,
+  "seconds": 0.1707,
+  "solids": 1,
+  "volume": 482473.1577
+ },
+ "walking-excavator/parts/Leg tip boss.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0337,
+  "solids": 1,
+  "volume": 3895532.1648
+ },
+ "walking-excavator/parts/Leg top cap 14mm.icpart": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.0639,
+  "solids": 1,
+  "volume": 4521924.9102
+ },
+ "walking-excavator/parts/Lift ram pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.029,
+  "solids": 1,
+  "volume": 238595.5845
+ },
+ "walking-excavator/parts/Linkage joint pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0447,
+  "solids": 1,
+  "volume": 902759.6874
+ },
+ "walking-excavator/parts/Linkage spacer sleeve.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0325,
+  "solids": 1,
+  "volume": 201383.6603
+ },
+ "walking-excavator/parts/Mirror arm.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0192,
+  "solids": 1,
+  "volume": 62196.0265
+ },
+ "walking-excavator/parts/Mirror head.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0401,
+  "solids": 1,
+  "volume": 1705750.0816
+ },
+ "walking-excavator/parts/Operator seat base.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0405,
+  "solids": 1,
+  "volume": 57856991.1184
+ },
+ "walking-excavator/parts/Operator seat.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.2625,
+  "solids": 1,
+  "volume": 54818242.1806
+ },
+ "walking-excavator/parts/Quick coupler hook 20mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.1654,
+  "solids": 1,
+  "volume": 261894.8905
+ },
+ "walking-excavator/parts/Quick coupler plate 25mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0498,
+  "solids": 1,
+  "volume": 2780685.8347
+ },
+ "walking-excavator/parts/Radiator cowl 3mm bent.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.08,
+  "solids": 1,
+  "volume": 4614487.4939
+ },
+ "walking-excavator/parts/Radiator grille 3mm.icpart": {
+  "faces": 78,
+  "ok": true,
+  "seconds": 2.1653,
+  "solids": 1,
+  "volume": 966096.6917
+ },
+ "walking-excavator/parts/Rotator hydraulic motor.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0494,
+  "solids": 1,
+  "volume": 1124166.5712
+ },
+ "walking-excavator/parts/Rotator mount plate 30mm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0318,
+  "solids": 1,
+  "volume": 2034499.1118
+ },
+ "walking-excavator/parts/Rotator output flange.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0205,
+  "solids": 1,
+  "volume": 2553067.6298
+ },
+ "walking-excavator/parts/Seat console L.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0393,
+  "solids": 1,
+  "volume": 23956938.7228
+ },
+ "walking-excavator/parts/Seat console R.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0515,
+  "solids": 1,
+  "volume": 23956938.7228
+ },
+ "walking-excavator/parts/Side cutter bolt M20.icpart": {
+  "faces": 14,
+  "ok": true,
+  "seconds": 0.0489,
+  "solids": 1,
+  "volume": 8994.6479
+ },
+ "walking-excavator/parts/Slew bearing inner race.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0351,
+  "solids": 1,
+  "volume": 6715274.463
+ },
+ "walking-excavator/parts/Slew bearing outer race.icpart": {
+  "faces": 29,
+  "ok": true,
+  "seconds": 0.3131,
+  "solids": 1,
+  "volume": 7763985.4764
+ },
+ "walking-excavator/parts/Slew bolt M20.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0292,
+  "solids": 1,
+  "volume": 32829.6432
+ },
+ "walking-excavator/parts/Slew pedestal flange 20mm.icpart": {
+  "faces": 28,
+  "ok": true,
+  "seconds": 0.4382,
+  "solids": 1,
+  "volume": 6468790.6012
+ },
+ "walking-excavator/parts/Slew pedestal tube 25mm.icpart": {
+  "faces": 20,
+  "ok": true,
+  "seconds": 0.1814,
+  "solids": 1,
+  "volume": 20618302.0568
+ },
+ "walking-excavator/parts/Spread ram pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0302,
+  "solids": 1,
+  "volume": 132064.1776
+ },
+ "walking-excavator/parts/Steering arm 12mm.icpart": {
+  "faces": 11,
+  "ok": true,
+  "seconds": 0.0611,
+  "solids": 1,
+  "volume": 131694.7733
+ },
+ "walking-excavator/parts/Steering kingpin.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0249,
+  "solids": 1,
+  "volume": 930391.0419
+ },
+ "walking-excavator/parts/Steering knuckle RH.icpart": {
+  "faces": 71,
+  "ok": true,
+  "seconds": 0.2805,
+  "solids": 2,
+  "volume": 3149336.916
+ },
+ "walking-excavator/parts/Steering knuckle.icpart": {
+  "faces": 71,
+  "ok": true,
+  "seconds": 0.4794,
+  "solids": 2,
+  "volume": 3149336.916
+ },
+ "walking-excavator/parts/Steering ram barrel.icpart": {
+  "faces": 83,
+  "ok": true,
+  "seconds": 1.0505,
+  "solids": 1,
+  "volume": 307401.4664
+ },
+ "walking-excavator/parts/Steering ram gland.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0455,
+  "solids": 1,
+  "volume": 125669.9056
+ },
+ "walking-excavator/parts/Steering ram pin.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.0288,
+  "solids": 1,
+  "volume": 43959.6515
+ },
+ "walking-excavator/parts/Steering ram rod.icpart": {
+  "faces": 27,
+  "ok": true,
+  "seconds": 0.1817,
+  "solids": 1,
+  "volume": 156001.4401
+ },
+ "walking-excavator/parts/Swivel thrust washer.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.03,
+  "solids": 1,
+  "volume": 188525.0745
+ },
+ "walking-excavator/parts/Tilt yoke plate 30mm.icpart": {
+  "faces": 7,
+  "ok": true,
+  "seconds": 0.029,
+  "solids": 1,
+  "volume": 1758584.0132
+ },
+ "walking-excavator/parts/Tiltrotator rotary tilt actuator.icpart": {
+  "faces": 5,
+  "ok": true,
+  "seconds": 0.0329,
+  "solids": 1,
+  "volume": 3975346.2111
+ },
+ "walking-excavator/parts/Tiltrotator rotator housing.icpart": {
+  "faces": 5,
+  "ok": true,
+  "seconds": 0.0229,
+  "solids": 1,
+  "volume": 9391686.5182
+ },
+ "walking-excavator/parts/Travel pedal.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0399,
+  "solids": 1,
+  "volume": 181230.867
+ },
+ "walking-excavator/parts/Tyre 1400x650 balloon.icpart": {
+  "faces": 682,
+  "ok": true,
+  "seconds": 13.7729,
+  "solids": 1,
+  "volume": 215456001.1716
+ },
+ "walking-excavator/parts/Upper deck plate 30mm.icpart": {
+  "faces": 21,
+  "ok": true,
+  "seconds": 0.051,
+  "solids": 1,
+  "volume": 139554118.2315
+ },
+ "walking-excavator/parts/Wheel hub.icpart": {
+  "faces": 22,
+  "ok": true,
+  "seconds": 0.1365,
+  "solids": 1,
+  "volume": 9028642.5527
+ },
+ "walking-excavator/parts/Wheel nut M20.icpart": {
+  "faces": 9,
+  "ok": true,
+  "seconds": 0.0317,
+  "solids": 1,
+  "volume": 7860.3257
+ },
+ "walking-excavator/parts/Wheel rim 30in dished.icpart": {
+  "faces": 42,
+  "ok": true,
+  "seconds": 0.734,
+  "solids": 1,
+  "volume": 24214720.4643
+ },
+ "walking-excavator/parts/Wheel spindle nut.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0354,
+  "solids": 1,
+  "volume": 333568.0248
+ },
+ "walking-excavator/parts/Wheel spindle.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0262,
+  "solids": 1,
+  "volume": 4217785.0106
+ },
+ "walking-excavator/parts/Wheel stud M20.icpart": {
+  "faces": 3,
+  "ok": true,
+  "seconds": 0.0216,
+  "solids": 1,
+  "volume": 25761.0598
+ },
+ "walking-excavator/parts/Wiper arm.icpart": {
+  "faces": 10,
+  "ok": true,
+  "seconds": 0.0307,
+  "solids": 1,
+  "volume": 97113.9491
+ },
+ "walking-excavator/parts/Wiper blade.icpart": {
+  "faces": 6,
+  "ok": true,
+  "seconds": 0.0243,
+  "solids": 1,
+  "volume": 113400.0
+ },
+ "walking-excavator/parts/Wiper spindle housing.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0213,
+  "solids": 1,
+  "volume": 14652.3881
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00001.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1819,
+  "solids": 1,
+  "volume": 1973658.0316
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00002.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0566,
+  "solids": 1,
+  "volume": 1973658.0316
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00003.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0748,
+  "solids": 1,
+  "volume": 1398007.7724
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00004.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0592,
+  "solids": 1,
+  "volume": 1398007.7724
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00005.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0917,
+  "solids": 1,
+  "volume": 1785690.6
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00006.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.092,
+  "solids": 1,
+  "volume": 481666.5434
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00007.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0534,
+  "solids": 1,
+  "volume": 1973658.0316
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00008.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0449,
+  "solids": 1,
+  "volume": 1973658.0316
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00009.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0606,
+  "solids": 1,
+  "volume": 1398007.7724
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00010.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0475,
+  "solids": 1,
+  "volume": 1398007.7724
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00011.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0578,
+  "solids": 1,
+  "volume": 1398007.7724
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00012.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0515,
+  "solids": 1,
+  "volume": 857601.4066
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00013.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0554,
+  "solids": 1,
+  "volume": 857601.4066
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00014.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.047,
+  "solids": 1,
+  "volume": 857601.4066
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00015.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.059,
+  "solids": 1,
+  "volume": 857601.4066
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00016.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0509,
+  "solids": 1,
+  "volume": 857601.4066
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00018.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0318,
+  "solids": 1,
+  "volume": 12571.3972
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00019.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0105,
+  "solids": 1,
+  "volume": 12571.3972
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00020.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0398,
+  "solids": 1,
+  "volume": 12571.3972
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00021.icpart": {
+  "faces": 4,
+  "ok": true,
+  "seconds": 0.0399,
+  "solids": 1,
+  "volume": 12571.3972
+ },
+ "walking-excavator/subassemblies/Upper/Frame0001/EN 10305-4 30x3 00017.icpart": {
+  "faces": 12,
+  "ok": true,
+  "seconds": 0.0726,
+  "solids": 1,
+  "volume": 644504.6772
+ },
+ "weld-cart/Bottle Collar.icpart": {
+  "faces": 16,
+  "ok": true,
+  "seconds": 0.1118,
+  "solids": 1,
+  "volume": 61928.8292
+ },
+ "weld-cart/Bottle Tray.icpart": {
+  "faces": 47,
+  "ok": true,
+  "seconds": 1.0153,
+  "solids": 1,
+  "volume": 214665.4791
+ },
+ "weld-cart/Cart Skeleton.icpart": {
+  "faces": 0,
+  "ok": true,
+  "seconds": 0.101,
+  "solids": 0,
+  "volume": 0.0
+ },
+ "weld-cart/Caster Plate.icpart": {
+  "faces": 15,
+  "ok": true,
+  "seconds": 0.2178,
+  "solids": 1,
+  "volume": 49902.1196
+ },
+ "weld-cart/Caster.icpart": {
+  "faces": 32,
+  "ok": true,
+  "seconds": 0.91,
+  "solids": 1,
+  "volume": 331201.4872
+ },
+ "weld-cart/Gas Bottle.icpart": {
+  "faces": 23,
+  "ok": true,
+  "seconds": 0.2746,
+  "solids": 1,
+  "volume": 10485253.9828
+ },
+ "weld-cart/Handle Gusset.icpart": {
+  "faces": 8,
+  "ok": true,
+  "seconds": 0.0364,
+  "solids": 1,
+  "volume": 26901.186
+ },
+ "weld-cart/Lower Shelf.icpart": {
+  "faces": 46,
+  "ok": true,
+  "seconds": 0.5308,
+  "solids": 1,
+  "volume": 547137.603
+ },
+ "weld-cart/MIG Welder.icpart": {
+  "faces": 73,
+  "ok": true,
+  "seconds": 1.3249,
+  "solids": 1,
+  "volume": 39011261.9072
+ },
+ "weld-cart/Top Tray.icpart": {
+  "faces": 46,
+  "ok": true,
+  "seconds": 0.4532,
+  "solids": 1,
+  "volume": 759464.0364
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00001.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1796,
+  "solids": 1,
+  "volume": 149589.3783
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00002.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1554,
+  "solids": 1,
+  "volume": 89753.627
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00003.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.2822,
+  "solids": 1,
+  "volume": 149589.3783
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00004.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.2873,
+  "solids": 1,
+  "volume": 89753.627
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00005.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1553,
+  "solids": 1,
+  "volume": 149589.3783
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00006.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1631,
+  "solids": 1,
+  "volume": 89753.627
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00007.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1441,
+  "solids": 1,
+  "volume": 149589.3783
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00008.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1702,
+  "solids": 1,
+  "volume": 89753.627
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00009.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1524,
+  "solids": 1,
+  "volume": 129715.3609
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00010.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0841,
+  "solids": 1,
+  "volume": 129715.3609
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00011.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0492,
+  "solids": 1,
+  "volume": 129715.3609
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00012.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.077,
+  "solids": 1,
+  "volume": 129715.3609
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00013.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.1397,
+  "solids": 1,
+  "volume": 53424.778
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00014.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.2215,
+  "solids": 1,
+  "volume": 89753.627
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00015.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.2014,
+  "solids": 1,
+  "volume": 53424.7034
+ },
+ "weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00016.icpart": {
+  "faces": 18,
+  "ok": true,
+  "seconds": 0.0862,
+  "solids": 1,
+  "volume": 83342.6536
+ }
+}

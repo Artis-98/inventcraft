@@ -1,0 +1,13 @@
+{
+  "name": "open the weld cart sample and read it",
+  "calls": [
+    {"tool": "open_document", "args": {"path": "{EXAMPLES}/weld-cart/Caster Plate.icpart"}},
+    {"tool": "model_tree", "args": {}},
+    {"tool": "inspect", "args": {"expected": {"solids": 1, "valid": true}},
+     "expect": {"verdict": true}},
+    {"tool": "open_document", "args": {"path": "{EXAMPLES}/weld-cart/Welding Cart.icasm"}},
+    {"tool": "model_tree", "args": {}, "expect": {"contains": "occurrences"}},
+    {"tool": "render_view", "args": {"view": "iso", "width": 400, "height": 300},
+     "expect": {"image": true}}
+  ]
+}

@@ -1,0 +1,312 @@
+{
+ "name": "tier 2 win, bracket: Hollow mounting bracket with two hole rows and a boss",
+ "recorded": "2026-11-21",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {
+    "name": "Mounting bracket"
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "W",
+      "value": 120,
+      "comment": "length along x"
+     },
+     {
+      "op": "parameter",
+      "name": "D",
+      "value": 60,
+      "comment": "depth along y"
+     },
+     {
+      "op": "parameter",
+      "name": "H",
+      "value": 40,
+      "comment": "height along z"
+     },
+     {
+      "op": "parameter",
+      "name": "wall",
+      "value": 4,
+      "comment": "wall thickness"
+     },
+     {
+      "op": "parameter",
+      "name": "corner_r",
+      "value": 6,
+      "comment": "vertical outside corner radius"
+     },
+     {
+      "op": "parameter",
+      "name": "hole_d",
+      "value": 6.6,
+      "comment": "M6 clearance hole"
+     },
+     {
+      "op": "parameter",
+      "name": "pitch",
+      "value": 30,
+      "comment": "hole pitch along x"
+     },
+     {
+      "op": "parameter",
+      "name": "row_sep",
+      "value": 30,
+      "comment": "distance between hole rows in y"
+     },
+     {
+      "op": "parameter",
+      "name": "boss_d",
+      "value": 20,
+      "comment": "top boss diameter"
+     },
+     {
+      "op": "parameter",
+      "name": "boss_h",
+      "value": 8,
+      "comment": "top boss height"
+     },
+     {
+      "op": "sketch",
+      "id": "s1",
+      "plane": "XY",
+      "name": "Outline",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          "W",
+          "D"
+         ]
+        },
+        "id": "r"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e1",
+      "name": "Body",
+      "sketch": "$s1",
+      "distance": "H"
+     },
+     {
+      "op": "fillet",
+      "name": "Corner rounds",
+      "radius": "corner_r",
+      "edges": {
+       "along": "z"
+      }
+     },
+     {
+      "op": "shell",
+      "name": "Hollow",
+      "thickness": "wall",
+      "refs": {
+       "faces": {
+        "normal": "-z"
+       }
+      }
+     },
+     {
+      "op": "workplane",
+      "id": "wp1",
+      "base": "XY",
+      "offset": "H"
+     },
+     {
+      "op": "sketch",
+      "id": "s2",
+      "plane": "$wp1",
+      "name": "Holes",
+      "entities": [
+       {
+        "point": [
+         "-1.5*pitch",
+         "row_sep/2"
+        ],
+        "id": "h1"
+       },
+       {
+        "point": [
+         "-0.5*pitch",
+         "row_sep/2"
+        ],
+        "id": "h2"
+       },
+       {
+        "point": [
+         "0.5*pitch",
+         "row_sep/2"
+        ],
+        "id": "h3"
+       },
+       {
+        "point": [
+         "1.5*pitch",
+         "row_sep/2"
+        ],
+        "id": "h4"
+       },
+       {
+        "point": [
+         "-1.5*pitch",
+         "-row_sep/2"
+        ],
+        "id": "h5"
+       },
+       {
+        "point": [
+         "-0.5*pitch",
+         "-row_sep/2"
+        ],
+        "id": "h6"
+       },
+       {
+        "point": [
+         "0.5*pitch",
+         "-row_sep/2"
+        ],
+        "id": "h7"
+       },
+       {
+        "point": [
+         "1.5*pitch",
+         "-row_sep/2"
+        ],
+        "id": "h8"
+       }
+      ]
+     },
+     {
+      "op": "hole",
+      "name": "M6 clearance holes",
+      "sketch": "$s2",
+      "diameter": "hole_d",
+      "through": true,
+      "points": [
+       "h1",
+       "h2",
+       "h3",
+       "h4",
+       "h5",
+       "h6",
+       "h7",
+       "h8"
+      ]
+     },
+     {
+      "op": "sketch",
+      "id": "s3",
+      "plane": "$wp1",
+      "name": "Boss",
+      "entities": [
+       {
+        "circle": {
+         "center": [
+          0,
+          0
+         ],
+         "d": "boss_d"
+        },
+        "id": "c"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "name": "Top boss",
+      "sketch": "$s3",
+      "distance": "boss_h",
+      "operation": "join"
+     }
+    ]
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      120,
+      60,
+      48
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   }
+  },
+  {
+   "tool": "render_view",
+   "args": {
+    "view": "iso"
+   },
+   "expect": {
+    "image": true
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "W": 160,
+     "D": 80,
+     "H": 50
+    }
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      160,
+      80,
+      58
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "W": 120,
+     "D": 60,
+     "H": 40
+    }
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      120,
+      60,
+      48
+     ],
+     "solids": 1,
+     "valid": true,
+     "tolerance": 0.01
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  }
+ ]
+}

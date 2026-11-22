@@ -1,0 +1,279 @@
+{
+ "name": "tier 2 win, din934_nut: DIN 934 M10 hex nut",
+ "recorded": "2026-11-21",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {
+    "name": "DIN934_M10_Hex_Nut",
+    "type": "part",
+    "units": "mm"
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "d",
+      "value": 10,
+      "comment": "nominal thread diameter M10"
+     },
+     {
+      "op": "parameter",
+      "name": "P",
+      "value": 1.5,
+      "comment": "thread pitch M10x1.5"
+     },
+     {
+      "op": "parameter",
+      "name": "s",
+      "value": 17,
+      "comment": "DIN 934 M10 width across flats"
+     },
+     {
+      "op": "parameter",
+      "name": "m",
+      "value": 8,
+      "comment": "DIN 934 M10 nut height"
+     },
+     {
+      "op": "parameter",
+      "name": "d1",
+      "value": 8.376,
+      "comment": "minor diameter D1 of M10x1.5 (tapped bore)"
+     },
+     {
+      "op": "parameter",
+      "name": "corner_d",
+      "value": "s/cos(30)",
+      "comment": "width across corners"
+     },
+     {
+      "op": "parameter",
+      "name": "R",
+      "value": "corner_d/2 + 1",
+      "comment": "revolved envelope radius, outside the hex corners"
+     },
+     {
+      "op": "parameter",
+      "name": "dz",
+      "value": "(R - s/2)*tan(30)",
+      "comment": "axial height of the 30 deg chamfer cone on each face"
+     },
+     {
+      "op": "sketch",
+      "id": "s1",
+      "plane": "XY",
+      "name": "Hex profile",
+      "entities": [
+       {
+        "polygon": {
+         "center": [
+          "0",
+          "0"
+         ],
+         "sides": 6,
+         "across_flats": "s"
+        },
+        "id": "h"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e1",
+      "name": "Hex body",
+      "sketch": "$s1",
+      "distance": "m",
+      "operation": "join"
+     },
+     {
+      "op": "sketch",
+      "id": "s2",
+      "plane": "XZ",
+      "name": "Chamfer envelope",
+      "entities": [
+       {
+        "polyline": [
+         [
+          "0",
+          "0"
+         ],
+         [
+          "s/2",
+          "0"
+         ],
+         [
+          "R",
+          "dz"
+         ],
+         [
+          "R",
+          "m - dz"
+         ],
+         [
+          "s/2",
+          "m"
+         ],
+         [
+          "0",
+          "m"
+         ]
+        ],
+        "closed": true,
+        "id": "p"
+       }
+      ]
+     },
+     {
+      "op": "revolve",
+      "id": "r1",
+      "name": "Corner chamfer",
+      "sketch": "$s2",
+      "axis": "$s2.p.s5",
+      "angle": 360,
+      "operation": "intersect"
+     },
+     {
+      "op": "sketch",
+      "id": "s3",
+      "plane": "XY",
+      "name": "Tapped bore",
+      "entities": [
+       {
+        "circle": {
+         "center": [
+          0,
+          0
+         ],
+         "d": 8.376
+        },
+        "id": "c"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e3",
+      "name": "Tapped bore M10x1.5",
+      "sketch": "$s3",
+      "distance": "m",
+      "extent": "through_all",
+      "operation": "cut"
+     }
+    ],
+    "detail": true
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "thread",
+      "name": "M10x1.5 thread",
+      "refs": {
+       "faces": {
+        "kind": "cylinder"
+       }
+      },
+      "designation": "M10"
+     }
+    ],
+    "detail": true
+   }
+  },
+  {
+   "tool": "requirements",
+   "args": {
+    "set": [
+     {
+      "name": "width_across_flats",
+      "metric": "parameter",
+      "param": "s",
+      "min": 17,
+      "max": 17
+     },
+     {
+      "name": "nut_height",
+      "metric": "parameter",
+      "param": "m",
+      "min": 8,
+      "max": 8
+     },
+     {
+      "name": "bore_fits_M10",
+      "metric": "parameter",
+      "param": "d1",
+      "min": 8.376,
+      "max": 8.376
+     }
+    ],
+    "check": true
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      17,
+      19.63,
+      8
+     ],
+     "solids": 1,
+     "valid": true,
+     "tolerance": 0.01
+    }
+   }
+  },
+  {
+   "tool": "render_view",
+   "args": {
+    "view": "iso",
+    "hidden": true
+   },
+   "expect": {
+    "image": true
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "s": 19,
+     "m": 10
+    }
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "s": 17,
+     "m": 8
+    }
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      19.63,
+      17,
+      8
+     ],
+     "solids": 1,
+     "valid": true,
+     "tolerance": 0.02
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  }
+ ]
+}

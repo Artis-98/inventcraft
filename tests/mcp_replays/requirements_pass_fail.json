@@ -1,0 +1,30 @@
+{
+  "name": "requirements pass, then a parameter change breaks one",
+  "calls": [
+    {"tool": "new_document", "args": {}},
+    {"tool": "properties", "args": {"material": "Aluminium 6061"}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "w", "value": 100},
+      {"op": "parameter", "name": "t", "value": 6},
+      {"op": "sketch", "id": "s1", "plane": "XY", "entities": [
+        {"rect": {"center": [0, 0], "size": ["w", 50]}, "id": "r"},
+        {"circle": {"center": [0, 0], "d": 12}, "id": "c"}]},
+      {"op": "extrude", "sketch": "$s1", "distance": "t", "name": "Plate"}]}},
+    {"tool": "requirements", "args": {"set": [
+      {"name": "light", "metric": "mass", "max": 200},
+      {"name": "fits", "metric": "bbox", "axis": "x", "max": 150},
+      {"name": "one hole", "metric": "hole_count", "target": 1},
+      {"name": "edge distance", "metric": "clearance", "a": "Plate.side(r.right)", "b": "Plate.side(c)", "min": 20}]},
+     "expect": {"contains": "reqs 4/4 ✓"}},
+    {"tool": "build", "args": {"ops": [{"op": "parameter", "name": "t", "value": 8}]},
+     "expect": {"contains": "reqs 4/4"}},
+    {"tool": "properties", "args": {"parameters": {"w": 160}}},
+    {"tool": "requirements", "args": {"check": true},
+     "expect": {"contains": "fits 160 mm > 150"}},
+    {"tool": "build", "args": {"ops": [{"op": "parameter", "name": "w", "value": 140}]},
+     "expect": {"contains": "reqs 4/4"}},
+    {"tool": "build", "args": {"ops": [{"op": "parameter", "name": "t", "value": 20}]},
+     "expect": {"contains": "light"}},
+    {"tool": "inspect", "args": {"expected": {"solids": 1, "valid": true}}, "expect": {"verdict": true}}
+  ]
+}

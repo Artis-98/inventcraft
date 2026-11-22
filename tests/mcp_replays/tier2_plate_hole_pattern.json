@@ -1,0 +1,272 @@
+{
+ "name": "tier 2 win, plate_hole_pattern: Aluminium plate with a corner hole pattern and a centre bore",
+ "recorded": "2026-11-21",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {
+    "name": "plate_hole_pattern",
+    "type": "part",
+    "units": "mm"
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "L",
+      "value": 160,
+      "comment": "plate length (X)"
+     },
+     {
+      "op": "parameter",
+      "name": "W",
+      "value": 100,
+      "comment": "plate width (Y)"
+     },
+     {
+      "op": "parameter",
+      "name": "T",
+      "value": 10,
+      "comment": "plate thickness"
+     },
+     {
+      "op": "parameter",
+      "name": "hole_d",
+      "value": 9,
+      "comment": "corner hole diameter"
+     },
+     {
+      "op": "parameter",
+      "name": "hole_edge",
+      "value": 12,
+      "comment": "hole centre distance from each edge"
+     },
+     {
+      "op": "parameter",
+      "name": "bore_d",
+      "value": 40,
+      "comment": "centre bore diameter"
+     },
+     {
+      "op": "parameter",
+      "name": "corner_r",
+      "value": 8,
+      "comment": "outline corner radius"
+     },
+     {
+      "op": "sketch",
+      "id": "s1",
+      "plane": "XY",
+      "name": "Plate profile",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          "L",
+          "W"
+         ]
+        },
+        "id": "r"
+       },
+       {
+        "circle": {
+         "center": [
+          "-(L/2-hole_edge)",
+          "-(W/2-hole_edge)"
+         ],
+         "d": "hole_d"
+        },
+        "id": "h1"
+       },
+       {
+        "circle": {
+         "center": [
+          "L/2-hole_edge",
+          "-(W/2-hole_edge)"
+         ],
+         "d": "hole_d"
+        },
+        "id": "h2"
+       },
+       {
+        "circle": {
+         "center": [
+          "L/2-hole_edge",
+          "W/2-hole_edge"
+         ],
+         "d": "hole_d"
+        },
+        "id": "h3"
+       },
+       {
+        "circle": {
+         "center": [
+          "-(L/2-hole_edge)",
+          "W/2-hole_edge"
+         ],
+         "d": "hole_d"
+        },
+        "id": "h4"
+       },
+       {
+        "circle": {
+         "center": [
+          0,
+          0
+         ],
+         "d": "bore_d"
+        },
+        "id": "bore"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e1",
+      "name": "Plate",
+      "sketch": "$s1",
+      "distance": "T",
+      "profiles": "outer"
+     },
+     {
+      "op": "fillet",
+      "name": "Corner rounds",
+      "radius": "corner_r",
+      "edges": {
+       "along": "z",
+       "kind": "line"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      160,
+      100,
+      10
+     ],
+     "solids": 1,
+     "valid": true,
+     "faces": 15
+    }
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "material": "Aluminium 6061",
+    "props": {
+     "Description": "Plate with four corner holes and centre bore",
+     "PartNumber": "PLATE-HOLE-PATTERN"
+    }
+   }
+  },
+  {
+   "tool": "requirements",
+   "args": {
+    "set": [
+     {
+      "name": "size",
+      "metric": "bbox",
+      "target": [
+       160,
+       100,
+       10
+      ]
+     },
+     {
+      "name": "hole_d",
+      "metric": "hole_count",
+      "target": 5,
+      "diameter": 9
+     }
+    ]
+   }
+  },
+  {
+   "tool": "requirements",
+   "args": {
+    "set": [
+     {
+      "name": "hole_d",
+      "metric": "hole_count",
+      "target": 4,
+      "diameter": 9
+     }
+    ],
+    "check": true
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "L": 200,
+     "W": 120,
+     "bore_d": 50
+    }
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "L": 160,
+     "W": 100,
+     "bore_d": 40
+    }
+   }
+  },
+  {
+   "tool": "render_view",
+   "args": {
+    "view": "iso"
+   },
+   "expect": {
+    "image": true
+   }
+  },
+  {
+   "tool": "find_geometry",
+   "args": {
+    "what": "edge",
+    "where": {
+     "type": "circle",
+     "radius": [
+      4.4,
+      4.6
+     ]
+    }
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      160,
+      100,
+      10
+     ],
+     "solids": 1,
+     "valid": true,
+     "tolerance": 0.01
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  }
+ ]
+}

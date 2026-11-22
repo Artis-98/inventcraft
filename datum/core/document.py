@@ -17,7 +17,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from OCP.TopoDS import TopoDS_Shape
 
-from . import fileformat, kernel, materials, modelparams, modelstates, prefs
+from . import (fileformat, kernel, materials, modelparams, modelstates,
+               naming, prefs)
+from .requirements import RequirementSet
 from .rules import RuleSet
 from .viewsetup import ViewSetup
 from .features import (
@@ -187,6 +189,10 @@ def _definition(feature: Feature, scope: Dict[str, float],
             extra = (stat.st_size, stat.st_mtime_ns)
         except OSError:
             extra = "missing"
+    if isinstance(feature, CodeFeature):
+        # allowed on its own or not: trusting it later must build it again
+        from .rules import code_trusted
+        extra = ("code trusted", code_trusted(feature.source))
     return json.dumps(data, sort_keys=True, default=str) + repr(values) + \
         repr(extra)
 
@@ -195,7 +201,7 @@ class _Built:
     """What the rebuild held after one feature: enough to carry on from."""
 
     __slots__ = ("bodies", "sketches", "planes", "axes", "tools",
-                 "edge_ops", "log", "error")
+                 "edge_ops", "log", "error", "tags", "tool_tags")
 
     @classmethod
     def take(cls, ctx: BuildContext, error: str) -> "_Built":
@@ -203,6 +209,10 @@ class _Built:
         # the bodies by name and shape, not the Body objects: a later
         # feature changes a body in place, and this has to stay as it was
         built.bodies = [(b.name, b.shape) for b in ctx.bodies]
+        # which feature made which face, beside the shape it is for
+        built.tags = {b.name: b.tags for b in ctx.bodies
+                      if b.tags is not None}
+        built.tool_tags = dict(ctx.tool_tags)
         built.sketches = dict(ctx.sketches)
         built.planes = dict(ctx.planes)
         built.axes = dict(ctx.axes)
@@ -212,9 +222,25 @@ class _Built:
         built.error = error
         return built
 
-    def restore(self, ctx: BuildContext) -> None:
-        ctx.bodies = [Body(name, shape) for name, shape in self.bodies]
+    def restore(self, ctx: BuildContext,
+                live: Optional[Dict[int, Any]] = None) -> None:
+        ctx.bodies = [Body(name, shape, self.tags.get(name))
+                      for name, shape in self.bodies]
+        ctx.tool_tags = dict(self.tool_tags)
+        ctx.settle()
+        # A sketch is a live object that every build solves in place, and
+        # the feature that owns it is not always the object this was kept
+        # from (undo and a state change load the part again). What was
+        # kept can therefore hold another state's solution: a diameter 8
+        # solved over a result that was made at 6. The sketch a feature
+        # holds now matches the fingerprint that was found (its solved
+        # geometry is part of the fingerprint), so that is the one handed
+        # on, and a later feature that has to build reads it.
         ctx.sketches = dict(self.sketches)
+        if live:
+            for sid in ctx.sketches:
+                if sid in live:
+                    ctx.sketches[sid] = live[sid]
         ctx.planes = dict(self.planes)
         ctx.axes = dict(self.axes)
         ctx.tools = dict(self.tools)
@@ -229,6 +255,8 @@ class RebuildReport:
     warnings: List[str] = field(default_factory=list)
     duration: float = 0.0
     feature_count: int = 0
+    # each requirement of the document as this rebuild left it
+    requirements: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def message(self) -> str:
@@ -303,6 +331,9 @@ class Document:
         # the document is trusted, and trust is not something a file can
         # carry in from somewhere else.
         self.rules = RuleSet()
+        # what the part has to be, checked on every rebuild; see
+        # core/requirements.py
+        self.requirements = RequirementSet()
         # Primary, and any other variations of this part; see modelstates
         self.model_states = modelstates.ModelStates()
         # "" means "whatever the material comes in", which is what somebody
@@ -728,6 +759,30 @@ class Document:
     # -- rebuild ------------------------------------------------------------
 
     def rebuild(self) -> RebuildReport:
+        """Bring the body up to date with the tree, and check the
+        requirements against what it became."""
+        report = self._rebuild_tree()
+        if getattr(self, "_checking", False):
+            # a requirement's reference being resolved rebuilt the part
+            # (to read a sketch, say): that is not a new check
+            return report
+        if self.requirements:
+            from . import requirements
+            self._checking = True
+            try:
+                report.requirements = requirements.check(self)
+            except Exception as exc:                        # noqa: BLE001
+                report.requirements = [{"name": "?", "pass": False,
+                                        "text": "requirements: %s" % exc}]
+            finally:
+                self._checking = False
+            # a rebuild inside the check left its own report behind
+            self.last_report = report
+        else:
+            report.requirements = []
+        return report
+
+    def _rebuild_tree(self) -> RebuildReport:
         """Bring the body up to date with the tree.
 
         Where the work is done depends on how much of it there is. A
@@ -933,6 +988,8 @@ class Document:
         scope = ctx.scope
         chain = _fingerprint("start", ctx.code_allowed, self._sheet_key())
         reuse = REUSE_RESULTS
+        live_sketches = {f.id: f.sketch for f in self.features
+                         if isinstance(f, SketchFeature)}
         kept: Dict[int, List[Tuple[str, "_Built"]]] = {}
 
         for i, feature in enumerate(self.features):
@@ -948,7 +1005,7 @@ class Document:
                 held = next((b for k, b in self._built.get(feature.id, ())
                              if k == key), None)
                 if held is not None:
-                    held.restore(ctx)
+                    held.restore(ctx, live_sketches)
                     feature.error = held.error
                     if held.error:
                         report.errors.append((feature.id, held.error))
@@ -956,6 +1013,7 @@ class Document:
                     kept.setdefault(feature.id, []).append((key, held))
                     continue
             began = time.perf_counter()
+            naming.drain_notes()
             try:
                 feature.build(ctx)
             except (FeatureError, kernel.KernelError) as exc:
@@ -964,6 +1022,12 @@ class Document:
             except Exception as exc:  # a kernel crash must not kill the app
                 feature.error = "%s: %s" % (type(exc).__name__, exc)
                 report.errors.append((feature.id, feature.error))
+            try:
+                ctx.settle()
+            except Exception:
+                pass
+            for note in naming.drain_notes():
+                ctx.log.append("%s: %s" % (feature.name, note))
             self._costs[feature.id] = time.perf_counter() - began
             self._built_now.append(feature.id)
             if reuse:
@@ -1015,7 +1079,7 @@ class Document:
 
     def remote_request(self, prime: bool = False) -> Dict[str, Any]:
         """Everything a worker needs to rebuild this document as it is."""
-        from .rules import document_trusted
+        from .rules import document_trusted, trusted_code_in
         if self._chain is not None and self._named_for != self._chain:
             # Built here last. What it holds is named the way a worker
             # names it, so the worker sends back only what is new: the
@@ -1027,6 +1091,7 @@ class Document:
             self._named_for = self._chain
         return {"key": self.remote_key, "path": self.path or "",
                 "data": self.to_dict(), "trusted": document_trusted(self),
+                "trusted_code": trusted_code_in(self),
                 "rollback": self.rollback_index,
                 "have": sorted(self._remote_shapes), "prime": prime}
 
@@ -1072,7 +1137,11 @@ class Document:
                 shape = kernel.compound(parts)
             else:
                 shape = take(entry)
-            bodies.append(Body(entry["name"], shape))
+            body = Body(entry["name"], shape)
+            if entry.get("prov"):
+                from . import provenance
+                body.tags = provenance.restore(shape, entry["prov"])
+            bodies.append(body)
 
         sent = {f.get("id"): json.dumps(f, sort_keys=True)
                 for f in request["data"].get("features", [])}
@@ -1401,6 +1470,8 @@ class Document:
                if self.annotations else {}),
             **({"standard_part": dict(self.standard_part)}
                if self.standard_part else {}),
+            **({"requirements": self.requirements.to_list()}
+               if self.requirements else {}),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1412,6 +1483,7 @@ class Document:
         # an undo step is this document's own history, not a new file, so
         # it does not take back the trust the user has already given
         self.rules.trusted = trusted
+        self.requirements.load(data.get("requirements"))
         self.material = data.get("material", "Generic")
         self.appearance = str(data.get("appearance", ""))
         self._density_override = None

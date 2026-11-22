@@ -38,6 +38,20 @@ or directly:
 .venv\Scripts\python.exe datum.py
 ```
 
+## Use it from an AI agent (MCP)
+
+InventCraft ships an [MCP](https://modelcontextprotocol.io) server, so Claude
+Code, Claude Desktop, Cursor, OpenCode or any MCP client can design parts,
+assemblies and drawings in it. What the agent builds lands in the feature
+tree as ordinary features you can open and edit.
+
+```bash
+pip install mcp
+python -m datum.mcp --selftest
+```
+
+Setup, safety model and the tool list: [docs/MCP.md](docs/MCP.md).
+
 ## What it does
 
 **Sketching**
@@ -743,6 +757,7 @@ it SmartScreen warns on first run and on every update.
 
 Python 3.14, `cadquery-ocp` (OpenCASCADE 7.9), `PySide6`, `numpy`.
 `hidapi` and `comtypes` are optional and only needed for the SpaceMouse.
+The `mcp` SDK is optional and only needed for the MCP server.
 
 ## SpaceMouse
 

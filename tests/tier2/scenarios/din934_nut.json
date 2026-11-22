@@ -1,0 +1,49 @@
+{
+  "name": "din934_nut",
+  "title": "DIN 934 M10 hex nut",
+  "prompt": "Model a DIN 934 M10 hex nut in InventCraft: the hexagon body with its standard width across flats and height, the tapped bore with an M10 x 1.5 thread, and both faces chamfered at the corners as a real nut is. Make it parametric so it can be resized to other sizes.",
+  "verdict": {
+    "any_of": [
+      {
+        "inspect": {
+          "bbox": [
+            19.63,
+            17,
+            8
+          ],
+          "solids": 1,
+          "valid": true,
+          "tolerance": 0.02
+        }
+      },
+      {
+        "inspect": {
+          "bbox": [
+            18.48,
+            16,
+            8
+          ],
+          "solids": 1,
+          "valid": true,
+          "tolerance": 0.02
+        }
+      }
+    ],
+    "requirements": [
+      {
+        "name": "t2 bore",
+        "metric": "hole_count",
+        "target": 1
+      }
+    ],
+    "features": [
+      "thread"
+    ],
+    "min_parameters": 2,
+    "parametric": true
+  },
+  "reference": {
+    "replay": "din934_nut.json",
+    "call": 1
+  }
+}

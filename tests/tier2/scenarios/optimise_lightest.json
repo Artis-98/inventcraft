@@ -1,0 +1,223 @@
+{
+  "name": "optimise_lightest",
+  "title": "The lightest L bracket that clears its requirements",
+  "save_as": ".icpart",
+  "prompt": "In InventCraft, design an L bracket in Aluminium 6061 and make it as light as it can be. Start from this shape: a plate 110 mm wide (x), 70 mm deep (y) and 8 mm thick, with a 9 mm bolt hole on its centreline, 70/6 mm in front of the middle; along its back edge (y = +35) a flange 8 mm thick and 30 mm high rising from the plate's bottom, over the full width. Keep it parametric: thickness, width, depth and flange height are parameters. It must keep all of these: the bolt hole at least 20 mm from the plate's left edge; the bolt hole at least 12 mm from the flange face; every section at least 4 mm thick; no wider than 120 mm and no deeper than 80 mm. Store those as requirements, then let optimise() search the parameters for the lightest design, apply it, and keep the requirements passing.",
+  "verdict": {
+    "requirements": [
+      {
+        "name": "t2 light",
+        "metric": "mass",
+        "max": 60
+      },
+      {
+        "name": "t2 hole",
+        "metric": "hole_count",
+        "target": 1,
+        "diameter": 9
+      },
+      {
+        "name": "t2 width",
+        "metric": "bbox",
+        "axis": "x",
+        "min": 45,
+        "max": 120
+      },
+      {
+        "name": "t2 depth",
+        "metric": "bbox",
+        "axis": "y",
+        "min": 35,
+        "max": 80
+      }
+    ],
+    "features": [
+      "extrude"
+    ],
+    "min_parameters": 4,
+    "parametric": true
+  },
+  "reference": {
+    "calls": [
+      {
+        "tool": "new_document",
+        "args": {
+          "name": "Bracket"
+        }
+      },
+      {
+        "tool": "properties",
+        "args": {
+          "material": "Aluminium 6061"
+        }
+      },
+      {
+        "tool": "build",
+        "args": {
+          "ops": [
+            {
+              "op": "parameter",
+              "name": "w",
+              "value": 110,
+              "comment": "width"
+            },
+            {
+              "op": "parameter",
+              "name": "d",
+              "value": 70,
+              "comment": "plate depth"
+            },
+            {
+              "op": "parameter",
+              "name": "t",
+              "value": 8,
+              "comment": "plate and flange thickness"
+            },
+            {
+              "op": "parameter",
+              "name": "h",
+              "value": 30,
+              "comment": "flange height"
+            },
+            {
+              "op": "sketch",
+              "id": "base",
+              "plane": "XY",
+              "name": "Plate outline",
+              "entities": [
+                {
+                  "rect": {
+                    "center": [
+                      0,
+                      0
+                    ],
+                    "size": [
+                      "w",
+                      "d"
+                    ]
+                  },
+                  "id": "r"
+                },
+                {
+                  "circle": {
+                    "center": [
+                      0,
+                      "-d/6"
+                    ],
+                    "d": 9
+                  },
+                  "id": "bolt"
+                }
+              ]
+            },
+            {
+              "op": "extrude",
+              "id": "plate",
+              "sketch": "$base",
+              "distance": "t",
+              "name": "Plate"
+            },
+            {
+              "op": "sketch",
+              "id": "fl",
+              "plane": "XY",
+              "name": "Flange outline",
+              "entities": [
+                {
+                  "rect": {
+                    "corner": [
+                      "-w/2",
+                      "d/2 - t"
+                    ],
+                    "size": [
+                      "w",
+                      "t"
+                    ]
+                  },
+                  "id": "f"
+                }
+              ]
+            },
+            {
+              "op": "extrude",
+              "id": "flange",
+              "sketch": "$fl",
+              "distance": "h",
+              "operation": "join",
+              "name": "Flange"
+            }
+          ]
+        }
+      },
+      {
+        "tool": "requirements",
+        "args": {
+          "set": [
+            {
+              "name": "bolt to edge",
+              "metric": "clearance",
+              "a": "Plate.side(bolt)",
+              "b": "Plate.side(r.left)",
+              "min": 20,
+              "note": "washer and edge distance"
+            },
+            {
+              "name": "bolt to flange",
+              "metric": "clearance",
+              "a": "Plate.side(bolt)",
+              "b": "Flange.side(f.bottom)",
+              "min": 12,
+              "note": "keep-out for the wrench"
+            },
+            {
+              "name": "min section",
+              "metric": "clearance",
+              "a": "Plate.end",
+              "b": "Plate.start",
+              "min": 4,
+              "note": "stiffness proxy: the thinnest section"
+            },
+            {
+              "name": "width",
+              "metric": "bbox",
+              "axis": "x",
+              "max": 120
+            },
+            {
+              "name": "depth",
+              "metric": "bbox",
+              "axis": "y",
+              "max": 80
+            }
+          ]
+        }
+      },
+      {
+        "tool": "optimise",
+        "args": {
+          "vary": {
+            "t": [
+              2,
+              12
+            ],
+            "w": [
+              40,
+              120
+            ],
+            "d": [
+              30,
+              80
+            ],
+            "h": [
+              10,
+              40
+            ]
+          },
+          "objective": "min mass",
+          "budget": 64,
+          "apply": true
+        }
+      }
+    ]
+  }
+}

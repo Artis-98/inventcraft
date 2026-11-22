@@ -1,0 +1,345 @@
+{
+ "name": "build a three-part assembly from scratch: place, constrain to zero DOF, check, BOM",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {}
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "sketch",
+      "id": "s1",
+      "plane": "XY",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          100,
+          60
+         ]
+        },
+        "id": "r"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e1",
+      "sketch": "$s1",
+      "distance": 10
+     }
+    ]
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "props": {
+     "Part Number": "B-100",
+     "Description": "Base block"
+    },
+    "material": "Steel, Mild"
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Base.icpart"
+   }
+  },
+  {
+   "tool": "new_document",
+   "args": {}
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "sketch",
+      "id": "s1",
+      "plane": "XY",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          20,
+          20
+         ]
+        },
+        "id": "r"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e1",
+      "sketch": "$s1",
+      "distance": 40
+     }
+    ]
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "props": {
+     "Part Number": "P-200",
+     "Description": "Post block"
+    },
+    "material": "Steel, Mild"
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Post.icpart"
+   }
+  },
+  {
+   "tool": "new_document",
+   "args": {}
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "sketch",
+      "id": "s1",
+      "plane": "XY",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          20,
+          20
+         ]
+        },
+        "id": "r"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e1",
+      "sketch": "$s1",
+      "distance": 5
+     }
+    ]
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "props": {
+     "Part Number": "C-300",
+     "Description": "Cap block"
+    },
+    "material": "Aluminium 6061"
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Cap.icpart"
+   }
+  },
+  {
+   "tool": "new_document",
+   "args": {
+    "type": "assembly",
+    "name": "Stand"
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Base.icpart",
+    "name": "Base"
+   },
+   "expect": {
+    "contains": "grounded"
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Post.icpart",
+    "name": "Post",
+    "transform": {
+     "position": [
+      0,
+      0,
+      60
+     ]
+    }
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Cap.icpart",
+    "name": "Cap"
+   }
+  },
+  {
+   "tool": "assembly_check",
+   "args": {},
+   "expect": {
+    "fields": {
+     "fully_constrained": false,
+     "dof": 12
+    }
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "mate",
+    "a": "Base:1/Extrude.end",
+    "b": "Post:1/Extrude.start"
+   },
+   "expect": {
+    "contains": "Post:1 DOF 6 -> 3"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Base:1/Extrude.side(r.left)",
+    "b": "Post:1/Extrude.side(r.left)"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Base:1/Extrude.side(r.bottom)",
+    "b": "Post:1/Extrude.side(r.bottom)",
+    "offset": 0
+   },
+   "expect": {
+    "contains": "Post:1 DOF 1 -> 0"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "mate",
+    "a": "Post:1/Extrude.end",
+    "b": "Cap:1/Extrude.start"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Post:1/Extrude.side(r.left)",
+    "b": "Cap:1/Extrude.side(r.left)"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Post:1/Extrude.side(r.bottom)",
+    "b": "Cap:1/Extrude.side(r.bottom)"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "mate",
+    "a": "Base:1/Extrude.end",
+    "b": "Cap:1/Extrude.start"
+   },
+   "expect": {
+    "error": true,
+    "contains": "CONSTRAINT_FAILED"
+   }
+  },
+  {
+   "tool": "assembly_check",
+   "args": {},
+   "expect": {
+    "fields": {
+     "fully_constrained": true,
+     "dof": 0,
+     "ok": true,
+     "failed": []
+    }
+   }
+  },
+  {
+   "tool": "measure",
+   "args": {
+    "a": "Base:1/Extrude.end",
+    "b": "Cap:1/Extrude.end"
+   },
+   "expect": {
+    "contains": "plane gap 45"
+   }
+  },
+  {
+   "tool": "edit_feature",
+   "args": {
+    "feature": "Mate:1",
+    "params": {
+     "offset": 2
+    }
+   }
+  },
+  {
+   "tool": "edit_feature",
+   "args": {
+    "feature": "Cap:1",
+    "delete": true
+   },
+   "expect": {
+    "error": true,
+    "contains": "HAS_DEPENDENTS"
+   }
+  },
+  {
+   "tool": "bom",
+   "args": {},
+   "expect": {
+    "contains": "P-200"
+   }
+  },
+  {
+   "tool": "render_view",
+   "args": {
+    "view": "iso",
+    "width": 400,
+    "height": 300
+   },
+   "expect": {
+    "image": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Stand.icasm"
+   }
+  }
+ ]
+}

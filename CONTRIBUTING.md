@@ -38,6 +38,13 @@ The README's [How it is put together](README.md#how-it-is-put-together)
 section maps every module. In short, `datum/core` is the model and never
 imports Qt, and `datum/ui` is the window around it.
 
+## The MCP server
+
+`datum/mcp` is the server and `datum/bridge` the layer it drives. Install the
+`mcp` SDK, run `python -m datum.mcp --selftest`, and run the `mcp` suites with
+`testsun.py mcp`. A new tool needs a test in `tests/test_mcp_server.py` and a
+line in `docs/MCP.md`. Agent-level scenarios live in `tests/tier2`.
+
 ## Tests
 
 Run the whole suite before you open a pull request:

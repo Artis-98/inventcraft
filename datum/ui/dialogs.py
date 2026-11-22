@@ -1670,6 +1670,8 @@ class EdgeOpDialog(FeatureDialog):
 
     def _clear(self):
         self.feature.refs = RefSet()
+        # a rule the edges were picked by goes with them
+        self.feature.query = None
         self.picker.set_count(0, self.noun)
         self.host.viewport.clear_selection()
         self.preview()
@@ -1692,6 +1694,10 @@ class EdgeOpDialog(FeatureDialog):
 
         self._in_selection = True
         try:
+            # Picked by hand from here on: a rule the edges were chosen
+            # by (an agent's, see edgequery) would otherwise go on
+            # overriding the clicks. What it found is kept as the start.
+            self.feature.query = None
             fresh = RefSet()
             fresh.capture_from(base, "edge", picked)
             for ref in fresh:
@@ -2969,6 +2975,7 @@ class WorkPlaneDialog(FeatureDialog):
         self.base.setEnabled(not on_face and not picked)
         self.angle.setEnabled(not picked
                               or self.feature.mode == "line_plane")
+        self.offset.setEnabled(self.feature.mode != "placed")
 
     def load(self):
         self.offset.set_text(self.feature.offset)

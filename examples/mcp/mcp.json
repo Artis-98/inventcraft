@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "inventcraft": {
+      "command": "/path/to/inventcraft/.venv/bin/python",
+      "args": ["-m", "datum.mcp"],
+      "cwd": "/path/to/inventcraft",
+      "env": {"PYTHONPATH": "/path/to/inventcraft"}
+    }
+  }
+}
