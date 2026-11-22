@@ -110,6 +110,33 @@ if BIG:
     check("then the real lines replace them", not still, len(still))
     check("which are there", big.projection is not None
           and big.projection.ok)
+
+    print("each view goes in as its own lines come back")
+    from concurrent.futures import Future
+    sheet = win.drawing.active()
+    pair = [v for v in sheet.views if v.name == "Big"
+            or (v.parent == big.id)]
+    for v in pair:
+        v.draft = True
+    first, second = pair[0], pair[1]
+    exact = first.projection
+    ready, later = Future(), Future()
+    ready.set_result(exact.to_dict())
+    ui._refining = (win.drawing, {(id(sheet), first.id): ready,
+                                  (id(sheet), second.id): later})
+    ui._refine_timer.stop()
+    ui._refine_poll()
+    check("the finished one is real at once",
+          not getattr(first, "draft", False))
+    check("the other still waits as a draft",
+          getattr(second, "draft", False))
+    check("and is still being waited for",
+          ui._refining is not None
+          and list(ui._refining[1]) == [(id(sheet), second.id)])
+    later.set_result(second.projection.to_dict())
+    ui._refine_poll()
+    check("then it goes in too", not getattr(second, "draft", False)
+          and ui._refining is None)
 else:
     print("  (no STEP export here: the big-model half is skipped)")
 

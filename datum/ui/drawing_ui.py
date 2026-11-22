@@ -157,18 +157,36 @@ class DrawingController(QtCore.QObject):
             self._refine_timer.stop()
             return
         doc, jobs = held
-        if any(not future.done() for future in jobs.values()):
-            return
-        self._refine_timer.stop()
-        self._refining = None
         if doc is not self.document:
+            self._refine_timer.stop()
+            self._refining = None
             return
+        # each view goes in as soon as its own lines are back: one heavy
+        # view no longer holds up the others
+        done = {key: future for key, future in jobs.items()
+                if future.done()}
+        waiting = {key: future for key, future in jobs.items()
+                   if not future.done()}
+        if waiting and not done:
+            return
+        if waiting:
+            self._refining = (doc, waiting)
+        else:
+            self._refine_timer.stop()
+            self._refining = None
         drafts = self._draft_views()
         if not drafts:
             return
+        if waiting:
+            ready = {key[1] for key in done}
+            sheets = {key[0] for key in done}
+            drafts = [(sheet, view) for sheet, view in drafts
+                      if view.id in ready and id(sheet) in sheets]
+            if not drafts:
+                return
         for _sheet, view in drafts:
             view.projection = None
-        self.rebuild(handed=jobs)
+        self.rebuild(handed=done)
         self.canvas.update()
 
     def refine_now(self, seconds: float = 120.0) -> None:
