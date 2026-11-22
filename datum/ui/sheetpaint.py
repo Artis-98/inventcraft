@@ -93,8 +93,15 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
           layout: Layout, model_properties: Optional[Dict[str, str]] = None,
           with_paper: bool = True, selection: Sequence[int] = (),
           on_screen: bool = False, hidden: Sequence[int] = (),
-          title_block: bool = True) -> None:
+          title_block: bool = True, phase: str = "all",
+          only=None) -> None:
     """Draw one sheet, whole.
+
+    ``phase`` draws a slice of it, in the order the whole is drawn:
+    "under" (paper, border, title block), "views", then "over"
+    (annotations, sketches, tables).  The canvas keeps the views as a
+    picture and paints the two slices round it live, so dragging a
+    balloon never strokes a million points again.
 
     ``hidden`` views are left out, with whatever is pinned to them: the
     ones being changed on screen, drawn there as they will be instead.
@@ -120,18 +127,23 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     except Exception:
         _VALUES = {}
 
-    if with_paper:
-        _paper(painter, layout, width, height)
-    _border(painter, doc, sheet, layout, width, height)
-    if title_block:
-        _title_block(painter, doc, sheet, layout, width, height,
-                     model_properties)
-
-    for view in sheet.views:
-        if view.id in hidden:
-            continue
-        _view(painter, doc, sheet, view, layout,
-              selected=view.id in selection, on_screen=on_screen)
+    if phase in ("all", "under"):
+        if with_paper:
+            _paper(painter, layout, width, height)
+        _border(painter, doc, sheet, layout, width, height)
+        if title_block:
+            _title_block(painter, doc, sheet, layout, width, height,
+                         model_properties)
+    if phase in ("all", "views"):
+        for view in sheet.views:
+            if view.id in hidden and not (only and view.id in only):
+                continue
+            if only is not None and view.id not in only:
+                continue
+            _view(painter, doc, sheet, view, layout,
+                  selected=view.id in selection, on_screen=on_screen)
+    if phase not in ("all", "over"):
+        return
     for note in sheet.annotations:
         if note.view in hidden:
             continue
@@ -465,15 +477,8 @@ def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
                             QtCore.QPointF(*layout.to_device(
                                 view.x + b[0], view.y + b[1])))
             continue
-        for line in lines:
-            path = QtGui.QPainterPath()
-            first = layout.to_device(view.x + line.points[0][0],
-                                     view.y + line.points[0][1])
-            path.moveTo(QtCore.QPointF(*first))
-            for x, y in line.points[1:]:
-                path.lineTo(QtCore.QPointF(*layout.to_device(view.x + x,
-                                                             view.y + y)))
-            painter.drawPath(path)
+        _stroke_cached(painter, layout, view, projection, kind, lines,
+                       on_screen)
 
     if view.breaks:
         style = doc.styles.get("visible", dwg.Style())
@@ -497,6 +502,100 @@ def _view(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     _view_label(painter, doc, sheet, view, layout)
     if selected and on_screen:
         _highlight(painter, view, layout)
+
+
+def _local_transform(layout: Layout, view: View) -> QtGui.QTransform:
+    """The view's own millimetres, Y up, onto the device."""
+    s = layout.scale
+    return QtGui.QTransform(s, 0.0, 0.0, -s,
+                            layout.offset_x + view.x * s,
+                            layout.offset_y + (layout.height - view.y) * s)
+
+
+# A pen at most this many device pixels wide is drawn as Qt's one pixel
+# cosmetic line, which has a fast path eight times quicker than a stroked
+# one and looks the same at that width.
+HAIRLINE_PX = 1.3
+THIN_PX = 3.0
+
+
+def view_polygons(projection, kind: str, lines=None) -> List:
+    """Every line of one kind as (polygon, bounds) in the view's own
+    millimetres.  Built once per projection and kept on it: the sheet is
+    painted on every pan, zoom and drag, and walking a big assembly's
+    million points in Python each time took two seconds a repaint."""
+    held = getattr(projection, "_polygons", None)
+    stamp = (id(projection.lines), len(projection.lines))
+    if held is None or held.get("_stamp") != stamp:
+        held = {"_stamp": stamp}
+        try:
+            projection._polygons = held
+        except Exception:
+            pass
+    out = held.get(kind)
+    if out is None:
+        out = []
+        point = QtCore.QPointF
+        for line in (lines if lines is not None
+                     else projection.of_kind(kind)):
+            pts = line.points
+            if len(pts) < 2:
+                continue
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            polygon = QtGui.QPolygonF([point(x, y) for x, y in pts])
+            out.append((polygon, min(xs), min(ys), max(xs), max(ys)))
+        held[kind] = out
+    return out
+
+
+def _stroke_cached(painter: QtGui.QPainter, layout: Layout, view: View,
+                   projection, kind: str, lines,
+                   on_screen: bool = False) -> None:
+    polygons = view_polygons(projection, kind, lines)
+    if not polygons:
+        return
+    pen = QtGui.QPen(painter.pen())
+    device_width = pen.widthF()
+    scale = layout.scale or 1.0
+    if on_screen and device_width <= HAIRLINE_PX:
+        pen.setCosmetic(True)
+        pen.setWidthF(1.0)
+    elif on_screen and device_width <= THIN_PX:
+        # a line a pixel or two wide shows no cap and no join, and
+        # stroking them round costs three times as much
+        pen.setWidthF(device_width / scale)
+        pen.setCapStyle(QtCore.Qt.FlatCap)
+        pen.setJoinStyle(QtCore.Qt.BevelJoin)
+    else:
+        # the lines are in millimetres now, so the pen is too; paper and
+        # PDF always get the true width
+        pen.setWidthF(device_width / scale)
+    painter.save()
+    painter.setTransform(_local_transform(layout, view), True)
+    painter.setPen(pen)
+    painter.setBrush(QtCore.Qt.NoBrush)
+    draw = painter.drawPolyline
+    window = None
+    device = painter.device()
+    if on_screen and device is not None:
+        # only what can be seen: a view zoomed into is mostly off screen
+        inverse, ok = painter.transform().inverted()
+        if ok:
+            r = inverse.mapRect(QtCore.QRectF(0, 0, device.width(),
+                                              device.height()))
+            pad = 2.0 / scale
+            window = (r.left() - pad, r.top() - pad,
+                      r.right() + pad, r.bottom() + pad)
+    if window is None:
+        for item in polygons:
+            draw(item[0])
+    else:
+        wx0, wy0, wx1, wy1 = window
+        for polygon, x0, y0, x1, y1 in polygons:
+            if x1 >= wx0 and x0 <= wx1 and y1 >= wy0 and y0 <= wy1:
+                draw(polygon)
+    painter.restore()
 
 
 def _hatch(painter: QtGui.QPainter, doc: DrawingDocument, view: View,

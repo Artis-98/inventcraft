@@ -23,6 +23,13 @@ from .theme import C
 PICK_PIXELS = 9.0
 ZOOM_STEP = 1.15
 MIN_SCALE, MAX_SCALE = 0.05, 40.0
+# The views are kept as a picture between repaints; off only to compare
+LAYER_CACHE = True
+# how long after the last pan or zoom the picture is drawn sharp again
+LAYER_SETTLE_MS = 140
+# what of the document itself a view's picture can depend on
+DOC_KEYS = ("units", "standard", "properties", "styles", "params",
+            "material", "angle", "scale")
 
 
 class SheetCanvas(QtWidgets.QWidget):
@@ -158,6 +165,7 @@ class SheetCanvas(QtWidgets.QWidget):
         before = self.layout()
         anchor = at or QtCore.QPoint(self.width() // 2, self.height() // 2)
         sheet_point = before.to_sheet(anchor.x(), anchor.y())
+        self._touch()
         self._scale = max(MIN_SCALE, min(MAX_SCALE, self._scale * factor))
         after = self.layout()
         moved = after.to_device(*sheet_point)
@@ -177,15 +185,33 @@ class SheetCanvas(QtWidgets.QWidget):
                              "No sheet")
             painter.end()
             return
-        sheetpaint.paint(painter, self.doc, sheet, self.layout(),
-                         model_properties=self.model_properties,
-                         with_paper=True,
-                         selection=self.selected_views
-                         + self.selected_annotations,
-                         on_screen=True,
-                         hidden=list(getattr(self.placer, "hidden", ()) or ())
-                         + list(self.editing_ids),
-                         title_block=not self.hide_title_block)
+        layout = self.layout()
+        common = dict(model_properties=self.model_properties,
+                      with_paper=True,
+                      selection=self.selected_views
+                      + self.selected_annotations,
+                      on_screen=True,
+                      hidden=list(getattr(self.placer, "hidden", ()) or ())
+                      + list(self.editing_ids),
+                      title_block=not self.hide_title_block)
+        if not LAYER_CACHE:
+            sheetpaint.paint(painter, self.doc, sheet, layout, **common)
+        else:
+            sheetpaint.paint(painter, self.doc, sheet, layout,
+                             phase="under", **common)
+            moving = self._moving_views(sheet)
+            if moving:
+                # a view being dragged is drawn live, the rest stays a
+                # picture underneath it
+                still = dict(common)
+                still["hidden"] = list(common["hidden"]) + sorted(moving)
+                self._paint_views_layer(painter, sheet, layout, still)
+                sheetpaint.paint(painter, self.doc, sheet, layout,
+                                 phase="views", only=moving, **common)
+            else:
+                self._paint_views_layer(painter, sheet, layout, common)
+            sheetpaint.paint(painter, self.doc, sheet, layout,
+                             phase="over", **common)
         if self.sketch_surface is not None:
             self.sketch_surface.paint(painter, self.layout())
         elif self.placer is not None:
@@ -193,6 +219,118 @@ class SheetCanvas(QtWidgets.QWidget):
         else:
             self._paint_grips(painter)
         painter.end()
+
+    # -- the views, kept as a picture ----------------------------------------
+
+    def _layer_key(self, sheet, layout, common):
+        """Everything the views' picture depends on, but where it sits."""
+        doc = self.doc
+        views = []
+        skipped = set(common["hidden"])
+        for view in sheet.views:
+            if view.id in skipped:
+                continue
+            state = {k: v for k, v in vars(view).items()
+                     if k not in ("projection",) and not k.startswith("_")}
+            views.append((id(view.projection), repr(sorted(
+                state.items(), key=lambda kv: kv[0]))))
+        return (id(doc), id(sheet), round(layout.scale, 9),
+                self.width(), self.height(), self.devicePixelRatioF(),
+                tuple(common["selection"]), tuple(common["hidden"]),
+                repr(sorted((k, v) for k, v in vars(doc).items()
+                            if k in DOC_KEYS)), tuple(views))
+
+    def _moving_views(self, sheet) -> set:
+        """The view being dragged and everything that moves with it."""
+        if self._drag_view is None or not self._moved:
+            return set()
+        moving = {self._drag_view}
+        grew = True
+        while grew:
+            grew = False
+            for view in sheet.views:
+                if view.parent in moving and view.id not in moving:
+                    moving.add(view.id)
+                    grew = True
+        return moving
+
+    def invalidate_views(self) -> None:
+        """Paint the views afresh next time, whatever the key says."""
+        self._layer = None
+        self.update()
+
+    def _paint_views_layer(self, painter, sheet, layout, common) -> None:
+        key = self._layer_key(sheet, layout, common)
+        held = getattr(self, "_layer", None)
+        if held is not None and held[0] == key[:2] + key[3:] \
+                and held[2] == key[2]:
+            # the same picture, perhaps panned: put it where it now goes
+            image, at = held[3], held[4]
+            dx = layout.offset_x - at[0]
+            dy = layout.offset_y - at[1]
+            painter.drawImage(QtCore.QPointF(dx, dy), image)
+            if abs(dx) > 0.5 or abs(dy) > 0.5:
+                self._refresh_layer_soon()
+            return
+        if held is not None and held[0] == key[:2] + key[3:] \
+                and self._interacting():
+            # zoomed: stretch the old picture for now, draw it sharp
+            # once the wheel stops
+            image, at, old_scale = held[3], held[4], held[2]
+            ratio = layout.scale / (old_scale or 1.0)
+            # the sheet point at the old picture's origin is where it
+            # lands now, and the picture grows about it
+            sx, sy = (0.0 - at[0]) / old_scale, (0.0 - at[1]) / old_scale
+            x = layout.offset_x + sx * layout.scale
+            y = layout.offset_y + sy * layout.scale
+            target = QtCore.QRectF(x, y, image.width() * ratio
+                                   / image.devicePixelRatio(),
+                                   image.height() * ratio
+                                   / image.devicePixelRatio())
+            painter.drawImage(target, image)
+            self._refresh_layer_soon()
+            return
+        dpr = self.devicePixelRatioF()
+        image = QtGui.QImage(max(1, int(self.width() * dpr)),
+                             max(1, int(self.height() * dpr)),
+                             QtGui.QImage.Format_ARGB32_Premultiplied)
+        image.setDevicePixelRatio(dpr)
+        image.fill(QtCore.Qt.transparent)
+        inner = QtGui.QPainter(image)
+        sheetpaint.paint(inner, self.doc, sheet, layout, phase="views",
+                         **common)
+        inner.end()
+        self._layer = (key[:2] + key[3:], None, key[2], image,
+                       (layout.offset_x, layout.offset_y))
+        self._last_change = QtCore.QElapsedTimer()
+        painter.drawImage(QtCore.QPointF(0.0, 0.0), image)
+
+    def _interacting(self) -> bool:
+        clock = getattr(self, "_touched", None)
+        return clock is not None and clock.isValid() \
+            and clock.elapsed() < LAYER_SETTLE_MS * 2
+
+    def _touch(self) -> None:
+        clock = getattr(self, "_touched", None)
+        if clock is None:
+            clock = self._touched = QtCore.QElapsedTimer()
+        clock.start()
+
+    def _refresh_layer_soon(self) -> None:
+        timer = getattr(self, "_layer_timer", None)
+        if timer is None:
+            timer = self._layer_timer = QtCore.QTimer(self)
+            timer.setSingleShot(True)
+            timer.setInterval(LAYER_SETTLE_MS)
+            timer.timeout.connect(self._layer_settled)
+        timer.start()
+
+    def _layer_settled(self) -> None:
+        if self._interacting() and self._panning:
+            self._refresh_layer_soon()
+            return
+        self._layer = None
+        self.update()
 
     # -- a dimension's legs ---------------------------------------------------
 
@@ -419,6 +557,7 @@ class SheetCanvas(QtWidgets.QWidget):
     def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
         pos = event.position().toPoint()
         if self._panning:
+            self._touch()
             self._pan[0] += pos.x() - self._last_pos.x()
             self._pan[1] += pos.y() - self._last_pos.y()
             self._last_pos = pos
