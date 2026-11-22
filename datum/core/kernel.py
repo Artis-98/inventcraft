@@ -421,12 +421,26 @@ def heal(shape: TopoDS_Shape) -> TopoDS_Shape:
         return shape
 
 
+# a sketch's curves are split on every core past this many: below it the
+# threads cost more to start than the split takes
+PARALLEL_FROM = 64
+
+
+def sound(shape: TopoDS_Shape) -> bool:
+    """Whether a shape passes OpenCASCADE's validity check, worked out on
+    every core: its faces and edges are checked side by side."""
+    try:
+        return BRepCheck_Analyzer(shape, True, True).IsValid()
+    except TypeError:
+        return BRepCheck_Analyzer(shape).IsValid()
+
+
 def check(shape: TopoDS_Shape, what: str) -> TopoDS_Shape:
     if not is_valid(shape):
         raise KernelError("%s produced no geometry" % what)
-    if not BRepCheck_Analyzer(shape).IsValid():
+    if not sound(shape):
         shape = heal(shape)
-        if not BRepCheck_Analyzer(shape).IsValid():
+        if not sound(shape):
             raise KernelError("%s produced an invalid solid" % what)
     return shape
 
@@ -730,7 +744,8 @@ def _split_at_intersections(edge_list: Sequence[TopoDS_Edge]
         builder = BOPAlgo_Builder()
         for edge in edge_list:
             builder.AddArgument(edge)
-        builder.SetRunParallel(False)
+        # on every core once there is enough to share out
+        builder.SetRunParallel(len(edge_list) > PARALLEL_FROM)
         builder.SetFuzzyValue(1e-7)
         builder.Perform()
         if builder.HasErrors():
@@ -844,7 +859,7 @@ def sketch_regions_faces(sketch: Sketch) -> List[TopoDS_Face]:
         splitter.SetArguments(arguments)
         splitter.SetTools(tools)
         splitter.SetFuzzyValue(1e-7)
-        splitter.SetRunParallel(False)
+        splitter.SetRunParallel(len(curves) > PARALLEL_FROM)
         splitter.Build()
         if not splitter.IsDone():
             return []
@@ -2406,7 +2421,7 @@ def shell(shape: TopoDS_Shape, open_faces: Sequence[TopoDS_Face],
         # it fails outright: only a solid that lost material is a shell
         if not is_valid(result) or not explore(result, TopAbs_SOLID):
             return False
-        if not BRepCheck_Analyzer(result).IsValid():
+        if not sound(result):
             return False
         after = volume(result)
         return 0 < after < before * (1 - 1e-6)
