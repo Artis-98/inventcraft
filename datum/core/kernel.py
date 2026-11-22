@@ -1180,21 +1180,117 @@ def project_to_plane(shape: TopoDS_Shape, plane: SketchPlane
                     results.append(("arc", (centre, circ.Radius(), a0, a1)))
                 continue
 
-        try:
-            sampler = GCPnts_QuasiUniformDeflection(curve, 0.02)
-            if sampler.IsDone() and sampler.NbPoints() >= 2:
-                points = [flat(sampler.Value(i))
-                          for i in range(1, sampler.NbPoints() + 1)]
-                results.append(("polyline", points))
-                continue
-        except Exception:
-            pass
+        # Anything else (a fillet's blend, a spline, a circle seen at a
+        # slant) comes onto the sketch as one continuous curve: an arc
+        # when its shadow is a circle, a line when it is straight, else
+        # a single spline through points on it.  Never a run of short
+        # lines: a fillet projected as twenty segments has nineteen
+        # corners nobody drew, and nothing dimensions to it.
+        smooth = _flat_curve(curve, first, last, flat)
+        if smooth is not None:
+            results.append(smooth)
+            continue
 
         a, b = flat(curve.Value(first)), flat(curve.Value(last))
         if math.dist(a, b) > 1e-9:
             results.append(("line", (a, b)))
 
     return results
+
+
+# how far a projected curve may stray from what it stands for, in mm
+CAST_TOLERANCE = 1e-3
+
+
+def _flat_curve(curve, first: float, last: float, flat):
+    """A curve's shadow on the sketch as one primitive: ("line", ...),
+    ("arc", ...), ("circle", ...) or ("spline", points); None if it has
+    no length there."""
+    n = 48
+    samples = [flat(curve.Value(first + (last - first) * i / n))
+               for i in range(n + 1)]
+    a, b = samples[0], samples[-1]
+    closed = math.dist(a, b) < 1e-7
+    span = max(math.dist(p, q) for p in samples for q in samples[::8])
+    if span < 1e-7:
+        return None
+    # straight
+    if not closed:
+        ux, uy = b[0] - a[0], b[1] - a[1]
+        length = math.hypot(ux, uy)
+        if length > 1e-9 and max(abs((p[0] - a[0]) * uy - (p[1] - a[1]) * ux)
+                                 / length for p in samples) < CAST_TOLERANCE:
+            return ("line", (a, b))
+    # round
+    circle = _fit_circle(samples)
+    if circle is not None:
+        (cx, cy), r = circle
+        if r < 1e6 and max(abs(math.dist(p, (cx, cy)) - r)
+                           for p in samples) < CAST_TOLERANCE:
+            if closed:
+                return ("circle", ((cx, cy), r))
+            mid = samples[n // 2]
+            a0 = math.atan2(a[1] - cy, a[0] - cx)
+            a1 = math.atan2(b[1] - cy, b[0] - cx)
+            am = math.atan2(mid[1] - cy, mid[0] - cx)
+            if not _angle_between(am, a0, a1):
+                a0, a1 = a1, a0
+            return ("arc", ((cx, cy), r, a0, a1))
+    # anything else: one spline, through as few points as keep it true
+    count = 6
+    while True:
+        points = [flat(curve.Value(first + (last - first) * i / count))
+                  for i in range(count + 1)]
+        if closed:
+            points[-1] = points[0]
+        if count >= 96 or _spline_true(points, samples):
+            return ("spline", points)
+        count *= 2
+
+
+def _fit_circle(points):
+    """The circle nearest a set of points (Kasa's least squares), or None
+    when they lie on a line."""
+    n = len(points)
+    mx = sum(p[0] for p in points) / n
+    my = sum(p[1] for p in points) / n
+    suu = suv = svv = suuu = svvv = suvv = svuu = 0.0
+    for x, y in points:
+        u, v = x - mx, y - my
+        suu += u * u
+        suv += u * v
+        svv += v * v
+        suuu += u * u * u
+        svvv += v * v * v
+        suvv += u * v * v
+        svuu += v * u * u
+    det = suu * svv - suv * suv
+    if abs(det) < 1e-18:
+        return None
+    rhs1 = 0.5 * (suuu + suvv)
+    rhs2 = 0.5 * (svvv + svuu)
+    uc = (rhs1 * svv - rhs2 * suv) / det
+    vc = (suu * rhs2 - suv * rhs1) / det
+    r = math.sqrt(uc * uc + vc * vc + (suu + svv) / n)
+    return (uc + mx, vc + my), r
+
+
+def _spline_true(points, samples) -> bool:
+    """Whether the spline the sketch would draw through ``points`` stays
+    within tolerance of the curve's own samples."""
+    try:
+        from OCP.GeomAPI import GeomAPI_ProjectPointOnCurve
+        arr = TColgp_Array1OfPnt(1, len(points))
+        for i, (x, y) in enumerate(points, start=1):
+            arr.SetValue(i, gp_Pnt(x, y, 0.0))
+        spline = GeomAPI_PointsToBSpline(arr).Curve()
+        for x, y in samples:
+            probe = GeomAPI_ProjectPointOnCurve(gp_Pnt(x, y, 0.0), spline)
+            if probe.NbPoints() == 0 or                     probe.LowerDistance() > CAST_TOLERANCE * 5:
+                return False
+        return True
+    except Exception:
+        return False
 
 
 def sketch_profile(sketch: Sketch,

@@ -467,6 +467,9 @@ def cast_onto(sketch, shape, construction: bool = False, source=None):
             centre, radius, a0, a1 = data
             created.append(sketch.add_arc(centre, radius, a0, a1,
                                           construction=construction))
+        elif kind == "spline":
+            created.append(sketch.add_spline(data,
+                                             construction=construction))
         elif kind == "polyline":
             points = data
             for i in range(len(points) - 1):
