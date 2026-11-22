@@ -1304,6 +1304,80 @@ class DrawingController(QtCore.QObject):
         self.host.status_message.setText(
             "Balloon added - drag it to place it.")
 
+    def arrange_balloons(self, view_id: Optional[int] = None) -> int:
+        """Tidy a view's balloons into two straight columns, one each
+        side of it, so no leader crosses another.
+
+        Each balloon goes to the side its part is on, its leader to the
+        corner of the part nearest that side, and each column is taken in
+        the order its leaders arrive from top to bottom, spread evenly
+        down the height of the view.  Ordered that way, leaders cannot
+        cross: the trick that tidied the boom weldment drawing.
+        Returns how many were moved.
+        """
+        doc, sheet, view = self._selected_view(view_id)
+        if view is None or view.projection is None:
+            self._complain("Select a view that has been drawn.")
+            return 0
+        notes = [a for a in sheet.annotations_for(view.id)
+                 if a.kind == dwg.BALLOON and a.points]
+        if not notes:
+            self._complain("%s has no balloons to arrange." % view.label)
+            return 0
+        targets = {}
+        try:
+            for target in self.generator.balloon_targets(doc, sheet, view):
+                targets[os.path.normcase(os.path.abspath(target[0]))] =                     target
+        except Exception:
+            targets = {}
+        box = view.projection.box
+        middle_x = (box[0] + box[2]) / 2.0
+        gap = 14.0
+        sides = {-1: [], 1: []}
+        for note in notes:
+            tip = note.points[0]
+            target = targets.get(os.path.normcase(os.path.abspath(
+                note.component))) if note.component else None
+            side = -1 if (target[1][0] if target else tip[0]) < middle_x                 else 1
+            column = box[0] - gap if side < 0 else box[2] + gap
+            if target is not None:
+                tip = viewgen.nearest_corner(target, (column, target[1][1]))
+            sides[side].append((note, (float(tip[0]), float(tip[1])),
+                                column))
+        doc.push_undo()
+        moved = 0
+        for side, items in sides.items():
+            if not items:
+                continue
+            top, bottom = box[3] - 4.0, box[1] + 4.0
+            step = (top - bottom) / max(1, len(items) - 1)                 if len(items) > 1 else 0.0
+            # never closer than a bubble and a bit
+            step = max(step, 10.0) if len(items) > 1 else 0.0
+            first = (top + bottom) / 2.0 + step * (len(items) - 1) / 2.0                 if len(items) > 1 else (top + bottom) / 2.0
+            column = items[0][2]
+            seats = [(column, first - step * k) for k in range(len(items))]
+            # The seats go to the leaders that make the shortest leaders
+            # all told: a matching that short never has two crossing, for
+            # swapping the ends of any crossing pair would make it shorter.
+            order = _shortest_matching(
+                [[math.dist(item[1], seat) for seat in seats]
+                 for item in items])
+            for index, (note, tip, _column) in enumerate(items):
+                seat = seats[order[index]]
+                if note.points[0] != [tip[0], tip[1]] and note.anchors:
+                    # the leader moves to another corner: it is no longer
+                    # tied to the one it was snapped to
+                    note.anchors = [None] * len(note.points)
+                note.points[0] = [tip[0], tip[1]]
+                note.offset = [seat[0] - tip[0], seat[1] - tip[1]]
+                moved += 1
+        doc.modified = True
+        self.canvas.update()
+        self.host.update_title()
+        self.host.status_message.setStyleSheet("")
+        self.host.status_message.setText("%d balloon(s) arranged." % moved)
+        return moved
+
     def auto_balloon(self) -> None:
         """A balloon on every component of the selected view's assembly.
 
@@ -1969,6 +2043,8 @@ class DrawingController(QtCore.QObject):
             menu.addSeparator()
             menu.addAction("Balloon", self.add_balloon)
             menu.addAction("Auto Balloon", self.auto_balloon)
+            menu.addAction("Arrange Balloons",
+                           lambda: self.arrange_balloons(view.id))
             menu.addAction("Parts List", self.add_parts_list)
             menu.addSeparator()
             menu.addAction("Update View",
@@ -3464,6 +3540,55 @@ def _box_at(centre: Sequence[float], size: Sequence[float]
     half_w, half_h = size[0] / 2.0, size[1] / 2.0
     return (centre[0] - half_w, centre[1] - half_h,
             centre[0] + half_w, centre[1] + half_h)
+
+
+def _shortest_matching(cost: List[List[float]]) -> List[int]:
+    """For each row, the column it gets, so that the costs together are
+    the least they can be (the Hungarian method, for a square table)."""
+    n = len(cost)
+    if n == 0:
+        return []
+    INF = float("inf")
+    u = [0.0] * (n + 1)
+    v = [0.0] * (n + 1)
+    p = [0] * (n + 1)          # p[j]: the row matched to column j
+    way = [0] * (n + 1)
+    for i in range(1, n + 1):
+        p[0] = i
+        j0 = 0
+        least = [INF] * (n + 1)
+        used = [False] * (n + 1)
+        while True:
+            used[j0] = True
+            i0, delta, j1 = p[j0], INF, 0
+            for j in range(1, n + 1):
+                if used[j]:
+                    continue
+                cur = cost[i0 - 1][j - 1] - u[i0] - v[j]
+                if cur < least[j]:
+                    least[j], way[j] = cur, j0
+                if least[j] < delta:
+                    delta, j1 = least[j], j
+            for j in range(n + 1):
+                if used[j]:
+                    u[p[j]] += delta
+                    v[j] -= delta
+                else:
+                    least[j] -= delta
+            j0 = j1
+            if p[j0] == 0:
+                break
+        while True:
+            j1 = way[j0]
+            p[j0] = p[j1]
+            j0 = j1
+            if j0 == 0:
+                break
+    out = [0] * n
+    for j in range(1, n + 1):
+        if p[j]:
+            out[p[j] - 1] = j - 1
+    return out
 
 
 def _descendants(sheet: Sheet, view_id: int) -> List[View]:

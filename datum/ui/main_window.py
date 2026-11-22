@@ -1003,6 +1003,10 @@ class MainWindow(QtWidgets.QMainWindow):
         panel.add_small("auto_balloon", "Auto Balloon",
                         "A balloon on every component of the selected view"
                         ).clicked.connect(ui.auto_balloon)
+        panel.add_small("auto_balloon", "Arrange Balloons",
+                        "The selected view's balloons in two tidy columns, "
+                        "no leader crossing another"
+                        ).clicked.connect(lambda: ui.arrange_balloons())
 
         tools = r.add_tab(TAB_DRAWING_TOOLS)
         panel = tools.add_panel("Update")
