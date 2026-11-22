@@ -82,6 +82,12 @@ class ViewSetup:
     # None for the stock isometric; otherwise {"fit": bool, "camera":
     # [eye, centre, up, scale, orthographic]}, the camera as it was set
     home: Optional[Dict[str, Any]] = field(default=None)
+    # How the file is looked at, kept with it: the visual style (shaded,
+    # shaded_edges, wireframe, xray) and orthographic or perspective.
+    # Empty and None for a file saved before they were kept: shown as it
+    # always was, shaded with edges and orthographic.
+    style: str = ""
+    orthographic: Optional[bool] = None
 
     # -- Front and Top --------------------------------------------------------
 
@@ -148,6 +154,10 @@ class ViewSetup:
         if self.home:
             out["home"] = {"fit": bool(self.home.get("fit")),
                            "camera": self.home.get("camera")}
+        if self.style:
+            out["style"] = self.style
+        if self.orthographic is not None:
+            out["orthographic"] = bool(self.orthographic)
         return out
 
     @classmethod
@@ -168,6 +178,11 @@ class ViewSetup:
         if isinstance(home, dict) and home.get("camera"):
             setup.home = {"fit": bool(home.get("fit")),
                           "camera": home.get("camera")}
+        if data.get("style") in ("shaded", "shaded_edges", "wireframe",
+                                 "xray"):
+            setup.style = data["style"]
+        if "orthographic" in data:
+            setup.orthographic = bool(data["orthographic"])
         return setup
 
 

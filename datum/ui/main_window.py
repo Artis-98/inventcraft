@@ -1148,6 +1148,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ortho_btn = panel.add_small("ortho", "Orthographic", checkable=True)
         self.ortho_btn.setChecked(True)
         self.ortho_btn.toggled.connect(self.viewport.set_projection)
+        self.ortho_btn.toggled.connect(self._keep_projection)
         self.origin_btn = panel.add_small("origin", "Origin", checkable=True)
         self.origin_btn.setChecked(True)
         self.origin_btn.toggled.connect(self.viewport.set_show_origin)
@@ -1197,11 +1198,41 @@ class MainWindow(QtWidgets.QMainWindow):
                                                          unit, 4))
 
     def set_visual_style(self, key: str) -> None:
-        """Shaded with edges, shaded, wireframe or X-ray: one of them."""
+        """Shaded with edges, shaded, wireframe or X-ray: one of them, kept
+        with the file on screen, so it opens that way again."""
         self.viewport.set_display_mode(key)
         button = getattr(self, "style_button", None)
         if button is not None and button.current != key:
             button.set_current(key)
+        setup = self._view_setup()
+        if setup is not None and not self.in_drawing:
+            setup.style = key
+
+    def _keep_projection(self, orthographic: bool) -> None:
+        """Orthographic or perspective, kept with the file on screen."""
+        setup = self._view_setup()
+        if setup is not None and not self.in_drawing                 and not getattr(self, "_activating", False):
+            setup.orthographic = bool(orthographic)
+
+    def _show_as_kept(self) -> None:
+        """The file on screen looked at the way it was saved: its visual
+        style and its projection, or the stock ones for a file older than
+        them.  A new file takes them from its template."""
+        setup = self._view_setup()
+        if setup is None or self.in_drawing:
+            return
+        style = setup.style or "shaded_edges"
+        if self.viewport.display_mode != style:
+            self.viewport.set_display_mode(style)
+        button = getattr(self, "style_button", None)
+        if button is not None and button.current != style:
+            button.set_current(style)
+        ortho = True if setup.orthographic is None else setup.orthographic
+        if self.ortho_btn.isChecked() != ortho:
+            self.ortho_btn.blockSignals(True)
+            self.ortho_btn.setChecked(ortho)
+            self.ortho_btn.blockSignals(False)
+        self.viewport.set_projection(ortho)
 
     def render_picture(self) -> None:
         """Ray trace what is on screen into a picture, to look at and save."""
@@ -2125,6 +2156,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.session.record_sources(entry)
         self.rebuild(keep_camera=restored)
         self._restore_section(entry)
+        self._show_as_kept()
         if not restored:
             setup = self._view_setup()
             if self.in_cam:
