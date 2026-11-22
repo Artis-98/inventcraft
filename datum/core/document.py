@@ -902,6 +902,23 @@ class Document:
                 pass
         report = RebuildReport()
 
+        # what <Model.Mass> and the like in this part's sketch text read:
+        # the part as built so far, measured once per body
+        document = self
+        measured: Dict[int, Dict[str, str]] = {}
+
+        def text_values() -> Dict[str, str]:
+            shape = ctx.shape
+            key = id(shape)
+            if key not in measured:
+                from .views import model_properties
+                measured.clear()
+                measured[key] = model_properties(document.path or "", shape,
+                                                 document)
+            return measured[key]
+
+        kernel.set_text_values(text_values)
+
         limit = (len(self.features) if self.rollback_index is None
                  else self.rollback_index)
 

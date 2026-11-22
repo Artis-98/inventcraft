@@ -1409,7 +1409,8 @@ def nearest_view(sheet, point):
 
 
 class TextTool:
-    """Inventor's Text: click where it goes, then write it in Format Text.
+    """Inventor's Text: drag a box, one corner and then the other, then
+    write it in Format Text, placed in the box as its alignment says.
     Leader Text first takes the point the arrow points at."""
 
     name = "Text"
@@ -1419,6 +1420,7 @@ class TextTool:
         self.controller = controller
         self.sheet = sheet
         self.tip = None
+        self.corner = None
         self.cursor = None
         self.say()
 
@@ -1428,9 +1430,14 @@ class TextTool:
         if self.leader and self.tip is None:
             host.status_message.setText(
                 "Leader Text: click what the arrow points at. Esc when done.")
-        else:
+        elif self.leader:
             host.status_message.setText(
                 "%s: click where the text goes. Esc when done." % self.name)
+        elif self.corner is None:
+            host.status_message.setText(
+                "Text: click one corner of the text box. Esc when done.")
+        else:
+            host.status_message.setText("Text: click the opposite corner.")
 
     def press(self, point, device) -> None:
         if not self.sheet.views:
@@ -1441,6 +1448,20 @@ class TextTool:
             self.tip = (point[0], point[1])
             self.say()
             return
+        box = []
+        if not self.leader:
+            if self.corner is None:
+                self.corner = (point[0], point[1])
+                self.say()
+                return
+            a, b = self.corner, point
+            self.corner = None
+            if abs(a[0] - b[0]) < 1.0 or abs(a[1] - b[1]) < 1.0:
+                # a click, not a box: the text starts where it was put
+                point = a
+            else:
+                box = [abs(a[0] - b[0]), abs(a[1] - b[1])]
+                point = (min(a[0], b[0]), max(a[1], b[1]))
         anchor = self.tip if self.leader else (point[0], point[1])
         view = nearest_view(self.sheet, anchor)
         dialog = FormatTextDialog(self.controller.host, self.controller,
@@ -1455,7 +1476,7 @@ class TextTool:
                           view=view.id, points=[local],
                           offset=([point[0] - anchor[0], point[1] - anchor[1]]
                                   if self.leader else [0.0, 0.0]),
-                          text=dialog.text())
+                          text=dialog.text(), box=box)
         dialog.style_into(note)
         doc = self.controller.document
         doc.push_undo()
@@ -1469,9 +1490,16 @@ class TextTool:
         self.cursor = (point[0], point[1])
 
     def release(self, point, device) -> None:
-        pass
+        # a drag from one corner to the other makes the box as well
+        if self.corner is not None and not self.leader and \
+                math.dist(self.corner, point) > 2.0:
+            self.press(point, device)
 
     def right_click(self, point, device) -> bool:
+        if self.corner is not None:
+            self.corner = None
+            self.say()
+            return True
         if self.tip is not None:
             self.tip = None
             self.say()
@@ -1486,6 +1514,15 @@ class TextTool:
             else QtCore.Qt.CrossCursor
 
     def paint(self, painter, layout) -> None:
+        if self.corner is not None and self.cursor is not None:
+            painter.save()
+            pen = QtGui.QPen(QtGui.QColor("#3b82d6"), 1.2, QtCore.Qt.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(QtCore.Qt.NoBrush)
+            painter.drawRect(QtCore.QRectF(
+                QtCore.QPointF(*layout.to_device(*self.corner)),
+                QtCore.QPointF(*layout.to_device(*self.cursor))).normalized())
+            painter.restore()
         if self.tip is not None and self.cursor is not None:
             painter.save()
             painter.setPen(QtGui.QPen(QtGui.QColor("#3b82d6"), 1.2))
@@ -1540,8 +1577,16 @@ class FormatTextDialog(QtWidgets.QDialog):
         if note is not None:
             self.align.setCurrentIndex(max(0, self.align.findData(
                 note.align or "left")))
+        self.valign = QtWidgets.QComboBox()
+        for key, label in (("top", "Top"), ("middle", "Middle"),
+                           ("bottom", "Bottom")):
+            self.valign.addItem(label, key)
+        self.valign.setToolTip("Where the text sits up and down its box")
+        if note is not None:
+            self.valign.setCurrentIndex(max(0, self.valign.findData(
+                getattr(note, "valign", "top") or "top")))
         for widget in (self.font, self.size, self.bold, self.italic,
-                       self.align):
+                       self.align, self.valign):
             row.addWidget(widget)
         layout.addLayout(row)
 
@@ -1556,10 +1601,19 @@ class FormatTextDialog(QtWidgets.QDialog):
         add = QtWidgets.QPushButton("Add")
         add.setToolTip("Put the property into the text at the cursor")
         add.clicked.connect(self._insert)
+        self.places = QtWidgets.QComboBox()
+        self.places.addItem("As it is", "")
+        for n in range(0, 5):
+            self.places.addItem("%d decimals" % n if n != 1 else
+                                "1 decimal", str(n))
+        self.places.setToolTip("How many decimals a number such as the "
+                               "mass is written with")
         props.addWidget(QtWidgets.QLabel("Type"))
         props.addWidget(self.group)
         props.addWidget(QtWidgets.QLabel("Property"))
         props.addWidget(self.prop, 1)
+        props.addWidget(QtWidgets.QLabel("Precision"))
+        props.addWidget(self.places)
         props.addWidget(add)
         layout.addLayout(props)
 
@@ -1584,7 +1638,9 @@ class FormatTextDialog(QtWidgets.QDialog):
             self.prop.addItem(label, key)
 
     def _insert(self) -> None:
-        self.edit.insertPlainText("<%s>" % self.prop.currentData())
+        places = self.places.currentData() or ""
+        self.edit.insertPlainText("<%s%s>" % (
+            self.prop.currentData(), (":" + places) if places else ""))
         self.edit.setFocus()
 
     def _look(self) -> None:
@@ -1603,3 +1659,4 @@ class FormatTextDialog(QtWidgets.QDialog):
         note.bold = self.bold.isChecked()
         note.italic = self.italic.isChecked()
         note.align = self.align.currentData() or "left"
+        note.valign = self.valign.currentData() or "top"

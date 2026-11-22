@@ -1125,6 +1125,11 @@ class Annotation:
     # a dimension's precision and tolerance, as Inventor's Edit Dimension
     # has them: decimals (-1 is the drawing's own), and a tolerance
     # method of "", symmetric, deviation, limits, fit, basic or reference
+    # text placed in a box, Inventor's way: its width and height on the
+    # sheet from the corner at points[0] (top left), and where in it the
+    # text sits up and down: top, middle or bottom
+    box: List[float] = field(default_factory=list)
+    valign: str = "top"
     precision: int = -1
     tolerance: str = ""
     upper: float = 0.0
@@ -1141,6 +1146,10 @@ class Annotation:
             extra["scale"] = self.scale
         if self.precision >= 0:
             extra["precision"] = self.precision
+        if self.box:
+            extra["box"] = [float(v) for v in self.box[:2]]
+        if self.valign != "top":
+            extra["valign"] = self.valign
         if self.tolerance:
             extra.update({"tolerance": self.tolerance, "upper": self.upper,
                           "lower": self.lower, "fit": self.fit})
@@ -1183,6 +1192,8 @@ class Annotation:
                    flip=bool(d.get("flip", False)),
                    scale=float(d.get("scale", 1.0) or 1.0),
                    precision=int(d.get("precision", -1)),
+                   box=[float(v) for v in (d.get("box") or [])[:2]],
+                   valign=str(d.get("valign", "top") or "top"),
                    tolerance=str(d.get("tolerance", "") or ""),
                    upper=float(d.get("upper", 0.0) or 0.0),
                    lower=float(d.get("lower", 0.0) or 0.0),
@@ -2301,13 +2312,36 @@ def fill_properties(text: str, values: Dict[str, str]) -> str:
         head, _sep, tail = rest.partition("<")
         key, close, after = tail.partition(">")
         out.append(head)
-        if close and key.split(".", 1)[0] in ("Model", "Drawing", "Sheet"):
-            out.append(values.get(key, ""))
+        name, _colon, places = key.partition(":")
+        if close and name.split(".", 1)[0] in ("Model", "Drawing", "Sheet"):
+            out.append(_with_places(values.get(name, ""), places))
         else:
             out.append("<" + key + close)
         rest = after if close else ""
     out.append(rest)
     return "".join(out)
+
+
+def _with_places(value: str, places: str) -> str:
+    """A property's value with its number written to so many decimals:
+    <Model.Mass:1> reads 412.3 g for 412.31 g.  Anything not a number,
+    or no places asked for, as it is."""
+    if not places.strip().isdigit():
+        return value
+    head = value.strip()
+    number, rest = "", head
+    for i, ch in enumerate(head):
+        if ch.isdigit() or ch in ".-+":
+            number += ch
+        else:
+            rest = head[i:]
+            break
+    else:
+        rest = ""
+    try:
+        return "%.*f%s" % (int(places), float(number), rest)
+    except ValueError:
+        return value
 
 
 def resolve_field(item: TextField, values: Dict[str, str],

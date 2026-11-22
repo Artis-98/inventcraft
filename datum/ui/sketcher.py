@@ -3583,7 +3583,7 @@ class SketchEditor(QtCore.QObject):
         dialog = SketchTextDialog(current, self.units,
                                   self.viewport.window(),
                                   properties=getattr(self, "property_fields",
-                                                     False))
+                                                     False) or "model")
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return None
         return dialog.values()

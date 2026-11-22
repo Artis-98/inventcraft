@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from collections import OrderedDict
 import os
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from OCP.BRep import BRep_Builder, BRep_Tool
 from OCP.BRepAlgoAPI import (
@@ -934,12 +934,35 @@ def _text_raw(text: str, font: str, size: float, bold: bool, italic: bool,
     return shape
 
 
+# Where a part's text finds its properties: a function giving the values
+# <Model.Mass> and the like stand for, set by the part being rebuilt, so
+# an engraved weight follows the plate it is on.
+_TEXT_VALUES: Optional[Callable[[], Dict[str, str]]] = None
+
+
+def set_text_values(source: Optional[Callable[[], Dict[str, str]]]) -> None:
+    global _TEXT_VALUES
+    _TEXT_VALUES = source
+
+
+def filled_text(text: str) -> str:
+    """Sketch text with the properties in it filled in, as the part is."""
+    if "<" not in text or _TEXT_VALUES is None:
+        return text
+    try:
+        from .drawing import fill_properties
+        return fill_properties(text, _TEXT_VALUES())
+    except Exception:
+        return text
+
+
 def _text_outline(text: str, font: str, size: float, bold: bool,
                   italic: bool) -> Optional[TopoDS_Shape]:
     """The letters of ``text`` as planar faces, holes and all, on the XY
     plane with the bottom of the first line at the origin; lines broken at
     newlines go down from it.  Made by OpenCASCADE from the font itself,
     and kept, since the same text comes up on every rebuild."""
+    text = filled_text(text)
     key = (text, font, round(float(size), 9), bool(bold), bool(italic))
     if key in _TEXT_CACHE:
         return _TEXT_CACHE[key]

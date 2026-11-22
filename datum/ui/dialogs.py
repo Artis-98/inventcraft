@@ -4034,25 +4034,43 @@ class SketchTextDialog(QtWidgets.QDialog):
             # a title block's text, as Inventor's Format Text there: Type,
             # Property, and Add puts it where the cursor is
             from .titleblock_ui import PROPERTY_GROUPS
+            groups = PROPERTY_GROUPS
+            if properties == "model":
+                # a part's own text: what the part knows about itself,
+                # the mass of an engraved plate say, kept up to date
+                groups = [g for g in PROPERTY_GROUPS if "Model" in g[0]]
             props = QtWidgets.QHBoxLayout()
             group = QtWidgets.QComboBox(self)
             prop = QtWidgets.QComboBox(self)
+            places = QtWidgets.QComboBox(self)
+            places.addItem("As it is", "")
+            for n in range(0, 5):
+                places.addItem("%d decimals" % n, str(n))
+            places.setToolTip("How many decimals a number such as the mass "
+                              "is written with")
 
             def fill(index):
                 prop.clear()
-                for label, key in PROPERTY_GROUPS[max(0, index)][1]:
+                for label, key in groups[max(0, index)][1]:
                     prop.addItem(label, key)
-            for title, _items in PROPERTY_GROUPS:
+            for title, _items in groups:
                 group.addItem(title)
             group.currentIndexChanged.connect(fill)
             fill(0)
             add = QtWidgets.QPushButton("Add", self)
-            add.clicked.connect(lambda: (self.text.insertPlainText(
-                "<%s>" % prop.currentData()), self.text.setFocus()))
+
+            def insert():
+                digits = places.currentData() or ""
+                self.text.insertPlainText("<%s%s>" % (
+                    prop.currentData(), (":" + digits) if digits else ""))
+                self.text.setFocus()
+            add.clicked.connect(insert)
             props.addWidget(QtWidgets.QLabel("Type"))
             props.addWidget(group)
             props.addWidget(QtWidgets.QLabel("Property"))
             props.addWidget(prop, 1)
+            props.addWidget(QtWidgets.QLabel("Precision"))
+            props.addWidget(places)
             props.addWidget(add)
             layout.addLayout(props)
         layout.addWidget(self.text)

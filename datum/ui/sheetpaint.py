@@ -1554,6 +1554,19 @@ def _note(painter, doc, view, note, layout, at, colour) -> None:
     painter.setFont(font)
     x = view.x + anchor[0] + ox
     y = view.y + anchor[1] + oy + 1.2
+    lines = text.split(chr(10))
+    box = getattr(note, "box", None) or []
+    if note.kind != LEADER and len(box) >= 2:
+        # in its box: across by the alignment, up and down by valign
+        w, h = box[0], box[1]
+        left, top = view.x + anchor[0] + ox, view.y + anchor[1] + oy
+        x = {"centre": left + w / 2.0,
+             "right": left + w - 1.0}.get(note.align or "left", left + 1.0)
+        block = height * (1.5 * (len(lines) - 1) + 1.0)
+        first = {"middle": top - (h - block) / 2.0 - height,
+                 "bottom": top - h + block - height + 0.8}.get(
+            getattr(note, "valign", "top"), top - height - 0.8)
+        y = first
     if note.kind == LEADER:
         # the landing: a short line under the text, as Inventor's leader
         land = at((anchor[0] + ox, anchor[1] + oy))
@@ -1562,7 +1575,7 @@ def _note(painter, doc, view, note, layout, at, colour) -> None:
                                         land[1]))
         x += 4.0
         y -= 1.2 + height * 0.3
-    for index, line in enumerate(text.split(chr(10))):
+    for index, line in enumerate(lines):
         _text(painter, layout, line, x, y - index * height * 1.5, height,
               bold=note.bold, align=note.align or "left", colour=colour)
     font.setItalic(False)
