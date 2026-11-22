@@ -1897,8 +1897,10 @@ class DrawingController(QtCore.QObject):
             return
         sheets = None if all_sheets else [doc.active()]
         try:
-            written = drawingexport.to_pdf(doc, path, sheets,
-                                           self._sheet_properties)
+            written = self._in_background(
+                "Writing %s" % os.path.basename(path),
+                lambda: drawingexport.to_pdf(doc, path, sheets,
+                                             self._sheet_properties))
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self.host, "Export failed",
                                            str(exc))
@@ -1967,8 +1969,50 @@ class DrawingController(QtCore.QObject):
         dialog = QtPrintSupport.QPrintDialog(printer, self.host)
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return
-        drawingexport.to_printer(doc, printer, None, self._sheet_properties)
+        try:
+            self._in_background(
+                "Printing", lambda: drawingexport.to_printer(
+                    doc, printer, None, self._sheet_properties))
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(self.host, "Print failed",
+                                           str(exc))
+            return
         self.host.status_message.setText("Sent to %s" % printer.printerName())
+
+    def _in_background(self, label: str, work):
+        """Run ``work`` on a thread of its own, the window drawing itself
+        and saying what it is doing meanwhile; its answer, or its error
+        raised here.  A sheet of a big assembly is seconds of painting,
+        and a window that stops drawing for that long looks hung.  The
+        box is modal, so nothing on the drawing changes under it."""
+        import threading
+
+        box = QtWidgets.QProgressDialog(label + "…", None, 0, 0,
+                                        self.host)
+        box.setWindowTitle("InventCraft")
+        box.setWindowModality(QtCore.Qt.WindowModal)
+        box.setMinimumDuration(400)
+        box.setCancelButton(None)
+        result = {}
+
+        def run():
+            try:
+                result["value"] = work()
+            except Exception as exc:         # handed back below
+                result["error"] = exc
+
+        thread = threading.Thread(target=run, name="datum-export",
+                                  daemon=True)
+        thread.start()
+        while thread.is_alive():
+            QtWidgets.QApplication.processEvents(
+                QtCore.QEventLoop.AllEvents, 50)
+            thread.join(0.02)
+        box.close()
+        box.deleteLater()
+        if "error" in result:
+            raise result["error"]
+        return result.get("value")
 
     def thumbnail(self) -> Optional[bytes]:
         """A picture of the first sheet, for the file and the recent list."""

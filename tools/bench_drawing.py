@@ -110,3 +110,6 @@ from datum.ui import drawingexport                              # noqa: E402
 pdf = os.path.join(WORK, "bench.pdf")
 timed("export PDF", lambda: drawingexport.to_pdf(doc, pdf))
 print("  PDF size %.1f MB" % (os.path.getsize(pdf) / 1e6))
+import json                                                     # noqa: E402
+timed("drawing to dict and JSON (for workers)",
+      lambda: len(json.dumps({"g": doc.to_dict(), "c": doc.cache_dict()})))

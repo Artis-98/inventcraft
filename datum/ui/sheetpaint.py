@@ -89,7 +89,14 @@ def exact(sheet_height: float, scale: float = 1.0) -> Layout:
 # --------------------------------------------------------------- the painting
 
 
-_VALUES: Dict[str, str] = {}
+# what {Model.*} and the like read on the sheet being painted, one per
+# thread: a PDF is written on a thread of its own while the window paints
+import threading as _threading
+_HELD = _threading.local()
+
+
+def _values() -> Dict[str, str]:
+    return getattr(_HELD, "values", {})
 
 
 def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
@@ -124,11 +131,10 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
         model_properties = model_properties(sheet)
     width, height = sheet.extent()
     # what properties in text read, for the sheet being drawn
-    global _VALUES
     try:
-        _VALUES = dwg.properties_for(doc, sheet, model_properties)
+        _HELD.values = dwg.properties_for(doc, sheet, model_properties)
     except Exception:
-        _VALUES = {}
+        _HELD.values = {}
 
     if phase in ("all", "under"):
         if with_paper:
@@ -290,7 +296,7 @@ def _sketch(painter, doc, sheet, item, layout) -> None:
         painter.setFont(font)
         cap = size * cap_ratio(family or drawing_font())
         for index, line in enumerate(
-                dwg.fill_properties(words, _VALUES).split(chr(10))):
+                dwg.fill_properties(words, _values()).split(chr(10))):
             _text(painter, layout, line, ox + x,
                   oy + y - index * size * 1.2, cap, bold=bold)
     font = painter.font()
@@ -1533,7 +1539,7 @@ def _note(painter, doc, view, note, layout, at, colour) -> None:
                     layout.pen_width(style.arrow_size) * 1.4)
     # Format Text's font, size and look; the properties in it filled in
     height = note.size or style.text_height
-    text = dwg.fill_properties(note.text or "", _VALUES)
+    text = dwg.fill_properties(note.text or "", _values())
     font = painter.font()
     if note.font:
         font.setFamily(note.font)
