@@ -1122,6 +1122,14 @@ class Annotation:
     turn: float = 0.0
     flip: bool = False
     scale: float = 1.0
+    # a dimension's precision and tolerance, as Inventor's Edit Dimension
+    # has them: decimals (-1 is the drawing's own), and a tolerance
+    # method of "", symmetric, deviation, limits, fit, basic or reference
+    precision: int = -1
+    tolerance: str = ""
+    upper: float = 0.0
+    lower: float = 0.0
+    fit: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         extra = {"retrieved": self.retrieved} if self.retrieved else {}
@@ -1131,6 +1139,11 @@ class Annotation:
             extra["flip"] = True
         if abs(self.scale - 1.0) > 1e-9:
             extra["scale"] = self.scale
+        if self.precision >= 0:
+            extra["precision"] = self.precision
+        if self.tolerance:
+            extra.update({"tolerance": self.tolerance, "upper": self.upper,
+                          "lower": self.lower, "fit": self.fit})
         return {**extra, "id": self.id, "kind": self.kind, "view": self.view,
                 "font": self.font, "size": self.size, "bold": self.bold,
                 "italic": self.italic, "align": self.align,
@@ -1168,7 +1181,12 @@ class Annotation:
                    retrieved=int(d.get("retrieved", 0) or 0),
                    turn=float(d.get("turn", 0.0) or 0.0),
                    flip=bool(d.get("flip", False)),
-                   scale=float(d.get("scale", 1.0) or 1.0))
+                   scale=float(d.get("scale", 1.0) or 1.0),
+                   precision=int(d.get("precision", -1)),
+                   tolerance=str(d.get("tolerance", "") or ""),
+                   upper=float(d.get("upper", 0.0) or 0.0),
+                   lower=float(d.get("lower", 0.0) or 0.0),
+                   fit=str(d.get("fit", "") or ""))
 
     @property
     def anchored(self) -> bool:
@@ -1220,10 +1238,42 @@ class Annotation:
             return str(self.item) if self.item else "?"
         raw = self.measure() / (scale or 1.0)
         if self.kind == ANGULAR:
-            return "%s%.1f°%s" % (self.prefix, self.measure(),
-                                       self.suffix)
+            raw, unit = self.measure(), "°"
+            number = ("%.*f" % (self.precision, raw) if self.precision >= 0
+                      else "%.1f" % raw)
+            return "%s%s%s%s%s" % (self.prefix, number, unit,
+                                   self._tolerance_text(), self.suffix)
         symbol = {RADIUS: "R", DIAMETER: "⌀"}.get(self.kind, "")
-        return "%s%s%s%s" % (self.prefix, symbol, _trim(raw), self.suffix)
+        number = self._number(raw)
+        if self.tolerance == "limits":
+            # the two limits in place of the value, the larger first
+            number = "%s/%s" % (self._number(raw + self.upper),
+                                self._number(raw - abs(self.lower)))
+        elif self.tolerance == "basic":
+            number = "[%s]" % number
+        elif self.tolerance == "reference":
+            number = "(%s)" % number
+        return "%s%s%s%s%s" % (self.prefix, symbol, number,
+                               self._tolerance_text(), self.suffix)
+
+    def _number(self, value: float) -> str:
+        if self.precision >= 0:
+            return "%.*f" % (self.precision, value)
+        return _trim(value)
+
+    def _tolerance_text(self) -> str:
+        """What follows the value: ±0.1, +0.1/-0.05, or a fit's letters."""
+        places = self.precision if self.precision >= 0 else 2
+
+        def signed(v):
+            return ("+" if v >= 0 else "-") + "%.*f" % (places, abs(v))
+        if self.tolerance == "symmetric":
+            return " ±%.*f" % (places, abs(self.upper))
+        if self.tolerance == "deviation":
+            return " %s/%s" % (signed(self.upper), signed(-abs(self.lower)))
+        if self.tolerance == "fit" and self.fit:
+            return " %s" % self.fit
+        return ""
 
 
 def between_lines(points: Sequence[Sequence[float]],

@@ -1813,10 +1813,17 @@ class DrawingController(QtCore.QObject):
                 doc.modified = True
                 self.canvas.update()
             return
-        current = note.text or note.caption(doc.view_scale(sheet, view)
-                                            if view else 1.0)
+        if note.kind in dwg.DIMENSIONS:
+            dialog = DimensionDialog(self.host, doc, sheet, note)
+            if dialog.exec() == QtWidgets.QDialog.Accepted:
+                doc.push_undo()
+                dialog.apply()
+                doc.modified = True
+                self.canvas.update()
+                self.host.update_title()
+            return
         text, ok = QtWidgets.QInputDialog.getText(
-            self.host, "Dimension text",
+            self.host, "Text",
             "Text (leave empty to use the measured value):",
             QtWidgets.QLineEdit.Normal, note.text)
         if not ok:
@@ -2235,6 +2242,165 @@ class DrawingController(QtCore.QObject):
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
             "Template saved as %s" % os.path.basename(written))
+
+
+class DimensionDialog(QtWidgets.QDialog):
+    """Inventor's Edit Dimension: the text round the value, its precision
+    and tolerance, and how big it is written; with the drawing's dimension
+    style a button away (AutoCAD's DIMSTYLE)."""
+
+    TOLERANCES = (("", "Default (none)"), ("symmetric", "Symmetric  \u00b1"),
+                  ("deviation", "Deviation  +/-"), ("limits", "Limits"),
+                  ("fit", "Limits / Fits (ISO 286)"), ("basic", "Basic"),
+                  ("reference", "Reference"))
+
+    def __init__(self, parent, doc, sheet, note) -> None:
+        super().__init__(parent)
+        self.doc, self.sheet, self.note = doc, sheet, note
+        view = sheet.view(note.view)
+        self.scale = doc.view_scale(sheet, view) if view else 1.0
+        self.setWindowTitle("Edit Dimension")
+        self.setWindowIcon(icons.icon("dimension", 24))
+        self.setMinimumWidth(440)
+        root = QtWidgets.QVBoxLayout(self)
+        tabs = QtWidgets.QTabWidget()
+        root.addWidget(tabs)
+
+        page = QtWidgets.QWidget()
+        form = QtWidgets.QFormLayout(page)
+        self.prefix = QtWidgets.QLineEdit(note.prefix)
+        self.prefix.setPlaceholderText("before the value, 2x say")
+        form.addRow("Before", self.prefix)
+        self.suffix = QtWidgets.QLineEdit(note.suffix)
+        self.suffix.setPlaceholderText("after it, TYP say")
+        form.addRow("After", self.suffix)
+        self.override = QtWidgets.QLineEdit(note.text)
+        self.override.setPlaceholderText("empty: the measured value")
+        form.addRow("Instead of the value", self.override)
+        self.height = QtWidgets.QDoubleSpinBox()
+        self.height.setRange(0.0, 50.0)
+        self.height.setDecimals(2)
+        self.height.setSuffix(" mm")
+        self.height.setSpecialValueText("The style's")
+        self.height.setValue(note.size or 0.0)
+        form.addRow("Text height", self.height)
+        tabs.addTab(page, "Text")
+
+        page = QtWidgets.QWidget()
+        form = QtWidgets.QFormLayout(page)
+        self.method = QtWidgets.QComboBox()
+        for key, label in self.TOLERANCES:
+            self.method.addItem(label, key)
+        self.method.setCurrentIndex(max(0, self.method.findData(
+            note.tolerance)))
+        form.addRow("Tolerance", self.method)
+        self.upper = QtWidgets.QDoubleSpinBox()
+        self.lower = QtWidgets.QDoubleSpinBox()
+        for box, value in ((self.upper, note.upper), (self.lower,
+                                                      note.lower)):
+            box.setRange(-1000.0, 1000.0)
+            box.setDecimals(4)
+            box.setSingleStep(0.01)
+            box.setValue(value)
+        form.addRow("Upper", self.upper)
+        form.addRow("Lower", self.lower)
+        self.fit = QtWidgets.QLineEdit(note.fit)
+        self.fit.setPlaceholderText("H7, h6, H7/g6")
+        form.addRow("Fit", self.fit)
+        self.precision = QtWidgets.QSpinBox()
+        self.precision.setRange(-1, 6)
+        self.precision.setSpecialValueText("The drawing's")
+        self.precision.setValue(note.precision)
+        form.addRow("Decimals", self.precision)
+        tabs.addTab(page, "Precision and Tolerance")
+
+        self.preview = QtWidgets.QLabel()
+        self.preview.setAlignment(QtCore.Qt.AlignCenter)
+        font = self.preview.font()
+        font.setPointSizeF(font.pointSizeF() * 1.4)
+        self.preview.setFont(font)
+        root.addWidget(self.preview)
+
+        row = QtWidgets.QHBoxLayout()
+        style = QtWidgets.QPushButton("Dimension Style...")
+        style.setToolTip("The drawing's dimension style: text height, "
+                         "arrows and line, for every dimension on it")
+        style.clicked.connect(self._edit_style)
+        row.addWidget(style)
+        row.addStretch(1)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        row.addWidget(buttons)
+        root.addLayout(row)
+
+        for widget in (self.prefix, self.suffix, self.override, self.fit):
+            widget.textChanged.connect(lambda _t: self._show())
+        for widget in (self.upper, self.lower, self.height):
+            widget.valueChanged.connect(lambda _v: self._show())
+        self.precision.valueChanged.connect(lambda _v: self._show())
+        self.method.currentIndexChanged.connect(lambda _i: self._show())
+        self._show()
+
+    def _settled(self, note) -> None:
+        note.prefix = self.prefix.text()
+        note.suffix = self.suffix.text()
+        note.text = self.override.text().strip()
+        note.size = self.height.value()
+        note.tolerance = self.method.currentData() or ""
+        note.upper = self.upper.value()
+        note.lower = self.lower.value()
+        note.fit = self.fit.text().strip()
+        note.precision = self.precision.value()
+
+    def _show(self) -> None:
+        import copy
+        method = self.method.currentData() or ""
+        self.upper.setEnabled(method in ("symmetric", "deviation",
+                                         "limits"))
+        self.lower.setEnabled(method in ("deviation", "limits"))
+        self.fit.setEnabled(method == "fit")
+        trial = copy.copy(self.note)
+        self._settled(trial)
+        self.preview.setText(trial.caption(self.scale))
+
+    def apply(self) -> None:
+        self._settled(self.note)
+
+    def _edit_style(self) -> None:
+        style = self.doc.styles.get("dimension", dwg.Style())
+        box = QtWidgets.QDialog(self)
+        box.setWindowTitle("Dimension Style")
+        form = QtWidgets.QFormLayout(box)
+        height = QtWidgets.QDoubleSpinBox()
+        height.setRange(1.0, 20.0)
+        height.setSuffix(" mm")
+        height.setValue(style.text_height)
+        form.addRow("Text height", height)
+        arrow = QtWidgets.QDoubleSpinBox()
+        arrow.setRange(0.5, 10.0)
+        arrow.setSuffix(" mm")
+        arrow.setValue(style.arrow_size)
+        form.addRow("Arrow size", arrow)
+        width = QtWidgets.QDoubleSpinBox()
+        width.setRange(0.13, 2.0)
+        width.setDecimals(2)
+        width.setSuffix(" mm")
+        width.setValue(style.line_width)
+        form.addRow("Line width", width)
+        buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.accepted.connect(box.accept)
+        buttons.rejected.connect(box.reject)
+        form.addRow(buttons)
+        if box.exec() == QtWidgets.QDialog.Accepted:
+            self.doc.push_undo()
+            style.text_height = height.value()
+            style.arrow_size = arrow.value()
+            style.line_width = width.value()
+            self.doc.styles["dimension"] = style
+            self.doc.modified = True
 
 
 class PartsListDialog(QtWidgets.QDialog):

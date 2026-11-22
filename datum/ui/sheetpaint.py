@@ -1122,15 +1122,22 @@ def _ordinate(painter, doc, sheet, view, note, layout, at, colour) -> None:
             QtCore.QPointF(*at(end)))
     scale = doc.view_scale(sheet, view)
     text = note.caption(scale)
-    reach = len(text) * style.text_height * 0.32 + 1.0
+    reach = len(text) * _size(style, note) * 0.32 + 1.0
     if note.axis == "x":
         _text(painter, layout, text, view.x + end[0] - 0.4,
-              view.y + end[1] + way[1] * reach, style.text_height,
+              view.y + end[1] + way[1] * reach, _size(style, note),
               align="centre", colour=colour, turn=90.0)
     else:
         _text(painter, layout, text, view.x + end[0] + way[0] * reach,
-              view.y + end[1] - style.text_height * 0.4,
-              style.text_height, align="centre", colour=colour)
+              view.y + end[1] - _size(style, note) * 0.4,
+              _size(style, note), align="centre", colour=colour)
+
+
+def _size(style, note) -> float:
+    """A dimension's text height: its own, set in Edit Dimension, or the
+    dimension style's."""
+    own = getattr(note, "size", 0.0) or 0.0
+    return own if own > 0 else style.text_height
 
 
 def _linear(painter, doc, sheet, view, note, layout, at, colour) -> None:
@@ -1178,7 +1185,7 @@ def _linear(painter, doc, sheet, view, note, layout, at, colour) -> None:
     _text(painter, layout, note.caption(scale),
           view.x + label[0] + math.cos(lift) * 1.2,
           view.y + label[1] + math.sin(lift) * 1.2,
-          style.text_height, align="centre", colour=colour, turn=angle)
+          _size(style, note), align="centre", colour=colour, turn=angle)
 
 
 def _radial(painter, doc, sheet, view, note, layout, at, colour) -> None:
@@ -1195,7 +1202,7 @@ def _radial(painter, doc, sheet, view, note, layout, at, colour) -> None:
     scale = doc.view_scale(sheet, view)
     _text(painter, layout, note.caption(scale),
           view.x + rim[0] + ox, view.y + rim[1] + oy + 1.2,
-          style.text_height, align="left", colour=colour)
+          _size(style, note), align="left", colour=colour)
 
 
 def _angular(painter, doc, sheet, view, note, layout, at, colour) -> None:
@@ -1233,7 +1240,7 @@ def _angular(painter, doc, sheet, view, note, layout, at, colour) -> None:
     _text(painter, layout, note.caption(1.0),
           view.x + vertex[0] + math.cos(mid) * (radius + 3.0),
           view.y + vertex[1] + math.sin(mid) * (radius + 3.0),
-          style.text_height, align="centre", colour=colour)
+          _size(style, note), align="centre", colour=colour)
 
 
 def _between_lines(painter, doc, view, note, layout, at, colour) -> None:
@@ -1281,7 +1288,7 @@ def _between_lines(painter, doc, view, note, layout, at, colour) -> None:
     _text(painter, layout, note.caption(1.0),
           view.x + vertex[0] + math.cos(middle) * (radius + 3.5),
           view.y + vertex[1] + math.sin(middle) * (radius + 3.5),
-          style.text_height, align="centre", colour=colour)
+          _size(style, note), align="centre", colour=colour)
 
 
 def _weld(painter, doc, view, note, layout, at, colour) -> None:
