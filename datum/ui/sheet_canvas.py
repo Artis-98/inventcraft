@@ -530,12 +530,81 @@ class SheetCanvas(QtWidgets.QWidget):
         if sheet is None:
             return None
         point = self.layout().to_sheet(x, y)
-        for table in reversed(sheet.parts_lists):
-            box = table.box()
+        for table in reversed(sheet.parts_lists
+                              + list(getattr(sheet, "revision_tables", []))):
+            box = self._table_box(table)
             if (box[0] <= point[0] <= box[2]
                     and box[1] <= point[1] <= box[3]):
                 return table.id
         return None
+
+    # -- tables, moved and snapped ------------------------------------------
+
+    # how near, in screen pixels, a table's edge is pulled onto a line
+    SNAP_PIXELS = 10.0
+
+    @staticmethod
+    def _table(sheet: Sheet, table_id: int):
+        """A parts list or a revision table, by id."""
+        found = sheet.parts_list(table_id)
+        if found is not None:
+            return found
+        return next((t for t in getattr(sheet, "revision_tables", [])
+                     if t.id == table_id), None)
+
+    def _table_box(self, table):
+        if isinstance(table, dwg.PartsList):
+            return table.box()
+        rows = len(getattr(self.doc, "revisions", []) or [])
+        return table.box(rows)
+
+    def _snap_lines(self, sheet: Sheet):
+        """The lines a table sticks to: the border's frame and the title
+        block's sides, as (xs, ys) on the sheet."""
+        width, height = sheet.extent()
+        border = self.doc.borders.get(sheet.border) if self.doc else None
+        frame = border.frame(width, height) if border is not None \
+            else (0.0, 0.0, width, height)
+        xs, ys = [frame[0], frame[2]], [frame[1], frame[3]]
+        block = self.doc.title_blocks.get(sheet.title_block) \
+            if self.doc else None
+        if block is not None and not self.hide_title_block:
+            xs.append(frame[2] - block.width)
+            ys.append(frame[1] + block.height)
+        return xs, ys
+
+    def _snap_table(self, sheet: Sheet, table) -> List:
+        """A table being dragged pulled onto the border or the title block
+        when an edge of it comes near one, so it sits exactly in a corner
+        or on the block; the guides that show it did."""
+        box = self._table_box(table)
+        reach = self.SNAP_PIXELS / max(self.layout().scale, 1e-9)
+        xs, ys = self._snap_lines(sheet)
+
+        def nearest(edges, lines):
+            best = None
+            for edge in edges:
+                for line in lines:
+                    gap = line - edge
+                    if abs(gap) <= reach and (best is None
+                                              or abs(gap) < abs(best[0])):
+                        best = (gap, line)
+            return best
+
+        snap_x = nearest((box[0], box[2]), xs)
+        snap_y = nearest((box[1], box[3]), ys)
+        if snap_x is not None:
+            table.x += snap_x[0]
+        if snap_y is not None:
+            table.y += snap_y[0]
+        box = self._table_box(table)
+        width, height = sheet.extent()
+        guides = []
+        if snap_x is not None:
+            guides.append(((snap_x[1], 0.0), (snap_x[1], height)))
+        if snap_y is not None:
+            guides.append(((0.0, snap_y[1]), (width, snap_y[1])))
+        return guides
 
     # --------------------------------------------------------------- mouse
 
@@ -603,7 +672,7 @@ class SheetCanvas(QtWidgets.QWidget):
 
         if table_id is not None:
             self.selected_annotations.append(table_id)
-            table = sheet.parts_list(table_id)
+            table = self._table(sheet, table_id)
             self._drag_table = table_id
             self._origin = (table.x, table.y)
         elif note_id is not None:
@@ -672,13 +741,17 @@ class SheetCanvas(QtWidgets.QWidget):
             if note is not None:
                 note.offset = dwg.dragged_offset(note, self._origin, dx, dy)
                 held = QtWidgets.QApplication.keyboardModifiers()
-                self._guides = [] if held & QtCore.Qt.AltModifier                     else self._align_note(sheet, note)
+                self._guides = [] if held & QtCore.Qt.AltModifier \
+                    else self._align_note(sheet, note)
                 self.update()
         elif self._drag_table is not None and self._origin is not None:
-            table = sheet.parts_list(self._drag_table)
+            table = self._table(sheet, self._drag_table)
             if table is not None:
                 table.x = self._origin[0] + dx
                 table.y = self._origin[1] + dy
+                held = QtWidgets.QApplication.keyboardModifiers()
+                self._guides = [] if held & QtCore.Qt.AltModifier \
+                    else self._snap_table(sheet, table)
                 self.update()
 
     # how near, in screen pixels, a label is pulled level with another
@@ -738,7 +811,8 @@ class SheetCanvas(QtWidgets.QWidget):
 
     def _paint_guides(self, painter: QtGui.QPainter) -> None:
         guides = getattr(self, "_guides", None)
-        if not guides or self._drag_note is None:
+        if not guides or (self._drag_note is None
+                          and self._drag_table is None):
             return
         layout = self.layout()
         painter.save()
