@@ -224,6 +224,7 @@ class SheetCanvas(QtWidgets.QWidget):
             self.placer.paint(painter, self.layout())
         else:
             self._paint_grips(painter)
+            self._paint_guides(painter)
         painter.end()
 
     # -- the views, kept as a picture ----------------------------------------
@@ -670,6 +671,8 @@ class SheetCanvas(QtWidgets.QWidget):
                          if a.id == self._drag_note), None)
             if note is not None:
                 note.offset = dwg.dragged_offset(note, self._origin, dx, dy)
+                held = QtWidgets.QApplication.keyboardModifiers()
+                self._guides = [] if held & QtCore.Qt.AltModifier                     else self._align_note(sheet, note)
                 self.update()
         elif self._drag_table is not None and self._origin is not None:
             table = sheet.parts_list(self._drag_table)
@@ -677,6 +680,76 @@ class SheetCanvas(QtWidgets.QWidget):
                 table.x = self._origin[0] + dx
                 table.y = self._origin[1] + dy
                 self.update()
+
+    # how near, in screen pixels, a label is pulled level with another
+    ALIGN_PIXELS = 6.0
+
+    def _label_on_sheet(self, sheet: Sheet, note) -> Optional[Tuple[float,
+                                                                    float]]:
+        view = sheet.view(note.view)
+        if view is None:
+            return None
+        try:
+            at = dwg.label_at(note)
+        except Exception:
+            return None
+        return (view.x + at[0], view.y + at[1])
+
+    def _align_note(self, sheet: Sheet, note) -> List:
+        """Pull a label being dragged level with, or in line under, the
+        label of another balloon or dimension when it comes within a few
+        pixels of it, and the guide lines that say so.  Alt held drags
+        freely."""
+        if note.kind in (dwg.ALIGNED, dwg.ANGULAR):
+            return []
+        here = self._label_on_sheet(sheet, note)
+        if here is None:
+            return []
+        reach = self.ALIGN_PIXELS / max(self.layout().scale, 1e-9)
+        best_x = best_y = None
+        for other in sheet.annotations:
+            if other is note or other.kind in (dwg.CENTRE_MARK,
+                                               dwg.CENTRELINE):
+                continue
+            there = self._label_on_sheet(sheet, other)
+            if there is None:
+                continue
+            gx, gy = abs(there[0] - here[0]), abs(there[1] - here[1])
+            if gx < reach and (best_x is None or gx < best_x[0]):
+                best_x = (gx, there)
+            if gy < reach and (best_y is None or gy < best_y[0]):
+                best_y = (gy, there)
+        shift = [0.0, 0.0]
+        if best_x is not None:
+            shift[0] = best_x[1][0] - here[0]
+        if best_y is not None:
+            shift[1] = best_y[1][1] - here[1]
+        if shift == [0.0, 0.0] and best_x is None and best_y is None:
+            return []
+        note.offset = [note.offset[0] + shift[0],
+                       note.offset[1] + shift[1]] + list(note.offset[2:])
+        now = self._label_on_sheet(sheet, note) or here
+        guides = []
+        if best_x is not None:
+            guides.append((best_x[1], (best_x[1][0], now[1])))
+        if best_y is not None:
+            guides.append((best_y[1], (now[0], best_y[1][1])))
+        return guides
+
+    def _paint_guides(self, painter: QtGui.QPainter) -> None:
+        guides = getattr(self, "_guides", None)
+        if not guides or self._drag_note is None:
+            return
+        layout = self.layout()
+        painter.save()
+        pen = QtGui.QPen(QtGui.QColor(sheetpaint.SELECTED), 1.0,
+                         QtCore.Qt.DashLine)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
+        for a, b in guides:
+            painter.drawLine(QtCore.QPointF(*layout.to_device(*a)),
+                             QtCore.QPointF(*layout.to_device(*b)))
+        painter.restore()
 
     def _move_view(self, sheet: Sheet, view: View,
                    dx: float, dy: float) -> None:
@@ -739,6 +812,7 @@ class SheetCanvas(QtWidgets.QWidget):
         self._drag_view = None
         self._drag_note = None
         self._drag_table = None
+        self._guides = []
         self._drag_from = None
         self._origin = None
         if dragged:
