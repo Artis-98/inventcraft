@@ -3713,8 +3713,8 @@ class SketchEditor(QtCore.QObject):
     def _render_texts(self) -> None:
         from OCP.TopAbs import TopAbs_EDGE
         s, vp = self.sketch, self.viewport
+        plain = hasattr(vp, "draw_sketch_text")
         for tid, record in s.texts.items():
-            letters = kernel.text_faces(s, tid)
             picked = tid in self.selected_texts
             if picked:
                 colour = C.sketch_picked
@@ -3722,6 +3722,24 @@ class SketchEditor(QtCore.QObject):
                 colour = C.sketch_line
             else:
                 colour = C.sketch_free
+            if plain:
+                # on a drawing sheet the text is shown as text: building
+                # every field's letters as outlines made editing a title
+                # block crawl
+                anchor = s.points.get(record.point)
+                if anchor is not None:
+                    vp.draw_sketch_text(record, (anchor.x, anchor.y), colour)
+                if picked:
+                    box = kernel.text_box(s, tid)
+                    if box:
+                        outline = BRepBuilderAPI_MakePolygon()
+                        for corner in box:
+                            outline.Add(kernel.pnt(self._to3d(corner)))
+                        outline.Close()
+                        vp.draw_shape(outline.Wire(), colour, 1.0,
+                                      dashed=True)
+                continue
+            letters = kernel.text_faces(s, tid)
             if letters:
                 edges = kernel.explore(kernel.compound(letters), TopAbs_EDGE)
                 vp.draw_shape(kernel.compound(edges), colour,

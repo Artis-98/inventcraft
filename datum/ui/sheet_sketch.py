@@ -125,6 +125,16 @@ class SheetSketchSurface(QtCore.QObject):
         return self._keep(("point", (tuple(p[:2]),), colour, size, False),
                           preview)
 
+    def draw_sketch_text(self, record, position, colour, preview=False):
+        """A sketch text as plain text at its size, Inventor's way while
+        editing: quick to draw, where the letters it makes on the sheet
+        are the drawing's own vector text."""
+        data = (tuple(position[:2]), str(record.text), record.font,
+                float(record.size), float(getattr(record, "angle", 0.0)),
+                bool(record.bold), bool(record.italic))
+        return self._keep(("label", data, colour, record.size, False),
+                          preview)
+
     def draw_text(self, text, position, colour, height=14.0, preview=False):
         return self._keep(("text", (tuple(position[:2]), str(text)), colour,
                            height, False), preview)
@@ -197,6 +207,22 @@ class SheetSketchSurface(QtCore.QObject):
             elif kind == "point":
                 painter.setBrush(QtGui.QColor(colour))
                 painter.drawEllipse(at(data[0]), size * 0.35, size * 0.35)
+            elif kind == "label":
+                (x, y), words, family, size, angle, bold, italic = data
+                font = QtGui.QFont(family or "Arial")
+                font.setPixelSize(max(1, int(round(size * layout.scale))))
+                font.setBold(bold)
+                font.setItalic(italic)
+                painter.setFont(font)
+                painter.setPen(QtGui.QColor(colour))
+                spot = at((x, y))
+                painter.save()
+                painter.translate(spot)
+                painter.rotate(-angle)
+                for row, line in enumerate(words.split("\n")):
+                    painter.drawText(QtCore.QPointF(
+                        0.0, row * size * 1.25 * layout.scale), line)
+                painter.restore()
             elif kind == "text":
                 font = painter.font()
                 font.setPixelSize(max(8, int(size * 0.8)))

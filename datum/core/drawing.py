@@ -548,15 +548,22 @@ class TitleBlock:
         if self.sketch is not None:
             return Sketch.from_dict(self.sketch)
         out = Sketch(SketchPlane(), "Title Block")
+        lines = []
         for x1, y1, x2, y2 in [line[:4] for line in self.lines]:
-            out.add_line((x1, y1), (x2, y2))
+            lines.append(out.add_line((x1, y1), (x2, y2)))
+        constrain_block(out, lines)
         for item in self.fields:
             text = ("<%s>" % item.text if item.kind == PROPERTY
                     else item.value or item.text)
             if text:
-                out.add_text(item.x, item.y, text,
-                             size=item.height / max(cap_ratio, 0.1),
-                             font=font, bold=item.bold)
+                tid = out.add_text(item.x, item.y, text,
+                                   size=item.height / max(cap_ratio, 0.1),
+                                   font=font, bold=item.bold)
+                record = out.texts.get(tid)
+                if record is not None and record.point in out.points:
+                    # where each field sits is part of the block's
+                    # layout, held as the lines are
+                    out.add_constraint("fix", points=[record.point])
         return out
 
     def take_sketch(self, sketch) -> None:
@@ -618,6 +625,85 @@ class TitleBlock:
                            for f in d.get("fields", [])],
                    sketch=(d.get("sketch")
                            if isinstance(d.get("sketch"), dict) else None))
+
+
+def constrain_block(sketch, lines) -> None:
+    """A title block's lines, held as Inventor's title block sketch is
+    when it is edited: each one horizontal or vertical, every end that
+    lands on another line kept on it, the bottom left corner grounded,
+    and a dimension for the whole width and height and for where every
+    inner line is, so the sketch is fully constrained and its sizes are
+    there to change."""
+    tol = 1e-6
+    horizontal, vertical = [], []
+    for eid in lines:
+        a, b = [sketch.points[p] for p in sketch.entities[eid].points]
+        if abs(a.y - b.y) < tol:
+            sketch.add_constraint("horizontal", entities=[eid])
+            horizontal.append(eid)
+        elif abs(a.x - b.x) < tol:
+            sketch.add_constraint("vertical", entities=[eid])
+            vertical.append(eid)
+    if not sketch.points:
+        return
+    origin = min(sketch.points, key=lambda pid: (sketch.points[pid].x
+                                                + sketch.points[pid].y))
+    sketch.add_constraint("fix", points=[origin])
+    o = sketch.points[origin]
+
+    def on_line(pid, eid) -> bool:
+        p = sketch.points[pid]
+        a, b = [sketch.points[q] for q in sketch.entities[eid].points]
+        if pid in sketch.entities[eid].points:
+            return False
+        if abs(a.y - b.y) < tol:
+            return abs(p.y - a.y) < tol and min(a.x, b.x) - tol <= p.x \
+                <= max(a.x, b.x) + tol
+        return abs(p.x - a.x) < tol and min(a.y, b.y) - tol <= p.y \
+            <= max(a.y, b.y) + tol
+
+    held = set()
+    for eid in lines:
+        for pid in sketch.entities[eid].points:
+            if pid in held or pid == origin:
+                continue
+            for other in lines:
+                if other != eid and on_line(pid, other):
+                    sketch.add_constraint("point_on", points=[pid],
+                                          entities=[other])
+                    held.add(pid)
+                    break
+    # each dimension from the grounded corner, stacked off the block as
+    # baseline dimensions are: across below it, up the page left of it
+    xs, ys = {}, {}
+    for eid in vertical:
+        pid = min(sketch.entities[eid].points,
+                  key=lambda q: sketch.points[q].y)
+        x = round(sketch.points[pid].x - o.x, 6)
+        if abs(x) >= tol and x not in xs:
+            xs[x] = pid
+    for eid in horizontal:
+        pid = min(sketch.entities[eid].points,
+                  key=lambda q: sketch.points[q].x)
+        y = round(sketch.points[pid].y - o.y, 6)
+        if abs(y) >= tol and y not in ys:
+            ys[y] = pid
+    top = max(p.y for p in sketch.points.values())
+    for step, x in enumerate(sorted(xs)):
+        cid = sketch.add_constraint("distance_x", points=[origin, xs[x]],
+                                    value=abs(x))
+        # above the block, where the sheet has room: the block sits on the
+        # border's bottom edge, and below it is off the paper
+        # the label sits off the middle of the two points it measures
+        middle = (o.y + sketch.points[xs[x]].y) / 2.0
+        sketch.constraints[cid].label_offset = (
+            0.0, top + 6.0 + 5.0 * step - middle)
+    for step, y in enumerate(sorted(ys)):
+        cid = sketch.add_constraint("distance_y", points=[origin, ys[y]],
+                                    value=abs(y))
+        middle = (o.x + sketch.points[ys[y]].x) / 2.0
+        sketch.constraints[cid].label_offset = (
+            o.x - 6.0 - 5.0 * step - middle, 0.0)
 
 
 def standard_title_block() -> TitleBlock:
