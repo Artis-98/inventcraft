@@ -86,6 +86,24 @@ class Polyline:
     # which body a cut face belongs to, so neighbouring parts of a
     # section can be hatched differently, as ISO 128-50 has it
     group: int = 0
+    # A circle or an arc seen square on, as (cx, cy, r, start, sweep):
+    # degrees anticlockwise, in the same space as the points.  The points
+    # are still there for everything that reads lines; paper and DXF are
+    # given the true arc instead of the run of short chords.
+    arc: Optional[Tuple[float, float, float, float, float]] = None
+
+    def moved(self, dx: float, dy: float) -> None:
+        """Shifted, points and arc alike."""
+        self.points = [(x + dx, y + dy) for x, y in self.points]
+        if self.arc is not None:
+            cx, cy, r, a0, sweep = self.arc
+            self.arc = (cx + dx, cy + dy, r, a0, sweep)
+
+    def scaled(self, k: float) -> None:
+        self.points = [(x * k, y * k) for x, y in self.points]
+        if self.arc is not None:
+            cx, cy, r, a0, sweep = self.arc
+            self.arc = (cx * k, cy * k, r * k, a0, sweep)
 
     def bounds(self) -> Tuple[float, float, float, float]:
         xs = [p[0] for p in self.points]
@@ -129,7 +147,9 @@ class Projection:
                 "lines": [dict({"k": line.kind,
                                 "p": [[round(x, 4), round(y, 4)]
                                       for x, y in line.points]},
-                               **({"g": line.group} if line.group else {}))
+                               **({"g": line.group} if line.group else {}),
+                               **({"a": [round(v, 6) for v in line.arc]}
+                                  if line.arc else {}))
                           for line in self.lines]}
 
     @classmethod
@@ -139,8 +159,11 @@ class Projection:
             points = [(float(p[0]), float(p[1])) for p in raw.get("p", [])
                       if len(p) >= 2]
             if len(points) >= 2:
+                arc = raw.get("a")
                 lines.append(Polyline(points, str(raw.get("k", VISIBLE)),
-                                      int(raw.get("g", 0) or 0)))
+                                      int(raw.get("g", 0) or 0),
+                                      tuple(float(v) for v in arc)
+                                      if arc and len(arc) == 5 else None))
         box = data.get("box", [0, 0, 0, 0])
         middle = data.get("centre", [0.0, 0.0])
         return cls(lines=lines, hatch=str(data.get("hatch", "")),
@@ -295,9 +318,10 @@ def project(shape: Optional[TopoDS_Shape],
         if compound is None or compound.IsNull():
             continue
         for edge in kernel.explore(compound, TopAbs_EDGE):
+            arc = None if fast else _arc_of(edge)
             for points in flatten(edge):
                 if len(points) >= 2:
-                    lines.append(Polyline(points, kind))
+                    lines.append(Polyline(points, kind, 0, arc))
 
     if fast:
         lines = _chain(lines)
@@ -310,12 +334,43 @@ def project(shape: Optional[TopoDS_Shape],
     cx = (min(xs) + max(xs)) / 2.0
     cy = (min(ys) + max(ys)) / 2.0
     for line in lines:
-        line.points = [(x - cx, y - cy) for x, y in line.points]
+        line.moved(-cx, -cy)
 
     half_w = (max(xs) - min(xs)) / 2.0
     half_h = (max(ys) - min(ys)) / 2.0
     return Projection(lines=lines, centre=(cx, cy),
                       box=(-half_w, -half_h, half_w, half_h))
+
+
+def _arc_of(edge):
+    """A projected edge that is a circle or an arc of one, as the arc:
+    (cx, cy, r, start, sweep) in degrees; None for anything else."""
+    from OCP.GeomAbs import GeomAbs_CurveType
+    try:
+        curve = BRepAdaptor_Curve(TopoDS.Edge_s(edge))
+        if curve.GetType() != GeomAbs_CurveType.GeomAbs_Circle:
+            return None
+        circ = curve.Circle()
+        first, last = curve.FirstParameter(), curve.LastParameter()
+    except Exception:
+        return None
+    c = circ.Location()
+    cx, cy, r = c.X(), c.Y(), circ.Radius()
+    p0 = curve.Value(first)
+    p1 = curve.Value(last)
+    pm = curve.Value(0.5 * (first + last))
+    a0 = math.degrees(math.atan2(p0.Y() - cy, p0.X() - cx))
+    a1 = math.degrees(math.atan2(p1.Y() - cy, p1.X() - cx))
+    am = math.degrees(math.atan2(pm.Y() - cy, pm.X() - cx))
+    if abs((last - first) - 2.0 * math.pi) < 1e-9:
+        return (cx, cy, r, a0, 360.0)
+    ccw = (a1 - a0) % 360.0
+    # which way round: the way that passes through its own middle
+    if (am - a0) % 360.0 <= ccw + 1e-9:
+        sweep = ccw
+    else:
+        sweep = -((a0 - a1) % 360.0)
+    return (cx, cy, r, a0, sweep)
 
 
 def outlines(shape: Optional[TopoDS_Shape],

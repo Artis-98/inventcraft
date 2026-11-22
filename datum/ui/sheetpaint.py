@@ -538,6 +538,28 @@ def _local_transform(layout: Layout, view: View) -> QtGui.QTransform:
                             layout.offset_y + (layout.height - view.y) * s)
 
 
+def _stroke_true(painter: QtGui.QPainter, lines) -> None:
+    """Lines in the view's own millimetres, arcs as arcs."""
+    point = QtCore.QPointF
+    for line in lines:
+        arc = getattr(line, "arc", None)
+        if arc is not None:
+            cx, cy, r, a0, sweep = arc
+            box = QtCore.QRectF(cx - r, cy - r, 2.0 * r, 2.0 * r)
+            path = QtGui.QPainterPath()
+            # Qt measures its angles with Y down; these are Y up
+            if abs(sweep) >= 360.0 - 1e-9:
+                path.addEllipse(box)
+            else:
+                path.arcMoveTo(box, -a0)
+                path.arcTo(box, -a0, -sweep)
+            painter.drawPath(path)
+            continue
+        if len(line.points) >= 2:
+            painter.drawPolyline(QtGui.QPolygonF(
+                [point(x, y) for x, y in line.points]))
+
+
 # A pen at most this many device pixels wide is drawn as Qt's one pixel
 # cosmetic line, which has a fast path eight times quicker than a stroked
 # one and looks the same at that width.
@@ -601,6 +623,13 @@ def _stroke_cached(painter: QtGui.QPainter, layout: Layout, view: View,
     painter.setTransform(_local_transform(layout, view), True)
     painter.setPen(pen)
     painter.setBrush(QtCore.Qt.NoBrush)
+    if not on_screen:
+        # paper, PDF and SVG: every circle and arc seen square on goes out
+        # as the true curve, sharp at any size and a fraction of the file
+        _stroke_true(painter, lines if lines is not None
+                     else projection.of_kind(kind))
+        painter.restore()
+        return
     draw = painter.drawPolyline
     window = None
     device = painter.device()

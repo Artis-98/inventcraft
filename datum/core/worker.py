@@ -75,7 +75,9 @@ def _project(path: str, direction, up, hidden: bool = True,
                              hidden=hidden, tangents=tangents, fast=fast)
     return {"box": list(projection.box), "centre": list(projection.centre),
             "error": projection.error, "hatch": projection.hatch,
-            "lines": [{"k": line.kind, "p": [list(p) for p in line.points]}
+            "lines": [dict({"k": line.kind,
+                            "p": [list(p) for p in line.points]},
+                           **({"a": list(line.arc)} if line.arc else {}))
                       for line in projection.lines]}
 
 

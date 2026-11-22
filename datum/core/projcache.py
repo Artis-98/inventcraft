@@ -38,7 +38,7 @@ class _Packed:
             for x, y in line.points:
                 flat.append(x)
                 flat.append(y)
-            self.lines.append((line.kind, flat, line.group))
+            self.lines.append((line.kind, flat, line.group, line.arc))
             count += len(line.points)
         self.box = tuple(projection.box)
         self.centre = tuple(projection.centre)
@@ -51,7 +51,7 @@ class _Packed:
                without: Tuple[str, ...] = ()) -> hlr.Projection:
         lines = []
         s = float(scale) if scale and scale > 0 else 1.0
-        for kind, flat, group in self.lines:
+        for kind, flat, group, arc in self.lines:
             if kind in without:
                 continue
             xs = flat[0::2]
@@ -60,7 +60,11 @@ class _Packed:
                 points = [(x * s, y * s) for x, y in zip(xs, ys)]
             else:
                 points = list(zip(xs, ys))
-            lines.append(hlr.Polyline(points, kind, group))
+            line = hlr.Polyline(points, kind, group, arc)
+            if arc is not None and s != 1.0:
+                cx, cy, r, a0, sweep = arc
+                line.arc = (cx * s, cy * s, r * s, a0, sweep)
+            lines.append(line)
         box = tuple(c * s for c in self.box)
         projection = hlr.Projection(lines=lines, box=box, hatch=self.hatch,
                                     centre=self.centre)
@@ -80,7 +84,7 @@ def _recentre(projection: hlr.Projection, scale: float) -> None:
     dy = (min(ys) + max(ys)) / 2.0
     if abs(dx) > 1e-12 or abs(dy) > 1e-12:
         for line in projection.lines:
-            line.points = [(x - dx, y - dy) for x, y in line.points]
+            line.moved(-dx, -dy)
     half_w = (max(xs) - min(xs)) / 2.0
     half_h = (max(ys) - min(ys)) / 2.0
     projection.box = (-half_w, -half_h, half_w, half_h)

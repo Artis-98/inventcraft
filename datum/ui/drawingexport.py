@@ -188,6 +188,17 @@ def to_dxf(doc: DrawingDocument, sheet: Sheet, path: str,
             continue
         for line in view.projection.lines:
             layer = DXF_LAYERS.get(line.kind, "VIEW_VISIBLE")
+            if line.arc is not None and not view.breaks:
+                # a true circle or arc, as a CAD program wants to find it
+                cx, cy, r, a0, sweep = line.arc
+                centre = (view.x + cx, view.y + cy)
+                if abs(sweep) >= 360.0 - 1e-9:
+                    out.circle(centre, r, layer)
+                elif sweep > 0:
+                    out.arc(centre, r, a0, a0 + sweep, layer)
+                else:
+                    out.arc(centre, r, a0 + sweep, a0, layer)
+                continue
             for p, q in zip(line.points, line.points[1:]):
                 for a, b in dwg.broken_segments(view, p, q):
                     out.line((view.x + a[0], view.y + a[1]),

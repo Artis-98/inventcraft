@@ -1533,7 +1533,7 @@ class Generator:
         dx = projection.centre[0] - cx
         dy = projection.centre[1] - cy
         for line in projection.lines:
-            line.points = [(x + dx, y + dy) for x, y in line.points]
+            line.moved(dx, dy)
         box = projection.box
         projection.box = (box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy)
         projection.centre = (cx, cy)
@@ -1757,7 +1757,7 @@ def _scaled(projection: hlr.Projection, scale: float) -> hlr.Projection:
     if abs(scale - 1.0) < 1e-9 or scale <= 0:
         return projection
     for line in projection.lines:
-        line.points = [(x * scale, y * scale) for x, y in line.points]
+        line.scaled(scale)
     projection.box = tuple(c * scale for c in projection.box)
     return projection
 
