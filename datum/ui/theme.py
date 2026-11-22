@@ -410,10 +410,26 @@ QWidget {{
     color: {text};
 }}
 
+/* Wide enough to take hold of: a 1 px separator had the resize cursor on
+   one pixel, and a click beside it took the dock's title bar and moved
+   the whole panel.  Drawn as the window with a hairline down its middle. */
 QMainWindow::separator {{
+    background: {window};
+    width: 9px;
+    height: 9px;
+}}
+QMainWindow::separator:horizontal {{
+    border-left: 4px solid {window};
+    border-right: 4px solid {window};
     background: {border};
-    width: 1px;
-    height: 1px;
+}}
+QMainWindow::separator:vertical {{
+    border-top: 4px solid {window};
+    border-bottom: 4px solid {window};
+    background: {border};
+}}
+QMainWindow::separator:hover {{
+    background: {accent};
 }}
 
 /* ---------------------------------------------------------------- ribbon */

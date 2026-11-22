@@ -16,6 +16,18 @@ _reported = set()
 _reporting = []
 
 
+class GripStyle(QtWidgets.QProxyStyle):
+    """Fusion, with the splitters between docked panels wide enough to
+    take hold of: at Fusion's few pixels the resize cursor showed on one
+    of them, and a click beside it took the panel's title bar instead and
+    moved the whole panel away."""
+
+    def pixelMetric(self, metric, option=None, widget=None):
+        if metric == QtWidgets.QStyle.PM_DockWidgetSeparatorExtent:
+            return 9
+        return super().pixelMetric(metric, option, widget)
+
+
 def _excepthook(kind, value, tb) -> None:
     """Report an unexpected error instead of vanishing.
 
@@ -334,7 +346,7 @@ def main(argv=None) -> int:
 
     app.setWindowIcon(icons.app_icon())
     app.setStyleSheet(stylesheet())
-    app.setStyle("Fusion")
+    app.setStyle(GripStyle("Fusion"))
     app.setStyleSheet(stylesheet())
 
     if "--glcheck" in argv:
