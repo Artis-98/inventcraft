@@ -1951,17 +1951,34 @@ class LoftFeature(Feature):
     icon: str = "loft"
     name: str = "Loft"
     sections: List[int] = field(default_factory=list)
+    # Inventor's Loft: each section a profile clicked in the view, in the
+    # order clicked.  Empty: the whole sketches ``sections`` names, as a
+    # loft made before profiles could be picked.
+    profiles: "ProfileSelection" = field(
+        default_factory=lambda: ProfileSelection())
     operation: str = JOIN
     body_name: str = ""
     ruled: bool = False
     closed: bool = True
 
     def depends_on(self) -> List[int]:
+        if self.profiles:
+            out: List[int] = []
+            for sid, _u, _v in self.profiles:
+                if sid not in out:
+                    out.append(sid)
+            return out
         return list(self.sections)
 
     def build(self, ctx: BuildContext) -> None:
         profiles = []
-        for sid in self.sections:
+        for sid, u, v in (self.profiles if self.profiles else []):
+            one = ProfileSelection()
+            one.tolerance = self.profiles.tolerance
+            one.items.append((sid, u, v))
+            face, _plane = resolve_profile(ctx, one, self.name)
+            profiles.append(face)
+        for sid in ([] if self.profiles else self.sections):
             sketch = ctx.sketches.get(sid)
             if sketch is None:
                 raise FeatureError("%s: one of its sections is missing"
@@ -1982,11 +1999,14 @@ class LoftFeature(Feature):
                                         self.output_summary())
 
     def field_dict(self) -> Dict[str, Any]:
-        return {"sections": list(self.sections), "operation": self.operation, "body_name": self.body_name,
+        return {"sections": list(self.sections),
+                "profiles": self.profiles.to_list(),
+                "operation": self.operation, "body_name": self.body_name,
                 "ruled": self.ruled, "closed": self.closed}
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.sections = [int(i) for i in data.get("sections", [])]
+        self.profiles = ProfileSelection.from_list(data.get("profiles"))
         self.operation = data.get("operation", JOIN)
         self.body_name = str(data.get("body_name", ""))
         self.ruled = bool(data.get("ruled", False))

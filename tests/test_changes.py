@@ -202,8 +202,25 @@ add_sketch(SketchPlane((0, 0, 40), (0, 0, 1), (1, 0, 0), "Top"), "Top",
 
 win.new_feature(LoftFeature)
 dlg = win._active_dialog
-for i in range(dlg.sections.count()):
-    dlg.sections.item(i).setCheckState(QtCore.Qt.Checked)
+pump()
+check("no section is guessed", not dlg.feature.profiles)
+# the top clicked first: the order picked is the order lofted, and the
+# list can put it right
+by_sketch = {}
+for region in win.available_regions():
+    by_sketch.setdefault(region["sketch_id"], region)
+loft_sketches = win.document.sketch_features()
+for sketch_feature in (loft_sketches[1], loft_sketches[0]):
+    region = by_sketch[sketch_feature.id]
+    dlg.on_profile_clicked(region["sketch_id"], region["centre"])
+check("listed in the order clicked", dlg.order.count() == 2
+      and "Top" in dlg.order.item(0).text() or "Sketch1"
+      in dlg.order.item(0).text(), [dlg.order.item(i).text()
+                                    for i in range(dlg.order.count())])
+dlg.order.setCurrentRow(0)
+dlg._move(1)
+check("and reordered", dlg.feature.profiles.items[0][0]
+      == loft_sketches[0].id)
 dlg.preview()
 pump()
 # frustum volume = h/3 * (A1 + A2 + sqrt(A1*A2))

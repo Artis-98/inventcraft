@@ -1335,23 +1335,28 @@ class LoftDialog(FeatureDialog):
         super().__init__(host, feature, "Loft", "loft", is_new, snapshot)
 
     def build(self):
-        self.sections = QtWidgets.QListWidget()
-        self.sections.setMaximumHeight(130)
-        index = self.doc.index_of(self.feature.id)
-        for f in self.doc.sketch_features():
-            if self.doc.index_of(f.id) >= index:
-                continue
-            item = QtWidgets.QListWidgetItem(icons.icon("sketch", 15), f.name)
-            item.setData(QtCore.Qt.UserRole, f.id)
-            item.setCheckState(QtCore.Qt.Checked
-                               if f.id in self.feature.sections
-                               else QtCore.Qt.Unchecked)
-            self.sections.addItem(item)
-        self.sections.itemChanged.connect(lambda _i: self.preview())
-        self.form.add("Sections", self.sections)
+        """Inventor's Loft: click profile 1, profile 2 and on in the view;
+        blended in that order, which the list shows and can change."""
+        self.form.add("Sections", self.profile_field())
+        self.order = QtWidgets.QListWidget()
+        self.order.setMaximumHeight(120)
+        self.form.add("", self.order)
+        buttons = QtWidgets.QHBoxLayout()
+        for text, step in (("Up", -1), ("Down", 1)):
+            button = QtWidgets.QPushButton(text)
+            button.clicked.connect(lambda _c=False, s=step: self._move(s))
+            buttons.addWidget(button)
+        drop = QtWidgets.QPushButton("Remove")
+        drop.clicked.connect(self._drop)
+        buttons.addWidget(drop)
+        buttons.addStretch(1)
+        row = QtWidgets.QWidget()
+        row.setLayout(buttons)
+        self.form.add("", row)
 
-        hint = QtWidgets.QLabel("Blended in list order. Put each section on "
-                                "its own plane.")
+        hint = QtWidgets.QLabel("Click each section's profile in the view, "
+                                "in the order the loft runs through them. "
+                                "Click one again to drop it.")
         hint.setProperty("hint", True)
         hint.setWordWrap(True)
         self.form.add("", hint)
@@ -1362,12 +1367,60 @@ class LoftDialog(FeatureDialog):
 
         self.boolean_row()
 
+    def _propose_profile(self) -> None:
+        """No section is guessed: the order is the user's to click."""
+
+    def _clear_profiles(self) -> None:
+        super()._clear_profiles()
+        self._list_order()
+
+    def _list_order(self):
+        self.order.clear()
+        if not self.feature.profiles and self.feature.sections:
+            for number, sid in enumerate(self.feature.sections, 1):
+                sketch = self.doc.feature(sid)
+                self.order.addItem("%d.  all of %s" % (
+                    number, sketch.name if sketch else "a sketch"))
+            return
+        for number, (sid, _u, _v) in enumerate(self.feature.profiles, 1):
+            sketch = self.doc.feature(sid)
+            self.order.addItem("%d.  a profile of %s" % (
+                number, sketch.name if sketch else "a sketch"))
+
+    def on_profile_clicked(self, sketch_id: int, centre) -> None:
+        super().on_profile_clicked(sketch_id, centre)
+        # sections picked replace a loft through whole sketches
+        if self.feature.profiles:
+            self.feature.sections = []
+        self._list_order()
+
+    def _move(self, step: int):
+        row = self.order.currentRow()
+        items = self.feature.profiles.items
+        other = row + step
+        if row < 0 or not (0 <= other < len(items)):
+            return
+        items[row], items[other] = items[other], items[row]
+        self._list_order()
+        self.order.setCurrentRow(other)
+        self.preview()
+
+    def _drop(self):
+        row = self.order.currentRow()
+        items = self.feature.profiles.items
+        if 0 <= row < len(items):
+            del items[row]
+            self.profiles.set_count(len(items), "profile")
+            self.host.refresh_profile_overlay()
+            self._list_order()
+            self.preview()
+
     def load(self):
         self.ruled.setChecked(self.feature.ruled)
+        self._list_order()
         self.load_boolean()
 
     def store(self):
-        self.feature.sections = self.checked_features(self.sections)
         self.feature.ruled = self.ruled.isChecked()
         self.feature.closed = True
         self.store_boolean()

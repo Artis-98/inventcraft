@@ -3990,8 +3990,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 feature.sketch_id = sketches[-1].id
             # a sweep's path is picked in the view, curve by curve, as in
             # Inventor, rather than guessed as the newest sketch
-            if cls is LoftFeature:
-                feature.sections = [s.id for s in sketches[-2:]]
             if cls is not HoleFeature and self.document.shape is not None:
                 feature.operation = "join"
         for key, value in preset.items():
