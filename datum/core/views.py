@@ -17,7 +17,7 @@ from OCP.BRepAlgoAPI import BRepAlgoAPI_Common
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
 from OCP.TopoDS import TopoDS_Shape
 
-from . import bom, drawing, fileformat, hlr, kernel
+from . import bom, drawing, fileformat, hlr, kernel, projcache
 from .drawing import (
     AUXILIARY, BASE, DETAIL, DrawingDocument, DrawingReport, PROJECTED,
     SECTION, Sheet, View, WITH_HIDDEN,
@@ -646,6 +646,44 @@ class Generator:
         doc.last_report = report
         return report
 
+    def warm(self, doc: DrawingDocument,
+             base_dir: Optional[str] = None) -> int:
+        """Have every worker load the models this drawing is drawn from,
+        once per model as it is on disk, so the next view placed or
+        updated does not start by loading them.  How many were sent."""
+        from . import rules, workers
+
+        helpers = workers.pool()
+        if helpers is None:
+            return 0
+        base = base_dir if base_dir is not None else doc.base_dir
+        sent = getattr(self, "_warmed", None)
+        if sent is None:
+            sent = self._warmed = {}
+        count = 0
+        trusted = None
+        for sheet in doc.sheets:
+            for view in sheet.views:
+                if view.kind != BASE or not view.ref.path:
+                    continue
+                path = view.ref.resolve(base) if base else None
+                if not path or not os.path.exists(path):
+                    continue
+                key = os.path.normcase(os.path.abspath(path))
+                try:
+                    stamp = os.path.getmtime(path)
+                except OSError:
+                    continue
+                if sent.get(key) == stamp:
+                    continue
+                sent[key] = stamp
+                if trusted is None:
+                    trusted = sorted(rules.trusted_paths())
+                helpers.broadcast("hold", path=os.path.abspath(path),
+                                  trusted=trusted)
+                count += 1
+        return count
+
     def exact_jobs(self, doc: DrawingDocument,
                    base_dir: Optional[str] = None) -> Dict:
         """The real lines of every draft view, asked of the workers; the
@@ -988,6 +1026,7 @@ class Generator:
             view.error = "%s has no body to draw" % os.path.basename(path)
             report.errors.append(view.error)
             return
+        self._shape_now = shape
 
         try:
             if view.flat and view.kind == BASE:
@@ -1102,6 +1141,12 @@ class Generator:
                     direction, up = self._plain_direction(doc, sheet, view)
                 except Exception:
                     continue
+                held = self.library.peek(path)
+                if held is not None and self._known(projcache.plain_key(
+                        id(held), direction, up,
+                        doc.view_display(sheet, view) == WITH_HIDDEN,
+                        self._tangents(doc, sheet, view))):
+                    continue        # already worked out once
                 jobs.append(((id(sheet), view.id), {
                     "path": os.path.abspath(path),
                     "direction": list(direction), "up": list(up),
@@ -1139,18 +1184,69 @@ class Generator:
             return auxiliary_orientation(pd, pu, view.radius)
         return orientation_of(view)
 
+    @staticmethod
+    def _known(key) -> bool:
+        """Whether _kept would find the exact lines, without copying them."""
+        cache = projcache.shared()
+        if cache.has(key):
+            return True
+        return not key[4] and cache.has(key[:4] + (True,) + key[5:])
+
+    @staticmethod
+    def _kept(key, scale: float, allow_fast: bool = False):
+        """(projection, is a draft) from the cache, or None.  The exact
+        lines are best; with hidden lines off, the exact lines with them
+        are as good; a draft does only when a draft was asked for."""
+        cache = projcache.shared()
+        found = cache.get(key, scale)
+        if found is not None:
+            return found, False
+        hidden = key[4]
+        if not hidden:
+            withhidden = key[:4] + (True,) + key[5:]
+            found = cache.get_without(withhidden, (hlr.HIDDEN,), scale)
+            if found is not None:
+                return found, False
+        if allow_fast:
+            draft = key[:-1] + (True,)
+            found = cache.get(draft, scale)
+            if found is not None:
+                return found, True
+        return None
+
     def _project(self, doc: DrawingDocument, sheet: Sheet, view: View,
                  shape: TopoDS_Shape) -> hlr.Projection:
         show_hidden = doc.view_display(sheet, view) == WITH_HIDDEN
         scale = doc.view_scale(sheet, view)
 
-        if view.kind not in (SECTION, DETAIL) and not view.breakout:
+        plain = view.kind not in (SECTION, DETAIL) and not view.breakout
+        key = None
+        if plain:
+            try:
+                direction, up = self._plain_direction(doc, sheet, view)
+                key = projcache.plain_key(
+                    id(shape), direction, up, show_hidden,
+                    self._tangents(doc, sheet, view))
+            except Exception:
+                key = None
+        if key is not None:
+            kept = self._kept(key, scale, allow_fast=self.draft)
+            if kept is not None:
+                # nothing to wait for: drop what was asked of a worker
+                getattr(self, "_pending", {}).pop((id(sheet), view.id),
+                                                  None)
+                view._drew_fast = kept[1]
+                return kept[0]
+        if plain:
             handed = getattr(self, "_pending", {}).pop(
                 (id(sheet), view.id), None)
             if handed is not None:
                 try:
-                    return _scaled(hlr.Projection.from_dict(
-                        handed.result(timeout=600)), scale)
+                    lines = hlr.Projection.from_dict(
+                        handed.result(timeout=600))
+                    if key is not None:
+                        projcache.shared().put(key, lines, keep=shape)
+                    return _scaled(lines, scale)
                 except Exception:
                     pass        # drawn here instead, as it always was
 
@@ -1194,6 +1290,9 @@ class Generator:
         projection = hlr.project(shape, direction, up, hidden=show_hidden,
                                  tangents=self._tangents(doc, sheet, view),
                                  fast=fast)
+        if key is not None and projection.ok:
+            projcache.shared().put(key[:-1] + (fast,), projection,
+                                   keep=shape)
         if len(view.breakout) >= 3 and projection.ok:
             opened = self._break_out(doc, sheet, view, shape, direction, up,
                                      show_hidden, scale, projection)

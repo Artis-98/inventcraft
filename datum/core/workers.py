@@ -270,6 +270,24 @@ class Pool:
         """Send one request to the least busy worker."""
         return self._dispatch(None, op, args, RETRIES)
 
+    def broadcast(self, op: str, **args: Any) -> List[Future]:
+        """Send one request to every live worker, each its own copy:
+        for getting them all ready for work about to come."""
+        self.start()
+        out: List[Future] = []
+        with self._lock:
+            live = [w for w in self._workers if w.alive]
+            idents = [next(self._ids) for _ in live]
+        for worker, ident in zip(live, idents):
+            done: Future = Future()
+            try:
+                worker.send(ident, op, args, done)
+            except Exception as exc:
+                done.set_exception(exc)
+            out.append(done)
+        self._last_used = time.monotonic()
+        return out
+
     @property
     def ready(self) -> int:
         """How many workers have loaded and can take work right now."""

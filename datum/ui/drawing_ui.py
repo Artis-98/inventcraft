@@ -94,6 +94,11 @@ class DrawingController(QtCore.QObject):
                                         handed=handed)
         if draft:
             self._refine_soon()
+        try:
+            # the next view placed finds its model already loaded
+            self.generator.warm(doc)
+        except Exception:
+            pass
         self._refresh_properties()
         self.canvas.model_properties = self._sheet_properties
         self.canvas.set_document(doc, keep_view=keep_view)

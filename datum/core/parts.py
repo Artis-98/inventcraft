@@ -242,6 +242,26 @@ class PartLibrary:
         self._cache[key] = (stamp, shape)
         return shape
 
+    def peek(self, path: str) -> Optional[TopoDS_Shape]:
+        """The body of a file if it is already to hand, without building
+        it: what shape() would give back at once, or None."""
+        if self.provider is not None:
+            try:
+                live = self.provider(path)
+            except Exception:
+                live = None
+            if live is not None:
+                return live
+        hit = self._cache.get(self._key(path))
+        if hit is None:
+            return None
+        try:
+            if hit[0] != os.path.getmtime(path):
+                return None
+        except OSError:
+            return None
+        return hit[1]
+
     def names(self, path: str) -> Dict[str, Any]:
         """A part's named entities, read from its file: {name: [refs]},
         what an assembly constraint by name looks up.  Kept until the file

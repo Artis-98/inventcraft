@@ -79,6 +79,22 @@ def _project(path: str, direction, up, hidden: bool = True,
                       for line in projection.lines]}
 
 
+def _hold(path: str, trusted=()) -> Dict[str, Any]:
+    """Load a model and keep it, for the drawing views about to be asked
+    of it: a drawing opened is a view placed soon after, and loading the
+    excavator is seconds a worker need not spend while somebody waits."""
+    global _LIBRARY
+    from . import rules
+    from .parts import PartLibrary
+
+    for place in trusted or ():
+        rules.trust_path(place)
+    if _LIBRARY is None:
+        _LIBRARY = PartLibrary()
+    shape = _LIBRARY.shape(path)
+    return {"ok": shape is not None}
+
+
 # Documents this worker keeps a copy of, with what it has already sent
 # back of each: key -> (document, {body key: shape}).  The copy keeps its
 # own results between requests, so a rebuild sent here builds only what
@@ -333,6 +349,7 @@ def _ping() -> Dict[str, Any]:
 OPERATIONS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "build": _build,
     "project": _project,
+    "hold": _hold,
     "rebuild": _rebuild,
     "forget": _forget,
     "import_assembly": _import_assembly,
