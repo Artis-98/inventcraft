@@ -1625,7 +1625,8 @@ class Generator:
         # The faces the knife made are the ones that get hatched.  They are
         # found on the cut solid rather than assumed, because a cut through
         # a hollow part makes several of them and misses others entirely.
-        faces = hlr.cut_faces(cut, point, normal) if view.hatch else []
+        faces = _cut_faces_by_body(cut, point, normal) if view.hatch \
+            else []
         projection = hlr.project(cut, direction, up, hidden=show_hidden,
                                  hatch=faces,
                                  tangents=self._tangents(doc, sheet, view))
@@ -1655,7 +1656,7 @@ class Generator:
                 if len(piece) >= 3:
                     lines.append(hlr.Polyline(
                         [((x - cx) * factor, (y - cy) * factor)
-                         for x, y in piece], line.kind))
+                         for x, y in piece], line.kind, line.group))
                 continue
             for piece in _clip_to_circle(line.points, cx, cy, radius):
                 lines.append(hlr.Polyline(
@@ -1718,6 +1719,21 @@ def _subassemblies(path: str, depth: int = 0, seen=None) -> List[str]:
                 out += _subassemblies(place, depth + 1, seen)
     except Exception:
         pass
+    return out
+
+
+def _cut_faces_by_body(cut, point, normal) -> List:
+    """The faces the knife made, each with which body it is of: an
+    assembly's parts cut side by side are hatched differently, so where
+    one stops and the next starts can be read."""
+    from OCP.TopAbs import TopAbs_SOLID
+    solids = list(kernel.explore(cut, TopAbs_SOLID))
+    if len(solids) <= 1:
+        return hlr.cut_faces(cut, point, normal)
+    out = []
+    for group, solid in enumerate(solids):
+        out += [(face, group) for face in hlr.cut_faces(solid, point,
+                                                         normal)]
     return out
 
 
@@ -1832,7 +1848,7 @@ def cropped_projection(projection: hlr.Projection, crop):
         if line.kind == hlr.CUT:
             piece = _clip_loop_to_rect(line.points, box)
             if len(piece) >= 3:
-                lines.append(hlr.Polyline(piece, line.kind))
+                lines.append(hlr.Polyline(piece, line.kind, line.group))
             continue
         for piece in _clip_to_rect(line.points, box):
             lines.append(hlr.Polyline(piece, line.kind))

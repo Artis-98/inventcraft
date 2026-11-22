@@ -313,6 +313,57 @@ def hatch_patterns() -> Dict[str, Hatch]:
     }
 
 
+def hatch_variant(pattern: "Hatch", group: int) -> "Hatch":
+    """The pattern one body of a section is hatched with: the first as it
+    is, the next turned square to it, then both again closer, so no two
+    neighbours look alike (ISO 128-50)."""
+    if group <= 0 or pattern.solid:
+        return pattern
+    turn = 90.0 if group % 2 else 0.0
+    closer = 0.6 if (group // 2) % 2 else 1.0
+    return Hatch(name=pattern.name,
+                 angles=tuple((a + turn) % 180.0 for a in pattern.angles),
+                 spacing=pattern.spacing * closer, solid=False)
+
+
+def hatch_segments(lines, pattern: "Hatch"):
+    """Where the hatch lines fall on a projection's cut faces, each body
+    with its own variant of ``pattern``."""
+    groups: Dict[int, List] = {}
+    for line in lines:
+        groups.setdefault(getattr(line, "group", 0), []).append(line.points)
+    variant = _neighbour_colours(groups)
+    out = []
+    for group, loops in sorted(groups.items()):
+        out += hatch_lines(loops, hatch_variant(pattern, variant[group]))
+    return out
+
+
+def _neighbour_colours(groups: Dict[int, List]) -> Dict[int, int]:
+    """A variant for each body, none the same as a body it touches: by
+    their boxes on the paper, greedily, biggest first."""
+    boxes = {}
+    for group, loops in groups.items():
+        xs = [p[0] for loop in loops for p in loop]
+        ys = [p[1] for loop in loops for p in loop]
+        boxes[group] = (min(xs), min(ys), max(xs), max(ys)) if xs             else (0.0, 0.0, 0.0, 0.0)
+    gap = 0.05
+
+    def touch(a, b):
+        return not (a[2] + gap < b[0] or b[2] + gap < a[0]
+                    or a[3] + gap < b[1] or b[3] + gap < a[1])
+
+    order = sorted(groups, key=lambda g: -((boxes[g][2] - boxes[g][0])
+                                           * (boxes[g][3] - boxes[g][1])))
+    out: Dict[int, int] = {}
+    for group in order:
+        taken = {out[other] for other in out
+                 if touch(boxes[group], boxes[other])}
+        out[group] = next(k for k in range(len(groups) + 1)
+                          if k not in taken)
+    return out
+
+
 def hatch_lines(loops: Sequence[Sequence[Tuple[float, float]]],
                 pattern: Hatch
                 ) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:

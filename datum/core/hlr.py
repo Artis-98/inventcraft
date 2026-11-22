@@ -83,6 +83,9 @@ class Polyline:
 
     points: List[Tuple[float, float]] = field(default_factory=list)
     kind: str = VISIBLE
+    # which body a cut face belongs to, so neighbouring parts of a
+    # section can be hatched differently, as ISO 128-50 has it
+    group: int = 0
 
     def bounds(self) -> Tuple[float, float, float, float]:
         xs = [p[0] for p in self.points]
@@ -123,9 +126,10 @@ class Projection:
     def to_dict(self) -> Dict:
         return {"box": list(self.box), "centre": list(self.centre),
                 "error": self.error, "hatch": self.hatch,
-                "lines": [{"k": line.kind,
-                           "p": [[round(x, 4), round(y, 4)]
-                                 for x, y in line.points]}
+                "lines": [dict({"k": line.kind,
+                                "p": [[round(x, 4), round(y, 4)]
+                                      for x, y in line.points]},
+                               **({"g": line.group} if line.group else {}))
                           for line in self.lines]}
 
     @classmethod
@@ -135,7 +139,8 @@ class Projection:
             points = [(float(p[0]), float(p[1])) for p in raw.get("p", [])
                       if len(p) >= 2]
             if len(points) >= 2:
-                lines.append(Polyline(points, str(raw.get("k", VISIBLE))))
+                lines.append(Polyline(points, str(raw.get("k", VISIBLE)),
+                                      int(raw.get("g", 0) or 0)))
         box = data.get("box", [0, 0, 0, 0])
         middle = data.get("centre", [0.0, 0.0])
         return cls(lines=lines, hatch=str(data.get("hatch", "")),
@@ -271,9 +276,11 @@ def project(shape: Optional[TopoDS_Shape],
     hatched: List[Polyline] = []
     if hatch:
         frame_for_hatch = frame
-        for face in hatch:
+        for item in hatch:
+            # a face, or (face, which body it is of)
+            face, group = item if isinstance(item, tuple) else (item, 0)
             for wire in _face_loops(face, frame_for_hatch):
-                hatched.append(Polyline(wire, CUT))
+                hatched.append(Polyline(wire, CUT, group))
     if tangents:
         wanted.append((result.Rg1LineVCompound(), SMOOTH))
     if hidden:

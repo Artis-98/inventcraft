@@ -661,7 +661,7 @@ def _hatch(painter: QtGui.QPainter, doc: DrawingDocument, view: View,
         return
 
     painter.setPen(_pen(layout, style, colour=colour.name()))
-    for a, b in dwg.hatch_lines([loop.points for loop in loops], pattern):
+    for a, b in dwg.hatch_segments(loops, pattern):
         painter.drawLine(
             QtCore.QPointF(*layout.to_device(view.x + a[0], view.y + a[1])),
             QtCore.QPointF(*layout.to_device(view.x + b[0], view.y + b[1])))

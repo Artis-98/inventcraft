@@ -201,8 +201,7 @@ def to_dxf(doc: DrawingDocument, sheet: Sheet, path: str,
         loops = view.projection.of_kind(hlr.CUT)
         pattern = dwg.hatch_patterns().get(view.projection.hatch or "")
         if loops and pattern is not None:
-            for a, b in dwg.hatch_lines([line.points for line in loops],
-                                        pattern):
+            for a, b in dwg.hatch_segments(loops, pattern):
                 out.line((view.x + a[0], view.y + a[1]),
                          (view.x + b[0], view.y + b[1]), "VIEW_HATCH")
 

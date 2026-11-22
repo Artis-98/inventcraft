@@ -31,14 +31,14 @@ class _Packed:
     __slots__ = ("lines", "box", "centre", "hatch", "points", "keep")
 
     def __init__(self, projection: hlr.Projection, keep: Any = None) -> None:
-        self.lines: List[Tuple[str, array]] = []
+        self.lines: List[Tuple[str, array, int]] = []
         count = 0
         for line in projection.lines:
             flat = array("d")
             for x, y in line.points:
                 flat.append(x)
                 flat.append(y)
-            self.lines.append((line.kind, flat))
+            self.lines.append((line.kind, flat, line.group))
             count += len(line.points)
         self.box = tuple(projection.box)
         self.centre = tuple(projection.centre)
@@ -51,7 +51,7 @@ class _Packed:
                without: Tuple[str, ...] = ()) -> hlr.Projection:
         lines = []
         s = float(scale) if scale and scale > 0 else 1.0
-        for kind, flat in self.lines:
+        for kind, flat, group in self.lines:
             if kind in without:
                 continue
             xs = flat[0::2]
@@ -60,7 +60,7 @@ class _Packed:
                 points = [(x * s, y * s) for x, y in zip(xs, ys)]
             else:
                 points = list(zip(xs, ys))
-            lines.append(hlr.Polyline(points, kind))
+            lines.append(hlr.Polyline(points, kind, group))
         box = tuple(c * s for c in self.box)
         projection = hlr.Projection(lines=lines, box=box, hatch=self.hatch,
                                     centre=self.centre)
