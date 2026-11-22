@@ -150,12 +150,46 @@ profile_regions = [r for r in win.available_regions()
                    if r["sketch_id"] == sketches[0].id]
 for region in profile_regions:
     dlg.on_profile_clicked(region["sketch_id"], region["centre"])
-dlg.path.setCurrentIndex(dlg.path.findData(sketches[1].id))
+path_sketch = sketches[1]
+for eid in path_sketch.sketch.entities:
+    dlg.on_curve_clicked(path_sketch.id, eid)
 dlg.preview()
 pump()
 expect = math.pi * 16 * 60
 check("swept a 60mm circular rod", abs(volume() - expect) < 12.0,
       "%.1f vs %.1f  (%s)" % (volume(), expect, dlg.status.text()))
+dlg.commit()
+pump()
+
+print("sweep along curves of two sketches on two planes")
+win.new_document(prompt=False)
+add_sketch(STANDARD_PLANES["XY"], "Profile",
+           lambda s: s.add_circle((0, 0), 4))
+add_sketch(STANDARD_PLANES["XZ"], "Up",
+           lambda s: s.add_line((0, 0), (0, 60), weld=False))
+add_sketch(SketchPlane((0, 0, 60), (1, 0, 0), (0, 1, 0), "Across"),
+           "Across", lambda s: s.add_line((0, 0), (40, 0), weld=False))
+win.new_feature(SweepFeature)
+dlg = win._active_dialog
+pump()
+sketches = win.document.sketch_features()
+for region in [r for r in win.available_regions()
+               if r["sketch_id"] == sketches[0].id]:
+    if not dlg.feature.profiles.contains(region["sketch_id"],
+                                         region["centre"]):
+        dlg.on_profile_clicked(region["sketch_id"], region["centre"])
+pump()
+check("the path is armed once the profile is in", dlg.path_pick.picking)
+# the second sketch's curve first: the order they are clicked in is not
+# the order they run in
+for sketch_feature in (sketches[2], sketches[1]):
+    for eid in sketch_feature.sketch.entities:
+        dlg.on_curve_clicked(sketch_feature.id, eid)
+dlg.preview()
+pump()
+check("one rod round the corner, through both sketches",
+      volume() > math.pi * 16 * 90, "%.1f  (%s)" % (volume(),
+                                                     dlg.status.text()))
 dlg.commit()
 pump()
 

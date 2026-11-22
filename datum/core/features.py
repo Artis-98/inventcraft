@@ -1879,26 +1879,45 @@ class SweepFeature(Feature):
     profiles: "ProfileSelection" = field(
         default_factory=lambda: ProfileSelection())
     path_id: int = 0
+    # The path as Inventor picks it: curves clicked in the view, each as
+    # [sketch id, entity id], from as many sketches as it runs through;
+    # joined end to end.  Empty: the whole of the sketch path_id names,
+    # as a sweep made before it could be picked.
+    path: List[List[int]] = field(default_factory=list)
     operation: str = JOIN
     body_name: str = ""
 
     def depends_on(self) -> List[int]:
         ids = self.profiles.sketch_ids()
         ids = ids or ([self.sketch_id] if self.sketch_id else [])
+        if self.path:
+            return ids + sorted({sid for sid, _e in self.path})
         return ids + [self.path_id]
 
-    def build(self, ctx: BuildContext) -> None:
+    def path_wire(self, ctx: BuildContext):
+        if self.path:
+            edges = []
+            for sid, eid in self.path:
+                sketch = ctx.sketches.get(sid)
+                edge = kernel._sketch_edge(sketch, eid)                     if sketch is not None and eid in sketch.entities                     else None
+                if edge is None:
+                    raise FeatureError("%s: a curve of its path is gone"
+                                       % self.name)
+                edges.append(edge)
+            return kernel.chain_wire(edges)
         path_sketch = ctx.sketches.get(self.path_id)
         if path_sketch is None:
-            raise FeatureError("%s: its path sketch is missing" % self.name)
+            raise FeatureError("%s: pick the curves of its path" % self.name)
         if self.path_id in self.profiles.sketch_ids():
             raise FeatureError("%s: the path must be a different sketch from "
                                "the profile" % self.name)
+        return kernel.sketch_path_wire(path_sketch)
 
+    def build(self, ctx: BuildContext) -> None:
         profile, _plane = resolve_profile(ctx, self.profiles, self.name,
                                           self.sketch_id)
         try:
-            path = kernel.sketch_path_wire(path_sketch)
+            path = self.path_wire(ctx)
             tool = kernel.sweep(profile, path)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
@@ -1910,6 +1929,7 @@ class SweepFeature(Feature):
 
     def field_dict(self) -> Dict[str, Any]:
         return {"sketch_id": self.sketch_id, "path_id": self.path_id,
+                "path": [list(p) for p in self.path],
                 "profiles": self.profiles.to_list(),
                 "operation": self.operation, "body_name": self.body_name}
 
@@ -1917,6 +1937,8 @@ class SweepFeature(Feature):
         self.sketch_id = int(data.get("sketch_id", 0))
         self.profiles = ProfileSelection.from_list(data.get("profiles"))
         self.path_id = int(data.get("path_id", 0))
+        self.path = [[int(p[0]), int(p[1])] for p in data.get("path") or []
+                     if isinstance(p, (list, tuple)) and len(p) >= 2]
         self.operation = data.get("operation", JOIN)
         self.body_name = str(data.get("body_name", ""))
 

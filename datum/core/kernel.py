@@ -594,6 +594,64 @@ def sketch_path_wire(sketch: Sketch) -> Any:
     raise KernelError("sketch '%s' has no usable path curve" % sketch.name)
 
 
+def chain_wire(edges: Sequence[Any], tolerance: float = 1e-4) -> Any:
+    """Curves picked one by one, perhaps from sketches on different
+    planes, as one wire: put end to end in the order they join, whatever
+    order they were picked in.  Every one must meet the next; a gap or a
+    fork is an error, as it is in Inventor."""
+    from OCP.BRep import BRep_Tool as _Tool
+    from OCP.TopExp import TopExp
+
+    pieces = []
+    for edge in edges:
+        e = TopoDS.Edge_s(edge)
+        a = _Tool.Pnt_s(TopExp.FirstVertex_s(e))
+        b = _Tool.Pnt_s(TopExp.LastVertex_s(e))
+        pieces.append((e, (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z())))
+    if not pieces:
+        raise KernelError("pick the curves of the path")
+
+    def near(p, q):
+        return math.dist(p, q) <= tolerance
+
+    # start from an end that nothing else meets, if there is one
+    def meets(point, skip):
+        return sum(1 for i, (_e, a, b) in enumerate(pieces)
+                   if i != skip and (near(point, a) or near(point, b)))
+
+    start = 0
+    for i, (_e, a, b) in enumerate(pieces):
+        if meets(a, i) == 0 or meets(b, i) == 0:
+            start = i
+            break
+    order = [start]
+    used = {start}
+    _e, a, b = pieces[start]
+    tail = b if meets(b, start) else a
+    if len(pieces) > 1 and meets(tail, start) == 0:
+        raise KernelError("the path's curves are not joined end to end")
+    while len(order) < len(pieces):
+        found = [i for i, (_e, p, q) in enumerate(pieces)
+                 if i not in used and (near(tail, p) or near(tail, q))]
+        if not found:
+            raise KernelError("the path's curves are not joined end to "
+                              "end: each has to meet the next")
+        if len(found) > 1:
+            raise KernelError("the path forks: more than two curves meet "
+                              "at one point")
+        nxt = found[0]
+        used.add(nxt)
+        order.append(nxt)
+        _e, p, q = pieces[nxt]
+        tail = q if near(tail, p) else p
+    maker = BRepBuilderAPI_MakeWire()
+    for i in order:
+        maker.Add(pieces[i][0])
+        if not maker.IsDone():
+            raise KernelError("the path's curves are not joined end to end")
+    return maker.Wire()
+
+
 def open_chain_wire(sketch: Sketch) -> Any:
     """The longest open chain of a sketch as a wire, Match Shape's profile;
     None when every curve in it closes on itself."""
@@ -1388,11 +1446,75 @@ def revolve(profile: TopoDS_Shape, axis_origin: Sequence[float],
 
 
 def sweep(profile: TopoDS_Shape, path_wire: Any) -> TopoDS_Shape:
+    if _has_corners(path_wire):
+        return _mitred_sweep(profile, path_wire)
     mk = BRepOffsetAPI_MakePipe(path_wire, profile)
     mk.Build()
     if not mk.IsDone():
         raise KernelError("sweep failed")
     return check(mk.Shape(), "Sweep")
+
+
+def _has_corners(path_wire: Any, tolerance_deg: float = 0.5) -> bool:
+    """Whether a path turns sharply anywhere: one curve not leaving off
+    the way the one before it arrived."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepTools import BRepTools_WireExplorer
+    from OCP.TopAbs import TopAbs_REVERSED
+    from OCP.gp import gp_Pnt as _P, gp_Vec as _V
+
+    tangents = []
+    walker = BRepTools_WireExplorer(TopoDS.Wire_s(path_wire))
+    while walker.More():
+        edge = walker.Current()
+        curve = BRepAdaptor_Curve(edge)
+        first, last = curve.FirstParameter(), curve.LastParameter()
+        reverse = edge.Orientation() == TopAbs_REVERSED
+        p, v0, v1 = _P(), _V(), _V()
+        curve.D1(first, p, v0)
+        curve.D1(last, p, v1)
+        start, end = (v1.Reversed(), v0.Reversed()) if reverse else (v0, v1)
+        tangents.append((start, end))
+        walker.Next()
+    for (_s0, e0), (s1, _e1) in zip(tangents, tangents[1:]):
+        if e0.Magnitude() < 1e-12 or s1.Magnitude() < 1e-12:
+            continue
+        if math.degrees(e0.Angle(s1)) > tolerance_deg:
+            return True
+    return False
+
+
+def _mitred_sweep(profile: TopoDS_Shape, path_wire: Any) -> TopoDS_Shape:
+    """A sweep round sharp corners, mitred as Inventor's is: each loop of
+    the profile swept as a pipe shell that turns the corners square, the
+    holes taken out of the outside."""
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_TransitionMode
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell
+
+    def pipe(wire):
+        shell = BRepOffsetAPI_MakePipeShell(TopoDS.Wire_s(path_wire))
+        shell.SetMode(False)
+        shell.SetTransitionMode(
+            BRepBuilderAPI_TransitionMode.BRepBuilderAPI_RightCorner)
+        shell.Add(TopoDS.Wire_s(wire))
+        shell.Build()
+        if not shell.IsDone() or not shell.MakeSolid():
+            raise KernelError("sweep failed at a corner of the path")
+        return shell.Shape()
+
+    out = None
+    for face in explore(profile, TopAbs_FACE) or [profile]:
+        from OCP.BRepTools import BRepTools as _Tools
+        outer = _Tools.OuterWire_s(TopoDS.Face_s(face))
+        solid = pipe(outer)
+        for wire in explore(face, TopAbs_WIRE):
+            if wire.IsSame(outer):
+                continue
+            solid = boolean(solid, pipe(wire), "cut")
+        out = solid if out is None else boolean(out, solid, "join")
+    if out is None:
+        raise KernelError("sweep failed")
+    return check(out, "Sweep")
 
 
 def loft(profiles: Sequence[Any], solid: bool = True,

@@ -1243,29 +1243,90 @@ class SweepDialog(FeatureDialog):
         super().__init__(host, feature, "Sweep", "sweep", is_new, snapshot)
 
     def build(self):
-        self.form.add("Profiles", self.profile_field())
+        """Inventor's Sweep: Profile and Path, each picked in the view.
+        The path is curves clicked in any sketch in sight, as many
+        sketches on as many planes as it runs through, joined end to end."""
+        self.form.add("Profile", self.profile_field())
+        self.profiles.pick_toggled.connect(
+            lambda on: on and self._path_off())
 
-        self.path = self.sketch_combo(self.feature.path_id)
-        self.form.add("Path", self.path)
+        self.path_pick = SelectionField("Select path")
+        self.path_pick.pick_toggled.connect(self._toggle_path)
+        self.path_pick.cleared.connect(self._clear_path)
+        self.form.add("Path", self.path_pick)
 
-        hint = QtWidgets.QLabel("The path sketch supplies an open chain of "
-                                "curves for the profile to follow.")
+        hint = QtWidgets.QLabel(
+            "Click the profile, then the curves of the path, in any order "
+            "and from as many sketches as it runs through. They must join "
+            "end to end.")
         hint.setProperty("hint", True)
         hint.setWordWrap(True)
         self.form.add("", hint)
-
         self.boolean_row()
 
+    def _path_text(self):
+        if self.feature.path:
+            self.path_pick.set_count(len(self.feature.path), "curve")
+        elif self.feature.path_id:
+            sketch = self.doc.feature(self.feature.path_id)
+            self.path_pick.set_count(0, "curve")
+            self.path_pick.count.setText(
+                "all of %s" % (sketch.name if sketch else "a sketch"))
+        else:
+            self.path_pick.set_count(0, "curve")
+
+    def _path_off(self):
+        if self.path_pick.picking:
+            self.path_pick.blockSignals(True)
+            self.path_pick.set_picking(False)
+            self.path_pick.blockSignals(False)
+        self.host.set_curve_pick(None)
+
+    def _toggle_path(self, on: bool):
+        if on:
+            if self.profiles.picking:
+                self.profiles.blockSignals(True)
+                self.profiles.set_picking(False)
+                self.profiles.blockSignals(False)
+                self.host.set_profile_pick(None)
+            self.host.set_curve_pick(self)
+        else:
+            self.host.set_curve_pick(None)
+
+    def _clear_path(self):
+        self.feature.path = []
+        self.feature.path_id = 0
+        self._path_text()
+        self.host.refresh_curve_overlay()
+        self.preview()
+
+    def on_profile_clicked(self, sketch_id: int, centre) -> None:
+        super().on_profile_clicked(sketch_id, centre)
+        # the profile in, the path is what comes next, as in Inventor
+        if len(self.feature.profiles) and not self.feature.path                 and not self.feature.path_id:
+            QtCore.QTimer.singleShot(
+                0, lambda: self.path_pick.set_picking(True))
+
+    def on_curve_clicked(self, sketch_id: int, entity_id: int) -> None:
+        key = [int(sketch_id), int(entity_id)]
+        if key in self.feature.path:
+            self.feature.path.remove(key)
+        else:
+            self.feature.path.append(key)
+        # a path picked replaces one that was a whole sketch
+        self.feature.path_id = 0
+        self._path_text()
+        self.preview()
+
+    def closeEvent(self, event):
+        self.host.set_curve_pick(None)
+        super().closeEvent(event)
+
     def load(self):
-        pos = self.path.findData(self.feature.path_id)
-        if pos >= 0:
-            self.path.setCurrentIndex(pos)
-        elif self.path.count() > 1:
-            self.path.setCurrentIndex(self.path.count() - 1)
+        self._path_text()
         self.load_boolean()
 
     def store(self):
-        self.feature.path_id = int(self.path.currentData() or 0)
         self.store_boolean()
 
 

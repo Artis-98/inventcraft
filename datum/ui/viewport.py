@@ -311,6 +311,8 @@ class Viewport(QtWidgets.QWidget):
         self._plane_display: Dict[str, AIS_Shape] = {}
         self._plane_display_labels: List[AIS_InteractiveObject] = []
         self._profile_display: List[Tuple[int, AIS_Shape]] = []
+        # sketch curves offered to click, for a sweep's path
+        self._curve_display: List[Tuple[int, AIS_Shape]] = []
         self._clip: Optional[Graphic3d_ClipPlane] = None
 
         self.display_mode = "shaded_edges"
@@ -2771,6 +2773,7 @@ class Viewport(QtWidgets.QWidget):
         helpers = list(self._plane_picker.values())
         helpers += list(self._plane_display.values())
         helpers += [ais for _i, ais in self._profile_display]
+        helpers += [ais for _i, ais in self._curve_display]
         for ais in helpers:
             if obj is ais:
                 return True
@@ -2820,6 +2823,59 @@ class Viewport(QtWidgets.QWidget):
         for _index, ais in self._profile_display:
             self.context.Remove(ais, False)
         self._profile_display = []
+
+    def show_curves(self, curves: List[Dict[str, Any]],
+                    chosen: Optional[List[int]] = None) -> None:
+        """Sketch curves on screen to click, for a path: blue on offer,
+        green taken, each with its order along the path."""
+        self.hide_curves()
+        if not self._ready:
+            return
+        chosen = list(chosen or [])
+        for index, curve in enumerate(curves):
+            edge = curve.get("edge")
+            if edge is None:
+                continue
+            picked = index in chosen
+            ais = AIS_Shape(edge)
+            colour = _col(C.ok if picked else C.sketch_preview)
+            ais.SetColor(colour)
+            ais.SetWidth(4.0 if picked else 2.6)
+            ais.SetZLayer(Graphic3d_ZLayerId_Top)
+            self.context.Display(ais, False)
+            self.context.Activate(ais, SEL_SHAPE, True)
+            self._curve_display.append((index, ais))
+        self.redraw()
+
+    def hide_curves(self) -> None:
+        if not self._ready:
+            return
+        for _index, ais in self._curve_display:
+            self.context.Remove(ais, False)
+        self._curve_display = []
+
+    def picked_curves(self) -> List[int]:
+        """Indices of the curves clicked."""
+        if not self._ready or not self._curve_display:
+            return []
+        ctx = self.context
+        found: List[int] = []
+        ctx.InitSelected()
+        while ctx.MoreSelected():
+            try:
+                shape = ctx.SelectedShape()
+            except Exception:
+                shape = None
+            if shape is not None and not shape.IsNull():
+                for index, ais in self._curve_display:
+                    try:
+                        if index not in found and ais.Shape().IsSame(shape):
+                            found.append(index)
+                            break
+                    except Exception:
+                        continue
+            ctx.NextSelected()
+        return found
 
     @property
     def profile_picking(self) -> bool:

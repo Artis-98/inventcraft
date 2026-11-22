@@ -3988,8 +3988,8 @@ class MainWindow(QtWidgets.QMainWindow):
             # the regions rather than the app guessing a sketch
             if cls is HoleFeature:
                 feature.sketch_id = sketches[-1].id
-            if cls is SweepFeature and len(sketches) >= 2:
-                feature.path_id = sketches[-1].id
+            # a sweep's path is picked in the view, curve by curve, as in
+            # Inventor, rather than guessed as the newest sketch
             if cls is LoftFeature:
                 feature.sections = [s.id for s in sketches[-2:]]
             if cls is not HoleFeature and self.document.shape is not None:
@@ -4099,6 +4099,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self._active_dialog = None
         if self._profile_dialog is dialog:
             self.set_profile_pick(None)
+        if getattr(self, "_curve_dialog", None) is dialog:
+            self.set_curve_pick(None)
         self.set_pick_mode(None)
 
     def close_dialogs(self) -> None:
@@ -5277,6 +5279,76 @@ class MainWindow(QtWidgets.QMainWindow):
                                                     region["centre"])
         return True
 
+    # -- sketch curves, picked for a path ------------------------------------
+
+    def set_curve_pick(self, dialog) -> None:
+        """Offer the sketches' curves to click, for a dialog wanting a
+        path; or stop.  Every curve of every sketch in sight before the
+        feature, so a path can run through sketches on several planes."""
+        self._curve_dialog = dialog
+        if dialog is None:
+            self.viewport.hide_curves()
+            self._curves = []
+            self.viewport.redraw()
+            return
+        self.viewport.set_selection_mode("none")
+        self.refresh_curve_overlay()
+        self.status_message.setStyleSheet("")
+        self.status_message.setText(
+            "Click the curves of the path, in any order; they must join end "
+            "to end. Click one again to drop it.")
+
+    def available_curves(self) -> List[Dict[str, Any]]:
+        from ..core import kernel as core_kernel
+        dialog = getattr(self, "_curve_dialog", None)
+        feature = getattr(dialog, "feature", None)
+        mine = {sid for sid, _e in (getattr(feature, "path", None) or [])}
+        before = self.document.index_of(feature.id) if feature is not None             and self.document.feature(feature.id) is not None else None
+        out = []
+        for sid, sketch in self.document.all_sketches().items():
+            sketch_feature = self.document.feature(sid)
+            if sketch_feature is None or sketch_feature.suppressed:
+                continue
+            if before is not None and self.document.index_of(sid) >= before:
+                continue
+            if sid not in mine and self.browser.is_sketch_hidden(
+                    sid, self.document):
+                continue
+            for eid, entity in sketch.entities.items():
+                if entity.kind not in ("line", "arc", "circle", "spline",
+                                       "ellipse"):
+                    continue
+                edge = core_kernel._sketch_edge(sketch, eid)
+                if edge is not None:
+                    out.append({"sketch_id": sid, "entity_id": eid,
+                                "edge": edge})
+        return out
+
+    def refresh_curve_overlay(self) -> None:
+        dialog = getattr(self, "_curve_dialog", None)
+        if dialog is None:
+            return
+        self._curves = self.available_curves()
+        taken = [[sid, eid] for sid, eid in dialog.feature.path]
+        chosen = [i for i, c in enumerate(self._curves)
+                  if [c["sketch_id"], c["entity_id"]] in taken]
+        self.viewport.show_curves(self._curves, chosen)
+
+    def _on_curve_selection(self) -> bool:
+        dialog = getattr(self, "_curve_dialog", None)
+        if dialog is None:
+            return False
+        picked = [i for i in self.viewport.picked_curves()
+                  if i < len(self._curves)]
+        if not picked:
+            return False
+        self.viewport.clear_selection()
+        for index in picked:
+            curve = self._curves[index]
+            dialog.on_curve_clicked(curve["sketch_id"], curve["entity_id"])
+        self.refresh_curve_overlay()
+        return True
+
     def set_pick_mode(self, mode: Optional[str]) -> None:
         # faces are the resting state: hovering the model highlights the flat
         # faces you can sketch on rather than the body as a whole
@@ -5312,6 +5384,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.assembly_ui.on_selection()
             return
         if self.model_annotate.on_selection():
+            return
+        if self._on_curve_selection():
             return
         if self._on_profile_selection():
             return
