@@ -26,7 +26,7 @@ from ..core.features import (
     SketchFeature, SweepFeature, WorkPlaneFeature, CodeFeature,
     AXIS_PREFIX, WorkAxisFeature,
     SplitFeature, CombineFeature, EmbossFeature, SheetFaceFeature,
-    FlangeFeature,
+    FlangeFeature, DirectEditFeature, DeleteBodyFeature,
     HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
     FrameMemberFeature, ThreadFeature,
 )
@@ -2521,6 +2521,18 @@ class SplitDialog(FeatureDialog):
         self.bind(self.all_faces)
         self.form.add("", self.all_faces)
 
+        self.keep = QtWidgets.QComboBox()
+        for key, label in (("both", "Both halves, each a solid"),
+                           ("front", "The side the plane faces"),
+                           ("back", "The other side")):
+            self.keep.addItem(label, key)
+        self.keep.setToolTip(
+            "What is left of the solid: both halves, or only one, the "
+            "other thrown away (Inventor's Trim Solid). The preview shows "
+            "which is which; the plane faces the way its arrow points")
+        self.bind(self.keep)
+        self.form.add("Keep", self.keep)
+
         self.solids_row()
         self.method.changed.connect(self._method_changed)
         self.all_faces.toggled.connect(lambda _on: self._sync_enabled())
@@ -2678,11 +2690,14 @@ class SplitDialog(FeatureDialog):
         self.faces_pick.setEnabled(not self.all_faces.isChecked())
         if getattr(self, "solids", None) is not None:
             self.form.set_visible(self.solids, not faces)
+        self.form.set_visible(self.keep, not faces)
         # a picked face is the tool; the plane list stands aside for it
         self.plane.setEnabled(not len(self.feature.tool))
 
     def load(self):
         self.method.set_value(self.feature.mode)
+        self.keep.setCurrentIndex(max(0, self.keep.findData(
+            self.feature.keep)))
         self.all_faces.setChecked(self.feature.all_faces)
         self.tool_pick.set_count(len(self.feature.tool), "face")
         self.faces_pick.set_count(len(self.feature.faces), "face")
@@ -2692,6 +2707,7 @@ class SplitDialog(FeatureDialog):
         self.feature.mode = self.method.value()
         self.feature.plane = self.plane.currentData() or "XY"
         self.feature.all_faces = self.all_faces.isChecked()
+        self.feature.keep = self.keep.currentData() or "both"
         self.feature.solids = (self.picked_solids()
                                if self.feature.mode == "solid" else [])
 
@@ -2955,6 +2971,159 @@ class MoveDialog(FeatureDialog):
         for widget, name in ((self.dx, "dx"), (self.dy, "dy"), (self.dz, "dz"),
                              (self.rx, "rx"), (self.ry, "ry"), (self.rz, "rz")):
             setattr(self.feature, name, widget.text())
+
+
+class DirectEditDialog(FeatureDialog):
+    """Inventor's Direct: pick faces, then move, rotate, size or delete
+    them, on any solid, an imported one included."""
+
+    MODES = [
+        ("move", "free_move", "Move - a hole, pocket or boss moved, or a "
+         "face moved along its normal"),
+        ("rotate", "free_rotate", "Rotate - a hole, pocket or boss turned "
+         "about an axis through its middle"),
+        ("size", "offset", "Size - the faces pushed out of the solid, or "
+         "in: a hole made bigger, a wall thicker"),
+        ("delete", "delete", "Delete - the faces taken away and the gap "
+         "closed by the faces round them"),
+    ]
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Direct Edit", "free_move", is_new,
+                         snapshot)
+
+    def build(self):
+        self.mode = SegmentedControl(self.MODES)
+        self.bind(self.mode)
+        self.form.add("Edit", self.mode)
+
+        self.picker = SelectionField("Select faces")
+        self.picker.pick_toggled.connect(
+            lambda on: self.host.set_pick_mode("face" if on else None))
+        self.picker.cleared.connect(self._clear)
+        self.form.add("Faces", self.picker)
+
+        self.dx = self.expression(self.feature.dx)
+        self.form.add("Move X", self.dx)
+        self.dy = self.expression(self.feature.dy)
+        self.form.add("Move Y", self.dy)
+        self.dz = self.expression(self.feature.dz)
+        self.form.add("Move Z", self.dz)
+
+        self.axis = QtWidgets.QComboBox()
+        for name in ("X", "Y", "Z"):
+            self.axis.addItem("Parallel to %s" % name, name)
+        self.bind(self.axis)
+        self.form.add("Axis", self.axis)
+        self.angle = self.expression(self.feature.angle, "deg")
+        self.form.add("Angle", self.angle)
+
+        self.distance = self.expression(self.feature.distance)
+        self.form.add("Distance", self.distance)
+
+        self.hint = QtWidgets.QLabel()
+        self.hint.setProperty("hint", True)
+        self.hint.setWordWrap(True)
+        self.form.add("", self.hint)
+
+        self.mode.changed.connect(lambda _m: self._sync())
+        QtCore.QTimer.singleShot(0, lambda: self.picker.set_picking(True))
+
+    def _sync(self):
+        mode = self.mode.value()
+        for widget in (self.dx, self.dy, self.dz):
+            self.form.set_visible(widget, mode == "move")
+        self.form.set_visible(self.axis, mode == "rotate")
+        self.form.set_visible(self.angle, mode == "rotate")
+        self.form.set_visible(self.distance, mode == "size")
+        self.hint.setText({
+            "move": "Pick every face of the hole, pocket or boss to move. "
+                    "A single flat face of the part moves along its normal.",
+            "rotate": "Pick every face of the hole, pocket or boss; it turns "
+                      "about an axis through its middle.",
+            "size": "Positive pushes the faces out of the solid: a hole "
+                    "grows, a wall thickens. Negative pulls them in.",
+            "delete": "The faces go, and the faces round them close the "
+                      "gap, as if what made them was never there.",
+        }.get(mode, ""))
+
+    def wants_selection(self):
+        return "face" if self.picker.picking else None
+
+    def _clear(self):
+        self.feature.refs = RefSet()
+        self.picker.set_count(0, "face")
+        self.host.viewport.clear_selection()
+        self.preview()
+
+    def on_selection(self):
+        if not self.picker.picking or self._in_selection:
+            return
+        picked = self.host.viewport.selected_faces()
+        base = self.host.pick_shape()
+        if not picked or base is None:
+            return
+        self._in_selection = True
+        try:
+            fresh = RefSet()
+            fresh.capture_from(base, "face", picked)
+            for ref in fresh:
+                match = next((e for e in self.feature.refs
+                              if e.same_as(ref)), None)
+                if match is not None:
+                    self.feature.refs.refs.remove(match)
+                else:
+                    self.feature.refs.add(ref)
+            self.picker.set_count(len(self.feature.refs), "face")
+            self.host.viewport.clear_selection()
+        finally:
+            self._in_selection = False
+        self.preview()
+
+    def load(self):
+        self.mode.set_value(self.feature.mode)
+        self.picker.set_count(len(self.feature.refs), "face")
+        for widget, name in ((self.dx, "dx"), (self.dy, "dy"),
+                             (self.dz, "dz"), (self.angle, "angle"),
+                             (self.distance, "distance")):
+            widget.set_text(getattr(self.feature, name))
+        self.axis.setCurrentIndex(max(0, self.axis.findData(
+            self.feature.axis)))
+        self._sync()
+
+    def store(self):
+        self.feature.mode = self.mode.value()
+        for widget, name in ((self.dx, "dx"), (self.dy, "dy"),
+                             (self.dz, "dz"), (self.angle, "angle"),
+                             (self.distance, "distance")):
+            setattr(self.feature, name, widget.text())
+        self.feature.axis = self.axis.currentData() or "Z"
+
+
+class DeleteBodyDialog(FeatureDialog):
+    """Inventor's Delete Solid Body: the solids to take out."""
+
+    def __init__(self, host, feature, is_new, snapshot=None):
+        super().__init__(host, feature, "Delete Body", "delete", is_new,
+                         snapshot)
+
+    def build(self):
+        self.solids = self.solids_picker(self.feature.solids)
+        self.solids.setToolTip("The solids to take out, picked by any face "
+                               "of theirs or their row in the tree")
+        self.form.add("Solids", self.solids)
+        hint = QtWidgets.QLabel("They come back if this step is deleted or "
+                                "suppressed.")
+        hint.setProperty("hint", True)
+        hint.setWordWrap(True)
+        self.form.add("", hint)
+        QtCore.QTimer.singleShot(0, lambda: self.solids.set_picking(True))
+
+    def load(self):
+        pass
+
+    def store(self):
+        self.feature.solids = self.picked_solids()
 
 
 class EmbossDialog(FeatureDialog):
@@ -3559,6 +3728,8 @@ DIALOGS = {
     WorkPlaneFeature: WorkPlaneDialog,
     WorkAxisFeature: WorkAxisDialog,
     MoveFeature: MoveDialog,
+    DirectEditFeature: DirectEditDialog,
+    DeleteBodyFeature: DeleteBodyDialog,
     SplitFeature: SplitDialog,
     CombineFeature: CombineDialog,
     EmbossFeature: EmbossDialog,

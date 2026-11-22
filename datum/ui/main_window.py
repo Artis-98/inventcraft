@@ -24,6 +24,7 @@ from ..core.document import FILE_EXTENSION, Document, RebuildReport
 from ..core.features import (
     ChamferFeature, ExtrudeFeature, Feature, FilletFeature, HoleFeature,
     ImportFeature, LoftFeature, MirrorFeature, MoveFeature, PatternFeature,
+    DirectEditFeature, DeleteBodyFeature,
     PrimitiveFeature, RevolveFeature, ShellFeature, SketchFeature,
     SweepFeature, WorkPlaneFeature, plane_from_face, CodeFeature,
     WorkAxisFeature, SplitFeature, CombineFeature, EmbossFeature,
@@ -541,6 +542,14 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self.new_feature(SplitFeature))
         panel.add_small("move", "Move Body").clicked.connect(
             lambda: self.new_feature(MoveFeature))
+        panel.add_small("free_move", "Direct",
+                        "Move, rotate, size or delete faces of any solid, an "
+                        "imported one included").clicked.connect(
+            lambda: self.new_feature(DirectEditFeature))
+        panel.add_small("delete", "Delete Body",
+                        "Take solids out of a multibody part, as a step in "
+                        "the tree").clicked.connect(
+            lambda: self.new_feature(DeleteBodyFeature))
         panel.add_small("combine", "Combine",
                         "Join, cut or intersect solids already made"
                         ).clicked.connect(

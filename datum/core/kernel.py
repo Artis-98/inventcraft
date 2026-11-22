@@ -1567,6 +1567,97 @@ def split_solid(shape: TopoDS_Shape, origin: Sequence[float],
     return sorted(pieces, key=side, reverse=True)
 
 
+# ------------------------------------------------------------ direct edit
+
+
+def offset_faces(shape: TopoDS_Shape, faces: Sequence[TopoDS_Shape],
+                 distance: float) -> TopoDS_Shape:
+    """These faces pushed out of the solid by ``distance`` (in, when it is
+    negative), every other face where it was: Inventor's Size, or a flat
+    face moved along its normal.  A hole's face pushed out of the solid
+    makes the hole bigger."""
+    from OCP.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin
+    from OCP.GeomAbs import GeomAbs_Intersection
+
+    maker = BRepOffset_MakeOffset()
+    maker.Initialize(shape, 0.0, 1e-6, BRepOffset_Skin, False, False,
+                     GeomAbs_Intersection, False, False)
+    for face in faces:
+        maker.SetOffsetOnFace(TopoDS.Face_s(face), float(distance))
+    maker.MakeOffsetShape()
+    if not maker.IsDone():
+        raise KernelError("those faces cannot be moved that far")
+    return check(_solid_of(maker.Shape()), "Direct Edit")
+
+
+def remove_faces(shape: TopoDS_Shape,
+                 faces: Sequence[TopoDS_Shape]) -> TopoDS_Shape:
+    """The solid with these faces taken away and the gap closed by the
+    faces round it, as if the feature that made them was never there."""
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Defeaturing
+
+    maker = BRepAlgoAPI_Defeaturing()
+    maker.SetShape(shape)
+    for face in faces:
+        maker.AddFaceToRemove(face)
+    maker.SetRunParallel(True)
+    maker.Build()
+    if not maker.IsDone() or maker.Shape().IsNull():
+        raise KernelError("those faces cannot be taken away: the faces "
+                          "round them do not close the gap")
+    return check(_solid_of(maker.Shape()), "Direct Edit")
+
+
+def move_faces(shape: TopoDS_Shape, faces: Sequence[TopoDS_Shape],
+               place) -> TopoDS_Shape:
+    """A hole, a pocket or a boss, the faces of it picked, moved by
+    ``place`` (a function of a shape giving it moved): taken away, then
+    put back where it is moved to."""
+    plain = remove_faces(shape, faces)
+    # what the faces were: material they held out (a hole) and material
+    # they added (a boss), each moved and put back
+    def left(a, b):
+        """What of a is not in b; None when nothing is."""
+        try:
+            out = boolean(a, b, "cut")
+        except KernelError:
+            return None
+        return out if is_valid(out) else None
+
+    holes = left(plain, shape)
+    bosses = left(shape, plain)
+    if holes is None and bosses is None:
+        raise KernelError("those faces make nothing that can be moved")
+    out = plain
+    if holes is not None and volume(holes) > 1e-9:
+        out = boolean(out, place(holes), "cut")
+    if bosses is not None and volume(bosses) > 1e-9:
+        out = boolean(out, place(bosses), "join")
+    return check(_solid_of(out), "Direct Edit")
+
+
+def face_normal(face) -> Optional[Tuple[float, float, float]]:
+    """A flat face's normal, out of the solid; None for a curved one."""
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_SurfaceType
+    from OCP.TopAbs import TopAbs_REVERSED
+    f = TopoDS.Face_s(face)
+    surface = BRepAdaptor_Surface(f)
+    if surface.GetType() != GeomAbs_SurfaceType.GeomAbs_Plane:
+        return None
+    d = surface.Plane().Axis().Direction()
+    n = (d.X(), d.Y(), d.Z())
+    if f.Orientation() == TopAbs_REVERSED:
+        n = (-n[0], -n[1], -n[2])
+    return n
+
+
+def _solid_of(shape: TopoDS_Shape) -> TopoDS_Shape:
+    """A result with one solid in it as that solid."""
+    solids = explore(shape, TopAbs_SOLID)
+    return solids[0] if len(solids) == 1 else shape
+
+
 def split_faces(shape: TopoDS_Shape, faces: Sequence[TopoDS_Shape],
                 origin: Sequence[float],
                 normal: Sequence[float]) -> Tuple[TopoDS_Shape, int]:

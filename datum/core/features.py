@@ -2636,6 +2636,10 @@ class SplitFeature(Feature):
     faces: RefSet = field(default_factory=RefSet)     # for Split Faces
     all_faces: bool = False
     solids: List[str] = field(default_factory=list)   # empty: every one
+    # Split Solid: both halves kept, each a solid ("both"), or only the
+    # half on the side the tool faces ("front") or the other ("back"),
+    # the rest thrown away, as Inventor's Trim Solid does
+    keep: str = "both"
 
     def tool_plane(self, ctx: BuildContext):
         """(origin, normal) of what cuts."""
@@ -2702,10 +2706,22 @@ class SplitFeature(Feature):
             pieces = kernel.split_solid(body.shape, origin, normal)
             if len(pieces) < 2:
                 continue
+            split += 1
+            if self.keep in ("front", "back"):
+                def side(piece):
+                    c = kernel.shape_centre(piece)
+                    return sum((c[i] - origin[i]) * normal[i]
+                               for i in range(3))
+                kept = [p for p in pieces
+                        if (side(p) > 0) == (self.keep == "front")]
+                if not kept:
+                    continue
+                # what is left of it stays this body, all in one
+                body.shape = kept[0] if len(kept) == 1                     else kernel.compound(kept)
+                continue
             body.shape = pieces[0]
             for piece in pieces[1:]:
                 ctx.bodies.append(Body(ctx.next_name(), piece))
-            split += 1
         if not split:
             raise FeatureError("%s: the plane does not cross the solid"
                                % self.name)
@@ -2716,15 +2732,21 @@ class SplitFeature(Feature):
             else ("solids %s" % ", ".join(self.solids) if self.solids
                   else "the solid")
         tool = "a face" if len(self.tool) else self.plane
-        return "%s: %s along %s" % (self.name, what, tool)
+        kept = {"front": ", keeping the side it faces",
+                "back": ", keeping the other side"}.get(
+            self.keep, "") if self.mode != "faces" else ""
+        return "%s: %s along %s%s" % (self.name, what, tool, kept)
 
     def field_dict(self) -> Dict[str, Any]:
         return {"mode": self.mode, "plane": self.plane,
                 "tool": self.tool.to_list(), "faces": self.faces.to_list(),
-                "all_faces": self.all_faces, "solids": list(self.solids)}
+                "all_faces": self.all_faces, "solids": list(self.solids),
+                "keep": self.keep}
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.mode = "faces" if data.get("mode") == "faces" else "solid"
+        self.keep = data.get("keep") if data.get("keep") in (
+            "front", "back") else "both"
         self.plane = str(data.get("plane", "XY"))
         self.tool = RefSet.from_list(data.get("tool", []))
         self.faces = RefSet.from_list(data.get("faces", []))
@@ -2979,6 +3001,135 @@ class MoveFeature(Feature):
     def load_fields(self, data: Dict[str, Any]) -> None:
         for k in ("dx", "dy", "dz", "rx", "ry", "rz"):
             setattr(self, k, str(data.get(k, "0")))
+
+
+@dataclass
+class DirectEditFeature(Feature):
+    """Inventor's Direct Edit, on any solid, a STEP body with no history
+    included: faces picked in the view, then
+
+    move:   a hole, pocket or boss moved by (dx, dy, dz): its faces taken
+            away and the gap closed, then put back where it is moved to.
+            A single flat face that bounds the part moves along its own
+            normal instead, by as much of the move as lies that way;
+    rotate: the same, turned about an axis through the middle of the
+            picked faces, parallel to X, Y or Z;
+    size:   the faces pushed out of the solid by a distance, or in when it
+            is negative: a hole made bigger, a wall made thicker;
+    delete: the faces taken away and the gap closed by the faces round it.
+
+    Each is a feature in the tree, so it can be changed afterwards.
+    """
+
+    type_name: str = "direct"
+    icon: str = "free_move"
+    name: str = "Direct Edit"
+    mode: str = "move"              # move / rotate / size / delete
+    refs: RefSet = field(default_factory=RefSet)
+    dx: str = "0"
+    dy: str = "0"
+    dz: str = "0"
+    axis: str = "Z"
+    angle: str = "0"
+    distance: str = "1"
+
+    def build(self, ctx: BuildContext) -> None:
+        body = ctx.require_shape(self.name)
+        faces, lost = self.refs.resolve_all(body)
+        if lost:
+            ctx.log.append("%s: %d face(s) could not be found"
+                           % (self.name, len(lost)))
+        if not faces:
+            raise FeatureError("%s: pick the faces to edit" % self.name)
+        owner = ctx.require_body(self.name, faces[0])
+        faces = [TopoDS.Face_s(f) for f in faces]
+        try:
+            owner.shape = self._edit(ctx, owner.shape, faces)
+        except KernelError as exc:
+            raise FeatureError("%s: %s" % (self.name, exc)) from exc
+
+    def _edit(self, ctx, shape, faces):
+        if self.mode == "delete":
+            return kernel.remove_faces(shape, faces)
+        if self.mode == "size":
+            d = ctx.evaluate(self.distance, "%s distance" % self.name)
+            return kernel.offset_faces(shape, faces, d)
+        if self.mode == "rotate":
+            angle = ctx.evaluate(self.angle, "%s angle" % self.name)
+            if abs(angle) < 1e-12:
+                return shape
+            centre = kernel.shape_centre(kernel.compound(faces))
+            axis = {"X": (1, 0, 0), "Y": (0, 1, 0)}.get(self.axis,
+                                                         (0, 0, 1))
+            return kernel.move_faces(
+                shape, faces,
+                lambda piece: kernel.rotate(piece, centre, axis, angle))
+        move = [ctx.evaluate(v, "%s move" % self.name)
+                for v in (self.dx, self.dy, self.dz)]
+        if all(abs(v) < 1e-12 for v in move):
+            return shape
+        try:
+            return kernel.move_faces(
+                shape, faces, lambda piece: kernel.translate(piece, move))
+        except KernelError:
+            # a face that bounds the part has nothing round it to close
+            # the gap: it moves along its own normal instead
+            normals = [kernel.face_normal(f) for f in faces]
+            if any(n is None for n in normals):
+                raise
+            along = sum(move[i] * normals[0][i] for i in range(3))
+            return kernel.offset_faces(shape, faces, along)
+
+    def summary(self) -> str:
+        what = {"move": "moved (%s, %s, %s)" % (self.dx, self.dy, self.dz),
+                "rotate": "turned %s deg about %s" % (self.angle, self.axis),
+                "size": "pushed out %s" % self.distance,
+                "delete": "taken away"}.get(self.mode, self.mode)
+        return "%s: %d face(s) %s" % (self.name, len(self.refs), what)
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {"mode": self.mode, "refs": self.refs.to_list(),
+                "dx": self.dx, "dy": self.dy, "dz": self.dz,
+                "axis": self.axis, "angle": self.angle,
+                "distance": self.distance}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        self.mode = data.get("mode") if data.get("mode") in (
+            "move", "rotate", "size", "delete") else "move"
+        self.refs = RefSet.from_list(data.get("refs", []))
+        for key in ("dx", "dy", "dz", "angle"):
+            setattr(self, key, str(data.get(key, "0")))
+        self.axis = str(data.get("axis", "Z") or "Z")
+        self.distance = str(data.get("distance", "1"))
+
+
+@dataclass
+class DeleteBodyFeature(Feature):
+    """Inventor's Delete Solid Body: solids of a multibody part taken out,
+    as a step in the tree, so they can be had back by deleting the step."""
+
+    type_name: str = "delete_body"
+    icon: str = "delete"
+    name: str = "Delete Body"
+
+    def build(self, ctx: BuildContext) -> None:
+        wanted = set(self.solids)
+        if not wanted:
+            raise FeatureError("%s: pick the solids to delete" % self.name)
+        before = len(ctx.bodies)
+        ctx.bodies = [b for b in ctx.bodies if b.name not in wanted]
+        if len(ctx.bodies) == before:
+            raise FeatureError("%s: the solids it deletes are gone"
+                               % self.name)
+
+    def summary(self) -> str:
+        return "%s: %s" % (self.name, ", ".join(self.solids) or "nothing")
+
+    def field_dict(self) -> Dict[str, Any]:
+        return {}
+
+    def load_fields(self, data: Dict[str, Any]) -> None:
+        pass
 
 
 @dataclass
@@ -3848,5 +3999,6 @@ FEATURE_TYPES: Dict[str, type] = {
         HemFeature, FoldFeature, ContourFlangeFeature, CornerSeamFeature,
         FrameMemberFeature, FrameEndsFeature, CombineFeature,
         PipeRunFeature, PipeFittingFeature, ThreadFeature,
+        DirectEditFeature, DeleteBodyFeature,
     )
 }
