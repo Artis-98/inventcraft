@@ -905,6 +905,9 @@ class Generator:
             if view is None:
                 table.error = "it has no view to list"
                 continue
+            if table.kind == "holes":
+                self._hole_rows(doc, sheet, view, table, base, models)
+                continue
             origin = doc.view_model(sheet, view)
             entry = models.get(origin.id) if origin is not None else None
             if entry is None and not table.rows:
@@ -934,6 +937,56 @@ class Generator:
                 found = doc.balloon_number(sheet, note)
                 note.sick = found == 0
                 note.item = found
+
+    def _hole_rows(self, doc: DrawingDocument, sheet: Sheet, view: View,
+                   table, base: str, models: Dict) -> None:
+        """Inventor's Hole Table: every hole the view sees end on, a tag
+        each, A1, A2 for the first size, B1 for the next, with where it
+        is from the table's datum in model millimetres and its note."""
+        origin = doc.view_model(sheet, view)
+        entry = models.get(origin.id) if origin is not None else None
+        if entry is None:
+            if table.rows:
+                return              # nothing reloaded: the rows stand
+            entry = self._load_for(doc, origin, base)
+        if entry is None or entry[0] is None or view.projection is None:
+            if not table.rows:
+                table.error = "its model is not loaded"
+            return
+        try:
+            direction, up = self._resolved_orientation(doc, sheet, view)
+        except Exception:
+            return
+        scale = doc.view_scale(sheet, view) or 1.0
+        spots: List = []
+        hole_notes(entry[0], direction, up, view.projection.centre, scale,
+                   centres_out=spots)
+        groups: Dict[str, List] = {}
+        for spot, label in spots:
+            words = label.split("x ", 1)[1] if "x " in label.split(
+                "Ø")[0] else label
+            groups.setdefault(words, []).append(spot)
+        dx, dy = table.datum[0], table.datum[1]
+        rows = []
+        for letter, (words, places) in zip(
+                "ABCDEFGHJKLMNPRSTUVWXYZ", groups.items()):
+            places.sort(key=lambda p: (-round(p[1], 3), round(p[0], 3)))
+            try:
+                # the hole's size on the paper, for its tag to stand clear
+                size = float(words.split("Ø", 1)[1].split()[0])
+            except (IndexError, ValueError):
+                size = 0.0
+            for number, (x, y) in enumerate(places, 1):
+                rows.append(bom.Row(
+                    item=len(rows) + 1, quantity=1,
+                    extra={"HOLE": "%s%d" % (letter, number),
+                           "XDIM": _mm((x - dx) / scale + 0.0),
+                           "YDIM": _mm((y - dy) / scale + 0.0),
+                           "DESCRIPTION": words,
+                           "_x": "%.6f" % x, "_y": "%.6f" % y,
+                           "_r": "%.6f" % (size / 2.0 * scale)}))
+        table.rows = rows
+        table.error = "" if rows else "no hole is seen end on in %s"             % view.label
 
     def _load_for(self, doc: DrawingDocument, origin: Optional[View],
                   base: str):

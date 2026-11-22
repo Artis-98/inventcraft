@@ -945,6 +945,11 @@ class MainWindow(QtWidgets.QMainWindow):
                       "Click a hole, then where its note goes: its size, "
                       "THRU or depth, counterbore and how many"
                       ).clicked.connect(ui.add_hole_note)
+        panel.add_small("an_hole", "Hole Table",
+                        "Click the corner of a view the holes are measured "
+                        "from: every hole seen end on, tagged, with where "
+                        "it is and its size"
+                        ).clicked.connect(ui.start_hole_table)
 
         panel = annotate.add_panel("Text")
         panel.add_big("an_text", "Text",

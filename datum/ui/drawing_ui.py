@@ -1244,6 +1244,31 @@ class DrawingController(QtCore.QObject):
         """Inventor's Centerline Bisector: two lines, the line between."""
         self._start_tool("BisectorTool")
 
+    def start_hole_table(self) -> None:
+        """Inventor's Hole Table, on the view a corner is picked on."""
+        self._start_tool("HoleTableTool")
+
+    def add_hole_table(self, sheet, view, datum):
+        """A hole table for ``view``, measured from ``datum`` (in the
+        view's own millimetres), put beside the view."""
+        doc = self.document
+        doc.push_undo()
+        box = view.projection.box if view.projection else (-20, -20, 20, 20)
+        table = dwg.PartsList(view=view.id, kind="holes",
+                          columns=list(dwg.HOLE_COLUMNS),
+                          datum=[float(datum[0]), float(datum[1])],
+                          corner="top-left",
+                          x=view.x + box[2] + 12.0, y=view.y + box[3])
+        doc.add_parts_list(sheet, table)
+        self.rebuild()
+        if table.error:
+            self._complain("The hole table is empty: %s" % table.error)
+        else:
+            self.canvas.select([], [table.id])
+            self.host.status_message.setText(
+                "Hole table added - %d hole(s)." % len(table.rows))
+        return table
+
     def add_hole_note(self) -> None:
         """Inventor's Hole and Thread: click a hole, then place its note."""
         self._start_tool("HoleNoteTool")
@@ -1538,6 +1563,13 @@ class DrawingController(QtCore.QObject):
         sheet = doc.active() if doc else None
         table = sheet.parts_list(list_id) if sheet else None
         if table is None:
+            return
+        if table.kind == "holes":
+            # a hole table's columns are its own, so there is nothing to
+            # ask: it is counted again from the model as it is
+            doc.push_undo()
+            table.rows = []
+            self.rebuild()
             return
         dialog = PartsListDialog(self.host, table)
         if dialog.exec() == QtWidgets.QDialog.Accepted:
@@ -2053,9 +2085,12 @@ class DrawingController(QtCore.QObject):
         notes = self.canvas.selected_annotations
         table = sheet.parts_list(notes[-1]) if (notes and sheet) else None
         if table is not None:
-            menu.addAction("Parts List Properties...",
+            holes = table.kind == "holes"
+            menu.addAction("Count the Holes Again" if holes
+                           else "Parts List Properties...",
                            lambda: self.parts_list_properties(table.id))
-            menu.addAction("Delete Parts List",
+            menu.addAction("Delete Hole Table" if holes
+                           else "Delete Parts List",
                            lambda: self.delete_parts_list(table.id))
             menu.addSeparator()
         elif notes and self._symbol_note(notes[-1]) is not None:

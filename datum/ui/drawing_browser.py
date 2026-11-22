@@ -124,7 +124,9 @@ class DrawingBrowser(QtWidgets.QTreeWidget):
 
         for table in sheet.parts_lists:
             child = QtWidgets.QTreeWidgetItem(
-                item, ["Parts List   %d item(s)" % len(table.rows)])
+                item, ["Hole Table   %d hole(s)" % len(table.rows)
+                       if table.kind == "holes" else
+                       "Parts List   %d item(s)" % len(table.rows)])
             child.setData(0, ROLE_KIND, "parts_list")
             child.setData(0, ROLE_ID, table.id)
             child.setIcon(0, icons.icon("material", 16))

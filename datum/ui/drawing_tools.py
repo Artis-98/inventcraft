@@ -155,6 +155,23 @@ class CentreMarkTool(PickTool):
                              value=circle.radius + OVERHANG))
 
 
+class HoleTableTool(PickTool):
+    """Inventor's Hole Table: click the corner of a view the holes are
+    measured from; a table of every hole seen end on, tagged."""
+
+    name = "Hole Table"
+    kinds = (drawpick.POINT,)
+    prompts = ("click the corner the holes are measured from.",)
+
+    def make(self, point) -> None:
+        item = self.picks[0]
+        view = self.sheet.view(item.view)
+        if view is None:
+            return
+        self.controller.add_hole_table(self.sheet, view, item.a)
+        self.controller.end_placement()
+
+
 class CentrelineTool(PickTool):
     """Inventor's Centerline: two points, a centre line between them."""
 

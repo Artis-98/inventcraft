@@ -159,6 +159,8 @@ def paint(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     for table in sheet.parts_lists:
         _parts_list(painter, doc, sheet, table, layout,
                     selected=table.id in selection)
+        if table.kind == "holes":
+            _hole_tags(painter, doc, sheet, table, layout)
     for table in getattr(sheet, "revision_tables", []):
         _revision_table(painter, doc, table, layout,
                         selected=table.id in selection)
@@ -919,6 +921,47 @@ def _parts_list(painter: QtGui.QPainter, doc: DrawingDocument, sheet: Sheet,
     if table.error and not table.rows:
         _text(painter, layout, table.error, x0 + 1.6,
               top - table.height() / 2.0, table.text_height, colour=SICK)
+
+
+def _hole_tags(painter, doc, sheet, table, layout) -> None:
+    """A hole table's tags beside its holes, and its datum: two short
+    arrows out from the point the dimensions are measured from."""
+    view = sheet.view(table.view)
+    if view is None:
+        return
+    text_style = doc.styles.get("text", dwg.Style())
+    style = doc.styles.get("dimension", dwg.Style())
+    h = max(2.0, table.text_height * 0.85)
+    for row in table.rows:
+        try:
+            x = float(row.extra.get("_x", ""))
+            y = float(row.extra.get("_y", ""))
+        except ValueError:
+            continue
+        try:
+            r = float(row.extra.get("_r", "0") or 0.0)
+        except ValueError:
+            r = 0.0
+        # up and right of the hole, clear of its edge
+        clear = r * 0.7071 + 0.8
+        _text(painter, layout, row.extra.get("HOLE", ""),
+              view.x + x + clear, view.y + y + clear, h,
+              colour=text_style.colour)
+    ox, oy = view.x + table.datum[0], view.y + table.datum[1]
+    pen = _pen(layout, style)
+    painter.setPen(pen)
+    reach = 8.0
+    for ex, ey in ((reach, 0.0), (0.0, reach)):
+        tip = layout.to_device(ox + ex, oy + ey)
+        painter.drawLine(QtCore.QPointF(*layout.to_device(ox, oy)),
+                         QtCore.QPointF(*tip))
+        _arrow_head(painter, tip, tip[0] - layout.to_device(ox, oy)[0],
+                    tip[1] - layout.to_device(ox, oy)[1],
+                    layout.pen_width(style.arrow_size) * 1.2)
+    _text(painter, layout, "X", ox + reach + 1.0, oy - 1.0, 2.5,
+          colour=style.colour)
+    _text(painter, layout, "Y", ox - 1.0, oy + reach + 1.0, 2.5,
+          colour=style.colour)
 
 
 def _row_text(painter, layout, table, row, x0: float, y: float,

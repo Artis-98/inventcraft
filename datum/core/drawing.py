@@ -1018,6 +1018,9 @@ DIMENSIONS = (LINEAR, ALIGNED, ANGULAR, RADIUS, DIAMETER, ORDINATE)
 
 SYMBOLS = (SURFACE, FCF, DATUM_ID, WELD)
 
+# a hole table's columns, Inventor's names for them
+HOLE_COLUMNS = ["prop:HOLE", "prop:XDIM", "prop:YDIM", "prop:DESCRIPTION"]
+
 
 @dataclass
 class Annotation:
@@ -1322,6 +1325,11 @@ class PartsList:
     # Inventor's Table Wrapping: past this many rows the list carries on
     # in another section beside the first, headings and all; 0 never
     wrap_rows: int = 0
+    # "parts", or "holes" for Inventor's Hole Table: every hole seen end
+    # on in the view, tagged, with where it is from ``datum``, a point in
+    # the view's own millimetres
+    kind: str = "parts"
+    datum: List[float] = field(default_factory=lambda: [0.0, 0.0])
     # filled in by a rebuild
     rows: List[Any] = field(default_factory=list)
     error: str = ""
@@ -1378,7 +1386,8 @@ class PartsList:
                 "widths": dict(self.widths), "row_height": self.row_height,
                 "text_height": self.text_height, "heading": self.heading,
                 "recurse": self.recurse, "auto_width": self.auto_width,
-                "wrap_rows": self.wrap_rows,
+                "wrap_rows": self.wrap_rows, "kind": self.kind,
+                "datum": [float(c) for c in self.datum[:2]],
                 # written out so a drawing opened away from its models can
                 # still show the list it had when it was last built
                 "rows": [r.to_dict() for r in self.rows]}
@@ -1401,6 +1410,9 @@ class PartsList:
                    # the widths it was drawn with
                    auto_width=bool(d.get("auto_width", False)),
                    wrap_rows=int(d.get("wrap_rows", 0) or 0),
+                   kind=str(d.get("kind", "parts") or "parts"),
+                   datum=[float(c) for c in (d.get("datum")
+                                             or [0.0, 0.0])[:2]],
                    rows=[bom.Row.from_dict(r) for r in d.get("rows", [])])
 
 
@@ -1882,6 +1894,8 @@ class DrawingDocument:
         if note.kind != BALLOON or not note.component:
             return note.item
         for table in sheet.parts_lists:
+            if table.kind != "parts":
+                continue
             row = bom.row_for_key(table.rows, note.component)
             if row is not None:
                 return row.item
