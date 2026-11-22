@@ -225,6 +225,11 @@ class DrawingController(QtCore.QObject):
         for _sheet, view in drafts:
             view.projection = None
         self.rebuild(handed=done)
+        waiting_centres = [view for _sheet, view in drafts
+                           if getattr(view, "_want_centres", False)
+                           and not getattr(view, "draft", False)]
+        if waiting_centres:
+            self._centres_when_drawn(waiting_centres)
         self.canvas.update()
 
     def refine_now(self, seconds: float = 120.0) -> None:
@@ -648,6 +653,12 @@ class DrawingController(QtCore.QObject):
                 # Inventor names a view without writing its name on it
                 label_visible=False))
         self.rebuild(draft=True)
+        if settings.get("centrelines", True)                 and not fileformat.is_assembly(path):
+            # on a part, centre marks and lines go on as the views do;
+            # an assembly's are too many to want without asking
+            self._centres_when_drawn(
+                [v for v in sheet.views if v.id == base.id
+                 or (v.parent == base.id and v.display != "visible")])
         self.host.status_message.setStyleSheet("")
         self.host.status_message.setText(
             "%s placed%s." % (base.name, " with %d projection(s)"
@@ -1249,27 +1260,60 @@ class DrawingController(QtCore.QObject):
         if view is None or view.projection is None:
             self._complain("Right-click a view that has been drawn.")
             return
+        doc.push_undo()
+        marks, lines = self._place_centres(doc, sheet, view)
+        self.canvas.update()
+        self.host.status_message.setText(
+            "%d centre mark(s) and %d centre line(s) on %s."
+            % (marks, lines, view.name))
+
+    def _place_centres(self, doc, sheet, view) -> Tuple[int, int]:
+        """A view's automated centre marks and lines, put there again:
+        a mark on every hole and boss seen end on, a line down every one
+        seen from the side.  No undo step of its own."""
         shape = self.generator.model_of(doc, sheet, view)
         try:
             direction, up = self.generator.orientation(doc, sheet, view)
         except Exception:
-            return
-        doc.push_undo()
+            return 0, 0
         sheet.annotations = [
             a for a in sheet.annotations
             if not (a.view == view.id and a.text == self.AUTO
                     and a.kind in (dwg.CENTRE_MARK, dwg.CENTRELINE))]
-        _marks, lines = viewgen.centre_features(
+        marks, lines = viewgen.centre_features(
             shape, direction, up, view.projection.centre,
             doc.view_scale(sheet, view))
+        for (x, y), reach in marks:
+            doc.add_annotation(sheet, Annotation(
+                kind=dwg.CENTRE_MARK, view=view.id, points=[[x, y]],
+                value=float(reach), text=self.AUTO))
         for start, end in lines:
             doc.add_annotation(sheet, Annotation(
                 kind=dwg.CENTRELINE, view=view.id,
                 points=[[start[0], start[1]], [end[0], end[1]]],
                 text=self.AUTO))
+        return len(marks), len(lines)
+
+    def _centres_when_drawn(self, views) -> None:
+        """Centre marks and lines on new views of a part: now on a view
+        drawn exactly, or once its real lines are in on a draft, since
+        they are placed against where the lines are centred."""
+        doc = self.document
+        sheet = doc.active() if doc else None
+        if sheet is None:
+            return
+        for view in views:
+            if view.projection is None or not view.projection.ok:
+                continue
+            if getattr(view, "draft", False):
+                view._want_centres = True
+                continue
+            view._want_centres = False
+            try:
+                self._place_centres(doc, sheet, view)
+            except Exception:
+                pass
         self.canvas.update()
-        self.host.status_message.setText(
-            "%d centre line(s) on %s." % (len(lines), view.name))
 
     # -------------------------------------------------- balloons and lists
 
@@ -2589,6 +2633,13 @@ class BaseViewDialog(QtWidgets.QDialog):
         self.tangents = QtWidgets.QCheckBox("Tangent Edges")
         self.tangents.setChecked(True)
         opts.addWidget(self.tangents)
+        self.centrelines = QtWidgets.QCheckBox(
+            "Centre marks and centre lines")
+        self.centrelines.setToolTip(
+            "On a part's views: a mark on every hole seen end on, a line "
+            "down every one seen from the side")
+        self.centrelines.setChecked(True)
+        opts.addWidget(self.centrelines)
         opts.addStretch(1)
 
         hint = QtWidgets.QLabel(
@@ -2659,7 +2710,8 @@ class BaseViewDialog(QtWidgets.QDialog):
                 "label_visible": self.show_label.isChecked(),
                 "flat": (self.flat.isChecked()
                          and self.sheet_metal.isEnabled()),
-                "tangents": self.tangents.isChecked()}
+                "tangents": self.tangents.isChecked(),
+                "centrelines": self.centrelines.isChecked()}
 
     # -- keeping up -----------------------------------------------------------
 
