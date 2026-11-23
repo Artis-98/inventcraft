@@ -148,7 +148,7 @@ class Preferences:
     # whether AI agents may drive the open documents through the MCP bridge
     # (ui/agent_bridge.py). Off until the person turns it on, and it is a
     # fact about this person, so it is never written into a document.
-    allow_agents: bool = False
+    allow_agents: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
         return {"name": self.name, "initials": self.initials,
@@ -219,7 +219,7 @@ class Preferences:
             hidden_standards=[str(f) for f in
                               data.get("hidden_standards") or [] if f]
             if isinstance(data.get("hidden_standards"), list) else [],
-            allow_agents=data.get("allow_agents") is True,
+            allow_agents=data.get("allow_agents", True) is not False,
             old_versions=_count(data.get("old_versions"), 1),
             shortcuts={str(k): str(v) for k, v in
                        (data.get("shortcuts") or {}).items()

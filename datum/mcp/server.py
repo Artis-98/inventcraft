@@ -18,7 +18,7 @@ import json
 import os
 import threading
 import time
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
@@ -1234,16 +1234,18 @@ async def run_script(ctx: Context, code: str, doc: str = "",
     refused, safe_mode = _code_policy(safe_mode)
     if refused is not None:
         return refused
-    refused = await _ask_first(ctx, [("this script", code)])
+    refused, seen = await _ask_first(ctx, [("this script", code)])
     if refused is not None:
         return refused
+    if not seen and _session_allowed():
+        safe_mode = True       # allowed for the session, not by itself
     if _script_target(doc) == "gui":
         result = await asyncio.to_thread(
             _run_script_in_app, doc, code, timeout, safe_mode, dry_run)
     else:
         result = await _blocking(
             "run_script", code=code, doc=doc or None, timeout=timeout,
-            safe_mode=safe_mode, dry_run=dry_run, code_allowed=True,
+            safe_mode=safe_mode, dry_run=dry_run, code_allowed=seen,
             expected_revision=None if dry_run else _changing(doc))
     if isinstance(result, CallToolResult):
         return result
@@ -1292,8 +1294,8 @@ def _asks() -> bool:
 
 
 async def _ask_user(ctx: Context, pieces: List[Any]) -> str:
-    """'once', 'session', 'no', or 'cannot' (the client has no way to
-    ask). pieces: [(what, source)]."""
+    """'once', 'session' (unseen code in safe mode), 'session_full', 'no',
+    or 'cannot' (the client has no way to ask). pieces: [(what, source)]."""
     if not await safety._supports_elicitation(ctx):
         return "cannot"
     from pydantic import Field
@@ -1303,6 +1305,11 @@ async def _ask_user(ctx: Context, pieces: List[Any]) -> str:
         for_session: bool = Field(
             False, description="Also run any other code the agent writes, "
             "without asking, until the server stops")
+        session_safe_mode: bool = Field(
+            True, description="For the session: run that other code, which "
+            "you will not see, in safe mode (no files, no network, "
+            "math-like imports only). Untick to run it as the server's "
+            "--code says")
 
     shown = "\n\n".join("%s:\n%s" % (what, source.rstrip())
                         for what, source in pieces)
@@ -1315,29 +1322,41 @@ async def _ask_user(ctx: Context, pieces: List[Any]) -> str:
         return "cannot"
     if getattr(got, "action", "") != "accept" or not got.data.allow:
         return "no"
-    return "session" if got.data.for_session else "once"
+    if not got.data.for_session:
+        return "once"
+    return "session" if got.data.session_safe_mode else "session_full"
 
 
-def _allow_session() -> None:
-    """From now on agent code runs without asking, here and in the hosts."""
+def _session_allowed() -> bool:
     from ..bridge import codepolicy
-    codepolicy.set_asks(False)
+    return codepolicy.session_allowed()
+
+
+def _allow_session(safe: bool = True) -> None:
+    """From now on agent code runs without asking, here and in the hosts,
+    and in safe mode unless the user allowed that source by itself."""
+    from ..bridge import codepolicy
+    codepolicy.set_session_allowed(safe)
     try:
-        _call_on("headless", "code_allow", {"session": True})
+        _call_on("headless", "code_allow", {"session": True,
+                                            "session_safe": safe})
     except Exception:                                    # noqa: BLE001
         pass                 # no host yet: it starts with asking off
 
 
 async def _ask_first(ctx: Context, pieces: List[Any]
-                     ) -> Optional[CallToolResult]:
-    """Before a script or a project's code runs: None to go on, else the
-    refusal."""
+                     ) -> Tuple[Optional[CallToolResult], bool]:
+    """Before a script or a project's code runs: (None to go on, else the
+    refusal; whether the user has seen this exact code). Code run unseen
+    after "allow for this session" runs in safe mode."""
     pieces = [(w, s) for w, s in pieces if isinstance(s, str) and s.strip()]
-    if not pieces or not _asks():
-        return None
+    if not pieces:
+        return None, True
     hashes = [_code_hash(s) for _, s in pieces]
     if all(h in _allowed_code for h in hashes):
-        return None
+        return None, True
+    if not _asks():
+        return None, False
     answer = await _ask_user(ctx, pieces)
     if answer == "cannot":
         return _failed({
@@ -1348,17 +1367,17 @@ async def _ask_first(ctx: Context, pieces: List[Any]
                       "waits for trust until the user allows it in the "
                       "app.",
                       "Or the user may start the server with --code-ask "
-                      "no, on purpose."]})
+                      "no, on purpose."]}), False
     if answer == "no":
         return _failed({
             "kind": "USER_DECLINED",
             "message": "the user did not allow this code to run",
             "hints": ["Do not send it again: ask what they want, or do it "
-                      "with build ops."]})
+                      "with build ops."]}), False
     _allowed_code.update(hashes)
-    if answer == "session":
-        await asyncio.to_thread(_allow_session)
-    return None
+    if answer in ("session", "session_full"):
+        await asyncio.to_thread(_allow_session, answer == "session")
+    return None, True
 
 
 async def _settle_code(ctx: Context, result: Any) -> None:
@@ -1385,8 +1404,8 @@ async def _settle_code(ctx: Context, result: Any) -> None:
                      "trust. Do not send it again: ask what they want"
                      % names)
         return
-    if answer == "session":
-        await asyncio.to_thread(_allow_session)
+    if answer in ("session", "session_full"):
+        await asyncio.to_thread(_allow_session, answer == "session")
     got = await _blocking("code_allow", hashes=[i["hash"] for i in items],
                           doc=items[0]["doc"], before=result.get("before"))
     if isinstance(got, CallToolResult) or not isinstance(got, dict):
@@ -1395,7 +1414,8 @@ async def _settle_code(ctx: Context, result: Any) -> None:
         return
     notes.append("%s: allowed by the user%s; rebuilt, and it ran" % (
         names, " (and all agent code for this session)"
-        if answer == "session" else ""))
+        if answer == "session" else " (and all agent code for this "
+        "session, without safe mode)" if answer == "session_full" else ""))
     for key in ("after", "delta"):
         if got.get(key):
             result[key] = got[key]
@@ -1523,6 +1543,7 @@ async def build_project(ctx: Context, parts: List[Dict[str, Any]],
         refused, safe_mode = _code_policy(safe_mode)
         if refused is not None:
             return refused
+    seen = True
     if isinstance(parts, list):
         pieces = [("shared code", shared)] + [
             ("code of %s" % p.get("file", "part %d" % n), p.get("code"))
@@ -1533,9 +1554,11 @@ async def build_project(ctx: Context, parts: List[Dict[str, Any]],
             for n, p in enumerate(parts) if isinstance(p, dict)
             for o in (p.get("ops") or []) if isinstance(o, dict)
             and o.get("op") == "code"]
-        refused = await _ask_first(ctx, pieces)
+        refused, seen = await _ask_first(ctx, pieces)
         if refused is not None:
             return refused
+        if not seen and _session_allowed():
+            safe_mode = True   # allowed for the session, not by itself
     if not isinstance(parts, list) or not all(
             isinstance(p, dict) and isinstance(p.get("file"), str)
             for p in parts):
@@ -1572,7 +1595,7 @@ async def build_project(ctx: Context, parts: List[Dict[str, Any]],
             "parts": parts, "assembly": assembly or None,
             "shared": shared or None, "overwrite": overwrite,
             "timeout": timeout, "safe_mode": safe_mode,
-            "code_allowed": True, "app_open": _app_files()}, progress)
+            "code_allowed": seen, "app_open": _app_files()}, progress)
 
     task = asyncio.ensure_future(asyncio.to_thread(work))
     try:

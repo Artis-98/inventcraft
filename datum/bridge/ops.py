@@ -1579,15 +1579,16 @@ def call(ws: Workspace, method: str, params: Dict[str, Any]
 
 @op
 def code_allow(ws: Workspace, hashes: Any = (), session: bool = False,
-               doc: str = "", before: Optional[Dict[str, Any]] = None
-               ) -> Dict[str, Any]:
+               doc: str = "", before: Optional[Dict[str, Any]] = None,
+               session_safe: bool = True) -> Dict[str, Any]:
     """The user allowed these sources (by hash), or all agent code for the
-    rest of the session; ``doc`` is rebuilt so what waited runs now, and
+    rest of the session (in safe mode unless ``session_safe`` is false);
+    ``doc`` is rebuilt so what waited runs now, and
     ``before`` (the build's own) gives the delta."""
     from . import codepolicy
     core_rules.trust_code_hashes(hashes)
     if session:
-        codepolicy.set_asks(False)
+        codepolicy.set_session_allowed(session_safe)
     out: Dict[str, Any] = {"ok": True, "trusted": len(list(hashes or ())),
                            "session": bool(session)}
     if doc:

@@ -59,6 +59,14 @@ def set_mode(value: str) -> str:
 
 ASK_ENV = "INVENTCRAFT_CODE_ASK"
 
+# "Allow for this session" means code then runs without a prompt, so code
+# the user has not seen. The user picks how it runs: in safe mode (the
+# default, even with --code full), or as --code says. Either way a source
+# the user allowed by itself (its hash), or a script or project they read
+# as a whole (``allowing``), runs as --code says.
+SESSION_ENV = "INVENTCRAFT_CODE_SESSION"
+ALLOWED_ENV = "INVENTCRAFT_CODE_ALLOWED"
+
 # code features this call could not run because nobody has allowed them
 # yet: {"feature", "hash", "source", "doc"}; cleared by ops.call
 pending: list = []
@@ -75,6 +83,24 @@ def set_asks(on: bool) -> bool:
     return bool(on)
 
 
+def set_session_allowed(safe: bool = True) -> None:
+    """The user allowed all agent code for the rest of the session: stop
+    asking, and (``safe``, the default) keep what runs unasked in safe
+    mode."""
+    set_asks(False)
+    os.environ[SESSION_ENV] = "1" if safe else "0"
+
+
+def session_allowed() -> bool:
+    return os.environ.get(SESSION_ENV, "0") == "1"
+
+
+def unseen_runs_safe() -> bool:
+    """Whether code the user has not seen must run in safe mode now: after
+    "allow for this session", outside a call they allowed as a whole."""
+    return session_allowed() and os.environ.get(ALLOWED_ENV, "0") != "1"
+
+
 class allowing:
     """While a call the user allowed as a whole runs (a script they read,
     a project whose code they read), the code features it makes from that
@@ -82,17 +108,19 @@ class allowing:
 
     def __init__(self, on: bool = True) -> None:
         self.on = bool(on)
-        self.was = None
+        self.was = {}
 
     def __enter__(self) -> "allowing":
         if self.on:
-            self.was = os.environ.get(ASK_ENV)
+            for key in (ASK_ENV, ALLOWED_ENV):
+                self.was[key] = os.environ.get(key)
             os.environ[ASK_ENV] = "0"
+            os.environ[ALLOWED_ENV] = "1"
         return self
 
     def __exit__(self, *exc) -> None:
-        if self.on:
-            if self.was is None:
-                os.environ.pop(ASK_ENV, None)
+        for key, value in self.was.items():
+            if value is None:
+                os.environ.pop(key, None)
             else:
-                os.environ[ASK_ENV] = self.was
+                os.environ[key] = value

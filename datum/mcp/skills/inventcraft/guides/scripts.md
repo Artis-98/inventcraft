@@ -33,8 +33,8 @@ keeps safe mode on and checks code features the same way, `full` lets you
 turn it off, `off` refuses agent code (a `CODE_OFF` error).
 
 The user is asked before your code runs: the server shows them the source
-in their client, and they allow it, allow all your code for the session,
-or say no (`USER_DECLINED` for a script; a code feature then waits for
+in their client, and they allow it, allow all your code for the session
+(which then runs in safe mode unless they untick that), or say no (`USER_DECLINED` for a script; a code feature then waits for
 trust). Do not send declined code again: ask what they want. A client
 that cannot ask refuses scripts (`CODE_NOT_ALLOWED`) and leaves code
 features waiting for trust: use build ops, or the app, which asks itself.

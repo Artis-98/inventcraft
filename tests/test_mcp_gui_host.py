@@ -131,9 +131,12 @@ def ctrl_z():
     app.processEvents()
 
 
-# ============================================================ off by default
-print("off by default")
-check("the preference is off", core_prefs.prefs().allow_agents is False)
+# ============================================================ when it is off
+print("when it is off")
+check("the preference is on by default", core_prefs.Preferences().allow_agents)
+core_prefs.prefs().allow_agents = False
+bridge.apply_preferences()
+app.processEvents()
 check("nothing is listening", not bridge.listening)
 check("there is no pairing file", not os.path.exists(pairing.pairing_path()))
 probe = GuiClient().probe()

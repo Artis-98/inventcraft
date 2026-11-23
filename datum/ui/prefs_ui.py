@@ -332,7 +332,7 @@ class PreferencesDialog(QtWidgets.QDialog):
         self.agents_box = QtWidgets.QCheckBox("Allow agents")
         self.agents_box.setChecked(self.prefs.allow_agents)
         self.agents_box.setToolTip(
-            "Off by default. Turning it on makes a new secret each time, "
+            "On by default. Each time it is on there is a new secret, "
             "in the file below; only programs that can read it can pair.")
         outer.addWidget(self.agents_box)
         where = QtWidgets.QLabel(

@@ -721,18 +721,31 @@ class Build:
                     "feature waits for trust until the user allows it in "
                     "the app" % feature.name)
                 return
-            if policy == "safe":
+            # after "allow for this session" code runs unasked, so code
+            # the user has not seen runs in safe mode even with --code full
+            unseen = (policy == "full" and codepolicy.unseen_runs_safe()
+                      and not rules.code_trusted(source))
+            if policy == "safe" or unseen:
                 try:
                     safemode.check(source)
                 except safemode.SafeModeViolation as exc:
                     raise BridgeError("SAFE_MODE", "%s: line %d: %s" % (
                         feature.name, exc.line, exc), [
+                        "The user allowed agent code for this session, and "
+                        "code that runs without a prompt runs in safe mode: "
+                        "math-like imports only, no file access, no eval or "
+                        "exec, no dunders. Rewrite it with the helpers in "
+                        "scope, or ask the user to allow this code by "
+                        "itself (run it as a script, which asks)."
+                        if unseen else
                         "This server checks code features in safe mode "
                         "(--code safe): math-like imports only, no file "
                         "access, no eval or exec, no dunders. Rewrite it "
                         "with the helpers in scope, or ask the user to "
                         "start the server with --code full."]) from exc
-                checked = ", checked in safe mode"
+                checked = (", checked in safe mode (allowed for the "
+                           "session, not by itself)" if unseen
+                           else ", checked in safe mode")
             if codepolicy.asks() and not rules.code_trusted(source):
                 # the server asks the user first (codepolicy, "asking
                 # first"); until they allow it, it waits for trust

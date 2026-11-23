@@ -55,7 +55,8 @@ async def through_a_client():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     cfg = tempfile.mkdtemp(prefix="ic-ask-")
     env = dict(os.environ, PYTHONPATH=root, DATUM_CONFIG_DIR=cfg)
-    for key in (codepolicy.ENV, codepolicy.ASK_ENV):
+    for key in (codepolicy.ENV, codepolicy.ASK_ENV, codepolicy.SESSION_ENV,
+                codepolicy.ALLOWED_ENV):
         env.pop(key, None)
     params = StdioServerParameters(command=sys.executable,
                                    args=["-m", "datum.mcp"], cwd=root,
@@ -227,6 +228,42 @@ r = h.call("build", {"ops": [code_op("Free", PLAIN + "  \n")]})
 check("and new code runs without asking",
       r["ok"] and not r.get("code_to_allow")
       and "Free" not in r.get("waiting_for_trust", []), r)
+
+print("allowed for the session, under --code full")
+codepolicy.set_mode("full")
+core_rules._TRUSTED_CODE.clear()
+h = host_with_block()
+h.call("code_allow", {"session": True})
+check("session safe mode is the default", codepolicy.unseen_runs_safe())
+r = h.call("build", {"ops": [code_op("Reach", REACHES_OUT)]})
+check("unseen code that safe mode refuses does not run, even with full",
+      not r["ok"] and r["error"]["kind"] == "SAFE_MODE", r.get("error"))
+check("and the refusal says why",
+      "for this session" in " ".join(r["error"].get("hints", [])),
+      r.get("error"))
+r = h.call("build", {"ops": [code_op("Cap", PLAIN)]})
+check("plain unseen code runs, checked in safe mode",
+      r["ok"] and any("allowed for the session, not by itself" in n
+                      for n in r.get("notes", [])), r.get("notes"))
+core_rules.trust_code_hashes([core_rules.code_hash(REACHES_OUT)])
+r = h.call("build", {"ops": [code_op("Seen", REACHES_OUT)]})
+check("a source the user allowed by itself runs without safe mode",
+      r["ok"], r.get("error"))
+core_rules._TRUSTED_CODE.clear()
+with codepolicy.allowing():
+    r = h.call("build", {"ops": [code_op("Read", REACHES_OUT)]})
+check("so does code from a script the user read as a whole",
+      r["ok"], r.get("error"))
+check("and session safe mode is back after it", codepolicy.unseen_runs_safe())
+core_rules._TRUSTED_CODE.clear()
+h.call("code_allow", {"session": True, "session_safe": False})
+check("the user can untick session safe mode",
+      not codepolicy.unseen_runs_safe())
+r = h.call("build", {"ops": [code_op("Free2", REACHES_OUT)]})
+check("then unseen code runs as --code full says", r["ok"], r.get("error"))
+os.environ.pop(codepolicy.SESSION_ENV, None)
+codepolicy.set_mode("safe")
+
 codepolicy.set_asks(True)
 with codepolicy.allowing():
     check("a call the user allowed as a whole does not ask",
