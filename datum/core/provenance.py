@@ -407,11 +407,26 @@ def classify_extrusion(tool: TopoDS_Shape, fid: int, sketch, plane,
     return tags
 
 
+class _Lines(dict):
+    """eid -> polyline, with each polyline's bounding box (``boxes``), so
+    a search can skip entities that cannot be the nearest."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.boxes: Dict[int, Tuple[float, float, float, float]] = {}
+
+    def __setitem__(self, eid, poly) -> None:
+        super().__setitem__(eid, poly)
+        xs = [p[0] for p in poly]
+        ys = [p[1] for p in poly]
+        self.boxes[eid] = (min(xs), min(ys), max(xs), max(ys))
+
+
 def _polylines(sketch) -> Dict[int, List[Tuple[float, float]]]:
     """Each drawn entity of a sketch as a polyline, as it is now (a
     parameter changes where they are, so this is worked out per feature,
     never kept)."""
-    lines = {}
+    lines = _Lines()
     for eid, e in sketch.entities.items():
         if e.construction:
             continue
@@ -435,8 +450,19 @@ def _seg_distance(p, a, b) -> float:
 def _entity_near(sketch, point, tol: float = 0.05,
                  lines=None) -> Optional[int]:
     best, gap = None, math.inf
-    for eid, poly in (lines if lines is not None
-                      else _polylines(sketch)).items():
+    if lines is None:
+        lines = _polylines(sketch)
+    boxes = getattr(lines, "boxes", {})
+    x, y = point[0], point[1]
+    for eid, poly in lines.items():
+        box = boxes.get(eid)
+        if box is not None:
+            # no point of the entity is nearer than its box: one this far
+            # cannot beat the best so far, so it is not measured
+            bx = max(box[0] - x, 0.0, x - box[2])
+            by = max(box[1] - y, 0.0, y - box[3])
+            if math.hypot(bx, by) >= gap:
+                continue
         d = min(_seg_distance(point, a, b) for a, b in zip(poly, poly[1:]))
         if d < gap:
             best, gap = eid, d
