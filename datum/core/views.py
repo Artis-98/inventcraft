@@ -1666,12 +1666,22 @@ class Generator:
         # the plane's normal lies on the paper, square to the cut line
         normal = _unit([right[i] * -along[1] + pu[i] * along[0]
                         for i in range(3)])
-        point = [right[i] * mid[0] + pu[i] * mid[1] for i in range(3)]
-        try:
-            centre = kernel.shape_centre(shape)
-        except Exception:
-            centre = (0.0, 0.0, 0.0)
-        point = [point[i] + centre[i] * (1.0 - abs(normal[i]) * 0.0)
+        # a point on the paper is its place in the parent's own frame less
+        # the middle the projection was centred on (hlr.project), so the
+        # line is lifted back by adding that middle: with the centre of
+        # mass in its place, as this once did, the cut was off by however
+        # far the part's centre of mass lies from the middle of its view
+        # (a plane drawn through the middle of an L cut it elsewhere)
+        if parent.projection is not None:
+            middle = parent.projection.centre
+            lift = [right[i] * middle[0] + pu[i] * middle[1]
+                    for i in range(3)]
+        else:
+            try:
+                lift = list(kernel.shape_centre(shape))
+            except Exception:
+                lift = [0.0, 0.0, 0.0]
+        point = [right[i] * mid[0] + pu[i] * mid[1] + lift[i]
                  for i in range(3)]
 
         cut = half_space(shape, point, normal)
@@ -1683,7 +1693,7 @@ class Generator:
             side = _unit([right[i] * along[0] + pu[i] * along[1]
                           for i in range(3)])
             for (ex, ey), sign in (((x1, y1), -1.0), ((x2, y2), 1.0)):
-                end = [right[i] * ex + pu[i] * ey + centre[i]
+                end = [right[i] * ex + pu[i] * ey + lift[i]
                        for i in range(3)]
                 cut = half_space(cut, end, [c * sign for c in side])
                 if cut is None or cut.IsNull():
