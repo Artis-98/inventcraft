@@ -62,8 +62,7 @@ class _Packed:
                 points = list(zip(xs, ys))
             line = hlr.Polyline(points, kind, group, arc)
             if arc is not None and s != 1.0:
-                cx, cy, r, a0, sweep = arc
-                line.arc = (cx * s, cy * s, r * s, a0, sweep)
+                line.arc = hlr.arc_scaled(arc, s)
             lines.append(line)
         box = tuple(c * s for c in self.box)
         projection = hlr.Projection(lines=lines, box=box, hatch=self.hatch,

@@ -95,15 +95,29 @@ class Polyline:
     def moved(self, dx: float, dy: float) -> None:
         """Shifted, points and arc alike."""
         self.points = [(x + dx, y + dy) for x, y in self.points]
-        if self.arc is not None:
-            cx, cy, r, a0, sweep = self.arc
-            self.arc = (cx + dx, cy + dy, r, a0, sweep)
+        self.arc = arc_moved(self.arc, dx, dy)
 
     def scaled(self, k: float) -> None:
         self.points = [(x * k, y * k) for x, y in self.points]
-        if self.arc is not None:
-            cx, cy, r, a0, sweep = self.arc
-            self.arc = (cx * k, cy * k, r * k, a0, sweep)
+        self.arc = arc_scaled(self.arc, k)
+
+
+def arc_moved(arc, dx: float, dy: float):
+    """An arc, (cx, cy, r, start, sweep), or an ellipse's, (cx, cy, rx,
+    ry, turn, start, sweep), shifted."""
+    if arc is None:
+        return None
+    return (arc[0] + dx, arc[1] + dy) + tuple(arc[2:])
+
+
+def arc_scaled(arc, k: float):
+    if arc is None:
+        return None
+    if len(arc) == 7:
+        cx, cy, rx, ry, turn, a0, sweep = arc
+        return (cx * k, cy * k, rx * k, ry * k, turn, a0, sweep)
+    cx, cy, r, a0, sweep = arc
+    return (cx * k, cy * k, r * k, a0, sweep)
 
     def bounds(self) -> Tuple[float, float, float, float]:
         xs = [p[0] for p in self.points]
@@ -163,7 +177,8 @@ class Projection:
                 lines.append(Polyline(points, str(raw.get("k", VISIBLE)),
                                       int(raw.get("g", 0) or 0),
                                       tuple(float(v) for v in arc)
-                                      if arc and len(arc) == 5 else None))
+                                      if arc and len(arc) in (5, 7)
+                                      else None))
         box = data.get("box", [0, 0, 0, 0])
         middle = data.get("centre", [0.0, 0.0])
         return cls(lines=lines, hatch=str(data.get("hatch", "")),
@@ -348,7 +363,10 @@ def _arc_of(edge):
     from OCP.GeomAbs import GeomAbs_CurveType
     try:
         curve = BRepAdaptor_Curve(TopoDS.Edge_s(edge))
-        if curve.GetType() != GeomAbs_CurveType.GeomAbs_Circle:
+        kind = curve.GetType()
+        if kind == GeomAbs_CurveType.GeomAbs_Ellipse:
+            return _ellipse_of(curve)
+        if kind != GeomAbs_CurveType.GeomAbs_Circle:
             return None
         circ = curve.Circle()
         first, last = curve.FirstParameter(), curve.LastParameter()
@@ -371,6 +389,28 @@ def _arc_of(edge):
     else:
         sweep = -((a0 - a1) % 360.0)
     return (cx, cy, r, a0, sweep)
+
+
+def _ellipse_of(curve):
+    """A projected ellipse, a circle seen at a slant, as (cx, cy, rx, ry,
+    turn, start, sweep): its half axes, how far its long axis is turned,
+    and where it starts and how far it runs, in degrees of its own
+    parameter, anticlockwise on the paper."""
+    e = curve.Ellipse()
+    first, last = curve.FirstParameter(), curve.LastParameter()
+    position = e.Position()
+    c = position.Location()
+    xd = position.XDirection()
+    turn = math.degrees(math.atan2(xd.Y(), xd.X()))
+    a0 = math.degrees(first)
+    sweep = math.degrees(last - first)
+    # an ellipse whose own axis points away from the reader runs clockwise
+    # on the paper: read it the other way round
+    if position.Direction().Z() < 0:
+        a0, sweep = -a0, -sweep
+    if abs(abs(sweep) - 360.0) < 1e-9:
+        sweep = 360.0
+    return (c.X(), c.Y(), e.MajorRadius(), e.MinorRadius(), turn, a0, sweep)
 
 
 def outlines(shape: Optional[TopoDS_Shape],

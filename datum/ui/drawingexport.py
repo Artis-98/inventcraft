@@ -188,6 +188,14 @@ def to_dxf(doc: DrawingDocument, sheet: Sheet, path: str,
             continue
         for line in view.projection.lines:
             layer = DXF_LAYERS.get(line.kind, "VIEW_VISIBLE")
+            if line.arc is not None and len(line.arc) == 7 \
+                    and not view.breaks:
+                cx, cy, rx, ry, turn, a0, sweep = line.arc
+                start, end = (a0, a0 + sweep) if sweep > 0 \
+                    else (a0 + sweep, a0)
+                out.ellipse((view.x + cx, view.y + cy), rx, ry, turn,
+                            start, end, layer)
+                continue
             if line.arc is not None and not view.breaks:
                 # a true circle or arc, as a CAD program wants to find it
                 cx, cy, r, a0, sweep = line.arc

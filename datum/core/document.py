@@ -191,6 +191,83 @@ def _definition(feature: Feature, scope: Dict[str, float],
         repr(extra)
 
 
+# A finished part's results kept on disk, so it opens without building.
+RESULTS_ON_DISK = not os.environ.get("DATUM_NO_RESULT_CACHE")
+# below this a part builds quicker than its results are read back
+DISK_AFTER = 0.25
+
+
+def _disk_key(chain: str) -> str:
+    import hashlib
+    text = "results-v1|" + chain
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _results_to_disk(chain: str, ctx: "BuildContext") -> None:
+    """The bodies, sketches, planes and axes a finished build left, kept
+    under the tree's fingerprint.  Nothing raised: a cache that cannot
+    write is only a slower open next time."""
+    from . import bodycache
+    try:
+        key = _disk_key(chain)
+        bodies = [b for b in ctx.bodies if b.shape is not None
+                  and not b.shape.IsNull()]
+        if not bodies or bodycache.has(key):
+            return
+        info = {"names": [b.name for b in bodies],
+                "sketches": {str(k): v.to_dict()
+                             for k, v in ctx.sketches.items()},
+                "planes": {str(k): v.to_dict()
+                           for k, v in ctx.planes.items()},
+                "axes": {str(k): v.to_dict() for k, v in ctx.axes.items()},
+                "log": list(ctx.log)}
+        side = bodycache._file_for(key)[:-4] + ".json"
+        os.makedirs(os.path.dirname(side), exist_ok=True)
+        with open(side + ".part", "w", encoding="utf-8") as handle:
+            json.dump(info, handle)
+        os.replace(side + ".part", side)
+        bodycache.store(key, kernel.compound([b.shape for b in bodies]))
+    except Exception:
+        pass
+
+
+def _results_from_disk(chain: str, ctx: "BuildContext") -> bool:
+    from OCP.TopoDS import TopoDS_Iterator
+    from . import bodycache
+    from .features import WorkAxis
+    from .sketch import Sketch, SketchPlane
+    key = _disk_key(chain)
+    side = bodycache._file_for(key)[:-4] + ".json"
+    if not os.path.exists(side):
+        return False
+    try:
+        with open(side, encoding="utf-8") as handle:
+            info = json.load(handle)
+        whole = bodycache.load(key)
+        if whole is None:
+            return False
+        shapes = []
+        it = TopoDS_Iterator(whole)
+        while it.More():
+            shapes.append(it.Value())
+            it.Next()
+        names = info.get("names") or []
+        if len(shapes) != len(names):
+            return False
+        ctx.bodies = [Body(name, shape) for name, shape in zip(names,
+                                                               shapes)]
+        ctx.sketches = {int(k): Sketch.from_dict(v)
+                        for k, v in (info.get("sketches") or {}).items()}
+        ctx.planes = {k: SketchPlane.from_dict(v)
+                      for k, v in (info.get("planes") or {}).items()}
+        ctx.axes = {k: WorkAxis.from_dict(v)
+                    for k, v in (info.get("axes") or {}).items()}
+        ctx.log = list(info.get("log") or [])
+        return True
+    except Exception:
+        return False
+
+
 class _Built:
     """What the rebuild held after one feature: enough to carry on from."""
 
@@ -935,8 +1012,32 @@ class Document:
         reuse = REUSE_RESULTS
         kept: Dict[int, List[Tuple[str, "_Built"]]] = {}
 
+        # A part opened again finds what it was the last time it was built
+        # just like this, on disk, and does not build at all: the bodies,
+        # its solved sketches, its planes and axes, under the fingerprint
+        # of the whole tree.  Only on the first build of a document here,
+        # and only a whole tree; after that, edits build as they always do.
+        restored = False
+        # a code feature's output is not in the file, so a part with one
+        # is built, to have it
+        if reuse and not self._built and limit == len(self.features) \
+                and RESULTS_ON_DISK and not any(
+                    isinstance(f, CodeFeature) for f in self.features):
+            final = chain
+            for feature in self.features:
+                if feature.suppressed:
+                    final = _fingerprint(final, "suppressed", feature.id)
+                else:
+                    final = _fingerprint(final, _definition(
+                        feature, scope, ctx.base_dir))
+            if _results_from_disk(final, ctx):
+                restored = True
+                chain = final
+
         for i, feature in enumerate(self.features):
             feature.error = ""
+            if restored:
+                continue
             if i >= limit:
                 continue
             if feature.suppressed:
@@ -986,6 +1087,11 @@ class Document:
                     if all(key != k for k, _b in entries):
                         entries.append((key, built))
             self._built = kept
+        if reuse and RESULTS_ON_DISK and not restored and self._built_now \
+                and limit == len(self.features) and not report.errors \
+                and sum(self._costs.get(fid, 0.0) for fid
+                        in self._built_now) > DISK_AFTER:
+            _results_to_disk(chain, ctx)
         # sent back by a worker, so the window knows what its answer is for
         self._chain = chain if reuse else None
         self._applied_chain = None

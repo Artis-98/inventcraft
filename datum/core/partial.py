@@ -206,9 +206,7 @@ def _keep(out, line, points, region, inside: bool, shift) -> None:
     whole_out = not _overlap(box, region)
     if (inside and whole_in) or (not inside and whole_out):
         piece = hlr.Polyline(points, line.kind, line.group, None)
-        if line.arc is not None:
-            cx, cy, r, a0, sweep = line.arc
-            piece.arc = (cx + shift[0], cy + shift[1], r, a0, sweep)
+        piece.arc = hlr.arc_moved(line.arc, shift[0], shift[1])
         out.append(piece)
         return
     if (inside and whole_out) or (not inside and whole_in):

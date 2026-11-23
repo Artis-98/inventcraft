@@ -391,7 +391,8 @@ class SheetCanvas(QtWidgets.QWidget):
         out = []
         for view_id in self.selected_views:
             view = sheet.view(view_id)
-            if view is None or view.kind != dwg.DETAIL                     or len(view.centre) < 2:
+            if view is None or view.kind != dwg.DETAIL \
+                or len(view.centre) < 2:
                 continue
             parent = sheet.view(view.parent)
             if parent is None:

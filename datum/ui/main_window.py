@@ -1236,7 +1236,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def _keep_projection(self, orthographic: bool) -> None:
         """Orthographic or perspective, kept with the file on screen."""
         setup = self._view_setup()
-        if setup is not None and not self.in_drawing                 and not getattr(self, "_activating", False):
+        if setup is not None and not self.in_drawing \
+            and not getattr(self, "_activating", False):
             setup.orthographic = bool(orthographic)
 
     def _show_as_kept(self) -> None:
@@ -2173,7 +2174,8 @@ class MainWindow(QtWidgets.QMainWindow):
             # in, so the assembly shows what was just done to them rather
             # than waiting on Local Update
             self._take_part_edits(entry)
-        elif entry.doc_type == fileformat.DRAWING                 and self.session.is_stale(entry):
+        elif entry.doc_type == fileformat.DRAWING \
+            and self.session.is_stale(entry):
             # and a sheet shows them too: its views of a part just edited
             # are drawn again, rough first on a big model, as an assembly
             # takes the edit on the way back in
@@ -5301,7 +5303,8 @@ class MainWindow(QtWidgets.QMainWindow):
         dialog = getattr(self, "_curve_dialog", None)
         feature = getattr(dialog, "feature", None)
         mine = {sid for sid, _e in (getattr(feature, "path", None) or [])}
-        before = self.document.index_of(feature.id) if feature is not None             and self.document.feature(feature.id) is not None else None
+        before = self.document.index_of(feature.id) if feature is not None \
+            and self.document.feature(feature.id) is not None else None
         out = []
         for sid, sketch in self.document.all_sketches().items():
             sketch_feature = self.document.feature(sid)

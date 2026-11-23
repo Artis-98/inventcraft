@@ -120,6 +120,28 @@ class DxfDocument:
             + _pair(50, "%.6f" % (start_deg % 360.0))
             + _pair(51, "%.6f" % (end_deg % 360.0)))
 
+    def ellipse(self, centre: Sequence[float], rx: float, ry: float,
+                turn_deg: float, start_deg: float, end_deg: float,
+                layer: str = "0") -> None:
+        """An ELLIPSE: its long axis rx turned turn_deg, from its own
+        parameter start_deg to end_deg."""
+        reach = max(rx, ry)
+        self._touch(centre[0] - reach, centre[1] - reach)
+        self._touch(centre[0] + reach, centre[1] + reach)
+        t = math.radians(turn_deg)
+        whole = abs(end_deg - start_deg) >= 360.0 - 1e-9
+        a = 0.0 if whole else math.radians(start_deg) % (2 * math.pi)
+        b = 2 * math.pi if whole else math.radians(end_deg) % (2 * math.pi)
+        self.entities.append(
+            _pair(0, "ELLIPSE") + _pair(8, self._layer(layer))
+            + _pair(100, "AcDbEntity") + _pair(100, "AcDbEllipse")
+            + _pair(10, "%.6f" % centre[0]) + _pair(20, "%.6f" % centre[1])
+            + _pair(30, "0.0")
+            + _pair(11, "%.6f" % (rx * math.cos(t)))
+            + _pair(21, "%.6f" % (rx * math.sin(t))) + _pair(31, "0.0")
+            + _pair(40, "%.6f" % (ry / rx if rx else 1.0))
+            + _pair(41, "%.6f" % a) + _pair(42, "%.6f" % b))
+
     def polyline(self, points: Sequence[Sequence[float]], closed: bool = False,
                  layer: str = "0") -> None:
         points = [p for p in points]

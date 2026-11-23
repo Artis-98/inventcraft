@@ -110,7 +110,9 @@ def items(view) -> List[Item]:
                     or (math.dist(item.a, other.b) < 1e-6
                         and math.dist(item.b, other.a) < 1e-6)):
                 return True
-            if item.kind == CIRCLE and math.dist(item.a, other.a) < 1e-6                     and abs(item.radius - other.radius) < 1e-6                     and item.closed == other.closed:
+            if item.kind == CIRCLE and math.dist(item.a, other.a) < 1e-6 \
+                and abs(item.radius - other.radius) < 1e-6 \
+                and item.closed == other.closed:
                 return True
         return False
 

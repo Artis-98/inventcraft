@@ -653,7 +653,8 @@ class DrawingController(QtCore.QObject):
                 # Inventor names a view without writing its name on it
                 label_visible=False))
         self.rebuild(draft=True)
-        if settings.get("centrelines", True)                 and not fileformat.is_assembly(path):
+        if settings.get("centrelines", True) \
+            and not fileformat.is_assembly(path):
             # on a part, centre marks and lines go on as the views do;
             # an assembly's are too many to want without asking
             self._centres_when_drawn(
@@ -1407,7 +1408,8 @@ class DrawingController(QtCore.QObject):
             tip = note.points[0]
             target = targets.get(os.path.normcase(os.path.abspath(
                 note.component))) if note.component else None
-            side = -1 if (target[1][0] if target else tip[0]) < middle_x                 else 1
+            side = -1 if (target[1][0] if target else tip[0]) < middle_x \
+                else 1
             column = box[0] - gap if side < 0 else box[2] + gap
             if target is not None:
                 tip = viewgen.nearest_corner(target, (column, target[1][1]))
@@ -1419,10 +1421,12 @@ class DrawingController(QtCore.QObject):
             if not items:
                 continue
             top, bottom = box[3] - 4.0, box[1] + 4.0
-            step = (top - bottom) / max(1, len(items) - 1)                 if len(items) > 1 else 0.0
+            step = (top - bottom) / max(1, len(items) - 1) \
+                if len(items) > 1 else 0.0
             # never closer than a bubble and a bit
             step = max(step, 10.0) if len(items) > 1 else 0.0
-            first = (top + bottom) / 2.0 + step * (len(items) - 1) / 2.0                 if len(items) > 1 else (top + bottom) / 2.0
+            first = (top + bottom) / 2.0 + step * (len(items) - 1) / 2.0 \
+                if len(items) > 1 else (top + bottom) / 2.0
             column = items[0][2]
             seats = [(column, first - step * k) for k in range(len(items))]
             # The seats go to the leaders that make the shortest leaders
@@ -3331,7 +3335,8 @@ class BaseViewSession(QtCore.QObject):
         over = self._view_at(self.cursor)
         on_cube = (self.cursor is not None and self.cube.contains(
             QtCore.QPointF(*layout.to_device(*self.cursor))))
-        if self.cursor is not None and over is None and self._press is None                 and not on_cube:
+        if self.cursor is not None and over is None and self._press is None \
+            and not on_cube:
             spot = self._spot(self.cursor)
             if spot is not None:
                 direction, up, label, _diagonal = self._child_view(*spot)

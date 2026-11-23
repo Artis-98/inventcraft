@@ -549,6 +549,21 @@ def _stroke_true(painter: QtGui.QPainter, lines) -> None:
     point = QtCore.QPointF
     for line in lines:
         arc = getattr(line, "arc", None)
+        if arc is not None and len(arc) == 7:
+            cx, cy, rx, ry, turn, a0, sweep = arc
+            painter.save()
+            painter.translate(cx, cy)
+            painter.rotate(turn)
+            box = QtCore.QRectF(-rx, -ry, 2.0 * rx, 2.0 * ry)
+            path = QtGui.QPainterPath()
+            if abs(sweep) >= 360.0 - 1e-9:
+                path.addEllipse(box)
+            else:
+                path.arcMoveTo(box, -a0)
+                path.arcTo(box, -a0, -sweep)
+            painter.drawPath(path)
+            painter.restore()
+            continue
         if arc is not None:
             cx, cy, r, a0, sweep = arc
             box = QtCore.QRectF(cx - r, cy - r, 2.0 * r, 2.0 * r)

@@ -122,6 +122,32 @@ check("as a CIRCLE", "\nCIRCLE\n" in text)
 check("and the corners, if any, as ARC or lines",
       "\nLINE\n" in text)
 
+print("circles at a slant, as ellipses")
+iso = View(kind=BASE, orientation="iso", scale=2.0, x=105, y=60,
+           display="visible")
+iso.ref = view.ref
+doc.add_view(sheet, iso)
+views.Generator().rebuild(doc, force=True)
+ellipses = [l for l in iso.projection.lines
+            if l.arc is not None and len(l.arc) == 7]
+check("the hole's rims are ellipses", len(ellipses) >= 2, len(ellipses))
+worst = 0.0
+for line in ellipses:
+    cx, cy, rx, ry, turn, a0, sweep = line.arc
+    t = math.radians(turn)
+    on = []
+    for k in range(2001):
+        u = math.radians(a0 + sweep * k / 2000.0)
+        x, y = rx * math.cos(u), ry * math.sin(u)
+        on.append((cx + x * math.cos(t) - y * math.sin(t),
+                   cy + x * math.sin(t) + y * math.cos(t)))
+    for q in line.points:
+        worst = max(worst, min(math.dist(q, o) for o in on))
+check("every point of them on the ellipse", worst < 0.06, worst)
+drawingexport.to_dxf(doc, sheet, dxf)
+check("written to DXF as ELLIPSE", "\nELLIPSE\n" in open(
+    dxf, encoding="utf-8", errors="replace").read())
+
 print()
 print("all passed" if not FAILS else "FAILED: %s" % FAILS)
 sys.exit(1 if FAILS else 0)

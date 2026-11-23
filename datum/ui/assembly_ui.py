@@ -868,7 +868,8 @@ class AssemblyController(QtCore.QObject):
             # nothing where it actually matters.  Each one wears its own
             # appearance now; telling them apart is what selection
             # highlighting and the tree are for.
-            path = occurrence.ref.resolve(doc.base_dir) if doc.base_dir                 else None
+            path = occurrence.ref.resolve(doc.base_dir) if doc.base_dir \
+                else None
             look = (doc.library.appearance(path)
                     if path and os.path.exists(path) else None)
             item = {

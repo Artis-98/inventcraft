@@ -1366,7 +1366,8 @@ class Viewport(QtWidgets.QWidget):
         in play it stays in the scene, so a face does not shine through
         whatever is in front of it."""
         through = bool(modes) and set(modes) <= {SEL_EDGE, SEL_VERTEX}
-        layer = Graphic3d_ZLayerId_Topmost if through             else Graphic3d_ZLayerId_Top
+        layer = Graphic3d_ZLayerId_Topmost if through \
+            else Graphic3d_ZLayerId_Top
         for kind in (Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_Selected,
                      Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_LocalSelected,
                      Prs3d_TypeOfHighlight.Prs3d_TypeOfHighlight_Dynamic,

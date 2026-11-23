@@ -784,7 +784,8 @@ class Generator:
                 out.append(view)
                 continue
             drawn = getattr(view, "drawn_as", None)
-            if view.kind != PROJECTED or view.projection is None                     or drawn is None:
+            if view.kind != PROJECTED or view.projection is None \
+                or drawn is None:
                 continue
             now = self._drawn_direction(doc, sheet, view)
             if now is None:

@@ -1303,7 +1303,8 @@ class SweepDialog(FeatureDialog):
     def on_profile_clicked(self, sketch_id: int, centre) -> None:
         super().on_profile_clicked(sketch_id, centre)
         # the profile in, the path is what comes next, as in Inventor
-        if len(self.feature.profiles) and not self.feature.path                 and not self.feature.path_id:
+        if len(self.feature.profiles) and not self.feature.path \
+            and not self.feature.path_id:
             QtCore.QTimer.singleShot(
                 0, lambda: self.path_pick.set_picking(True))
 
@@ -1500,7 +1501,8 @@ class HoleDialog(FeatureDialog):
     def _offered(self):
         from ..core.features import hole_centres
         sketch = self._sketch_now()
-        return (sketch, hole_centres(sketch)) if sketch is not None             else (None, {})
+        return (sketch, hole_centres(sketch)) if sketch is not None \
+            else (None, {})
 
     def _drilled(self) -> List[int]:
         sketch, offered = self._offered()

@@ -284,7 +284,8 @@ class UpdateController(QtCore.QObject):
         """The check again while the window stays open, unless one is
         already offered, downloading or waiting for a restart: the banner
         showing it must not be cleared by a check finding nothing new."""
-        if not self.enabled or self.release is not None                 or update.pending():
+        if not self.enabled or self.release is not None \
+            or update.pending():
             return
         if self.worker is not None and self.worker.isRunning():
             return

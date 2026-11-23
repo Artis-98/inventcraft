@@ -1899,7 +1899,9 @@ class SweepFeature(Feature):
             edges = []
             for sid, eid in self.path:
                 sketch = ctx.sketches.get(sid)
-                edge = kernel._sketch_edge(sketch, eid)                     if sketch is not None and eid in sketch.entities                     else None
+                edge = kernel._sketch_edge(sketch, eid) \
+                    if sketch is not None and eid in sketch.entities \
+                    else None
                 if edge is None:
                     raise FeatureError("%s: a curve of its path is gone"
                                        % self.name)
@@ -2759,7 +2761,8 @@ class SplitFeature(Feature):
                 if not kept:
                     continue
                 # what is left of it stays this body, all in one
-                body.shape = kept[0] if len(kept) == 1                     else kernel.compound(kept)
+                body.shape = kept[0] if len(kept) == 1 \
+                    else kernel.compound(kept)
                 continue
             body.shape = pieces[0]
             for piece in pieces[1:]:

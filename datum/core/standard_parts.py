@@ -53,7 +53,8 @@ class Family:
         """The standard lengths a size comes in: the family's, inside the
         size's range when the standard gives one."""
         lo, hi = self.ranges.get(size, (0.0, float("inf")))
-        return [v for v in self.lengths if lo - 1e-6 <= v <= hi + 1e-6]             or list(self.lengths)
+        return [v for v in self.lengths if lo - 1e-6 <= v <= hi + 1e-6] \
+            or list(self.lengths)
 
     def default_length_for(self, size: str) -> float:
         """A length to start from: about three diameters, inside the
@@ -66,7 +67,8 @@ class Family:
         except KeyError:
             d = 0.0
         if not d or self.kind == PROFILE:
-            return self.default_length if self.default_length in choices                 else choices[len(choices) // 2]
+            return self.default_length if self.default_length in choices \
+                else choices[len(choices) // 2]
         return min(choices, key=lambda v: abs(v - 3.0 * d))
 
 

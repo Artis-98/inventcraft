@@ -346,7 +346,8 @@ def _neighbour_colours(groups: Dict[int, List]) -> Dict[int, int]:
     for group, loops in groups.items():
         xs = [p[0] for loop in loops for p in loop]
         ys = [p[1] for loop in loops for p in loop]
-        boxes[group] = (min(xs), min(ys), max(xs), max(ys)) if xs             else (0.0, 0.0, 0.0, 0.0)
+        boxes[group] = (min(xs), min(ys), max(xs), max(ys)) if xs \
+            else (0.0, 0.0, 0.0, 0.0)
     gap = 0.05
 
     def touch(a, b):
@@ -2487,7 +2488,8 @@ def file_hash(path: str) -> str:
         return ""
     key = os.path.normcase(os.path.abspath(path))
     held = _HASHED.get(key)
-    if held is not None and held[0] == info.st_mtime_ns             and held[1] == info.st_size:
+    if held is not None and held[0] == info.st_mtime_ns \
+        and held[1] == info.st_size:
         return held[2]
     try:
         with open(path, "rb") as handle:
