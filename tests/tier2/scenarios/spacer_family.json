@@ -1,0 +1,77 @@
+{
+  "name": "spacer_family",
+  "title": "A family of round spacers",
+  "prompt": "In InventCraft I need a family of round spacers for M10 bolts: 20 mm outside diameter, a 10.5 mm bore, in lengths of 10, 20 and 30 mm. Make one parametric part that covers the family, check each length, and leave it at the 20 mm length.",
+  "verdict": {
+    "inspect": {
+      "bbox": [
+        20,
+        20,
+        20
+      ],
+      "volume": 4551.4,
+      "solids": 1,
+      "valid": true,
+      "tolerance": 0.01
+    },
+    "requirements": [
+      {
+        "name": "t2 bore",
+        "metric": "hole_count",
+        "target": 1,
+        "diameter": 10.5
+      }
+    ],
+    "min_parameters": 2,
+    "parametric": true
+  },
+  "reference": {
+    "ops": [
+      {
+        "op": "parameter",
+        "name": "od",
+        "value": 20
+      },
+      {
+        "op": "parameter",
+        "name": "id",
+        "value": 10.5
+      },
+      {
+        "op": "parameter",
+        "name": "len",
+        "value": 20
+      },
+      {
+        "op": "sketch",
+        "id": "s",
+        "plane": "XY",
+        "entities": [
+          {
+            "circle": {
+              "center": [
+                0,
+                0
+              ],
+              "d": "od"
+            }
+          },
+          {
+            "circle": {
+              "center": [
+                0,
+                0
+              ],
+              "d": "id"
+            }
+          }
+        ]
+      },
+      {
+        "op": "extrude",
+        "sketch": "$s",
+        "distance": "len"
+      }
+    ]
+  }
+}

@@ -1,0 +1,206 @@
+{
+ "name": "tier 2 win, spacer_family: A family of round spacers",
+ "recorded": "2026-11-21",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {
+    "name": "spacer_family"
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "OD",
+      "value": 20,
+      "comment": "outside diameter"
+     },
+     {
+      "op": "parameter",
+      "name": "ID",
+      "value": 10.5,
+      "comment": "bore for M10 bolt (10 mm + clearance)"
+     },
+     {
+      "op": "parameter",
+      "name": "L",
+      "value": 20,
+      "comment": "spacer length; family: 10, 20, 30"
+     },
+     {
+      "op": "sketch",
+      "id": "s1",
+      "plane": "XY",
+      "name": "Spacer profile",
+      "entities": [
+       {
+        "circle": {
+         "center": [
+          0,
+          0
+         ],
+         "d": "OD"
+        },
+        "id": "c_out"
+       },
+       {
+        "circle": {
+         "center": [
+          0,
+          0
+         ],
+         "d": "ID"
+        },
+        "id": "c_in"
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e1",
+      "name": "Spacer body",
+      "sketch": "$s1",
+      "distance": "L",
+      "operation": "join",
+      "profiles": "outer"
+     }
+    ],
+    "dry_run": false
+   }
+  },
+  {
+   "tool": "requirements",
+   "args": {
+    "set": [
+     {
+      "name": "od",
+      "metric": "bbox",
+      "target": [
+       20,
+       20,
+       20
+      ],
+      "tolerance": 0.01
+     },
+     {
+      "name": "length_param",
+      "metric": "parameter",
+      "param": "L",
+      "min": 10,
+      "max": 30
+     }
+    ]
+   }
+  },
+  {
+   "tool": "requirements",
+   "args": {
+    "set": [
+     {
+      "name": "od",
+      "metric": "bbox",
+      "axis": "x",
+      "max": 20.01
+     }
+    ]
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      20,
+      20,
+      20
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "L": 10
+    }
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      20,
+      20,
+      10
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "L": 30
+    }
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      20,
+      20,
+      30
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "L": 20
+    }
+   }
+  },
+  {
+   "tool": "render_view",
+   "args": {
+    "view": "iso"
+   },
+   "expect": {
+    "image": true
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      20,
+      20,
+      20
+     ],
+     "volume": 4551.4,
+     "solids": 1,
+     "valid": true,
+     "tolerance": 0.01
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  }
+ ]
+}

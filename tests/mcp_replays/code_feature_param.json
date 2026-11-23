@@ -1,0 +1,22 @@
+{
+  "name": "a code feature whose structure follows a parameter",
+  "calls": [
+    {"tool": "new_document", "args": {}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "L", "value": 600, "comment": "rail length"},
+      {"op": "parameter", "name": "spacing", "value": 150},
+      {"op": "sketch", "id": "s1", "plane": "XY", "entities": [
+        {"rect": {"center": ["L/2", 0], "size": ["L", 40]}}]},
+      {"op": "extrude", "sketch": "$s1", "distance": 20, "name": "Rail"},
+      {"op": "code", "name": "Posts", "operation": "join",
+       "source": "n = int(params.L // params.spacing) + 1\nposts = [cylinder(8, 300).move(i * params.L / (n - 1), 0, 20) for i in range(n)]\nbody = union(*posts)\nlog(n, 'posts')"}]},
+     "expect": {"contains": "+Posts"}},
+    {"tool": "requirements", "args": {"set": [{"name": "posts", "metric": "faces", "target": 18}]},
+     "expect": {"contains": "reqs 1/1"}},
+    {"tool": "properties", "args": {"parameters": {"L": 1200}}},
+    {"tool": "requirements", "args": {"check": true}, "expect": {"contains": "posts 26 > 18"}},
+    {"tool": "model_tree", "args": {}, "expect": {"contains": "Posts"}},
+    {"tool": "inspect", "args": {"expected": {"solids": 1, "valid": true, "bbox": [1216, 40, 320]}},
+     "expect": {"verdict": true}}
+  ]
+}

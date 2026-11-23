@@ -39,6 +39,7 @@ def digest(request: Dict[str, Any]) -> str:
     data = request.get("data") or {}
     text = json.dumps([{k: data.get(k) for k in GEOMETRY},
                        request.get("rollback"), request.get("trusted"),
+                       request.get("trusted_code"),
                        request.get("path")],
                       sort_keys=True, default=str)
     return hashlib.sha1(text.encode("utf-8")).hexdigest()

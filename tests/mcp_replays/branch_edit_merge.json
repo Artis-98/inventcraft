@@ -1,0 +1,254 @@
+{
+ "name": "an agent branches a plate, edits it, reviews the diff against main, and merges; a conflicting merge is refused",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {
+    "name": "Plate"
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "w",
+      "value": 100
+     },
+     {
+      "op": "parameter",
+      "name": "d",
+      "value": 60
+     },
+     {
+      "op": "parameter",
+      "name": "t",
+      "value": 8
+     },
+     {
+      "op": "sketch",
+      "id": "s",
+      "plane": "XY",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          "w",
+          "d"
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e",
+      "sketch": "$s",
+      "distance": "t",
+      "name": "Plate"
+     }
+    ]
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/BPlate.icpart"
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "create",
+    "name": "thicker"
+   },
+   "expect": {
+    "contains": "created branch thicker"
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "t": 12
+    }
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "switch",
+    "name": "main"
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "check_in",
+    "message": "12 mm plate"
+   },
+   "expect": {
+    "contains": "checked in version 2"
+   }
+  },
+  {
+   "tool": "diff",
+   "args": {
+    "before": "branch:main",
+    "after": "branch:thicker"
+   },
+   "expect": {
+    "contains": "1 parameter change"
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "switch",
+    "name": "main"
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      100,
+      60,
+      8
+     ]
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "w": 120
+    }
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "check_in",
+    "message": "wider on main"
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "merge",
+    "name": "thicker"
+   },
+   "expect": {
+    "contains": "(merged)"
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      120,
+      60,
+      12
+     ]
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "create",
+    "name": "clash"
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "t": 15
+    }
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "check_in",
+    "message": "15 mm"
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "switch",
+    "name": "main"
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "parameters": {
+     "t": 20
+    }
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "check_in",
+    "message": "20 mm"
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "merge",
+    "name": "clash"
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      120,
+      60,
+      20
+     ]
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  },
+  {
+   "tool": "branch",
+   "args": {
+    "action": "discard",
+    "name": "clash"
+   },
+   "expect": {
+    "contains": "discarded"
+   }
+  }
+ ]
+}

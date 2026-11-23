@@ -1,0 +1,89 @@
+{
+  "name": "sheet_metal_box",
+  "title": "Sheet-metal tray, open top",
+  "prompt": "In InventCraft, make a sheet-metal tray of 1.5 mm steel sheet: 200 x 120 mm outside, 50 mm high, a flat base and four walls bent up from it, open at the top. Use sheet-metal features and keep it parametric.",
+  "verdict": {
+    "inspect": {
+      "bbox": [
+        200,
+        120,
+        50
+      ],
+      "solids": 1,
+      "valid": true,
+      "tolerance": 0.02
+    },
+    "features": [
+      "sheet_face"
+    ],
+    "features_any": [
+      "flange",
+      "contour_flange"
+    ],
+    "min_parameters": 3,
+    "parametric": true
+  },
+  "reference": {
+    "ops": [
+      {
+        "op": "parameter",
+        "name": "Thickness",
+        "value": 1.5
+      },
+      {
+        "op": "parameter",
+        "name": "BendRadius",
+        "value": 1.5
+      },
+      {
+        "op": "parameter",
+        "name": "L",
+        "value": 200
+      },
+      {
+        "op": "parameter",
+        "name": "W",
+        "value": 120
+      },
+      {
+        "op": "parameter",
+        "name": "H",
+        "value": 50
+      },
+      {
+        "op": "sketch",
+        "id": "s",
+        "plane": "XY",
+        "entities": [
+          {
+            "rect": {
+              "center": [
+                0,
+                0
+              ],
+              "size": [
+                "L",
+                "W"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "op": "sheet_face",
+        "id": "f",
+        "sketch": "$s"
+      },
+      {
+        "op": "flange",
+        "edges": {
+          "edges": {
+            "at": "+z",
+            "kind": "line"
+          }
+        },
+        "height": "H"
+      }
+    ]
+  }
+}

@@ -120,7 +120,7 @@ def _bodies_folder() -> str:
 
 def _rebuild(key: str, path: str, data: Dict[str, Any], trusted: bool,
              rollback=None, have=(), prime: bool = False,
-             names=None) -> Dict[str, Any]:
+             names=None, trusted_code=()) -> Dict[str, Any]:
     """Rebuild a document the window sent, and say what came of it.
 
     Bodies go back as files, and only those the window has not already
@@ -150,6 +150,9 @@ def _rebuild(key: str, path: str, data: Dict[str, Any], trusted: bool,
     document.path = path or ""
     document.load_dict(data)
     document.rules.trusted = bool(trusted)
+    # code features allowed one by one, by the hash of their source
+    from .rules import trust_code_hashes
+    trust_code_hashes(trusted_code)
     document.rollback_index = rollback
     # a worker building some of the bodies names them as the whole does
     document._forced_names = {int(k): list(v)
@@ -253,6 +256,84 @@ def _rebuild(key: str, path: str, data: Dict[str, Any], trusted: bool,
                        {str(k): [list(v[0]), list(v[1]), list(v[2])]
                         for k, v in document._footprints.items()}),
     }
+
+
+def _evaluate(data: Dict[str, Any], path: str = "", trusted: bool = False,
+              trusted_code=(), extra=(), key: str = "") -> Dict[str, Any]:
+    """Build one variant of a part, and read the numbers it is judged by.
+
+    ``data`` is the document as the window or host keeps it (variants are
+    sent as data, never as files), so nothing here touches a file or the
+    document it came from. The answer is small: volume, mass, size, face
+    count, validity, every requirement the document stores (value, pass,
+    and how far short it falls) and the ``extra`` ones the caller names.
+    """
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from . import kernel
+    from . import requirements as reqs
+    from .document import Document
+    from .rules import trust_code_hashes
+
+    started = time.perf_counter()
+    document = Document()
+    document.path = path or ""
+    document.load_dict(data)
+    document.rules.trusted = bool(trusted)
+    trust_code_hashes(trusted_code)
+    report = document.rebuild()
+    out: Dict[str, Any] = {
+        "pid": os.getpid(),
+        "errors": [[str(f), str(m)] for f, m in report.errors],
+        "warnings": list(report.warnings)[:5]}
+    shape = document.shape
+    have = shape is not None and not shape.IsNull()
+    out["built"] = bool(have and not report.errors)
+    if have:
+        props = document.mass_properties()
+        out["volume_mm3"] = float(props.get("volume_mm3", 0.0))
+        out["area_mm2"] = float(props.get("area_mm2", 0.0))
+        out["mass_g"] = float(props.get("mass_g", 0.0))
+        out["bbox"] = [float(v) for v in props.get("bbox", ())]
+        out["faces"] = len(kernel.faces(shape))
+        out["solids"] = len(kernel.solids(shape))
+        out["valid"] = bool(BRepCheck_Analyzer(shape).IsValid())
+    else:
+        out.update({"volume_mm3": 0.0, "mass_g": 0.0, "bbox": [],
+                    "faces": 0, "solids": 0, "valid": False})
+    document.params.evaluate_all()
+    out["params"] = {n: round(float(document.params[n].value), 6)
+                     for n in document.params.names()
+                     if not document.params[n].error}
+    results = []
+    held = {r.name: r for r in document.requirements}
+    for result in (report.requirements or []):
+        results.append(dict(result, **_gap(reqs, held.get(result["name"]),
+                                           result)))
+    for spec in extra or ():
+        try:
+            item = reqs.Requirement.from_dict(spec)
+            result = reqs.check_one(document, item)
+            result.update(_gap(reqs, item, result))
+        except Exception as exc:                        # noqa: BLE001
+            result = {"name": str(spec.get("name", "?")),
+                      "pass": False, "gap": 1.0, "error": str(exc),
+                      "text": "%s: %s" % (spec.get("name", "?"), exc)}
+        results.append(result)
+    out["requirements"] = results
+    out["seconds"] = round(time.perf_counter() - started, 3)
+    return out
+
+
+def _gap(reqs, item, result) -> Dict[str, Any]:
+    """How far short a requirement's result falls: 0 when it passes."""
+    if result.get("pass"):
+        return {"gap": 0.0}
+    if item is None or "value" not in result:
+        return {"gap": 1.0}
+    try:
+        return {"gap": round(reqs.shortfall(item, result["value"]), 6)}
+    except Exception:                                   # noqa: BLE001
+        return {"gap": 1.0}
 
 
 def sweep_bodies(age: float = 86400.0) -> None:
@@ -369,6 +450,7 @@ OPERATIONS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "project": _project,
     "hold": _hold,
     "rebuild": _rebuild,
+    "evaluate": _evaluate,
     "forget": _forget,
     "import_assembly": _import_assembly,
     "translate": _translate,

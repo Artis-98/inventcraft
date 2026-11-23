@@ -437,6 +437,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._build_in_place_return()
         self._install_remote()
         self._build_status_bar()
+        # agents can drive the open documents when the user allows it:
+        # nothing listens until Preferences > AI says so
+        from .agent_bridge import AgentBridge
+        self.agent_bridge = AgentBridge(self)
         self._build_shortcuts()
         self._escape_anywhere = _EscapeAnywhere(self, self.viewport)
         QtWidgets.QApplication.instance().installEventFilter(
@@ -2944,6 +2948,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _preferences_applied(self) -> None:
         """Repaint with whatever Preferences just changed."""
+        # first: it needs nothing on screen, which the lines after do
+        self.agent_bridge.apply_preferences()
         self.apply_shortcuts()
         self.viewport.apply_background()
         if self.editor.active:
@@ -7424,6 +7430,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Restarting for an update has already asked about unsaved work,
         # and asking twice would be its own small insult.
         if self._closing_for_update or self._confirm_discard():
+            self.agent_bridge.shutdown()
             self.spacemouse.stop()
             event.accept()
         else:

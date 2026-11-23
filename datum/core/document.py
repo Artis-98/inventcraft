@@ -19,6 +19,7 @@ from OCP.TopoDS import TopoDS_Shape
 
 from . import (fileformat, kernel, materials, modelparams, modelstates,
                naming, prefs)
+from .requirements import RequirementSet
 from .rules import RuleSet
 from .viewsetup import ViewSetup
 from .features import (
@@ -188,6 +189,10 @@ def _definition(feature: Feature, scope: Dict[str, float],
             extra = (stat.st_size, stat.st_mtime_ns)
         except OSError:
             extra = "missing"
+    if isinstance(feature, CodeFeature):
+        # allowed on its own or not: trusting it later must build it again
+        from .rules import code_trusted
+        extra = ("code trusted", code_trusted(feature.source))
     return json.dumps(data, sort_keys=True, default=str) + repr(values) + \
         repr(extra)
 
@@ -489,6 +494,8 @@ class RebuildReport:
     warnings: List[str] = field(default_factory=list)
     duration: float = 0.0
     feature_count: int = 0
+    # each requirement of the document as this rebuild left it
+    requirements: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def message(self) -> str:
@@ -563,6 +570,9 @@ class Document:
         # the document is trusted, and trust is not something a file can
         # carry in from somewhere else.
         self.rules = RuleSet()
+        # what the part has to be, checked on every rebuild; see
+        # core/requirements.py
+        self.requirements = RequirementSet()
         # Primary, and any other variations of this part; see modelstates
         self.model_states = modelstates.ModelStates()
         # "" means "whatever the material comes in", which is what somebody
@@ -996,6 +1006,30 @@ class Document:
     # -- rebuild ------------------------------------------------------------
 
     def rebuild(self) -> RebuildReport:
+        """Bring the body up to date with the tree, and check the
+        requirements against what it became."""
+        report = self._rebuild_tree()
+        if getattr(self, "_checking", False):
+            # a requirement's reference being resolved rebuilt the part
+            # (to read a sketch, say): that is not a new check
+            return report
+        if self.requirements:
+            from . import requirements
+            self._checking = True
+            try:
+                report.requirements = requirements.check(self)
+            except Exception as exc:                        # noqa: BLE001
+                report.requirements = [{"name": "?", "pass": False,
+                                        "text": "requirements: %s" % exc}]
+            finally:
+                self._checking = False
+            # a rebuild inside the check left its own report behind
+            self.last_report = report
+        else:
+            report.requirements = []
+        return report
+
+    def _rebuild_tree(self) -> RebuildReport:
         """Bring the body up to date with the tree.
 
         Where the work is done depends on how much of it there is. A
@@ -1328,7 +1362,7 @@ class Document:
 
     def remote_request(self, prime: bool = False) -> Dict[str, Any]:
         """Everything a worker needs to rebuild this document as it is."""
-        from .rules import document_trusted
+        from .rules import document_trusted, trusted_code_in
         if self._chain is not None and self._named_for != self._chain:
             # Built here last. What it holds is named the way a worker
             # names it, so the worker sends back only what is new: the
@@ -1340,6 +1374,7 @@ class Document:
             self._named_for = self._chain
         return {"key": self.remote_key, "path": self.path or "",
                 "data": self.to_dict(), "trusted": document_trusted(self),
+                "trusted_code": trusted_code_in(self),
                 "rollback": self.rollback_index,
                 "have": sorted(self._remote_shapes), "prime": prime}
 
@@ -1795,6 +1830,8 @@ class Document:
                if self.annotations else {}),
             **({"standard_part": dict(self.standard_part)}
                if self.standard_part else {}),
+            **({"requirements": self.requirements.to_list()}
+               if self.requirements else {}),
         }
 
     def load_dict(self, data: Dict[str, Any]) -> None:
@@ -1806,6 +1843,7 @@ class Document:
         # an undo step is this document's own history, not a new file, so
         # it does not take back the trust the user has already given
         self.rules.trusted = trusted
+        self.requirements.load(data.get("requirements"))
         self.material = data.get("material", "Generic")
         self.appearance = str(data.get("appearance", ""))
         self._density_override = None

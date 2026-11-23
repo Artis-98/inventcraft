@@ -1,0 +1,254 @@
+{
+ "name": "a bolt family as model states: variants, a measured table, activate, place a state in an assembly",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {
+    "name": "Bolt"
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "len",
+      "value": 30,
+      "comment": "shank length"
+     },
+     {
+      "op": "parameter",
+      "name": "dia",
+      "value": 6,
+      "comment": "shank diameter"
+     },
+     {
+      "op": "sketch",
+      "id": "s",
+      "plane": "XY",
+      "name": "Shank profile",
+      "entities": [
+       {
+        "circle": {
+         "center": [
+          0,
+          0
+         ],
+         "d": "dia"
+        }
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e",
+      "sketch": "$s",
+      "distance": "len",
+      "name": "Shank"
+     },
+     {
+      "op": "sketch",
+      "id": "s2",
+      "plane": "XY",
+      "name": "Head profile",
+      "entities": [
+       {
+        "circle": {
+         "center": [
+          0,
+          0
+         ],
+         "d": "dia * 2.2"
+        }
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e2",
+      "sketch": "$s2",
+      "distance": "dia * 0.6",
+      "name": "Head"
+     }
+    ]
+   }
+  },
+  {
+   "tool": "properties",
+   "args": {
+    "props": {
+     "Part Number": "BOLT-30"
+    },
+    "material": "Steel, Mild"
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Bolt.icpart"
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "create",
+    "name": "M6x40",
+    "parameters": {
+     "len": "40"
+    },
+    "props": {
+     "Part Number": "BOLT-40"
+    }
+   },
+   "expect": {
+    "contains": "active Primary"
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "create",
+    "name": "M8x40",
+    "parameters": {
+     "len": "40",
+     "dia": "8"
+    },
+    "props": {
+     "Part Number": "BOLT-840"
+    }
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "create",
+    "name": "Blank",
+    "suppress": [
+     "Head"
+    ]
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "list",
+    "measure": true
+   },
+   "expect": {
+    "contains": "M8x40"
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "activate",
+    "name": "M8x40"
+   },
+   "expect": {
+    "contains": "active M8x40"
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      17.6,
+      17.6,
+      40
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "activate",
+    "name": "Primary"
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      13.2,
+      13.2,
+      30
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "activate",
+    "name": "Nope"
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "model_states",
+   "args": {
+    "action": "set",
+    "name": "M6x40",
+    "parameters": {
+     "len": "-3"
+    }
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {}
+  },
+  {
+   "tool": "new_document",
+   "args": {
+    "type": "assembly"
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Bolt.icpart",
+    "name": "Short"
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Bolt.icpart",
+    "name": "Long",
+    "model_state": "M8x40"
+   },
+   "expect": {
+    "contains": "placed Long:1"
+   }
+  },
+  {
+   "tool": "bom",
+   "args": {
+    "structure": "flat"
+   },
+   "expect": {
+    "contains": "2 part"
+   }
+  }
+ ]
+}

@@ -193,6 +193,11 @@ class FlatPattern:
         field(default_factory=list)       # (start, end, angle in degrees)
     thickness: float = 0.0
     solid: Optional[TopoDS_Shape] = None
+    # what each bend was, in the order of ``bends``: {"radius" (inside),
+    # "angle", "allowance" (the arc the bend takes of the flat, at the
+    # K-factor), "toward" ("front" when it folds toward the face the flat
+    # lies on, "back" when away from it)}
+    bend_info: List[Dict[str, Any]] = field(default_factory=list)
 
     def outline(self) -> TopoDS_Shape:
         return (self.faces[0] if len(self.faces) == 1
@@ -263,6 +268,7 @@ def unfold(shape: TopoDS_Shape, k_factor: float = 0.44,
     order: List[Tuple[TopoDS_Shape, gp_Trsf]] = []
     strips: List[TopoDS_Shape] = []
     bends = []
+    infos: List[Dict[str, Any]] = []
 
     def key(face) -> int:
         return hash(face)
@@ -289,10 +295,11 @@ def unfold(shape: TopoDS_Shape, k_factor: float = 0.44,
                                    k_factor)
                     if made is None:
                         continue
-                    child, child_where, strip, bend = made
+                    child, child_where, strip, bend, info = made
                     order.append((other, where))      # marks it done
                     strips.append(strip)
                     bends.append(bend)
+                    infos.append(info)
                     if child is not None and not seen(child):
                         order.append((child, child_where))
                         queue.append((child, child_where))
@@ -318,6 +325,7 @@ def unfold(shape: TopoDS_Shape, k_factor: float = 0.44,
         raise KernelError(
             "the body cannot be laid flat: it has a corner that is not a "
             "bend (sharp, or not round), or it is not all one thickness")
+    result.bend_info = infos
     for (a, b), angle in bends:
         pa = gp_Pnt(*a).Transformed(to_xy)
         pb = gp_Pnt(*b).Transformed(to_xy)
@@ -512,7 +520,13 @@ def _unbend(solid, found, face, bend, edge, where: gp_Trsf, t: float,
     half = _mul(u, length / 2.0)
     line = (_v(gp_Pnt(*_add(e0, half)).Transformed(where)),
             _v(gp_Pnt(*_add(e1, half)).Transformed(where)))
-    return child, child_where, strip, (line, math.degrees(angle))
+    # which way it folds: the axis on the outward side of the face the
+    # walk came along (the front, the side the flat lies on) is a bend
+    # toward the front
+    front = _dot(_sub(a_loc, near_mid), n_face) > 0.0
+    info = {"radius": r_inner, "angle": math.degrees(angle),
+            "allowance": length, "toward": "front" if front else "back"}
+    return child, child_where, strip, (line, math.degrees(angle)), info
 
 
 # -------------------------------------------------------------- the flange
@@ -1659,6 +1673,7 @@ class FlatFeature:
         cutter = faces[0] if len(faces) == 1 else kernel.compound(faces)
         outline = _cut_faces(flat.outline(), cutter)
         out = FlatPattern(faces=kernel.faces(outline), bends=list(flat.bends),
+                          bend_info=list(flat.bend_info),
                           thickness=flat.thickness)
         try:
             out.solid = BRepPrimAPI_MakePrism(

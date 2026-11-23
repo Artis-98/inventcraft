@@ -1,0 +1,257 @@
+{
+  "name": "drawing_of_bracket",
+  "title": "A three-view drawing of a saved bracket, as PDF",
+  "tools": "default,+drawing",
+  "save_as": ".icdraw",
+  "fixtures": [
+    {
+      "file": "Bracket.icpart",
+      "ops": [
+        {
+          "op": "parameter",
+          "name": "w",
+          "value": 120,
+          "comment": "width"
+        },
+        {
+          "op": "parameter",
+          "name": "d",
+          "value": 60,
+          "comment": "depth"
+        },
+        {
+          "op": "parameter",
+          "name": "h",
+          "value": 40,
+          "comment": "height"
+        },
+        {
+          "op": "parameter",
+          "name": "wall",
+          "value": 4,
+          "comment": "wall thickness"
+        },
+        {
+          "op": "parameter",
+          "name": "bolt",
+          "value": 6.6,
+          "comment": "M6 clearance"
+        },
+        {
+          "op": "parameter",
+          "name": "pitch",
+          "value": 30,
+          "comment": "hole spacing"
+        },
+        {
+          "op": "sketch",
+          "id": "base",
+          "plane": "XY",
+          "name": "Footprint",
+          "entities": [
+            {
+              "rect": {
+                "center": [
+                  0,
+                  0
+                ],
+                "size": [
+                  "w",
+                  "d"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "op": "extrude",
+          "id": "body",
+          "sketch": "$base",
+          "distance": "h",
+          "name": "Body"
+        },
+        {
+          "op": "fillet",
+          "radius": 6,
+          "edges": {
+            "along": "z"
+          },
+          "name": "Corners"
+        },
+        {
+          "op": "shell",
+          "thickness": "wall",
+          "refs": {
+            "faces": {
+              "normal": "-z"
+            }
+          },
+          "name": "Hollow"
+        },
+        {
+          "op": "sketch",
+          "id": "holes",
+          "plane": "XY",
+          "name": "Hole centres",
+          "entities": [
+            {
+              "point": [
+                "-pitch * 1.5",
+                "d/4"
+              ],
+              "id": "h1"
+            }
+          ]
+        },
+        {
+          "op": "hole",
+          "id": "hole",
+          "sketch": "$holes",
+          "diameter": "bolt",
+          "points": [
+            "h1"
+          ],
+          "name": "Bolt hole"
+        },
+        {
+          "op": "pattern",
+          "id": "row",
+          "parents": [
+            "$hole"
+          ],
+          "count1": 4,
+          "spacing1": "pitch",
+          "dir1": "X",
+          "name": "Hole row"
+        },
+        {
+          "op": "mirror",
+          "parents": [
+            "$hole",
+            "$row"
+          ],
+          "scope": "features",
+          "plane": "XZ",
+          "name": "Other row"
+        },
+        {
+          "op": "sketch",
+          "id": "bs",
+          "plane": "XZ",
+          "name": "Boss profile",
+          "entities": [
+            {
+              "rect": {
+                "corner": [
+                  0,
+                  "h"
+                ],
+                "size": [
+                  10,
+                  8
+                ]
+              }
+            },
+            {
+              "line": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  80
+                ]
+              ],
+              "id": "ax",
+              "construction": true,
+              "dimension": true
+            }
+          ]
+        },
+        {
+          "op": "revolve",
+          "sketch": "$bs",
+          "axis": "ax",
+          "angle": 360,
+          "name": "Boss"
+        }
+      ]
+    }
+  ],
+  "prompt": "In {dir} there is a saved part, Bracket.icpart. Make an A3 landscape drawing of it in InventCraft: a front view, a top view projected from it and an isometric view, the overall dimensions on the front view, a diameter dimension for the holes in the top view, and a title block titled BRACKET. Look at the sheet to check that nothing overlaps. Also export the drawing as a PDF to {dir}/Bracket.pdf.",
+  "verdict": {
+    "drawing": {
+      "min_views": 3,
+      "min_annotations": 3,
+      "size": "A3"
+    },
+    "files": [
+      "Bracket.pdf"
+    ]
+  },
+  "reference": {
+    "calls": [
+      {
+        "tool": "drawing_create",
+        "args": {
+          "source": "{WORK}/Bracket.icpart",
+          "size": "A3",
+          "props": {
+            "Title": "BRACKET"
+          }
+        }
+      },
+      {
+        "tool": "drawing_base_view",
+        "args": {
+          "orientation": "front"
+        }
+      },
+      {
+        "tool": "drawing_projected_view",
+        "args": {
+          "parent": "View1",
+          "shows": "top"
+        }
+      },
+      {
+        "tool": "drawing_projected_view",
+        "args": {
+          "parent": "View1",
+          "shows": "iso"
+        }
+      },
+      {
+        "tool": "drawing_dimension",
+        "args": {
+          "view": "View1",
+          "kind": "overall"
+        }
+      },
+      {
+        "tool": "drawing_dimension",
+        "args": {
+          "view": "View2",
+          "kind": "diameter"
+        }
+      },
+      {
+        "tool": "drawing_render",
+        "args": {}
+      },
+      {
+        "tool": "drawing_export",
+        "args": {
+          "path": "{WORK}/Bracket.pdf"
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {
+          "path": "{WORK}/drawing_of_bracket.icdraw"
+        }
+      }
+    ]
+  }
+}

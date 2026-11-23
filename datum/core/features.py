@@ -3637,11 +3637,14 @@ class CodeFeature(Feature):
     body_name: str = ""
 
     def build(self, ctx: BuildContext) -> None:
-        if not ctx.code_allowed:
+        from .rules import WAITING_FOR_TRUST, code_trusted, run_code
+        # trusted with its document, or on its own by the hash of this
+        # exact source (an agent's feature, say), never by the file
+        if not ctx.code_allowed and not code_trusted(self.source):
             raise FeatureError(
-                "%s is code, and code does not run until this document is "
-                "trusted.  Allow it from the icLogic panel." % self.name)
-        from .rules import run_code
+                "%s %s: it is code, and code does not run until this "
+                "document, or this feature's source, is trusted.  Allow it "
+                "from the icLogic panel." % (self.name, WAITING_FOR_TRUST))
 
         self.output = ""
         solid, self.output = run_code(self.source, ctx.scope, self.name)

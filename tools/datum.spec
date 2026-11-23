@@ -53,7 +53,8 @@ datas = [
     (str(ROOT / "datum" / "ui" / "brand"), "datum/ui/brand"),
 ]
 
-# Qt modules DATUM actually uses: Core, Gui, Widgets, Svg, PrintSupport.
+# Qt modules DATUM actually uses: Core, Gui, Widgets, Svg, PrintSupport, and
+# Network for its local pipe (the agent bridge).
 # Everything else in PySide6 goes.  WebEngine alone is a few hundred
 # megabytes and would be downloaded again by anybody updating.
 excluded_qt = [
@@ -72,7 +73,7 @@ excluded_qt = [
     "PySide6.QtWebEngineCore", "PySide6.QtWebEngineQuick",
     "PySide6.QtWebEngineWidgets", "PySide6.QtWebSockets",
     "PySide6.QtXml", "PySide6.QtConcurrent", "PySide6.QtGraphs",
-    "PySide6.QtPdfWidgets", "PySide6.QtNetwork",
+    "PySide6.QtPdfWidgets",   # QtNetwork stays: the agent bridge (QLocalServer)
 ]
 
 excludes = excluded_qt + [

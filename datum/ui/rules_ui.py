@@ -1117,6 +1117,8 @@ class RulesPanel(QtWidgets.QWidget):
             self.forms_layout.addWidget(button)
 
         trusted = core.document_trusted(self._document)
+        # a code feature allowed on its own, by its source, waits for nothing
+        code = [f for f in code if not core.code_trusted(f.source)]
         has_code = len(rules) + len(code)
         untrusted = bool(has_code) and not trusted
         self.banner.setVisible(untrusted)

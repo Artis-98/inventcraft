@@ -1,0 +1,25 @@
+{
+  "name": "stepped block: join on top, through cut, chamfered top edges",
+  "calls": [
+    {"tool": "new_document", "args": {"units": "in"}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "L", "value": 80},
+      {"op": "sketch", "id": "base", "plane": "XY", "entities": [
+        {"rect": {"corner": [0, 0], "size": ["L", 40]}}]},
+      {"op": "extrude", "sketch": "$base", "distance": 20},
+      {"op": "sketch", "id": "step", "plane": "XY", "entities": [
+        {"rect": {"corner": [0, 0], "size": ["L/2", 40]}}]},
+      {"op": "extrude", "sketch": "$step", "distance": 35},
+      {"op": "sketch", "id": "holes", "plane": "XY", "entities": [
+        {"circle": {"center": ["L*3/4", 10], "d": 6}},
+        {"circle": {"center": ["L*3/4", 30], "d": 6}}]},
+      {"op": "extrude", "sketch": "$holes", "operation": "cut", "extent": "through_all", "profiles": "all"},
+      {"op": "chamfer", "distance": 1, "edges": {"at": "+z"}}]}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [80, 40, 35], "solids": 1, "valid": true}},
+     "expect": {"verdict": true}},
+    {"tool": "build", "args": {"ops": [{"op": "fillet", "radius": 999, "edges": "all"}]},
+     "expect": {"error": true}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [80, 40, 35]}},
+     "expect": {"verdict": true}}
+  ]
+}
