@@ -1288,7 +1288,9 @@ def guide_facts(ws: Workspace) -> Dict[str, Any]:
             {"family": f.id, "kind": f.kind, "columns": list(f.columns),
              "sizes": f.sizes()[:4] + (["..."] if len(f.sizes()) > 4
                                        else [])}
-            for f in frames.families()],
+            # the ones that ship: a user's own are theirs, and would make
+            # the skill differ per machine (frame_profiles() lists them)
+            for f in frames.builtin_families()],
         "assembly": {"kinds": dict(c3.KIND_HINTS)},
         "drawing": drawing_ops.facts(),
         "errors": {k: {"means": v[0], "fix": v[1]}

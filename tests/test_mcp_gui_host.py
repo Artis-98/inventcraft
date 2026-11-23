@@ -312,7 +312,8 @@ check("and the window's tree still lists the real features",
 # ============================================================ autosave
 print("autosave")
 folder = os.path.join(core_prefs.config_dir(), "agent-autosave")
-saved = sorted(os.listdir(folder)) if os.path.isdir(folder) else []
+saved = sorted(os.listdir(folder), key=lambda n: os.path.getmtime(
+    os.path.join(folder, n))) if os.path.isdir(folder) else []
 check("copies were written before changes", len(saved) >= 3, saved)
 latest = os.path.join(folder, saved[-1])
 copy = Document.load(latest)
@@ -326,6 +327,29 @@ check("the copy is of the document BEFORE the change",
       "extra" not in Document.load(os.path.join(folder, newest)).params.names()
       and count_before == len(Document.load(
           os.path.join(folder, newest)).features))
+# copies with the same handle from another document (an earlier session's
+# g1) are not this document's to prune, however old
+strangers = []
+for n in range(8):
+    p = os.path.join(folder, "Other-%s-0badc0de-2020010%d-000000.icpart"
+                     % (doc, n % 9))
+    with open(p, "w") as f:
+        f.write("{}")
+    os.utime(p, (1, 1))
+    strangers.append(p)
+for n in range(7):
+    rpc(client, "build", doc=doc, ops=[
+        {"op": "parameter", "name": "prune%d" % n, "value": n}])
+check("pruning keeps to this document's own copies",
+      all(os.path.exists(p) for p in strangers),
+      [os.path.basename(p) for p in strangers if not os.path.exists(p)])
+mine = [n for n in os.listdir(folder) if ("-%s-" % doc) in n and n not in
+        {os.path.basename(p) for p in strangers}]
+check("and keeps the last five of them", len(mine) == 5, mine)
+for p in strangers:
+    os.remove(p)
+for n in range(7):
+    ctrl_z()
 ctrl_z()
 
 # ============================================================ Stop

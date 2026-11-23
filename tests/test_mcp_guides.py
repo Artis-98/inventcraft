@@ -44,8 +44,19 @@ def check(name, cond, extra=""):
 
 
 TOOL_RE = re.compile(r"\b([a-z][a-z_]+)\(\)")
+# a profile family of the user's own must not reach the guides, or the
+# shipped skill would differ from machine to machine
+_own = tempfile.mkdtemp(prefix="ic-profiles-")
+with open(os.path.join(_own, "tubes.json"), "w", encoding="utf-8") as _f:
+    json.dump({"id": "my-tubes", "name": "My tubes", "standard": "",
+               "category": "Tubes", "kind": "pipe", "columns": ["d", "t"],
+               "rows": [["T1", 20, 2]]}, _f)
+os.environ["DATUM_PROFILE_LIBRARY"] = _own
 host = InProcessHost()
 facts = host.call("guide_facts")
+check("a profile family of the user's own is not in the guides",
+      "my-tubes" not in [f["family"] for f in facts["profile_families"]]
+      and facts["profile_families"], facts["profile_families"][:2])
 tools = {t.name for t in asyncio.run(server.server.list_tools())}
 
 print("guides")
