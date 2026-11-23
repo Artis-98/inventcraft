@@ -1,0 +1,3733 @@
+{
+ "examples/walking-excavator/parts/Attachment pin.icpart": {
+  "area": 68511.41920193649,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -110.0000001,
+   42.0000001,
+   42.0000001,
+   110.0000001
+  ],
+  "edges": 7,
+  "errors": [],
+  "faces": 5,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 1218150.45703434
+ },
+ "examples/walking-excavator/parts/Boom 14mm web.icpart": {
+  "area": 1821228.6796020162,
+  "bbox": [
+   -122.00000010000002,
+   135.99999989999998,
+   -122.00000010000002,
+   2707.0000001,
+   150.00000010000002,
+   517.5660742802356
+  ],
+  "edges": 30,
+  "errors": [],
+  "faces": 12,
+  "solids": 1,
+  "vertices": 20,
+  "volume": 12051477.470421217
+ },
+ "examples/walking-excavator/parts/Boom bottom cap 12mm.icpart": {
+  "area": 1319261.4335491788,
+  "bbox": [
+   17.18403909044974,
+   -136.00000010000022,
+   -120.50214703607222,
+   2301.880525030557,
+   136.00000010000022,
+   101.5012013818983
+  ],
+  "edges": 28,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 7543594.9420854235
+ },
+ "examples/walking-excavator/parts/Boom dipper pin.icpart": {
+  "area": 152457.7922845876,
+  "bbox": [
+   -67.0000001,
+   -67.0000001,
+   -175.0000001,
+   67.0000001,
+   67.0000001,
+   185.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 3465670.974153707
+ },
+ "examples/walking-excavator/parts/Boom dipper ram lug 18mm.icpart": {
+  "area": 119059.86415101352,
+  "bbox": [
+   1129.9999999,
+   36.9999999,
+   433.1397589009018,
+   1410.0000001,
+   55.0000001,
+   780.0000001
+  ],
+  "edges": 27,
+  "errors": [],
+  "faces": 11,
+  "solids": 1,
+  "vertices": 18,
+  "volume": 873945.8148773231
+ },
+ "examples/walking-excavator/parts/Boom foot boss.icpart": {
+  "area": 371735.6299448651,
+  "bbox": [
+   -110.0000001,
+   -110.0000001,
+   -150.0000001,
+   110.0000001,
+   110.0000001,
+   150.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 7970883.438207213
+ },
+ "examples/walking-excavator/parts/Boom foot pin.icpart": {
+  "area": 173338.60318927068,
+  "bbox": [
+   -72.0000001,
+   -72.0000001,
+   -182.0000001,
+   72.0000001,
+   72.0000001,
+   192.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 4277961.170665884
+ },
+ "examples/walking-excavator/parts/Boom foot tower 30mm.icpart": {
+  "area": 470936.97001145256,
+  "bbox": [
+   379.9999999,
+   -148.0000001,
+   29.9999999,
+   950.0000001,
+   -117.9999999,
+   570.0000001
+  ],
+  "edges": 27,
+  "errors": [],
+  "faces": 11,
+  "solids": 1,
+  "vertices": 18,
+  "volume": 6024378.4711929
+ },
+ "examples/walking-excavator/parts/Boom hardline L.icpart": {
+  "area": 243691.0262203751,
+  "bbox": [
+   348.21182986450566,
+   88.999999899995,
+   246.32911898329436,
+   2254.997549694132,
+   111.000000100005,
+   566.8385842904213
+  ],
+  "edges": 14,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 304230.90117081214
+ },
+ "examples/walking-excavator/parts/Boom hardline R.icpart": {
+  "area": 243691.0262203751,
+  "bbox": [
+   348.21182986450566,
+   -111.000000100005,
+   246.32911898329436,
+   2254.997549694132,
+   -88.999999899995,
+   566.8385842904213
+  ],
+  "edges": 14,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 304230.90117081214
+ },
+ "examples/walking-excavator/parts/Boom hardline saddle 1000.icpart": {
+  "area": 5778.490904767445,
+  "bbox": [
+   974.9999999,
+   -12.000000100000001,
+   391.0668296669637,
+   1025.0000001,
+   12.000000100000001,
+   426.40825072458944
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 27407.39594257829
+ },
+ "examples/walking-excavator/parts/Boom hardline saddle 1900.icpart": {
+  "area": 5826.2247594183955,
+  "bbox": [
+   1874.9999999,
+   -12.0000001,
+   352.0930021167433,
+   1925.0000001,
+   12.0000001,
+   391.1109154085716
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 27388.61540960084
+ },
+ "examples/walking-excavator/parts/Boom hardline saddle 560.icpart": {
+  "area": 5778.490904767445,
+  "bbox": [
+   534.9999999,
+   -12.000000100000001,
+   271.6339982932038,
+   585.0000001,
+   12.000000100000001,
+   306.97541935082955
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 27407.39594257829
+ },
+ "examples/walking-excavator/parts/Boom lift ram lug 18mm.icpart": {
+  "area": 71265.42543030676,
+  "bbox": [
+   1109.9999999,
+   36.99999989999999,
+   -100.00000010000001,
+   1390.0000001,
+   55.00000010000001,
+   89.50120138189804
+  ],
+  "edges": 33,
+  "errors": [],
+  "faces": 13,
+  "solids": 1,
+  "vertices": 22,
+  "volume": 486317.1772677072
+ },
+ "examples/walking-excavator/parts/Boom ram barrel.icpart": {
+  "area": 779284.089421824,
+  "bbox": [
+   -75.40000060000001,
+   -93.40000060000001,
+   -55.0000006,
+   75.40000060000001,
+   75.40000060000001,
+   873.0000006
+  ],
+  "edges": 226,
+  "errors": [],
+  "faces": 84,
+  "solids": 1,
+  "vertices": 150,
+  "volume": 4607734.670254975
+ },
+ "examples/walking-excavator/parts/Boom ram base lug 18mm.icpart": {
+  "area": 57418.48463777745,
+  "bbox": [
+   909.9999999,
+   -263.0000001,
+   29.9999999,
+   1080.0000001,
+   -244.9999999,
+   210.0000001
+  ],
+  "edges": 27,
+  "errors": [],
+  "faces": 11,
+  "solids": 1,
+  "vertices": 18,
+  "volume": 383930.13410606084
+ },
+ "examples/walking-excavator/parts/Boom ram gland.icpart": {
+  "area": 74232.68900037945,
+  "bbox": [
+   -73.4000001,
+   -73.4000001,
+   822.9999999,
+   73.4000001,
+   73.4000001,
+   899.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 7,
+  "volume": 748034.9925287946
+ },
+ "examples/walking-excavator/parts/Boom ram pin.icpart": {
+  "area": 33916.57082001819,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -55.0000001,
+   42.0000001,
+   42.0000001,
+   65.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 365547.3435912988
+ },
+ "examples/walking-excavator/parts/Boom ram rod.icpart": {
+  "area": 191759.15431398846,
+  "bbox": [
+   -38.0000006,
+   -55.0000006,
+   -55.0000006,
+   38.0000006,
+   55.0000006,
+   603.0000006
+  ],
+  "edges": 83,
+  "errors": [],
+  "faces": 30,
+  "solids": 1,
+  "vertices": 55,
+  "volume": 3153311.669236692
+ },
+ "examples/walking-excavator/parts/Boom tip boss ring.icpart": {
+  "area": 58978.90210718381,
+  "bbox": [
+   -95.0000001,
+   -95.0000001,
+   -12.5000001,
+   95.0000001,
+   95.0000001,
+   12.5000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 463324.44074591284
+ },
+ "examples/walking-excavator/parts/Boom tip closure plate.icpart": {
+  "area": 150441.0845525104,
+  "bbox": [
+   2287.9999999,
+   -136.0000001,
+   -46.33326063446541,
+   2300.0000001,
+   136.0000001,
+   207.034846172067
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 826993.4999637218
+ },
+ "examples/walking-excavator/parts/Boom top cap 12mm.icpart": {
+  "area": 1388189.030409986,
+  "bbox": [
+   -31.959038862882373,
+   -136.00000010000005,
+   106.15868027010923,
+   2300.0000001,
+   136.00000010000005,
+   517.5660742802357
+  ],
+  "edges": 28,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 7939685.921229219
+ },
+ "examples/walking-excavator/parts/Bucket cutting edge 40mm bevelled.icpart": {
+  "area": 153297.00689833966,
+  "bbox": [
+   1185.0048818186121,
+   -380.0000001,
+   -559.8664719984243,
+   1225.0000001,
+   380.0000001,
+   -489.3750761799783
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 1436400.0
+ },
+ "examples/walking-excavator/parts/Bucket hitch bracket 22mm.icpart": {
+  "area": 45555.37005970088,
+  "bbox": [
+   359.9999999,
+   139.9999999,
+   -100.00000010000001,
+   445.0000001,
+   162.0000001,
+   125.00000010000001
+  ],
+  "edges": 27,
+  "errors": [],
+  "faces": 11,
+  "solids": 1,
+  "vertices": 18,
+  "volume": 268685.62369888905
+ },
+ "examples/walking-excavator/parts/Bucket hitch pin.icpart": {
+  "area": 82548.42509758819,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -184.0000001,
+   42.0000001,
+   42.0000001,
+   194.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 1095025.1577548487
+ },
+ "examples/walking-excavator/parts/Bucket link 16mm.icpart": {
+  "area": 56556.99109270091,
+  "bbox": [
+   9.470156393837998,
+   -16.000000100000058,
+   -48.47279992106615,
+   290.529843606162,
+   1.0000005684341886e-07,
+   48.47279992106615
+  ],
+  "edges": 39,
+  "errors": [],
+  "faces": 15,
+  "solids": 1,
+  "vertices": 26,
+  "volume": 357576.0650816514
+ },
+ "examples/walking-excavator/parts/Bucket link pin.icpart": {
+  "area": 69730.72707094184,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -150.0000001,
+   42.0000001,
+   42.0000001,
+   160.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 902759.6873551535
+ },
+ "examples/walking-excavator/parts/Bucket lip bar 45x60.icpart": {
+  "area": 158390.26343264143,
+  "bbox": [
+   444.9999999,
+   -380.0000001,
+   -165.0000001,
+   490.0000001,
+   380.0000001,
+   -104.9999999
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 2019380.5208364124
+ },
+ "examples/walking-excavator/parts/Bucket mouth rim 25mm.icpart": {
+  "area": 226080.3056631931,
+  "bbox": [
+   489.9999998999999,
+   399.9999998999999,
+   -490.0000001000001,
+   1225.0000001,
+   425.0000001000001,
+   -70.81143335201767
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 2282203.449626358
+ },
+ "examples/walking-excavator/parts/Bucket ram barrel.icpart": {
+  "area": 503004.71648122766,
+  "bbox": [
+   -58.00000060000001,
+   -76.0000006,
+   -45.00000060000001,
+   58.00000060000001,
+   58.00000060000001,
+   732.0000006
+  ],
+  "edges": 238,
+  "errors": [],
+  "faces": 87,
+  "solids": 1,
+  "vertices": 158,
+  "volume": 2335854.2877359358
+ },
+ "examples/walking-excavator/parts/Bucket ram gland.icpart": {
+  "area": 52425.07689286765,
+  "bbox": [
+   -56.0000001,
+   -56.0000001,
+   681.9999999,
+   56.0000001,
+   56.0000001,
+   758.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 7,
+  "volume": 425450.7296551245
+ },
+ "examples/walking-excavator/parts/Bucket ram pin.icpart": {
+  "area": 32031.615227864317,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -50.0000001,
+   42.0000001,
+   42.0000001,
+   60.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 337273.0097089906
+ },
+ "examples/walking-excavator/parts/Bucket ram rod.icpart": {
+  "area": 139276.3419710848,
+  "bbox": [
+   -30.000000100000005,
+   -45.0000001,
+   -45.0000001,
+   30.000000100000005,
+   45.0000001,
+   555.0000001
+  ],
+  "edges": 76,
+  "errors": [],
+  "faces": 28,
+  "solids": 1,
+  "vertices": 50,
+  "volume": 1794633.8771076426
+ },
+ "examples/walking-excavator/parts/Bucket side cutter 20mm.icpart": {
+  "area": 65438.10249568539,
+  "bbox": [
+   842.4941942747811,
+   424.9999999,
+   -491.92343779005745,
+   1242.2508380471927,
+   445.0000001,
+   -271.6544390130127
+  ],
+  "edges": 21,
+  "errors": [],
+  "faces": 9,
+  "solids": 1,
+  "vertices": 14,
+  "volume": 467094.24359034223
+ },
+ "examples/walking-excavator/parts/Bucket side plate 20mm.icpart": {
+  "area": 1031251.3351113538,
+  "bbox": [
+   444.9999999,
+   379.9999999,
+   -490.0000001,
+   1233.1703605287314,
+   400.0000001,
+   385.3126676772714
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 9766310.659027962
+ },
+ "examples/walking-excavator/parts/Bucket tooth.icpart": {
+  "area": 80271.11455339575,
+  "bbox": [
+   1163.1811767103213,
+   -42.0000001,
+   -830.8271141081866,
+   1242.711151525636,
+   42.0000001,
+   -559.2415480784027
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 1193015.4496280733
+ },
+ "examples/walking-excavator/parts/Bucket wear strip.icpart": {
+  "area": 69403.66306710539,
+  "bbox": [
+   1225.6249236200217,
+   -30.0000001,
+   -450.11509800537317,
+   1246.7062134753246,
+   30.0000001,
+   10.25147927347846
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 385400.6758937516
+ },
+ "examples/walking-excavator/parts/Bucket wrap plate 12mm rolled.icpart": {
+  "area": 2797305.933196951,
+  "bbox": [
+   444.99999989999964,
+   -380.0000001000002,
+   -490.0000001000002,
+   1233.1703605287316,
+   380.0000001000002,
+   382.94340527445877
+  ],
+  "edges": 76,
+  "errors": [],
+  "faces": 38,
+  "solids": 1,
+  "vertices": 40,
+  "volume": 16415208.102821385
+ },
+ "examples/walking-excavator/parts/Cab dash column.icpart": {
+  "area": 577224.7719318988,
+  "bbox": [
+   559.9999999,
+   414.9999999,
+   139.9999999,
+   700.0000001,
+   695.0000001,
+   760.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 24091114.978090264
+ },
+ "examples/walking-excavator/parts/Cab display.icpart": {
+  "area": 99090.05256595087,
+  "bbox": [
+   529.9999999,
+   434.9999999,
+   599.9999999,
+   560.0000001,
+   675.0000001,
+   760.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 1147055.5736846772
+ },
+ "examples/walking-excavator/parts/Cab door glass 8mm.icpart": {
+  "area": 2039562.9733552923,
+  "bbox": [
+   33.999999899999885,
+   955.9999998999999,
+   153.9999998999999,
+   706.0000001000001,
+   964.0000001000001,
+   1646.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 8020305.2741228705
+ },
+ "examples/walking-excavator/parts/Cab door glass seal.icpart": {
+  "area": 332943.64594300534,
+  "bbox": [
+   19.9999999,
+   947.9999999,
+   139.9999999,
+   720.0000001,
+   972.0000001,
+   1660.0000001
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 1475084.177631386
+ },
+ "examples/walking-excavator/parts/Cab floor plate 8mm.icpart": {
+  "area": 1768119.9999999998,
+  "bbox": [
+   -470.0000001,
+   189.9999999,
+   131.9999999,
+   720.0000001,
+   920.0000001,
+   140.0000001
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 6949599.999999998
+ },
+ "examples/walking-excavator/parts/Cab frame skeleton.icpart": {
+  "empty": true,
+  "errors": []
+ },
+ "examples/walking-excavator/parts/Cab left rear glass 8mm.icpart": {
+  "area": 841962.9733552923,
+  "bbox": [
+   -456.00000010000014,
+   955.9999998999999,
+   573.9999998999999,
+   -73.99999989999989,
+   964.0000001000001,
+   1646.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 3275345.274122872
+ },
+ "examples/walking-excavator/parts/Cab left rear glass seal.icpart": {
+  "area": 225023.6459430051,
+  "bbox": [
+   -470.0000001,
+   947.9999999,
+   559.9999999,
+   -59.9999999,
+   972.0000001,
+   1660.0000001
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 997964.1776313852
+ },
+ "examples/walking-excavator/parts/Cab left rear panel 4mm.icpart": {
+  "area": 284800.0,
+  "bbox": [
+   -470.0000001,
+   957.9999999,
+   139.9999999,
+   -59.9999999,
+   962.0000001,
+   480.0000001
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 557600.0
+ },
+ "examples/walking-excavator/parts/Cab rear glass 8mm.icpart": {
+  "area": 993562.9733552921,
+  "bbox": [
+   -514.0000001000001,
+   203.99999989999995,
+   953.9999998999999,
+   -505.9999998999999,
+   906.0000001000001,
+   1646.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 3885585.274122872
+ },
+ "examples/walking-excavator/parts/Cab rear glass seal.icpart": {
+  "area": 215903.64594300522,
+  "bbox": [
+   -522.0000001,
+   189.9999999,
+   939.9999999,
+   -497.9999999,
+   920.0000001,
+   1660.0000001
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 957644.1776313856
+ },
+ "examples/walking-excavator/parts/Cab rear lower panel 4mm.icpart": {
+  "area": 1062800.0,
+  "bbox": [
+   -512.0000001,
+   189.9999999,
+   139.9999999,
+   -507.9999999,
+   920.0000001,
+   860.0000001
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 2102400.0
+ },
+ "examples/walking-excavator/parts/Cab right glass 8mm.icpart": {
+  "area": 2526762.9733552923,
+  "bbox": [
+   -456.0000001,
+   145.99999989999998,
+   573.9999998999999,
+   706.0000001000001,
+   154.00000010000002,
+   1646.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 9964625.27412287
+ },
+ "examples/walking-excavator/parts/Cab right glass seal.icpart": {
+  "area": 343583.6459430051,
+  "bbox": [
+   -470.0000001,
+   137.9999999,
+   559.9999999,
+   720.0000001,
+   162.0000001,
+   1660.0000001
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 1522124.177631386
+ },
+ "examples/walking-excavator/parts/Cab right lower panel 4mm.icpart": {
+  "area": 821440.0,
+  "bbox": [
+   -470.0000001,
+   147.9999999,
+   139.9999999,
+   720.0000001,
+   152.0000001,
+   480.0000001
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 1618400.0
+ },
+ "examples/walking-excavator/parts/Cab roof 4mm flanged.icpart": {
+  "area": 2905906.768582368,
+  "bbox": [
+   -562.0000006,
+   97.9999994,
+   1698.9999994,
+   830.0000006,
+   1012.0000006,
+   1744.0000006
+  ],
+  "edges": 100,
+  "errors": [],
+  "faces": 46,
+  "solids": 1,
+  "vertices": 56,
+  "volume": 5772107.328117383
+ },
+ "examples/walking-excavator/parts/Cab rubber mount.icpart": {
+  "area": 19066.79378608257,
+  "bbox": [
+   -45.0000001,
+   -45.0000001,
+   29.9999999,
+   45.0000001,
+   45.0000001,
+   60.0000001
+  ],
+  "edges": 7,
+  "errors": [],
+  "faces": 5,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 147083.08485576694
+ },
+ "examples/walking-excavator/parts/Cab windscreen 8mm.icpart": {
+  "area": 2129562.9733552923,
+  "bbox": [
+   755.9999998999999,
+   203.9999998999999,
+   153.9999998999999,
+   764.0000001000001,
+   906.0000001000001,
+   1646.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 8378385.2741228705
+ },
+ "examples/walking-excavator/parts/Cab windscreen seal.icpart": {
+  "area": 337503.64594300545,
+  "bbox": [
+   747.9999999,
+   189.9999999,
+   139.9999999,
+   772.0000001,
+   920.0000001,
+   1660.0000001
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 1495244.1776313866
+ },
+ "examples/walking-excavator/parts/Carrier cheek 25mm.icpart": {
+  "area": 394636.38546477153,
+  "bbox": [
+   1384.9999999,
+   121.99999989999996,
+   -115.00000010000005,
+   1826.0000001,
+   147.00000010000002,
+   553.0000001000001
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 4211634.764431888
+ },
+ "examples/walking-excavator/parts/Carrier kingpin arm 40mm RH.icpart": {
+  "area": 113713.94638874722,
+  "bbox": [
+   1449.9999999,
+   -560.0000001,
+   159.9999999,
+   1550.0000001,
+   -176.9999999,
+   200.0000001
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 1408643.551014038
+ },
+ "examples/walking-excavator/parts/Carrier kingpin arm 40mm.icpart": {
+  "area": 113713.94638874724,
+  "bbox": [
+   1449.9999999,
+   176.9999999,
+   159.9999999,
+   1550.0000001,
+   560.0000001,
+   200.0000001
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 1408643.5510140383
+ },
+ "examples/walking-excavator/parts/Carrier steering ram lug 12mm RH.icpart": {
+  "area": 11075.343421470752,
+  "bbox": [
+   1584.9999999,
+   -242.0000001,
+   261.9999999,
+   1655.0000001,
+   -176.9999999,
+   274.0000001
+  ],
+  "edges": 21,
+  "errors": [],
+  "faces": 9,
+  "solids": 1,
+  "vertices": 14,
+  "volume": 43456.34481138611
+ },
+ "examples/walking-excavator/parts/Carrier steering ram lug 12mm.icpart": {
+  "area": 11075.343421470752,
+  "bbox": [
+   1584.9999999,
+   176.9999999,
+   261.9999999,
+   1655.0000001,
+   242.0000001,
+   274.0000001
+  ],
+  "edges": 21,
+  "errors": [],
+  "faces": 9,
+  "solids": 1,
+  "vertices": 14,
+  "volume": 43456.34481138611
+ },
+ "examples/walking-excavator/parts/Carrier upright 30mm RH.icpart": {
+  "area": 343629.2793711023,
+  "bbox": [
+   1384.9999999,
+   -177.00000010000002,
+   -240.00000010000002,
+   1700.0000001,
+   -146.99999989999998,
+   300.0000001
+  ],
+  "edges": 33,
+  "errors": [],
+  "faces": 13,
+  "solids": 1,
+  "vertices": 22,
+  "volume": 4328976.424461145
+ },
+ "examples/walking-excavator/parts/Carrier upright 30mm.icpart": {
+  "area": 343629.2793711023,
+  "bbox": [
+   1384.9999999,
+   146.99999989999998,
+   -240.00000010000002,
+   1700.0000001,
+   177.00000010000002,
+   300.0000001
+  ],
+  "edges": 33,
+  "errors": [],
+  "faces": 13,
+  "solids": 1,
+  "vertices": 22,
+  "volume": 4328976.424461145
+ },
+ "examples/walking-excavator/parts/Chassis bottom plate 20mm.icpart": {
+  "area": 3129577.958768039,
+  "bbox": [
+   -950.0000001000001,
+   -610.0000001,
+   -180.00000010000005,
+   950.0000001000001,
+   610.0000001,
+   -159.99999989999995
+  ],
+  "edges": 144,
+  "errors": [],
+  "faces": 50,
+  "solids": 1,
+  "vertices": 96,
+  "volume": 29638501.812298886
+ },
+ "examples/walking-excavator/parts/Chassis front wall 12mm bent.icpart": {
+  "area": 1355143.586987906,
+  "bbox": [
+   -1.0000025579538487e-07,
+   -420.00000010000014,
+   -160.00000010000014,
+   760.0000001000002,
+   420.0000001,
+   160.00000010000014
+  ],
+  "edges": 76,
+  "errors": [],
+  "faces": 38,
+  "solids": 1,
+  "vertices": 40,
+  "volume": 7792560.5030625835
+ },
+ "examples/walking-excavator/parts/Chassis rear wall 12mm bent.icpart": {
+  "area": 1355143.586987906,
+  "bbox": [
+   -760.0000001000002,
+   -420.0000001,
+   -160.00000010000014,
+   1.0000025579538487e-07,
+   420.00000010000014,
+   160.00000010000014
+  ],
+  "edges": 76,
+  "errors": [],
+  "faces": 38,
+  "solids": 1,
+  "vertices": 40,
+  "volume": 7792560.5030625835
+ },
+ "examples/walking-excavator/parts/Chassis spread ram lug 18mm.icpart": {
+  "area": 19099.458188550554,
+  "bbox": [
+   759.9999999,
+   14.999999899999983,
+   111.99999989999999,
+   845.0000001,
+   105.00000010000001,
+   130.00000010000002
+  ],
+  "edges": 21,
+  "errors": [],
+  "faces": 9,
+  "solids": 1,
+  "vertices": 14,
+  "volume": 100442.3750757984
+ },
+ "examples/walking-excavator/parts/Chassis top plate 20mm.icpart": {
+  "area": 3054179.735081884,
+  "bbox": [
+   -950.0000001000001,
+   -610.0000001,
+   159.99999989999995,
+   950.0000001000001,
+   610.0000001,
+   180.00000010000005
+  ],
+  "edges": 147,
+  "errors": [],
+  "faces": 51,
+  "solids": 1,
+  "vertices": 98,
+  "volume": 28733723.128065027
+ },
+ "examples/walking-excavator/parts/Counterweight casting.icpart": {
+  "area": 3238949.911131754,
+  "bbox": [
+   -1440.0000006,
+   -950.0000006000004,
+   29.9999994,
+   -1199.9999994,
+   950.0000006000001,
+   690.0000006000001
+  ],
+  "edges": 30,
+  "errors": [],
+  "faces": 12,
+  "solids": 1,
+  "vertices": 20,
+  "volume": 243492796.2509243
+ },
+ "examples/walking-excavator/parts/Coupler ear boss.icpart": {
+  "area": 127057.4406734159,
+  "bbox": [
+   -45.0000001,
+   -45.0000001,
+   -128.0000001,
+   45.0000001,
+   45.0000001,
+   128.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 887741.7016097369
+ },
+ "examples/walking-excavator/parts/Coupler pin bush.icpart": {
+  "area": 111128.62208074325,
+  "bbox": [
+   -62.0000001,
+   -62.0000001,
+   -76.0000001,
+   62.0000001,
+   62.0000001,
+   76.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 977719.9311374959
+ },
+ "examples/walking-excavator/parts/Coupler side plate 20mm.icpart": {
+  "area": 242800.2707498854,
+  "bbox": [
+   -70.00000010000001,
+   75.99999989999999,
+   -110.00000010000001,
+   340.0000001,
+   96.00000010000001,
+   290.0000001
+  ],
+  "edges": 51,
+  "errors": [],
+  "faces": 19,
+  "solids": 1,
+  "vertices": 34,
+  "volume": 2036354.0789419296
+ },
+ "examples/walking-excavator/parts/Coupler web 16mm.icpart": {
+  "area": 50224.0,
+  "bbox": [
+   79.99999989999999,
+   -76.00000010000001,
+   -110.00000010000001,
+   215.00000010000002,
+   76.00000010000001,
+   -93.99999989999999
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 328320.0
+ },
+ "examples/walking-excavator/parts/Dipper 12mm web.icpart": {
+  "area": 1217441.5209418223,
+  "bbox": [
+   -408.0000001,
+   97.99999989999998,
+   -189.76746368396053,
+   1780.0000001,
+   110.00000010000002,
+   278.0000001
+  ],
+  "edges": 54,
+  "errors": [],
+  "faces": 20,
+  "solids": 1,
+  "vertices": 36,
+  "volume": 6870254.776211575
+ },
+ "examples/walking-excavator/parts/Dipper bottom cap 10mm.icpart": {
+  "area": 732898.2987382415,
+  "bbox": [
+   -180.00000010000005,
+   -98.00000010000005,
+   -189.7674636839607,
+   1550.000000100002,
+   98.00000010000005,
+   -15.965768483917374
+  ],
+  "edges": 60,
+  "errors": [],
+  "faces": 30,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 3467955.0134149315
+ },
+ "examples/walking-excavator/parts/Dipper bucket ram lug 16mm.icpart": {
+  "area": 76538.55447847758,
+  "bbox": [
+   339.9999999,
+   31.99999989999999,
+   165.1874999,
+   575.0000001,
+   48.00000010000001,
+   390.0000001
+  ],
+  "edges": 30,
+  "errors": [],
+  "faces": 12,
+  "solids": 1,
+  "vertices": 20,
+  "volume": 487711.35998540645
+ },
+ "examples/walking-excavator/parts/Dipper heel closure plate.icpart": {
+  "area": 112393.38203757111,
+  "bbox": [
+   -180.0000001,
+   -98.0000001,
+   -13.201658868709819,
+   -167.9999999,
+   98.0000001,
+   245.66704815237458
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 608859.1984431905
+ },
+ "examples/walking-excavator/parts/Dipper heel pin.icpart": {
+  "area": 54651.082333710816,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -110.0000001,
+   42.0000001,
+   42.0000001,
+   120.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 676565.0162966882
+ },
+ "examples/walking-excavator/parts/Dipper heel spacer.icpart": {
+  "area": 34839.61442029123,
+  "bbox": [
+   -45.0000001,
+   -45.0000001,
+   -1e-07,
+   45.0000001,
+   45.0000001,
+   60.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 208018.51552222332
+ },
+ "examples/walking-excavator/parts/Dipper idler boss.icpart": {
+  "area": 119810.58065938004,
+  "bbox": [
+   -50.0000001,
+   -50.0000001,
+   -110.0000001,
+   50.0000001,
+   50.0000001,
+   110.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 1090566.8189003845
+ },
+ "examples/walking-excavator/parts/Dipper ram barrel.icpart": {
+  "area": 840144.3151194814,
+  "bbox": [
+   -69.6000006,
+   -87.6000006,
+   -55.0000006,
+   69.6000006,
+   69.6000006,
+   1033.0000006
+  ],
+  "edges": 238,
+  "errors": [],
+  "faces": 87,
+  "solids": 1,
+  "vertices": 158,
+  "volume": 4764592.490734566
+ },
+ "examples/walking-excavator/parts/Dipper ram gland.icpart": {
+  "area": 66619.9203919456,
+  "bbox": [
+   -67.60000009999999,
+   -67.60000009999999,
+   982.9999999,
+   67.60000009999999,
+   67.60000009999999,
+   1059.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 7,
+  "volume": 636214.4002539811
+ },
+ "examples/walking-excavator/parts/Dipper ram rod.icpart": {
+  "area": 205632.34052458723,
+  "bbox": [
+   -35.0000001,
+   -55.0000001,
+   -55.0000001,
+   35.0000001,
+   55.0000001,
+   711.0000001
+  ],
+  "edges": 76,
+  "errors": [],
+  "faces": 28,
+  "solids": 1,
+  "vertices": 50,
+  "volume": 3216005.435668823
+ },
+ "examples/walking-excavator/parts/Dipper root boss.icpart": {
+  "area": 288459.05076277314,
+  "bbox": [
+   -95.0000001,
+   -95.0000001,
+   -134.0000001,
+   95.0000001,
+   95.0000001,
+   134.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 5018505.391559361
+ },
+ "examples/walking-excavator/parts/Dipper tip closure plate.icpart": {
+  "area": 75949.09448276498,
+  "bbox": [
+   1537.9999998999997,
+   -98.00000010000022,
+   -83.04037214016486,
+   1550.0000001000003,
+   98.00000010000022,
+   88.22187441263604
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 402808.8034217866
+ },
+ "examples/walking-excavator/parts/Dipper top cap 10mm.icpart": {
+  "area": 720442.5437910621,
+  "bbox": [
+   -181.38093058449735,
+   -98.00000010000024,
+   88.79419875161871,
+   1550.0000001,
+   98.00000010000024,
+   257.8401947164986
+  ],
+  "edges": 44,
+  "errors": [],
+  "faces": 22,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 3408699.4801710714
+ },
+ "examples/walking-excavator/parts/Door hinge knuckle.icpart": {
+  "area": 15527.698681485981,
+  "bbox": [
+   -18.0000001,
+   -18.0000001,
+   -1e-07,
+   18.0000001,
+   18.0000001,
+   90.0000001
+  ],
+  "edges": 6,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 80386.75866079026
+ },
+ "examples/walking-excavator/parts/Engine hood 3mm bent.icpart": {
+  "area": 6756959.308596597,
+  "bbox": [
+   -1200.0000006000002,
+   -990.0000006000002,
+   29.999999399999773,
+   330.00000060000025,
+   -129.99999939999972,
+   760.0000006000004
+  ],
+  "edges": 564,
+  "errors": [],
+  "faces": 190,
+  "solids": 1,
+  "vertices": 376,
+  "volume": 10051652.012650276
+ },
+ "examples/walking-excavator/parts/Engine power pack envelope.icpart": {
+  "area": 1776000.0,
+  "bbox": [
+   -940.0000001,
+   -900.0000001,
+   299.9999999,
+   -339.9999999,
+   -199.9999999,
+   660.0000001
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 151200000.0
+ },
+ "examples/walking-excavator/parts/Exhaust stack.icpart": {
+  "area": 174471.48960976274,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   659.9999999,
+   42.0000001,
+   42.0000001,
+   1010.0000001
+  ],
+  "edges": 6,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 514592.87665800797
+ },
+ "examples/walking-excavator/parts/Hip bracket bottom plate 25mm.icpart": {
+  "area": 187866.57037854887,
+  "bbox": [
+   -147.00000010000005,
+   -147.00000010000005,
+   -150.00000010000002,
+   180.00000010000002,
+   147.00000010000005,
+   -124.99999989999996
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 1884460.4716244522
+ },
+ "examples/walking-excavator/parts/Hip bracket cheek 25mm.icpart": {
+  "area": 491607.7737417037,
+  "bbox": [
+   -1.0000001421085471e-07,
+   121.99999989999999,
+   -125.00000010000001,
+   586.0000001,
+   147.00000010000002,
+   568.0000001
+  ],
+  "edges": 45,
+  "errors": [],
+  "faces": 17,
+  "solids": 1,
+  "vertices": 30,
+  "volume": 5305006.252419772
+ },
+ "examples/walking-excavator/parts/Hip bracket top plate 25mm.icpart": {
+  "area": 164355.86437466386,
+  "bbox": [
+   -122.00000010000004,
+   -122.00000010000004,
+   124.99999989999998,
+   215.00000010000002,
+   122.00000010000004,
+   150.00000010000002
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 1608870.3391820602
+ },
+ "examples/walking-excavator/parts/Hip spread ram lug 18mm.icpart": {
+  "area": 24696.053100213074,
+  "bbox": [
+   169.99999989999998,
+   146.99999989999998,
+   111.99999989999999,
+   270.0000001,
+   250.00000010000002,
+   130.00000010000002
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 142782.69420664958
+ },
+ "examples/walking-excavator/parts/Hip swivel pin.icpart": {
+  "area": 171830.6387155476,
+  "bbox": [
+   -72.0000001,
+   -72.0000001,
+   -180.0000001,
+   72.0000001,
+   72.0000001,
+   190.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 4232722.23645419
+ },
+ "examples/walking-excavator/parts/Hip swivel tube.icpart": {
+  "area": 289552.4909254874,
+  "bbox": [
+   -100.0000001,
+   -100.0000001,
+   -125.0000001,
+   100.0000001,
+   100.0000001,
+   125.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 4992604.90791796
+ },
+ "examples/walking-excavator/parts/Hood front closure 3mm.icpart": {
+  "area": 1251047.4866776462,
+  "bbox": [
+   326.9999998999999,
+   -987.0000001000001,
+   29.999999899999942,
+   330.0000001000001,
+   -132.99999989999995,
+   757.0000001000001
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 1862388.5840131752
+ },
+ "examples/walking-excavator/parts/Hydraulic hub motor housing.icpart": {
+  "area": 201114.34323990226,
+  "bbox": [
+   -140.0000001,
+   -140.0000001,
+   -40.0000001,
+   140.0000001,
+   140.0000001,
+   48.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 4336101.830035731
+ },
+ "examples/walking-excavator/parts/Hydraulic rotary union.icpart": {
+  "area": 311361.9615981547,
+  "bbox": [
+   -110.0000001,
+   -110.0000001,
+   179.9999999,
+   110.0000001,
+   110.0000001,
+   640.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 10252718.524684189
+ },
+ "examples/walking-excavator/parts/Hydraulic tank filler cap.icpart": {
+  "area": 20910.568766203505,
+  "bbox": [
+   -45.0000001,
+   -45.0000001,
+   762.9999999,
+   45.0000001,
+   45.0000001,
+   795.0000001
+  ],
+  "edges": 5,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 3,
+  "volume": 200171.81191122968
+ },
+ "examples/walking-excavator/parts/Idler link 16mm.icpart": {
+  "area": 60778.88309467146,
+  "bbox": [
+   9.396034245604797,
+   -16.000000100000058,
+   -48.855185502203916,
+   310.60396575439523,
+   1.0000005684341886e-07,
+   48.855185502203916
+  ],
+  "edges": 39,
+  "errors": [],
+  "faces": 15,
+  "solids": 1,
+  "vertices": 26,
+  "volume": 386062.65461282554
+ },
+ "examples/walking-excavator/parts/Idler pin.icpart": {
+  "area": 61436.92246546477,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -128.0000001,
+   42.0000001,
+   42.0000001,
+   138.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 778352.6182729976
+ },
+ "examples/walking-excavator/parts/Joystick grip.icpart": {
+  "area": 21819.663599988286,
+  "bbox": [
+   -24.0000001,
+   -24.0000001,
+   -1e-07,
+   24.0000001,
+   24.0000001,
+   192.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 185178.0373731968
+ },
+ "examples/walking-excavator/parts/LED work lamp.icpart": {
+  "area": 64883.18530717958,
+  "bbox": [
+   -1.000000044408921e-07,
+   -70.00000010000001,
+   1743.9999999,
+   90.00000010000001,
+   70.00000010000001,
+   1834.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 1126274.333882308
+ },
+ "examples/walking-excavator/parts/Leg 14mm web.icpart": {
+  "area": 879005.8259936882,
+  "bbox": [
+   -114.00000010000004,
+   105.99999989999996,
+   -174.8425194800832,
+   1599.0000001,
+   120.00000010000004,
+   149.9687058422761
+  ],
+  "edges": 42,
+  "errors": [],
+  "faces": 16,
+  "solids": 1,
+  "vertices": 28,
+  "volume": 5678386.088379726
+ },
+ "examples/walking-excavator/parts/Leg bottom cap 14mm.icpart": {
+  "area": 699695.6268751695,
+  "bbox": [
+   -16.082116961180972,
+   -106.00000010000024,
+   -174.8425194800834,
+   1512.6739478878644,
+   106.00000010000024,
+   -84.30058831441649
+  ],
+  "edges": 44,
+  "errors": [],
+  "faces": 22,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 4555483.567622796
+ },
+ "examples/walking-excavator/parts/Leg circuit manifold.icpart": {
+  "area": 211286.5832897109,
+  "bbox": [
+   469.9999999,
+   -120.0000001,
+   179.9999999,
+   700.0000001,
+   120.0000001,
+   290.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 6058402.827632863
+ },
+ "examples/walking-excavator/parts/Leg distal pin.icpart": {
+  "area": 114843.07277795997,
+  "bbox": [
+   -57.0000001,
+   -57.0000001,
+   -162.0000001,
+   57.0000001,
+   57.0000001,
+   172.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 2162004.27069355
+ },
+ "examples/walking-excavator/parts/Leg lift pin.icpart": {
+  "area": 119576.09744319152,
+  "bbox": [
+   -62.0000001,
+   -62.0000001,
+   -147.0000001,
+   62.0000001,
+   62.0000001,
+   157.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 2428442.7436445006
+ },
+ "examples/walking-excavator/parts/Leg lift ram barrel.icpart": {
+  "area": 651956.040066232,
+  "bbox": [
+   -63.800000600000004,
+   -81.8000006,
+   -45.00000060000001,
+   63.800000600000004,
+   63.800000600000004,
+   867.0000006
+  ],
+  "edges": 226,
+  "errors": [],
+  "faces": 84,
+  "solids": 1,
+  "vertices": 150,
+  "volume": 3229892.9776381147
+ },
+ "examples/walking-excavator/parts/Leg lift ram base lug 18mm.icpart": {
+  "area": 46342.24094092651,
+  "bbox": [
+   -1.0000000710542735e-07,
+   31.99999989999999,
+   114.40859113270236,
+   155.0000001,
+   50.00000010000001,
+   287.0000001
+  ],
+  "edges": 27,
+  "errors": [],
+  "faces": 11,
+  "solids": 1,
+  "vertices": 18,
+  "volume": 300790.2675447399
+ },
+ "examples/walking-excavator/parts/Leg lift ram gland.icpart": {
+  "area": 59316.78715544956,
+  "bbox": [
+   -61.8000001,
+   -61.8000001,
+   816.9999999,
+   61.8000001,
+   61.8000001,
+   893.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 7,
+  "volume": 533445.6160601025
+ },
+ "examples/walking-excavator/parts/Leg lift ram rod lug 18mm.icpart": {
+  "area": 39786.73819440072,
+  "bbox": [
+   1294.9999999,
+   31.9999999,
+   -207.0000001,
+   1470.0000001,
+   50.0000001,
+   -67.12801726372946
+  ],
+  "edges": 27,
+  "errors": [],
+  "faces": 11,
+  "solids": 1,
+  "vertices": 18,
+  "volume": 246525.7097527711
+ },
+ "examples/walking-excavator/parts/Leg lift ram rod.icpart": {
+  "area": 178176.1166345323,
+  "bbox": [
+   -32.0000006,
+   -45.0000006,
+   -45.0000006,
+   32.0000006,
+   45.0000006,
+   719.0000006
+  ],
+  "edges": 83,
+  "errors": [],
+  "faces": 30,
+  "solids": 1,
+  "vertices": 55,
+  "volume": 2559511.6411144654
+ },
+ "examples/walking-excavator/parts/Leg link 10mm web.icpart": {
+  "area": 515727.3984908568,
+  "bbox": [
+   -65.00000010000002,
+   109.99999989999998,
+   -85.00000010000002,
+   1565.0000001,
+   120.00000010000002,
+   85.00000010000002
+  ],
+  "edges": 42,
+  "errors": [],
+  "faces": 16,
+  "solids": 1,
+  "vertices": 28,
+  "volume": 2373526.7602860834
+ },
+ "examples/walking-excavator/parts/Leg link bottom cap 10mm.icpart": {
+  "area": 698657.364550538,
+  "bbox": [
+   -4.293119671699359,
+   -110.00000010000022,
+   -85.00000010000022,
+   1504.293119671699,
+   110.00000010000022,
+   -54.87990450326384
+  ],
+  "edges": 44,
+  "errors": [],
+  "faces": 22,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 3320361.3087199638
+ },
+ "examples/walking-excavator/parts/Leg link pin.icpart": {
+  "area": 93459.60704870257,
+  "bbox": [
+   -52.0000001,
+   -52.0000001,
+   -147.0000001,
+   52.0000001,
+   52.0000001,
+   157.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 1561614.498666005
+ },
+ "examples/walking-excavator/parts/Leg link root boss.icpart": {
+  "area": 151273.1686858162,
+  "bbox": [
+   -55.0000001,
+   -55.0000001,
+   -120.0000001,
+   55.0000001,
+   55.0000001,
+   120.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 1053207.6273824254
+ },
+ "examples/walking-excavator/parts/Leg link tip boss.icpart": {
+  "area": 151273.1686858162,
+  "bbox": [
+   -55.0000001,
+   -55.0000001,
+   -120.0000001,
+   55.0000001,
+   55.0000001,
+   120.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 1053207.6273824254
+ },
+ "examples/walking-excavator/parts/Leg link top cap 10mm.icpart": {
+  "area": 698657.364550538,
+  "bbox": [
+   -4.293119671699359,
+   -110.00000010000022,
+   54.87990450326384,
+   1504.293119671699,
+   110.00000010000022,
+   85.00000010000022
+  ],
+  "edges": 44,
+  "errors": [],
+  "faces": 22,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 3320361.3087199638
+ },
+ "examples/walking-excavator/parts/Leg root boss.icpart": {
+  "area": 271350.1030905882,
+  "bbox": [
+   -100.0000001,
+   -100.0000001,
+   -120.0000001,
+   100.0000001,
+   100.0000001,
+   120.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 5626581.132845768
+ },
+ "examples/walking-excavator/parts/Leg spread ram barrel.icpart": {
+  "area": 184308.9479331163,
+  "bbox": [
+   -43.0000006,
+   -61.0000006,
+   -35.0000006,
+   43.0000006,
+   43.0000006,
+   371.0000006
+  ],
+  "edges": 238,
+  "errors": [],
+  "faces": 87,
+  "solids": 1,
+  "vertices": 158,
+  "volume": 879368.4387569563
+ },
+ "examples/walking-excavator/parts/Leg spread ram gland.icpart": {
+  "area": 34757.68460760991,
+  "bbox": [
+   -41.0000001,
+   -41.0000001,
+   320.9999999,
+   41.0000001,
+   41.0000001,
+   397.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 7,
+  "volume": 228372.33931012946
+ },
+ "examples/walking-excavator/parts/Leg spread ram rod.icpart": {
+  "area": 54888.767290747805,
+  "bbox": [
+   -20.0000001,
+   -35.0000001,
+   -35.0000001,
+   20.0000001,
+   35.0000001,
+   277.0000001
+  ],
+  "edges": 76,
+  "errors": [],
+  "faces": 28,
+  "solids": 1,
+  "vertices": 50,
+  "volume": 482473.1576745312
+ },
+ "examples/walking-excavator/parts/Leg tip boss.icpart": {
+  "area": 227089.5913919585,
+  "bbox": [
+   -85.0000001,
+   -85.0000001,
+   -120.0000001,
+   85.0000001,
+   85.0000001,
+   120.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 3895532.164791255
+ },
+ "examples/walking-excavator/parts/Leg top cap 14mm.icpart": {
+  "area": 694584.9418471009,
+  "bbox": [
+   -9.626024379588848,
+   -106.00000010000024,
+   84.44086214183534,
+   1511.336650542752,
+   106.00000010000024,
+   149.96870584227628
+  ],
+  "edges": 44,
+  "errors": [],
+  "faces": 22,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 4521924.910181849
+ },
+ "examples/walking-excavator/parts/Lift ram pin.icpart": {
+  "area": 26167.617207340452,
+  "bbox": [
+   -37.0000001,
+   -37.0000001,
+   -50.0000001,
+   37.0000001,
+   37.0000001,
+   60.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 238595.58445973526
+ },
+ "examples/walking-excavator/parts/Linkage joint pin.icpart": {
+  "area": 69730.72707094184,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -150.0000001,
+   42.0000001,
+   42.0000001,
+   160.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 902759.6873551535
+ },
+ "examples/walking-excavator/parts/Linkage spacer sleeve.icpart": {
+  "area": 39370.243905812764,
+  "bbox": [
+   -42.0000001,
+   -42.0000001,
+   -1e-07,
+   42.0000001,
+   42.0000001,
+   76.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 201383.66033340088
+ },
+ "examples/walking-excavator/parts/Mirror arm.icpart": {
+  "area": 41859.85833889458,
+  "bbox": [
+   742.0677614789427,
+   999.999999899995,
+   1487.999999899995,
+   920.000000100005,
+   1197.9322385210576,
+   1512.000000100005
+  ],
+  "edges": 14,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 62196.026496813385
+ },
+ "examples/walking-excavator/parts/Mirror head.icpart": {
+  "area": 116044.45894774176,
+  "bbox": [
+   -1.0000000532907051e-07,
+   -180.0000001,
+   -1.0000000532907051e-07,
+   40.0000001,
+   1.0000000355271367e-07,
+   240.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 1705750.0815810473
+ },
+ "examples/walking-excavator/parts/Operator seat base.icpart": {
+  "area": 903412.3859659494,
+  "bbox": [
+   -400.0000001,
+   324.9999999,
+   139.9999999,
+   20.000000100000005,
+   785.0000001,
+   440.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 57856991.11843077
+ },
+ "examples/walking-excavator/parts/Operator seat.icpart": {
+  "area": 1389992.12026877,
+  "bbox": [
+   -467.4219512452967,
+   304.99999989999975,
+   439.99999989999975,
+   50.00000010000024,
+   805.0000001000002,
+   1190.0000001000003
+  ],
+  "edges": 46,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 30,
+  "volume": 54818242.18055009
+ },
+ "examples/walking-excavator/parts/Quick coupler hook 20mm.icpart": {
+  "area": 45717.983763580145,
+  "bbox": [
+   354.9999999,
+   163.9999999,
+   -105.00000010000001,
+   440.0000001,
+   184.0000001,
+   125.00000010000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 261894.8904840665
+ },
+ "examples/walking-excavator/parts/Quick coupler plate 25mm.icpart": {
+  "area": 255167.25575684628,
+  "bbox": [
+   329.9999999,
+   -200.0000001,
+   -130.0000001,
+   355.0000001,
+   200.0000001,
+   150.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 2780685.83470577
+ },
+ "examples/walking-excavator/parts/Radiator cowl 3mm bent.icpart": {
+  "area": 3091272.230432983,
+  "bbox": [
+   -1200.0000001,
+   -130.0000001,
+   29.9999999,
+   -559.9999999,
+   1000.0000001,
+   760.0000001000002
+  ],
+  "edges": 28,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 4614487.493895769
+ },
+ "examples/walking-excavator/parts/Radiator grille 3mm.icpart": {
+  "area": 681281.5051642507,
+  "bbox": [
+   -1197.0000006,
+   999.9999994,
+   29.9999994,
+   -562.9999994,
+   1003.0000006,
+   757.0000006
+  ],
+  "edges": 228,
+  "errors": [],
+  "faces": 78,
+  "solids": 1,
+  "vertices": 152,
+  "volume": 966096.6916772042
+ },
+ "examples/walking-excavator/parts/Rotator hydraulic motor.icpart": {
+  "area": 58321.19694722331,
+  "bbox": [
+   -55.0000001,
+   -55.0000001,
+   -1e-07,
+   55.0000001,
+   55.0000001,
+   120.0000001
+  ],
+  "edges": 5,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 3,
+  "volume": 1124166.5712095476
+ },
+ "examples/walking-excavator/parts/Rotator mount plate 30mm.icpart": {
+  "area": 166043.18530717952,
+  "bbox": [
+   149.99999989999998,
+   -120.00000010000002,
+   -142.00000010000002,
+   180.00000010000002,
+   120.00000010000002,
+   142.00000010000002
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 2034499.1118430775
+ },
+ "examples/walking-excavator/parts/Rotator output flange.icpart": {
+  "area": 199092.45609250394,
+  "bbox": [
+   -165.0000001,
+   -165.0000001,
+   299.9999999,
+   165.0000001,
+   165.0000001,
+   330.0000001
+  ],
+  "edges": 5,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 3,
+  "volume": 2553067.629817305
+ },
+ "examples/walking-excavator/parts/Seat console L.icpart": {
+  "area": 663777.835790967,
+  "bbox": [
+   -330.0000001,
+   804.9999999,
+   139.9999999,
+   100.0000001,
+   905.0000001,
+   700.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 23956938.72281863
+ },
+ "examples/walking-excavator/parts/Seat console R.icpart": {
+  "area": 663777.835790967,
+  "bbox": [
+   -330.0000001,
+   204.9999999,
+   139.9999999,
+   100.0000001,
+   305.0000001,
+   700.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 23956938.72281863
+ },
+ "examples/walking-excavator/parts/Side cutter bolt M20.icpart": {
+  "area": 2707.627548315531,
+  "bbox": [
+   -16.690599023241496,
+   -14.722431964335458,
+   -1.0000000088817842e-07,
+   16.690599023241496,
+   14.72243196433546,
+   12.000000100000001
+  ],
+  "edges": 36,
+  "errors": [],
+  "faces": 14,
+  "solids": 1,
+  "vertices": 24,
+  "volume": 8994.647870818999
+ },
+ "examples/walking-excavator/parts/Slew bearing inner race.icpart": {
+  "area": 546510.0194663283,
+  "bbox": [
+   -448.0000001,
+   -448.0000001,
+   -38.0000001,
+   448.0000001,
+   448.0000001,
+   1.000000002220446e-07
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 6715274.462967183
+ },
+ "examples/walking-excavator/parts/Slew bearing outer race.icpart": {
+  "area": 694092.4884592067,
+  "bbox": [
+   -520.0000001,
+   -520.0000001,
+   559.9999999,
+   520.0000001,
+   520.0000001,
+   598.0000001
+  ],
+  "edges": 80,
+  "errors": [],
+  "faces": 29,
+  "solids": 1,
+  "vertices": 53,
+  "volume": 7763985.4764246605
+ },
+ "examples/walking-excavator/parts/Slew bolt M20.icpart": {
+  "area": 6969.766963403321,
+  "bbox": [
+   -18.0000001,
+   -18.0000001,
+   523.9999999,
+   18.0000001,
+   18.0000001,
+   596.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 32829.643230013346
+ },
+ "examples/walking-excavator/parts/Slew pedestal flange 20mm.icpart": {
+  "area": 789130.3754699124,
+  "bbox": [
+   -500.0000001,
+   -500.0000001,
+   539.9999999,
+   500.0000001,
+   500.0000001,
+   560.0000001
+  ],
+  "edges": 78,
+  "errors": [],
+  "faces": 28,
+  "solids": 1,
+  "vertices": 52,
+  "volume": 6468790.601153666
+ },
+ "examples/walking-excavator/parts/Slew pedestal tube 25mm.icpart": {
+  "area": 1836914.1165903325,
+  "bbox": [
+   -440.0000001,
+   -440.0000001,
+   179.99999989999998,
+   440.0000001,
+   440.0000001,
+   540.0000001
+  ],
+  "edges": 54,
+  "errors": [],
+  "faces": 20,
+  "solids": 1,
+  "vertices": 36,
+  "volume": 20618302.05681376
+ },
+ "examples/walking-excavator/parts/Spread ram pin.icpart": {
+  "area": 18104.504329303745,
+  "bbox": [
+   -32.0000001,
+   -32.0000001,
+   -40.0000001,
+   32.0000001,
+   32.0000001,
+   50.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 132064.17757650532
+ },
+ "examples/walking-excavator/parts/Steering arm 12mm.icpart": {
+  "area": 30485.276542026004,
+  "bbox": [
+   -45.00000010000006,
+   -41.671401366787634,
+   261.9999998999999,
+   150.00000010000005,
+   41.671401366787634,
+   274.0000001000001
+  ],
+  "edges": 27,
+  "errors": [],
+  "faces": 11,
+  "solids": 1,
+  "vertices": 18,
+  "volume": 131694.77329104324
+ },
+ "examples/walking-excavator/parts/Steering kingpin.icpart": {
+  "area": 78193.50130902493,
+  "bbox": [
+   -25.0000001,
+   -25.0000001,
+   -200.0000001,
+   25.0000001,
+   25.0000001,
+   274.0000001
+  ],
+  "edges": 5,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 3,
+  "volume": 930391.041941027
+ },
+ "examples/walking-excavator/parts/Steering knuckle RH.icpart": {
+  "area": 306209.0685699648,
+  "bbox": [
+   -150.0000001,
+   -90.0000001,
+   -158.0000001,
+   150.0000001,
+   45.0000001,
+   158.0000001
+  ],
+  "edges": 201,
+  "errors": [],
+  "faces": 71,
+  "solids": 2,
+  "vertices": 134,
+  "volume": 3149336.9160398105
+ },
+ "examples/walking-excavator/parts/Steering knuckle.icpart": {
+  "area": 306209.0685699648,
+  "bbox": [
+   -150.0000001,
+   -45.0000001,
+   -158.0000001,
+   150.0000001,
+   90.0000001,
+   158.0000001
+  ],
+  "edges": 201,
+  "errors": [],
+  "faces": 71,
+  "solids": 2,
+  "vertices": 134,
+  "volume": 3149336.9160398105
+ },
+ "examples/walking-excavator/parts/Steering ram barrel.icpart": {
+  "area": 67426.90181189425,
+  "bbox": [
+   -33.0000006,
+   -51.0000006,
+   -20.0000006,
+   33.0000006,
+   33.0000006,
+   187.0000006
+  ],
+  "edges": 230,
+  "errors": [],
+  "faces": 83,
+  "solids": 1,
+  "vertices": 152,
+  "volume": 307401.4663664971
+ },
+ "examples/walking-excavator/parts/Steering ram gland.icpart": {
+  "area": 24052.59113457103,
+  "bbox": [
+   -31.0000001,
+   -31.0000001,
+   136.9999999,
+   31.0000001,
+   31.0000001,
+   213.0000001
+  ],
+  "edges": 11,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 7,
+  "volume": 125669.90555309481
+ },
+ "examples/walking-excavator/parts/Steering ram pin.icpart": {
+  "area": 9249.123207466178,
+  "bbox": [
+   -24.0000001,
+   -24.0000001,
+   -29.0000001,
+   24.0000001,
+   24.0000001,
+   39.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 43959.65150321248
+ },
+ "examples/walking-excavator/parts/Steering ram rod.icpart": {
+  "area": 25481.918353148147,
+  "bbox": [
+   -15.0000001,
+   -20.0000001,
+   -20.0000001,
+   15.0000001,
+   20.0000001,
+   193.0000001
+  ],
+  "edges": 71,
+  "errors": [],
+  "faces": 27,
+  "solids": 1,
+  "vertices": 47,
+  "volume": 156001.44008665057
+ },
+ "examples/walking-excavator/parts/Swivel thrust washer.icpart": {
+  "area": 48443.937325558385,
+  "bbox": [
+   -100.0000001,
+   -100.0000001,
+   -1e-07,
+   100.0000001,
+   100.0000001,
+   9.5000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 188525.07447836807
+ },
+ "examples/walking-excavator/parts/Tilt yoke plate 30mm.icpart": {
+  "area": 144748.66776461632,
+  "bbox": [
+   -120.00000010000004,
+   -120.00000010000004,
+   111.99999989999998,
+   150.00000010000002,
+   120.00000010000004,
+   142.00000010000002
+  ],
+  "edges": 15,
+  "errors": [],
+  "faces": 7,
+  "solids": 1,
+  "vertices": 10,
+  "volume": 1758584.0131753956
+ },
+ "examples/walking-excavator/parts/Tiltrotator rotary tilt actuator.icpart": {
+  "area": 137896.13224872833,
+  "bbox": [
+   -76.0000001,
+   -76.0000001,
+   -110.0000001,
+   76.0000001,
+   76.0000001,
+   110.0000001
+  ],
+  "edges": 7,
+  "errors": [],
+  "faces": 5,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 3975346.211111296
+ },
+ "examples/walking-excavator/parts/Tiltrotator rotator housing.icpart": {
+  "area": 267437.8892446985,
+  "bbox": [
+   -160.0000001,
+   -160.0000001,
+   179.9999999,
+   160.0000001,
+   160.0000001,
+   298.0000001
+  ],
+  "edges": 7,
+  "errors": [],
+  "faces": 5,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 9391686.518151566
+ },
+ "examples/walking-excavator/parts/Travel pedal.icpart": {
+  "area": 32137.8406140636,
+  "bbox": [
+   389.9999999,
+   -50.0000001,
+   139.9999999,
+   520.0000001,
+   50.0000001,
+   154.0000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 181230.86701761646
+ },
+ "examples/walking-excavator/parts/Tyre 1400x650 balloon.icpart": {
+  "area": 9872647.499981351,
+  "bbox": [
+   -729.5271645110478,
+   -729.5271645110479,
+   -316.2962994217707,
+   729.5271645110479,
+   729.5271645110478,
+   316.2962994217707
+  ],
+  "edges": 2072,
+  "errors": [],
+  "faces": 682,
+  "solids": 1,
+  "vertices": 1390,
+  "volume": 215456001.1715901
+ },
+ "examples/walking-excavator/parts/Upper deck plate 30mm.icpart": {
+  "area": 9577526.658033717,
+  "bbox": [
+   -1420.0000001,
+   -1000.0000001000001,
+   -1.0000005684341886e-07,
+   1100.0000001,
+   1000.0000001000001,
+   30.000000100000058
+  ],
+  "edges": 57,
+  "errors": [],
+  "faces": 21,
+  "solids": 1,
+  "vertices": 38,
+  "volume": 139554118.2314994
+ },
+ "examples/walking-excavator/parts/Wheel hub.icpart": {
+  "area": 544819.1534819147,
+  "bbox": [
+   -215.00000010000002,
+   -215.00000010000002,
+   49.99999989999997,
+   215.00000010000002,
+   215.00000010000002,
+   285.0000001
+  ],
+  "edges": 52,
+  "errors": [],
+  "faces": 22,
+  "solids": 1,
+  "vertices": 34,
+  "volume": 9028642.552666271
+ },
+ "examples/walking-excavator/parts/Wheel nut M20.icpart": {
+  "area": 3840.3428747365833,
+  "bbox": [
+   -17.00000010000003,
+   -14.722431964335485,
+   180.51851841851848,
+   17.00000010000003,
+   14.722431964335486,
+   198.51851861851853
+  ],
+  "edges": 21,
+  "errors": [],
+  "faces": 9,
+  "solids": 1,
+  "vertices": 14,
+  "volume": 7860.325674998325
+ },
+ "examples/walking-excavator/parts/Wheel rim 30in dished.icpart": {
+  "area": 3401496.2300500963,
+  "bbox": [
+   -412.2222223222223,
+   -412.2222223222223,
+   -278.7037038037038,
+   412.2222223222223,
+   412.2222223222223,
+   278.7037038037038
+  ],
+  "edges": 100,
+  "errors": [],
+  "faces": 42,
+  "solids": 1,
+  "vertices": 62,
+  "volume": 24214720.46431662
+ },
+ "examples/walking-excavator/parts/Wheel spindle nut.icpart": {
+  "area": 48248.43444817061,
+  "bbox": [
+   -88.0000001,
+   -88.0000001,
+   287.9999999,
+   88.0000001,
+   88.0000001,
+   314.0000001
+  ],
+  "edges": 10,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 6,
+  "volume": 333568.024772857
+ },
+ "examples/walking-excavator/parts/Wheel spindle.icpart": {
+  "area": 162790.27655082228,
+  "bbox": [
+   -60.0000001,
+   -60.0000001,
+   -55.0000001,
+   60.0000001,
+   60.0000001,
+   318.0000001
+  ],
+  "edges": 5,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 3,
+  "volume": 4217785.010583923
+ },
+ "examples/walking-excavator/parts/Wheel stud M20.icpart": {
+  "area": 5780.530482605221,
+  "bbox": [
+   -10.0000001,
+   -10.0000001,
+   126.51851841851851,
+   10.0000001,
+   10.0000001,
+   208.5185186185185
+  ],
+  "edges": 3,
+  "errors": [],
+  "faces": 3,
+  "solids": 1,
+  "vertices": 2,
+  "volume": 25761.059759436306
+ },
+ "examples/walking-excavator/parts/Wiper arm.icpart": {
+  "area": 37430.44455969107,
+  "bbox": [
+   -1.0000000088817842e-07,
+   -8.98515785043702,
+   -800.0000001,
+   8.000000100000001,
+   8.98515785043702,
+   10.000000100000001
+  ],
+  "edges": 24,
+  "errors": [],
+  "faces": 10,
+  "solids": 1,
+  "vertices": 16,
+  "volume": 97113.94911352839
+ },
+ "examples/walking-excavator/parts/Wiper blade.icpart": {
+  "area": 35640.0,
+  "bbox": [
+   -1e-07,
+   -5.0000001,
+   -790.0000001,
+   18.0000001,
+   5.0000001,
+   -159.9999999
+  ],
+  "edges": 12,
+  "errors": [],
+  "faces": 6,
+  "solids": 1,
+  "vertices": 8,
+  "volume": 113400.0
+ },
+ "examples/walking-excavator/parts/Wiper spindle housing.icpart": {
+  "area": 3162.566523780534,
+  "bbox": [
+   -14.0000001,
+   -14.0000001,
+   -1e-07,
+   14.0000001,
+   14.0000001,
+   26.0000001
+  ],
+  "edges": 5,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 3,
+  "volume": 14652.388136342794
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00001.icpart": {
+  "area": 989178.6086874851,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1680.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1973658.0315854796
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00002.icpart": {
+  "area": 989178.6086874851,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1680.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1973658.0315854796
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00003.icpart": {
+  "area": 701353.4790812691,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1190.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1398007.7723730477
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00004.icpart": {
+  "area": 701353.4790812691,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1190.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1398007.7723730477
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00005.icpart": {
+  "area": 895194.8928977003,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1520.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1785690.6000059117
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00006.icpart": {
+  "area": 243182.86460606812,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   410.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 481666.54342264705
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00007.icpart": {
+  "area": 989178.6086874851,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1680.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1973658.0315854796
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00008.icpart": {
+  "area": 989178.6086874851,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1680.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1973658.0315854796
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00009.icpart": {
+  "area": 701353.4790812691,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1190.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1398007.7723730477
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00010.icpart": {
+  "area": 701353.4790812691,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1190.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1398007.7723730477
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00011.icpart": {
+  "area": 701353.4790812691,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   1190.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 1398007.7723730477
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00012.icpart": {
+  "area": 431150.2961856378,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   730.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 857601.4065817858
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00013.icpart": {
+  "area": 431150.2961856378,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   730.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 857601.4065817858
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00014.icpart": {
+  "area": 431150.2961856378,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   730.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 857601.4065817858
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00015.icpart": {
+  "area": 431150.2961856378,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   730.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 857601.4065817858
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/DIN EN 10219-2 80 x 80 x 4 00016.icpart": {
+  "area": 431150.2961856378,
+  "bbox": [
+   -40.0000001,
+   -40.0000001,
+   -1e-07,
+   40.0000001,
+   40.0000001,
+   730.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 857601.4065817858
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00018.icpart": {
+  "area": 8470.3621126088,
+  "bbox": [
+   -16.850000100000003,
+   -16.850000100000003,
+   -1e-07,
+   16.850000100000003,
+   16.850000100000003,
+   41.0000001
+  ],
+  "edges": 6,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 12571.397162604913
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00019.icpart": {
+  "area": 8470.3621126088,
+  "bbox": [
+   -16.850000100000003,
+   -16.850000100000003,
+   -1e-07,
+   16.850000100000003,
+   16.850000100000003,
+   41.0000001
+  ],
+  "edges": 6,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 12571.397162604913
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00020.icpart": {
+  "area": 8470.3621126088,
+  "bbox": [
+   -16.850000100000003,
+   -16.850000100000003,
+   -1e-07,
+   16.850000100000003,
+   16.850000100000003,
+   41.0000001
+  ],
+  "edges": 6,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 12571.397162604913
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/EN 10219-2 CHS33.7x3.2 00021.icpart": {
+  "area": 8470.3621126088,
+  "bbox": [
+   -16.850000100000003,
+   -16.850000100000003,
+   -1e-07,
+   16.850000100000003,
+   16.850000100000003,
+   41.0000001
+  ],
+  "edges": 6,
+  "errors": [],
+  "faces": 4,
+  "solids": 1,
+  "vertices": 4,
+  "volume": 12571.397162604913
+ },
+ "examples/walking-excavator/subassemblies/Upper/Frame0001/EN 10305-4 30x3 00017.icpart": {
+  "area": 430178.7228103357,
+  "bbox": [
+   -23.651181130706366,
+   -15.000000100005,
+   -1.00005e-07,
+   733.6511811307064,
+   15.000000100005,
+   973.6511811307064
+  ],
+  "edges": 22,
+  "errors": [],
+  "faces": 12,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 644504.6772006812
+ },
+ "examples/weld-cart/Bottle Collar.icpart": {
+  "area": 43606.30642921044,
+  "bbox": [
+   -6.000000062172489e-07,
+   -6e-07,
+   -6e-07,
+   100.0000006,
+   200.0000006,
+   50.0000006
+  ],
+  "edges": 34,
+  "errors": [],
+  "faces": 16,
+  "solids": 1,
+  "vertices": 20,
+  "volume": 61928.82920587625
+ },
+ "examples/weld-cart/Bottle Tray.icpart": {
+  "area": 146702.6376057979,
+  "bbox": [
+   -6.000000053290705e-07,
+   -6.000000053290705e-07,
+   -6e-07,
+   200.0000006,
+   220.0000006,
+   40.0000006
+  ],
+  "edges": 103,
+  "errors": [],
+  "faces": 47,
+  "solids": 1,
+  "vertices": 58,
+  "volume": 214665.47912966856
+ },
+ "examples/weld-cart/Cart Skeleton.icpart": {
+  "empty": true,
+  "errors": []
+ },
+ "examples/weld-cart/Caster Plate.icpart": {
+  "area": 19774.11055237783,
+  "bbox": [
+   -1.0000000088817842e-07,
+   -1.0000000088817842e-07,
+   -1.0000000088817842e-07,
+   110.0000001,
+   80.0000001,
+   6.000000100000001
+  ],
+  "edges": 39,
+  "errors": [],
+  "faces": 15,
+  "solids": 1,
+  "vertices": 26,
+  "volume": 49902.11958466882
+ },
+ "examples/weld-cart/Caster.icpart": {
+  "area": 56383.38878237777,
+  "bbox": [
+   -83.8000001,
+   -127.00000010000001,
+   -31.750000100000005,
+   46.0000001,
+   1.0000000355271367e-07,
+   31.750000100000005
+  ],
+  "edges": 76,
+  "errors": [],
+  "faces": 32,
+  "solids": 1,
+  "vertices": 50,
+  "volume": 331201.48724741634
+ },
+ "examples/weld-cart/Gas Bottle.icpart": {
+  "area": 336329.0143944587,
+  "bbox": [
+   -75.76745412046769,
+   -75.76745412046769,
+   -1.0000011368683772e-07,
+   75.76745412046769,
+   75.76745412046769,
+   763.0000001000001
+  ],
+  "edges": 44,
+  "errors": [],
+  "faces": 23,
+  "solids": 1,
+  "vertices": 26,
+  "volume": 10485253.982772307
+ },
+ "examples/weld-cart/Handle Gusset.icpart": {
+  "area": 11178.147069393712,
+  "bbox": [
+   -1e-07,
+   -1e-07,
+   -1e-07,
+   90.0000001,
+   90.0000001,
+   6.0000001
+  ],
+  "edges": 18,
+  "errors": [],
+  "faces": 8,
+  "solids": 1,
+  "vertices": 12,
+  "volume": 26901.18597035536
+ },
+ "examples/weld-cart/Lower Shelf.icpart": {
+  "area": 733282.2154732693,
+  "bbox": [
+   -6.000000053290705e-07,
+   -6.000000023314683e-07,
+   -18.5000006,
+   670.0000006,
+   453.0000006,
+   45.0000006
+  ],
+  "edges": 100,
+  "errors": [],
+  "faces": 46,
+  "solids": 1,
+  "vertices": 56,
+  "volume": 547137.6029793341
+ },
+ "examples/weld-cart/MIG Welder.icpart": {
+  "area": 777923.8898038466,
+  "bbox": [
+   -6.000000142108547e-07,
+   -6.000000142108547e-07,
+   -6.000000142108547e-07,
+   490.0000006,
+   230.00000060000002,
+   440.0000006
+  ],
+  "edges": 177,
+  "errors": [],
+  "faces": 73,
+  "solids": 1,
+  "vertices": 118,
+  "volume": 39011261.90716119
+ },
+ "examples/weld-cart/Top Tray.icpart": {
+  "area": 764556.8072481113,
+  "bbox": [
+   -6.000000028865798e-07,
+   -6.00000003330669e-07,
+   -28.0000006,
+   702.0000006,
+   454.0000006,
+   30.0000006
+  ],
+  "edges": 100,
+  "errors": [],
+  "faces": 46,
+  "solids": 1,
+  "vertices": 56,
+  "volume": 759464.0364414239
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00001.icpart": {
+  "area": 150193.81065461386,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   715.0000006000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 149589.3782901269
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00002.icpart": {
+  "area": 90358.05933855595,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   435.00000060000013
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 89753.62697410278
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00003.icpart": {
+  "area": 150193.81065461386,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   715.0000006000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 149589.37829012692
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00004.icpart": {
+  "area": 90358.05933855595,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   435.00000060000013
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 89753.62697410278
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00005.icpart": {
+  "area": 150193.81065461386,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   715.0000006000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 149589.3782901269
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00006.icpart": {
+  "area": 90358.05933855595,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   435.00000060000013
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 89753.62697410278
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00007.icpart": {
+  "area": 150193.81065461386,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   715.0000006000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 149589.37829012692
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00008.icpart": {
+  "area": 90358.05933855595,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   435.00000060000013
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 89753.62697410278
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00009.icpart": {
+  "area": 130142.75911243421,
+  "bbox": [
+   -15.000000100000001,
+   -15.000000100000001,
+   -1.0000000088817842e-07,
+   15.000000100000001,
+   15.000000100000001,
+   607.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 129715.36088874812
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00010.icpart": {
+  "area": 130142.75911243421,
+  "bbox": [
+   -15.000000100000001,
+   -15.000000100000001,
+   -1.0000000088817842e-07,
+   15.000000100000001,
+   15.000000100000001,
+   607.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 129715.36088874812
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00011.icpart": {
+  "area": 130142.75911243421,
+  "bbox": [
+   -15.000000100000001,
+   -15.000000100000001,
+   -1.0000000088817842e-07,
+   15.000000100000001,
+   15.000000100000001,
+   607.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 129715.36088874812
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00012.icpart": {
+  "area": 130142.75911243421,
+  "bbox": [
+   -15.000000100000001,
+   -15.000000100000001,
+   -1.0000000088817842e-07,
+   15.000000100000001,
+   15.000000100000001,
+   607.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 129715.36088874812
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00013.icpart": {
+  "area": 53940.69325484226,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -6e-07,
+   15.000000600000003,
+   15.000000600000002,
+   265.0000006
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 53424.77796075719
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00014.icpart": {
+  "area": 90358.05933855624,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   435.00000060000013
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 89753.62697410469
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00015.icpart": {
+  "area": 53940.618673858204,
+  "bbox": [
+   -15.000000600000003,
+   -15.000000600000002,
+   -15.000000600000003,
+   15.000000600000003,
+   15.000000600000002,
+   249.99965159999996
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 53424.70337978052
+ },
+ "examples/weld-cart/Welding Cart/Frame0001/DIN EN 10219-2 30 x 30 x 2 00016.icpart": {
+  "area": 83770.05184248638,
+  "bbox": [
+   -15.000000100000001,
+   -15.000000100000001,
+   -1.0000000088817842e-07,
+   15.000000100000001,
+   15.000000100000001,
+   390.0000001
+  ],
+  "edges": 48,
+  "errors": [],
+  "faces": 18,
+  "solids": 1,
+  "vertices": 32,
+  "volume": 83342.65361880016
+ }
+}

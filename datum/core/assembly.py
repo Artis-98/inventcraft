@@ -90,6 +90,9 @@ def _refresh(ref: ShapeRef, shape: TopoDS_Shape,
             ref.size = fresh.size
             ref.geom = fresh.geom
             ref.resolved = True
+            # and what made it, so the constraint follows the face by that
+            # the next time the part changes a lot
+            ref.attach_roles(shape, found)
             return
 
 
@@ -1076,6 +1079,9 @@ class AssemblyDocument:
         ref = (ShapeRef.capture(pool[index], kind, index)
                if index is not None
                else ShapeRef.capture(local_subshape, kind, 0))
+        if index is not None:
+            # which feature of the part made the face, where the part knows
+            ref.attach_roles(occurrence.shape, pool[index])
         attachment = Attachment(occurrence=occurrence.id, kind=kind,
                                 ref=ref, frame=frame)
         # a face the part has named is held by its name, so the constraint

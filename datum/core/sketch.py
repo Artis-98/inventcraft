@@ -147,9 +147,12 @@ class Entity:
     construction: bool = False
     # arcs store their sweep direction; True = counter-clockwise from p1 to p2
     ccw: bool = True
+    # splines: "through" goes exactly through its points.  A file from
+    # before that has none, and keeps the fitted curve it was saved with
+    fit: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "id": self.id,
             "kind": self.kind,
             "points": list(self.points),
@@ -157,6 +160,9 @@ class Entity:
             "construction": self.construction,
             "ccw": self.ccw,
         }
+        if self.fit:
+            out["fit"] = self.fit
+        return out
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "Entity":
@@ -167,6 +173,7 @@ class Entity:
             radius=float(d.get("radius", 0.0)),
             construction=bool(d.get("construction", False)),
             ccw=bool(d.get("ccw", True)),
+            fit=str(d.get("fit", "")),
         )
 
 
@@ -636,10 +643,18 @@ class Sketch:
         return ids
 
     def add_spline(self, pts: Sequence[Tuple[float, float]],
-                   construction: bool = False) -> int:
+                   construction: bool = False, closed: bool = False) -> int:
+        """A smooth curve through the points.  Closed, it comes back round
+        to the first with no corner there, and is a profile on its own."""
+        pts = list(pts)
+        if closed and len(pts) > 1 and tuple(pts[0]) == tuple(pts[-1]):
+            pts.pop()
         ids = [self.add_point(p[0], p[1]) for p in pts]
+        if closed and len(ids) > 2:
+            ids.append(ids[0])
         eid = self._new_id()
-        self.entities[eid] = Entity(eid, "spline", ids, construction=construction)
+        self.entities[eid] = Entity(eid, "spline", ids, construction=construction,
+                                    fit="through")
         return eid
 
     def add_text(self, x: float, y: float, text: str, font: str = "Arial",
@@ -1436,7 +1451,7 @@ class Sketch:
                     for i in range(segments + 1)]
         if ent.kind == "spline":
             return _bspline_samples([self.points[p].as_tuple() for p in ent.points],
-                                    segments)
+                                    segments, ent.points[0] == ent.points[-1])
         if ent.kind == "ellipse":
             (cx, cy), a, b, turn = self.ellipse_axes(eid)
             ct, st = math.cos(turn), math.sin(turn)
@@ -1889,14 +1904,16 @@ def _sweep(piece: Dict[str, Any], a, b) -> Optional[float]:
 
 
 def _bspline_samples(ctrl: Sequence[Tuple[float, float]],
-                     segments: int) -> List[Tuple[float, float]]:
+                     segments: int, closed: bool = False
+                     ) -> List[Tuple[float, float]]:
     """Catmull-Rom interpolation through the control points."""
     pts = list(ctrl)
     if len(pts) < 2:
         return list(pts)
     if len(pts) == 2:
         return list(pts)
-    ext = [pts[0]] + pts + [pts[-1]]
+    ext = ([pts[-2]] + pts + [pts[1]] if closed and len(pts) > 3
+           else [pts[0]] + pts + [pts[-1]])
     out: List[Tuple[float, float]] = []
     per = max(2, segments // max(1, len(pts) - 1))
     for i in range(len(ext) - 3):
