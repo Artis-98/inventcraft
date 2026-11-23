@@ -29,6 +29,7 @@ on is worse than no key at all.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import time
 from typing import List, Optional
@@ -44,7 +45,9 @@ from . import prefs
 # with the triangles they are drawn with, so a cached part is not only
 # not rebuilt but not meshed either.  3: repairs no longer edit shared
 # faces in place, and imported files are kept here too, by their bytes.
-CACHE_VERSION = 3
+# 4: the roles of a body's faces (which feature made each) are kept
+# beside it, as an index map.
+CACHE_VERSION = 4
 
 FOLDER = "bodies"
 # how much disk this may use before the oldest of it goes
@@ -165,7 +168,28 @@ def load(key: str) -> Optional[TopoDS_Shape]:
         os.utime(target, None)          # it was useful, so it is recent
     except OSError:
         pass
+    _read_roles(target, shape)
     return shape
+
+
+def _roles_file(target: str) -> str:
+    return target[:-4] + ".prov.json" if target.endswith(".bin") \
+        else target + ".prov.json"
+
+
+def _read_roles(target: str, shape: TopoDS_Shape) -> None:
+    """The roles kept beside a body, made known to the registry so a
+    reference on the cached shape finds them. 4: written beside the body
+    as an index map; a body without one simply has no roles."""
+    side = _roles_file(target)
+    if not os.path.exists(side):
+        return
+    try:
+        from . import provenance
+        with open(side, "r", encoding="utf-8") as handle:
+            provenance.restore(shape, json.load(handle))
+    except Exception:
+        pass
 
 
 def store(key: str, shape: Optional[TopoDS_Shape]) -> bool:
@@ -182,7 +206,28 @@ def store(key: str, shape: Optional[TopoDS_Shape]) -> bool:
         os.replace(scratch, target)
     except Exception:
         return False
+    _write_roles(target, shape)
     return True
+
+
+def _write_roles(target: str, shape: TopoDS_Shape) -> None:
+    """The roles of the body's faces, beside it: an index map and a
+    fingerprint per face, never a shape (a shape is read back as new
+    objects, an index into its faces is still right)."""
+    side = _roles_file(target)
+    try:
+        from . import provenance
+        data = provenance.dump(shape)
+        if not data:
+            if os.path.exists(side):
+                os.remove(side)
+            return
+        scratch = side + ".part"
+        with open(scratch, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, separators=(",", ":"))
+        os.replace(scratch, side)
+    except Exception:
+        pass
 
 
 def cacheable(document) -> bool:
@@ -227,6 +272,11 @@ def prune(budget: int = BUDGET) -> int:
         try:
             os.remove(full)
             freed += bytes_
+            if full.endswith(".bin"):
+                try:
+                    os.remove(_roles_file(full))
+                except OSError:
+                    pass
         except OSError:
             pass
     return freed
