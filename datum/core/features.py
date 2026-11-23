@@ -2045,6 +2045,12 @@ class LoftFeature(Feature):
         if len(profiles) < 2:
             raise FeatureError("%s: pick at least two sections" % self.name)
 
+        if not self.closed and self.operation != NEW_BODY:
+            raise FeatureError(
+                "%s: closed=false makes an open surface, which cannot %s a "
+                "solid; set closed=true (the default) to cap the ends"
+                % (self.name, self.operation))
+
         try:
             tool = kernel.loft(profiles, self.closed, self.ruled)
         except KernelError as exc:
