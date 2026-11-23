@@ -793,6 +793,8 @@ class WorkPlaneFeature(Feature):
     #   "line_point"    square to a line, through a point
     #   "line_plane"    through a line, at ``angle`` to a plane or face it
     #                   runs parallel to
+    #   "placed"        by numbers or expressions: through ``origin``,
+    #                   square to ``normal``, X along ``xdir``
     # ``refs`` are what was picked, in order; each one of
     #   {"sketch": id, "entity": id}   a line of a sketch
     #   {"sketch": id, "point": id}    a point of a sketch
@@ -801,6 +803,9 @@ class WorkPlaneFeature(Feature):
     # so the plane follows them.  ``offset`` moves it along its normal.
     mode: str = "offset"
     refs: List[Dict[str, Any]] = field(default_factory=list)
+    origin: Tuple[str, str, str] = ("0", "0", "0")
+    normal: Tuple[str, str, str] = ("0", "0", "1")
+    xdir: Tuple[str, str, str] = ("1", "0", "0")
 
     @property
     def base_label(self) -> str:
@@ -827,6 +832,9 @@ class WorkPlaneFeature(Feature):
         return ctx.planes.get(self.base) or STANDARD_PLANES["XY"]
 
     def build(self, ctx: BuildContext) -> None:
+        if self.mode == "placed":
+            ctx.planes[self.name] = self._placed(ctx)
+            return
         if self.mode != "offset":
             plane = self._from_picks(ctx)
             d = ctx.evaluate(self.offset or "0", "%s offset" % self.name)
@@ -908,6 +916,23 @@ class WorkPlaneFeature(Feature):
         b = curve.Value(curve.LastParameter())
         return ("line", (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z()))
 
+    def _placed(self, ctx: BuildContext) -> SketchPlane:
+        def three(texts, what):
+            if len(texts) != 3:
+                raise FeatureError("%s: its %s needs X, Y and Z"
+                                   % (self.name, what))
+            return tuple(ctx.evaluate(v or "0", "%s %s" % (self.name, what))
+                         for v in texts)
+        origin = three(self.origin, "origin")
+        normal = three(self.normal, "normal")
+        xdir = three(self.xdir, "X direction")
+        if math.hypot(*normal) < 1e-9:
+            raise FeatureError("%s: its normal has no length" % self.name)
+        if self.flip:
+            normal = tuple(-c for c in normal)
+        # SketchPlane squares X up to the normal, and picks one if it cannot
+        return SketchPlane(origin, normal, xdir, self.name)
+
     def _from_picks(self, ctx: BuildContext) -> SketchPlane:
         import numpy as np
         got = [self._resolve(ctx, r) for r in self.refs]
@@ -975,7 +1000,8 @@ class WorkPlaneFeature(Feature):
     def made_from(self) -> str:
         return {"two_lines": "two lines", "three_points": "three points",
                 "line_point": "square to a line through a point",
-                "line_plane": "a line at an angle to a plane"
+                "line_plane": "a line at an angle to a plane",
+                "placed": "a point and a normal"
                 }.get(self.mode, self.base_label)
 
     def summary(self) -> str:
@@ -991,6 +1017,9 @@ class WorkPlaneFeature(Feature):
         if self.mode != "offset":
             d["mode"] = self.mode
             d["refs"] = [dict(r) for r in self.refs]
+        if self.mode == "placed":
+            d.update(origin=list(self.origin), normal=list(self.normal),
+                     xdir=list(self.xdir))
         return d
 
     def load_fields(self, data: Dict[str, Any]) -> None:
@@ -1002,6 +1031,10 @@ class WorkPlaneFeature(Feature):
             self.face_ref = ShapeRef.from_dict(data["face_ref"])
         self.mode = str(data.get("mode", "offset"))
         self.refs = [dict(r) for r in data.get("refs", [])]
+        for key, default in (("origin", (0, 0, 0)), ("normal", (0, 0, 1)),
+                             ("xdir", (1, 0, 0))):
+            setattr(self, key,
+                    tuple(str(v) for v in data.get(key, default)))
 
 
 @dataclass
@@ -2359,6 +2392,28 @@ class ImportFeature(Feature):
 # ==========================================================================
 
 
+def _queried_edges(body: TopoDS_Shape, query: Any, name: str) -> list:
+    """The edges an edge query finds on the body as it is now."""
+    from . import edgequery
+
+    try:
+        return edgequery.edges(body, query)
+    except edgequery.QueryError as exc:
+        raise FeatureError("%s: %s" % (name, exc)) from exc
+
+
+def _query_text(query: Any) -> str:
+    """A query in a few words, for the browser's tooltip."""
+    parts = query if isinstance(query, list) else [query]
+    words = []
+    for q in parts:
+        if isinstance(q, dict):
+            words.append(" ".join("%s %s" % (k, v) for k, v in q.items()))
+        else:
+            words.append(str(q))
+    return "edges where " + "; or ".join(words)
+
+
 @dataclass
 class FilletFeature(Feature):
     type_name: str = "fillet"
@@ -2367,6 +2422,8 @@ class FilletFeature(Feature):
     radius: str = "2"
     refs: RefSet = field(default_factory=RefSet)
     all_edges: bool = False
+    # edges picked by a rule rather than a click; see edgequery
+    query: Any = None
 
     def build(self, ctx: BuildContext) -> None:
         body = ctx.require_shape(self.name)
@@ -2374,6 +2431,8 @@ class FilletFeature(Feature):
 
         if self.all_edges:
             targets = kernel.edges(body)
+        elif self.query is not None:
+            targets = _queried_edges(body, self.query, self.name)
         else:
             targets, lost = self.refs.resolve_all(body)
             if lost and not targets:
@@ -2396,17 +2455,22 @@ class FilletFeature(Feature):
             ctx.edge_ops[self.id] = ("fillet", r, list(targets))
 
     def summary(self) -> str:
-        n = "all edges" if self.all_edges else "%d edge(s)" % len(self.refs)
+        n = ("all edges" if self.all_edges else _query_text(self.query)
+             if self.query is not None else "%d edge(s)" % len(self.refs))
         return "%s: R%s on %s" % (self.name, self.radius, n)
 
     def field_dict(self) -> Dict[str, Any]:
-        return {"radius": self.radius, "refs": self.refs.to_list(),
-                "all_edges": self.all_edges}
+        out = {"radius": self.radius, "refs": self.refs.to_list(),
+               "all_edges": self.all_edges}
+        if self.query is not None:
+            out["query"] = self.query
+        return out
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.radius = str(data.get("radius", "2"))
         self.refs = RefSet.from_list(data.get("refs", []))
         self.all_edges = bool(data.get("all_edges", False))
+        self.query = data.get("query")
 
 
 @dataclass
@@ -2417,6 +2481,8 @@ class ChamferFeature(Feature):
     distance: str = "1"
     refs: RefSet = field(default_factory=RefSet)
     all_edges: bool = False
+    # edges picked by a rule rather than a click; see edgequery
+    query: Any = None
 
     def build(self, ctx: BuildContext) -> None:
         body = ctx.require_shape(self.name)
@@ -2424,6 +2490,8 @@ class ChamferFeature(Feature):
 
         if self.all_edges:
             targets = kernel.edges(body)
+        elif self.query is not None:
+            targets = _queried_edges(body, self.query, self.name)
         else:
             targets, lost = self.refs.resolve_all(body)
             if lost:
@@ -2442,17 +2510,22 @@ class ChamferFeature(Feature):
             ctx.edge_ops[self.id] = ("chamfer", d, list(targets))
 
     def summary(self) -> str:
-        n = "all edges" if self.all_edges else "%d edge(s)" % len(self.refs)
+        n = ("all edges" if self.all_edges else _query_text(self.query)
+             if self.query is not None else "%d edge(s)" % len(self.refs))
         return "%s: %s on %s" % (self.name, self.distance, n)
 
     def field_dict(self) -> Dict[str, Any]:
-        return {"distance": self.distance, "refs": self.refs.to_list(),
-                "all_edges": self.all_edges}
+        out = {"distance": self.distance, "refs": self.refs.to_list(),
+               "all_edges": self.all_edges}
+        if self.query is not None:
+            out["query"] = self.query
+        return out
 
     def load_fields(self, data: Dict[str, Any]) -> None:
         self.distance = str(data.get("distance", "1"))
         self.refs = RefSet.from_list(data.get("refs", []))
         self.all_edges = bool(data.get("all_edges", False))
+        self.query = data.get("query")
 
 
 @dataclass
