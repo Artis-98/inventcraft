@@ -597,14 +597,7 @@ def heal(shape: TopoDS_Shape) -> TopoDS_Shape:
     it went unseen until results started being kept. A copy costs a
     little; a history that edits itself costs correctness.
     """
-    try:
-        work = BRepBuilderAPI_Copy(shape).Shape()
-        fixer = ShapeFix_Shape(work)
-        fixer.Perform()
-        fixed = fixer.Shape()
-        return fixed if is_valid(fixed) else shape
-    except Exception:
-        return shape
+    return heal_h(shape)[0]
 
 
 # a sketch's curves are split on every core past this many: below it the
@@ -622,13 +615,200 @@ def sound(shape: TopoDS_Shape) -> bool:
 
 
 def check(shape: TopoDS_Shape, what: str) -> TopoDS_Shape:
+    return check_h(shape, what)[0]
+
+
+# ==========================================================================
+# history: what became of the faces that went into an operation
+# ==========================================================================
+
+
+class History:
+    """What an operation made of the faces it was given.
+
+    ``image(face)`` is the faces of the result a face of an argument became:
+    itself when nothing touched it, several when it was split, one when it
+    was merged into a neighbour, none when it was removed.  ``None`` means
+    the operation cannot say, and the caller falls back on matching by
+    geometry.  ``generated(sub)`` is what a sub-shape of a profile or edge
+    gave rise to (the side face swept from an edge).  Nothing here is stored:
+    it holds the OpenCASCADE builder for as long as the caller wants to ask,
+    and what outlives a rebuild is the index map `provenance` writes from it.
+    """
+
+    def __init__(self, image=None, generated=None, first=None, last=None):
+        self._image = image
+        self._generated = generated
+        self._first = first
+        self._last = last
+
+    @classmethod
+    def identity(cls) -> "History":
+        return cls(image=lambda f: [f])
+
+    @property
+    def known(self) -> bool:
+        return self._image is not None
+
+    def image(self, face: TopoDS_Shape):
+        return None if self._image is None else self._image(face)
+
+    def generated(self, sub: TopoDS_Shape) -> List[TopoDS_Shape]:
+        if self._generated is None:
+            return []
+        return self._generated(sub)
+
+    def first_faces(self) -> List[TopoDS_Face]:
+        return faces(self._first) if self._first is not None else []
+
+    def last_faces(self) -> List[TopoDS_Face]:
+        return faces(self._last) if self._last is not None else []
+
+    def then(self, other: "History") -> "History":
+        """This operation followed by ``other``, as one history."""
+        if self._image is None or other._image is None:
+            return History(image=None, generated=self._generated,
+                           first=self._first, last=self._last)
+        mine, theirs = self._image, other._image
+
+        def image(face):
+            out: List[TopoDS_Shape] = []
+            for mid in mine(face):
+                for new in theirs(mid):
+                    if not any(new.IsSame(o) for o in out):
+                        out.append(new)
+            return out
+
+        def generated(sub):
+            out = []
+            for mid in self.generated(sub):
+                out.extend(theirs(mid))
+            return out
+
+        return History(image=image, generated=generated if self._generated
+                       is not None else None, first=self._first,
+                       last=self._last)
+
+
+def _list(items) -> List[TopoDS_Shape]:
+    """The shapes of an OpenCASCADE list. Iterating one from Python costs
+    about a millisecond however short it is, which added up to seconds over
+    the faces of a big part; taking from the front of a copy is seventy times
+    quicker."""
+    try:
+        rest = type(items)(items)
+        out: List[TopoDS_Shape] = []
+        while rest.Size():
+            out.append(rest.First())
+            rest.RemoveFirst()
+        return out
+    except Exception:
+        return [s for s in items]
+
+
+def algo_history(algo) -> History:
+    """The history of a boolean or any other OpenCASCADE shape builder."""
+    def image(face):
+        if algo.IsDeleted(face):
+            return []
+        made = _list(algo.Modified(face))
+        return made if made else [face]
+
+    def generated(sub):
+        return _list(algo.Generated(sub))
+
+    return History(image=image, generated=generated)
+
+
+def remap_history(old: TopoDS_Shape, new: TopoDS_Shape,
+                  context: Any = None) -> History:
+    """For a repair that changes no geometry: each face of ``old`` is the
+    face of ``new`` it still is, the very one if it survived, else the one
+    the repair says replaced it (``context``, ShapeFix's record), else the
+    one in the same place with the same surface and area. Matching by
+    place measures every face, so it is the last resort."""
+    state: Dict[str, Any] = {}
+
+    def held():
+        if "held" not in state:
+            found = TopTools_IndexedMapOfShape()
+            TopExp.MapShapes_s(new, TopAbs_FACE, found)
+            state["held"] = found
+        return state["held"]
+
+    def keys():
+        if "keys" not in state:
+            table: Dict[Any, List[TopoDS_Shape]] = {}
+            for f in faces(new):
+                table.setdefault(_face_key(f), []).append(f)
+            state["keys"] = table
+        return state["keys"]
+
+    def replaced(face):
+        if context is None:
+            return None
+        try:
+            if not context.IsRecorded(face):
+                return None
+            value = context.Value(face)
+        except Exception:
+            return None
+        if value is None or value.IsNull():
+            return None
+        got = [value] if value.ShapeType() == TopAbs_FACE else faces(value)
+        inside = held()
+        return got if got and all(inside.Contains(f) for f in got) else None
+
+    def image(face):
+        if held().Contains(face):
+            return [face]
+        got = replaced(face)
+        if got is not None:
+            return got
+        return list(keys().get(_face_key(face), ()))
+
+    return History(image=image)
+
+
+def _face_key(face: TopoDS_Shape):
+    props = GProp_GProps()
+    BRepGProp.SurfaceProperties_s(face, props)
+    p = props.CentreOfMass()
+    try:
+        from OCP.BRepAdaptor import BRepAdaptor_Surface
+        geom = BRepAdaptor_Surface(TopoDS.Face_s(face)).GetType().value
+    except Exception:
+        geom = -1
+    return (geom, round(p.X(), 3), round(p.Y(), 3), round(p.Z(), 3),
+            round(props.Mass(), 2))
+
+
+def heal_h(shape: TopoDS_Shape) -> Tuple[TopoDS_Shape, History]:
+    """``heal`` and what it did to the faces."""
+    try:
+        cp = BRepBuilderAPI_Copy(shape)
+        work = cp.Shape()
+        fixer = ShapeFix_Shape(work)
+        fixer.Perform()
+        fixed = fixer.Shape()
+        if not is_valid(fixed):
+            return shape, History.identity()
+        copied = History(image=lambda f: _list(cp.Modified(f)))
+        return fixed, copied.then(remap_history(work, fixed,
+                                                fixer.Context()))
+    except Exception:
+        return shape, History.identity()
+
+
+def check_h(shape: TopoDS_Shape, what: str) -> Tuple[TopoDS_Shape, History]:
     if not is_valid(shape):
         raise KernelError("%s produced no geometry" % what)
+    hist = History.identity()
     if not sound(shape):
-        shape = heal(shape)
+        shape, hist = heal_h(shape)
         if not sound(shape):
             raise KernelError("%s produced an invalid solid" % what)
-    return shape
+    return shape, hist
 
 
 # ==========================================================================
@@ -1676,17 +1856,30 @@ def sketch_profile(sketch: Sketch,
 
 def extrude(profile: TopoDS_Shape, dir_vec: Sequence[float], distance: float,
             taper_deg: float = 0.0) -> TopoDS_Shape:
+    return extrude_h(profile, dir_vec, distance, taper_deg)[0]
+
+
+def extrude_h(profile: TopoDS_Shape, dir_vec: Sequence[float],
+              distance: float, taper_deg: float = 0.0
+              ) -> Tuple[TopoDS_Shape, History]:
+    """An extrusion and its history: the caps are ``first_faces`` (the
+    profile) and ``last_faces`` (where it ended), and ``generated(edge)``
+    is the side face swept from an edge of the profile.  A tapered extrusion
+    is a loft and reports no history."""
     if abs(distance) < 1e-9:
         raise KernelError("extrude distance is zero")
     v = vec((dir_vec[0] * distance, dir_vec[1] * distance, dir_vec[2] * distance))
 
     if abs(taper_deg) > 1e-9:
-        return _tapered_extrude(profile, dir_vec, distance, taper_deg)
+        return _tapered_extrude(profile, dir_vec, distance, taper_deg),             History()
 
     mk = BRepPrimAPI_MakePrism(profile, v)
     if not mk.IsDone():
         raise KernelError("extrude failed")
-    return check(mk.Shape(), "Extrude")
+    shape, healed = check_h(mk.Shape(), "Extrude")
+    prism = History(image=lambda f: [f], generated=lambda e: _list(
+        mk.Generated(e)), first=mk.FirstShape(), last=mk.LastShape())
+    return shape, prism.then(healed)
 
 
 def _tapered_extrude(profile: TopoDS_Shape, dir_vec: Sequence[float],
@@ -1739,23 +1932,43 @@ def _tapered_extrude(profile: TopoDS_Shape, dir_vec: Sequence[float],
 
 def revolve(profile: TopoDS_Shape, axis_origin: Sequence[float],
             axis_dir: Sequence[float], angle_deg: float) -> TopoDS_Shape:
+    return revolve_h(profile, axis_origin, axis_dir, angle_deg)[0]
+
+
+def revolve_h(profile: TopoDS_Shape, axis_origin: Sequence[float],
+              axis_dir: Sequence[float], angle_deg: float
+              ) -> Tuple[TopoDS_Shape, History]:
+    """A revolution and its history, as ``extrude_h`` reports an extrusion's."""
     if abs(angle_deg) < 1e-9:
         raise KernelError("revolve angle is zero")
     ax = gp_Ax1(pnt(axis_origin), direction(axis_dir))
     mk = BRepPrimAPI_MakeRevol(profile, ax, math.radians(angle_deg))
     if not mk.IsDone():
         raise KernelError("revolve failed")
-    return check(mk.Shape(), "Revolve")
+    shape, healed = check_h(mk.Shape(), "Revolve")
+    turned = History(image=lambda f: [f], generated=lambda e: _list(
+        mk.Generated(e)), first=mk.FirstShape(), last=mk.LastShape())
+    return shape, turned.then(healed)
 
 
 def sweep(profile: TopoDS_Shape, path_wire: Any) -> TopoDS_Shape:
+    return sweep_h(profile, path_wire)[0]
+
+
+def sweep_h(profile: TopoDS_Shape, path_wire: Any
+            ) -> Tuple[TopoDS_Shape, History]:
     if _has_corners(path_wire):
-        return _mitred_sweep(profile, path_wire)
+        # a mitred sweep cannot say which face became which: no history,
+        # so the caller matches faces by geometry
+        return _mitred_sweep(profile, path_wire), History()
     mk = BRepOffsetAPI_MakePipe(path_wire, profile)
     mk.Build()
     if not mk.IsDone():
         raise KernelError("sweep failed")
-    return check(mk.Shape(), "Sweep")
+    shape, healed = check_h(mk.Shape(), "Sweep")
+    made = History(image=lambda f: [f], generated=lambda e: _list(
+        mk.Generated(e)), first=mk.FirstShape(), last=mk.LastShape())
+    return shape, made.then(healed)
 
 
 def _has_corners(path_wire: Any, tolerance_deg: float = 0.5) -> bool:
@@ -1822,6 +2035,11 @@ def _mitred_sweep(profile: TopoDS_Shape, path_wire: Any) -> TopoDS_Shape:
 
 def loft(profiles: Sequence[Any], solid: bool = True,
          ruled: bool = False) -> TopoDS_Shape:
+    return loft_h(profiles, solid, ruled)[0]
+
+
+def loft_h(profiles: Sequence[Any], solid: bool = True,
+           ruled: bool = False) -> Tuple[TopoDS_Shape, History]:
     from OCP.BRepOffsetAPI import BRepOffsetAPI_ThruSections
 
     if len(profiles) < 2:
@@ -1840,7 +2058,7 @@ def loft(profiles: Sequence[Any], solid: bool = True,
     mk.Build()
     if not mk.IsDone():
         raise KernelError("loft failed")
-    shape = check(mk.Shape(), "Loft")
+    shape, healed = check_h(mk.Shape(), "Loft")
     if solid:
         found = solids(shape)
         if not found or not all(BRep_Tool.IsClosed_s(shell) for one in found
@@ -1848,15 +2066,23 @@ def loft(profiles: Sequence[Any], solid: bool = True,
             raise KernelError("loft made an open skin instead of a solid: "
                               "its sections need closed, flat outlines that "
                               "can be capped, and must not cross each other")
-    return shape
+    made = History(image=lambda f: [f], generated=lambda e: _list(
+        mk.Generated(e)), first=mk.FirstShape(), last=mk.LastShape())
+    return shape, made.then(healed)
 
 
 def boolean(base: TopoDS_Shape, tool: TopoDS_Shape, op: str) -> TopoDS_Shape:
     """``op`` is one of join / cut / intersect."""
+    return boolean_h(base, tool, op)[0]
+
+
+def boolean_h(base: TopoDS_Shape, tool: TopoDS_Shape, op: str
+              ) -> Tuple[TopoDS_Shape, History]:
+    """``boolean`` and the history of the faces of both arguments."""
     if not is_valid(base):
-        return tool
+        return tool, History.identity()
     if not is_valid(tool):
-        return base
+        return base, History.identity()
     builders = {
         "join": BRepAlgoAPI_Fuse,
         "cut": BRepAlgoAPI_Cut,
@@ -1884,7 +2110,8 @@ def boolean(base: TopoDS_Shape, tool: TopoDS_Shape, op: str) -> TopoDS_Shape:
     result = algo.Shape()
     if not is_valid(result) or not explore(result, TopAbs_SOLID):
         raise KernelError("%s removed all material" % op)
-    return heal(result)
+    healed, mended = heal_h(result)
+    return healed, algo_history(algo).then(mended)
 
 
 def boolean_many(base: TopoDS_Shape, tools: Sequence[TopoDS_Shape],
@@ -1899,13 +2126,21 @@ def boolean_many(base: TopoDS_Shape, tools: Sequence[TopoDS_Shape],
     way, the common part of the base with all the tools at once being
     another answer, so it is still done one at a time.
     """
+    return boolean_many_h(base, tools, op)[0]
+
+
+def boolean_many_h(base: TopoDS_Shape, tools: Sequence[TopoDS_Shape],
+                   op: str) -> Tuple[TopoDS_Shape, History]:
+    """``boolean_many`` and the history of the faces of base and tools."""
     tools = [t for t in tools if is_valid(t)]
     if not tools:
-        return base
+        return base, History.identity()
     if op == "intersect" or len(tools) == 1 or not is_valid(base):
+        hist = History.identity()
         for tool in tools:
-            base = boolean(base, tool, op)
-        return base
+            base, step = boolean_h(base, tool, op)
+            hist = hist.then(step)
+        return base, hist
     builders = {"join": BRepAlgoAPI_Fuse, "cut": BRepAlgoAPI_Cut}
     if op not in builders:
         raise KernelError("unknown boolean operation %r" % op)
@@ -1926,7 +2161,8 @@ def boolean_many(base: TopoDS_Shape, tools: Sequence[TopoDS_Shape],
     result = algo.Shape()
     if not is_valid(result) or not explore(result, TopAbs_SOLID):
         raise KernelError("%s removed all material" % op)
-    return heal(result)
+    healed, mended = heal_h(result)
+    return healed, algo_history(algo).then(mended)
 
 
 def point_on_face(face: TopoDS_Shape) -> Optional[Tuple[float, float, float]]:
@@ -2461,6 +2697,10 @@ def mark_seams(shape: Optional[TopoDS_Shape]) -> None:
 
 
 def unify(shape: TopoDS_Shape) -> TopoDS_Shape:
+    return unify_h(shape)[0]
+
+
+def unify_h(shape: TopoDS_Shape) -> Tuple[TopoDS_Shape, History]:
     """Merge faces that lie in the same surface, and edges in the same curve.
 
     A boolean leaves its seams behind: fuse a boss onto a plate at the same
@@ -2474,7 +2714,7 @@ def unify(shape: TopoDS_Shape) -> TopoDS_Shape:
     that stops.
     """
     if not is_valid(shape):
-        return shape
+        return shape, History.identity()
     solid = bool(explore(shape, TopAbs_SOLID))
     try:
         before = _quick_size(shape, solid)
@@ -2483,20 +2723,28 @@ def unify(shape: TopoDS_Shape) -> TopoDS_Shape:
         tool.Build()
         result = tool.Shape()
     except Exception:
-        return shape
+        return shape, History.identity()
     if not is_valid(result):
-        return shape
+        return shape, History.identity()
     if solid and not explore(result, TopAbs_SOLID):
-        return shape
+        return shape, History.identity()
     try:
         # a unify that changed the size has done something other than tidy
         # the topology, and is not to be trusted
         after = _quick_size(result, solid)
         if abs(after - before) > max(1e-6, abs(before) * 1e-9):
-            return shape
+            return shape, History.identity()
     except Exception:
-        return shape
-    return result
+        return shape, History.identity()
+
+    def image(face):
+        record = tool.History()
+        if record.IsRemoved(face):
+            return []
+        merged = _list(record.Modified(face))
+        return merged if merged else [face]
+
+    return result, History(image=image)
 
 
 # A body made of at least this many separate solids is combined with a tool
@@ -2551,6 +2799,17 @@ def _boxes_meet(a, b, margin: float) -> bool:
 
 
 def combine(base: TopoDS_Shape, tool: TopoDS_Shape, op: str) -> TopoDS_Shape:
+    return combine_h(base, tool, op)[0]
+
+
+def _boolean_unified(base, tool, op) -> Tuple[TopoDS_Shape, History]:
+    done, hist = boolean_h(base, tool, op)
+    tidy, merged = unify_h(done)
+    return tidy, hist.then(merged)
+
+
+def combine_h(base: TopoDS_Shape, tool: TopoDS_Shape, op: str
+              ) -> Tuple[TopoDS_Shape, History]:
     """A boolean and a tidy-up, touching only what the tool can reach.
 
     An imported model is often one body of hundreds of solids, and a hole
@@ -2562,10 +2821,10 @@ def combine(base: TopoDS_Shape, tool: TopoDS_Shape, op: str) -> TopoDS_Shape:
     and only the neighbourhood goes through the boolean.
     """
     if not is_valid(base) or not is_valid(tool):
-        return unify(boolean(base, tool, op))
+        return _boolean_unified(base, tool, op)
     parts = explore(base, TopAbs_SOLID)
     if len(parts) < LOCAL_SOLIDS:
-        return unify(boolean(base, tool, op))
+        return _boolean_unified(base, tool, op)
 
     reach = bounding_box(tool)
     size = max(reach[3] - reach[0], reach[4] - reach[1], reach[5] - reach[2])
@@ -2575,28 +2834,28 @@ def combine(base: TopoDS_Shape, tool: TopoDS_Shape, op: str) -> TopoDS_Shape:
         (near if _boxes_meet(_box_of(part), reach, margin)
          else far).append(part)
     if not far:
-        return unify(boolean(base, tool, op))
+        return _boolean_unified(base, tool, op)
 
     if not near:
         # the tool meets nothing: a cut changes nothing, a join adds the
         # tool beside the rest, and an intersection leaves nothing at all
         if op == "cut":
-            return base
+            return base, History.identity()
         if op == "join":
-            return compound(far + [tool])
+            return compound(far + [tool]), History.identity()
         raise KernelError("intersect removed all material")
 
     neighbourhood = near[0] if len(near) == 1 else compound(near)
     try:
-        changed = unify(boolean(neighbourhood, tool, op))
+        changed, hist = _boolean_unified(neighbourhood, tool, op)
     except KernelError as exc:
         if op == "cut" and "removed all material" in str(exc):
             # the cut took the whole neighbourhood away, not the whole body
-            return compound(far)
+            return compound(far), History.identity()
         raise
     if op == "intersect":
-        return changed
-    return compound(far + explore(changed, TopAbs_SOLID))
+        return changed, hist
+    return compound(far + explore(changed, TopAbs_SOLID)), hist
 
 
 def fuse_all(shapes: Sequence[TopoDS_Shape]) -> Optional[TopoDS_Shape]:
@@ -2634,6 +2893,12 @@ def fuse_all(shapes: Sequence[TopoDS_Shape]) -> Optional[TopoDS_Shape]:
 
 def fillet(shape: TopoDS_Shape, edge_list: Sequence[TopoDS_Edge],
            radius: float) -> TopoDS_Shape:
+    return fillet_h(shape, edge_list, radius)[0]
+
+
+def fillet_h(shape: TopoDS_Shape, edge_list: Sequence[TopoDS_Edge],
+             radius: float) -> Tuple[TopoDS_Shape, History]:
+    """``fillet``; ``generated(edge)`` is the round that edge became."""
     if radius <= 0:
         raise KernelError("fillet radius must be positive")
     if not edge_list:
@@ -2654,13 +2919,19 @@ def fillet(shape: TopoDS_Shape, edge_list: Sequence[TopoDS_Edge],
         except Exception:
             continue
         if mk.IsDone() and is_valid(mk.Shape()):
-            return check(mk.Shape(), "Fillet")
+            done, healed = check_h(mk.Shape(), "Fillet")
+            return done, algo_history(mk).then(healed)
     raise KernelError("fillet failed - radius %.3f is probably too large"
                       % radius)
 
 
 def chamfer(shape: TopoDS_Shape, edge_list: Sequence[TopoDS_Edge],
             distance: float) -> TopoDS_Shape:
+    return chamfer_h(shape, edge_list, distance)[0]
+
+
+def chamfer_h(shape: TopoDS_Shape, edge_list: Sequence[TopoDS_Edge],
+              distance: float) -> Tuple[TopoDS_Shape, History]:
     if distance <= 0:
         raise KernelError("chamfer distance must be positive")
     if not edge_list:
@@ -2672,7 +2943,8 @@ def chamfer(shape: TopoDS_Shape, edge_list: Sequence[TopoDS_Edge],
     if not mk.IsDone():
         raise KernelError("chamfer failed - distance %.3f is probably too large"
                           % distance)
-    return check(mk.Shape(), "Chamfer")
+    done, healed = check_h(mk.Shape(), "Chamfer")
+    return done, algo_history(mk).then(healed)
 
 
 def shell(shape: TopoDS_Shape, open_faces: Sequence[TopoDS_Face],

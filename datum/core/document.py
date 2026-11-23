@@ -17,7 +17,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from OCP.TopoDS import TopoDS_Shape
 
-from . import fileformat, kernel, materials, modelparams, modelstates, prefs
+from . import (fileformat, kernel, materials, modelparams, modelstates,
+               naming, prefs)
 from .rules import RuleSet
 from .viewsetup import ViewSetup
 from .features import (
@@ -431,7 +432,8 @@ class _Built:
     """What the rebuild held after one feature: enough to carry on from."""
 
     __slots__ = ("bodies", "sketches", "planes", "axes", "tools",
-                 "edge_ops", "tool_bodies", "log", "error")
+                 "edge_ops", "tool_bodies", "log", "error", "tags",
+                 "tool_tags")
 
     @classmethod
     def take(cls, ctx: BuildContext, error: str) -> "_Built":
@@ -439,6 +441,10 @@ class _Built:
         # the bodies by name and shape, not the Body objects: a later
         # feature changes a body in place, and this has to stay as it was
         built.bodies = [(b.name, b.shape) for b in ctx.bodies]
+        # which feature made which face, beside the shape it is for
+        built.tags = {b.name: b.tags for b in ctx.bodies
+                      if b.tags is not None}
+        built.tool_tags = dict(ctx.tool_tags)
         built.sketches = dict(ctx.sketches)
         built.planes = dict(ctx.planes)
         built.axes = dict(ctx.axes)
@@ -451,7 +457,10 @@ class _Built:
 
     def restore(self, ctx: BuildContext,
                 live: Optional[Dict[int, Any]] = None) -> None:
-        ctx.bodies = [Body(name, shape) for name, shape in self.bodies]
+        ctx.bodies = [Body(name, shape, self.tags.get(name))
+                      for name, shape in self.bodies]
+        ctx.tool_tags = dict(self.tool_tags)
+        ctx.settle()
         # A sketch is a live object that every build solves in place, and
         # the feature that owns it is not always the object this was kept
         # from (undo and a state change load the part again). What was
@@ -1242,6 +1251,7 @@ class Document:
                     continue
             began = time.perf_counter()
             watch = _Footprint(ctx)
+            naming.drain_notes()
             try:
                 feature.build(ctx)
             except (FeatureError, kernel.KernelError) as exc:
@@ -1252,6 +1262,12 @@ class Document:
                 report.errors.append((feature.id, feature.error))
             finally:
                 watch.stop()
+            try:
+                ctx.settle()
+            except Exception:
+                pass
+            for note in naming.drain_notes():
+                ctx.log.append("%s: %s" % (feature.name, note))
             self._costs[feature.id] = time.perf_counter() - began
             forced = self._forced_names.get(feature.id)
             if forced:
@@ -1442,7 +1458,11 @@ class Document:
                 shape = kernel.compound(parts)
             else:
                 shape = take(entry)
-            bodies.append(Body(entry["name"], shape))
+            body = Body(entry["name"], shape)
+            if entry.get("prov"):
+                from . import provenance
+                body.tags = provenance.restore(shape, entry["prov"])
+            bodies.append(body)
 
         sent = {f.get("id"): json.dumps(f, sort_keys=True)
                 for f in request["data"].get("features", [])}

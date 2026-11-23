@@ -223,6 +223,11 @@ def _rebuild(key: str, path: str, data: Dict[str, Any], trusted: bool,
                 mesh.mesh(body.shape)
             entry["name"] = body.name
             bodies.append(entry)
+        # which feature made which face, as an index map: the shape
+        # travels as a file, and an index into its faces is still right
+        # on the other side
+        if body.tags is not None and body.tags.is_for(body.shape):
+            bodies[-1]["prov"] = body.tags.to_dict()
     sent.clear()
     sent.update(kept)
     pack = ""

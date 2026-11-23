@@ -6,6 +6,14 @@ grabs the wrong edge.  A reference here keeps a *geometric fingerprint* -
 where the sub-shape sits, how big it is, what kind of surface or curve it is -
 and after a rebuild it re-binds to the best-scoring candidate.  The stored
 index is only a tie-breaker of last resort.
+
+Where the part knows *which feature made* a face (`provenance`), a reference
+also keeps that: the roles of the face it was taken on, or, for an edge, the
+roles of the two faces it lies between. Resolving tries the roles first, which
+follow a face through any parameter change for as long as the face exists,
+and the fingerprint second. ``via`` says which found it, and a reference that
+had roles but had to be found by fingerprint is flagged ``fell_back``, so a
+rebuild can say so.
 """
 
 from __future__ import annotations
@@ -18,7 +26,19 @@ from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCP.GeomAbs import GeomAbs_CurveType, GeomAbs_SurfaceType
 from OCP.TopoDS import TopoDS, TopoDS_Shape
 
-from . import kernel
+from . import kernel, provenance
+
+# What references noticed while they were being followed, for the feature
+# building at the time to report: a reference that had roles but was found
+# by position. Drained by the rebuild after every feature.
+_NOTES: List[str] = []
+
+
+def drain_notes() -> List[str]:
+    out = list(dict.fromkeys(_NOTES))
+    del _NOTES[:]
+    return out
+
 
 # how far a candidate may have moved and still be considered the same entity
 POSITION_TOLERANCE = 5.0
@@ -116,6 +136,15 @@ class ShapeRef:
     # use it, and only when it was captured with the model to hand.
     local: Optional[Tuple[float, float, float]] = None
     resolved: bool = True
+    # What made it (provenance): a face's roles, "<feature id>:<role>", or
+    # for an edge the roles of the faces on its two sides. Empty when the
+    # part did not know, which is how every older file reads.
+    roles: List[str] = field(default_factory=list)
+    adjacent: List[List[str]] = field(default_factory=list)
+    # how the last resolve found it: "role", "fingerprint" or "index";
+    # fell_back when it had roles and they did not find it
+    via: str = ""
+    fell_back: bool = False
     # set for the duration of a resolve, never stored
     _parent_box: Any = None
 
@@ -143,7 +172,7 @@ class ShapeRef:
                 and (self.geom == other.geom or "?" in (self.geom, other.geom)))
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        out = {
             "kind": self.kind,
             "index": self.index,
             "centre": list(self.centre),
@@ -151,6 +180,13 @@ class ShapeRef:
             "geom": self.geom,
             "local": list(self.local) if self.local else None,
         }
+        # only when there are some, so a file without provenance reads
+        # and writes as it always did
+        if self.roles:
+            out["roles"] = list(self.roles)
+        if self.adjacent:
+            out["adjacent"] = [list(a) for a in self.adjacent]
+        return out
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "ShapeRef":
@@ -161,7 +197,51 @@ class ShapeRef:
             local=(tuple(d["local"]) if d.get("local") else None),
             size=float(d.get("size", 0.0)),
             geom=d.get("geom", "?"),
+            roles=[str(r) for r in d.get("roles") or []],
+            adjacent=[[str(r) for r in a] for a in d.get("adjacent") or []],
         )
+
+    # -- roles --------------------------------------------------------------
+
+    def attach_roles(self, body: TopoDS_Shape, sub: TopoDS_Shape) -> None:
+        """Record what made ``sub`` (a face or edge of ``body``), when the
+        part knows."""
+        if self.kind == "vertex":
+            return
+        self.roles, self.adjacent = [], []
+        found = provenance.describe(body, sub, self.kind)
+        if found is None:
+            return
+        if self.kind == "face":
+            self.roles = found
+        else:
+            self.adjacent = found
+
+    @property
+    def has_roles(self) -> bool:
+        return bool(self.roles or any(self.adjacent))
+
+    def _by_roles(self, shape: TopoDS_Shape) -> Optional[TopoDS_Shape]:
+        """The sub-shape the roles name on ``shape``, or None when they name
+        nothing there (or the part has no provenance for it)."""
+        if not self.has_roles:
+            return None
+        cands = provenance.find(shape, self.kind, self.roles, self.adjacent)
+        if not cands:
+            return None
+        # callers hand these to code that wants a real face or edge
+        cast = TopoDS.Face_s if self.kind == "face" else TopoDS.Edge_s
+        cands = [cast(c) for c in cands]
+        if len(cands) == 1:
+            return cands[0]
+        # several carry it (a face a cut split, an edge between two faces
+        # that meet more than once): the one most like what was there
+        best, best_gap = cands[0], math.inf
+        for c in cands:
+            gap = math.dist(kernel.shape_centre(c), self.centre)
+            if gap < best_gap:
+                best, best_gap = c, gap
+        return best
 
     # -- matching -----------------------------------------------------------
 
@@ -231,7 +311,24 @@ class ShapeRef:
         return kernel.shape_centre(candidate)
 
     def resolve(self, shape: TopoDS_Shape) -> Optional[TopoDS_Shape]:
-        """Find this reference's sub-shape in ``shape`` after a rebuild."""
+        """Find this reference's sub-shape in ``shape`` after a rebuild:
+        by what made it where the part knows that, else by where it was."""
+        self.via, self.fell_back = "", False
+        try:
+            hit = self._by_roles(shape)
+        except Exception:
+            hit = None
+        if hit is not None:
+            self.resolved, self.via = True, "role"
+            return hit
+        found = self._resolve_by_fingerprint(shape)
+        if found is not None and self.resolved:
+            self.via = "fingerprint"
+            self.fell_back = self.has_roles
+        return found
+
+    def _resolve_by_fingerprint(self, shape: TopoDS_Shape
+                                ) -> Optional[TopoDS_Shape]:
         # _score is called per candidate and needs the whole shape to work
         # out where each one sits inside it; handing it over here keeps the
         # signature everything else uses unchanged
@@ -278,6 +375,11 @@ class ShapeRef:
     def rebind(self, shape: TopoDS_Shape) -> Optional[TopoDS_Shape]:
         """Resolve, then refresh the fingerprint from what we actually found."""
         found = self.resolve(shape)
+        if found is not None and self.fell_back and len(_NOTES) < 200:
+            _NOTES.append(
+                "a picked %s was followed by its position, not by the "
+                "feature that made it (its roles no longer name a %s)"
+                % (self.kind, self.kind))
         if found is not None and self.resolved:
             pool = self._pool(shape)
             for i, cand in enumerate(pool):
@@ -288,6 +390,13 @@ class ShapeRef:
                     self.size = fp["size"]
                     self.geom = fp["geom"]
                     break
+            # what made it, as it is now: a reference from before the part
+            # kept provenance picks it up here, and one that was followed by
+            # position learns the roles of the face it landed on
+            if self.kind != "vertex" and provenance.lookup(shape):
+                via, fell = self.via, self.fell_back
+                self.attach_roles(shape, found)
+                self.via, self.fell_back = via, fell
         return found
 
 
@@ -356,7 +465,9 @@ class RefSet:
             index = next((i for i, cand in enumerate(pool)
                           if cand.IsSame(target)), None)
             if index is not None:
-                self.add(ShapeRef.capture(pool[index], kind, index))
+                ref = ShapeRef.capture(pool[index], kind, index)
+                ref.attach_roles(shape, pool[index])
+                self.add(ref)
                 continue
 
             ref = ShapeRef.capture(target, kind, 0)
@@ -364,6 +475,7 @@ class RefSet:
             if found is not None:
                 ref.index = next((i for i, cand in enumerate(pool)
                                   if cand.IsSame(found)), 0)
+                ref.attach_roles(shape, found)
             self.add(ref)
 
     def resolve_all(self, shape: TopoDS_Shape) -> Tuple[List[TopoDS_Shape], List[ShapeRef]]:
