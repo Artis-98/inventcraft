@@ -44,7 +44,9 @@ from . import prefs
 # with the triangles they are drawn with, so a cached part is not only
 # not rebuilt but not meshed either.  3: repairs no longer edit shared
 # faces in place, and imported files are kept here too, by their bytes.
-CACHE_VERSION = 3
+# 4: meeting curves make profiles, and splines that left their plane
+# are put back on it.
+CACHE_VERSION = 4
 
 FOLDER = "bodies"
 # how much disk this may use before the oldest of it goes

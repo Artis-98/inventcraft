@@ -67,7 +67,7 @@ def describe(shape) -> Tuple[str, List[Tuple[str, float, str]]]:
             return "Circular edge", out
         return "Edge", out
     if kind == TopAbs_FACE:
-        out = [("Area", kernel.face_area(TopoDS.Face_s(shape)), "area")]
+        out = [("Area", kernel.surface_area(shape), "area")]
         if frame is not None and frame.kind == AXIS and frame.radius > 0:
             out.append(("Diameter", 2.0 * frame.radius, "length"))
             return "Round face", out
