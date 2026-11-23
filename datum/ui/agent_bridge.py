@@ -42,10 +42,12 @@ What keeps that safe:
 from __future__ import annotations
 
 import collections
-import glob
+import hashlib
 import json
 import os
+import re
 import time
+import uuid
 import traceback
 from typing import Any, Callable, Dict, List, Optional
 
@@ -609,6 +611,8 @@ class AgentBridge(QtCore.QObject):
         self._denied: set = set()
         self._failures: List[float] = []
         self.last_autosave = ""
+        # names the copies of documents never saved, this session only
+        self._session = uuid.uuid4().hex
         QtWidgets.QApplication.instance().aboutToQuit.connect(self.shutdown)
 
     # -- on and off
@@ -1124,6 +1128,21 @@ class AgentBridge(QtCore.QObject):
             document.note_change()
         self.last_autosave = self._autosave(entry)
 
+    def _autosave_key(self, entry: Entry) -> str:
+        """What names this document's copies, and no other's: its title,
+        its handle, and which document it is (its file, or for one never
+        saved this session). Handles like g1 come back every session, so
+        a handle alone would let one document's copies prune another's."""
+        document = entry.document
+        stem = "".join(c if c.isalnum() or c in "-_" else "_"
+                       for c in (getattr(document, "title", "")
+                                 or "Untitled"))[:40]
+        where = getattr(document, "path", "") or ""
+        which = (os.path.normcase(os.path.abspath(where)) if where
+                 else "unsaved:%s" % self._session)
+        tag = hashlib.sha1(which.encode("utf-8")).hexdigest()[:8]
+        return "%s-%s-%s" % (stem, entry.handle, tag)
+
     def _autosave(self, entry: Entry) -> str:
         """The document as it is, to the autosave folder. A failure is
         reported, not fatal: the undo stack still has the step."""
@@ -1131,26 +1150,27 @@ class AgentBridge(QtCore.QObject):
         folder = self._autosave_folder()
         try:
             os.makedirs(folder, exist_ok=True)
-            stem = "".join(c if c.isalnum() or c in "-_" else "_"
-                           for c in (getattr(document, "title", "")
-                                     or "Untitled"))[:40]
+            key = self._autosave_key(entry)
             kind = getattr(document, "doc_type", fileformat.PART)
-            path = os.path.join(folder, "%s-%s-%s%s" % (
-                stem, entry.handle, time.strftime("%Y%m%d-%H%M%S"),
-                fileformat.extension_for(kind)))
+            ext = fileformat.extension_for(kind)
+            path = os.path.join(folder, "%s-%s%s" % (
+                key, time.strftime("%Y%m%d-%H%M%S"), ext))
             n = 1
             while os.path.exists(path):
                 n += 1
-                path = os.path.join(folder, "%s-%s-%s-%d%s" % (
-                    stem, entry.handle, time.strftime("%Y%m%d-%H%M%S"), n,
-                    fileformat.extension_for(kind)))
+                path = os.path.join(folder, "%s-%s-%d%s" % (
+                    key, time.strftime("%Y%m%d-%H%M%S"), n, ext))
             from .. import APP_NAME, __version__
             fileformat.write(path, kind, document.to_dict(),
                              units=getattr(document, "units", "mm"),
                              created=getattr(document, "created", None),
                              application="%s %s" % (APP_NAME, __version__))
-            mine = sorted(glob.glob(os.path.join(
-                folder, "*-%s-*" % entry.handle)), key=os.path.getmtime)
+            # this document's copies only: the key, then the time
+            ours = re.compile(re.escape(key) + r"-\d{8}-\d{6}(-\d+)?"
+                              + re.escape(ext) + "$")
+            mine = sorted((os.path.join(folder, n)
+                           for n in os.listdir(folder) if ours.match(n)),
+                          key=os.path.getmtime)
             for old in mine[:-KEEP_AUTOSAVES]:
                 try:
                     os.remove(old)
