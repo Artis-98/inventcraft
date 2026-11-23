@@ -166,6 +166,61 @@ def _component_paths(document, seen: set, depth: int = 0) -> List[str]:
     return out
 
 
+# Trust for one code feature rather than a whole document: the hash of the
+# exact source somebody allowed. Trusting a feature an agent wrote, or one
+# a person read and approved, must not also let every other script in the
+# same file run, and editing the source by one character makes it a
+# different script that has to be allowed again. Like the paths above it
+# is held for this session only and never written into a document.
+
+_TRUSTED_CODE: set = set()
+
+
+def code_hash(source: str) -> str:
+    import hashlib
+    return hashlib.sha256((source or "").encode("utf-8")).hexdigest()
+
+
+def trust_code(source: str) -> str:
+    """Allow this exact source to run, wherever it sits, this session."""
+    key = code_hash(source)
+    _TRUSTED_CODE.add(key)
+    return key
+
+
+def trust_code_hashes(hashes) -> None:
+    """For a worker, told which sources its window allowed."""
+    _TRUSTED_CODE.update(str(h) for h in hashes or ())
+
+
+def code_trusted(source: str) -> bool:
+    return code_hash(source) in _TRUSTED_CODE
+
+
+def trusted_code_in(document) -> List[str]:
+    """The hashes of this document's code features that are allowed on
+    their own, to be sent with it to a worker."""
+    from .features import CodeFeature
+    out = []
+    for f in getattr(document, "features", []) or []:
+        if isinstance(f, CodeFeature) and code_trusted(f.source):
+            out.append(code_hash(f.source))
+    return sorted(set(out))
+
+
+def code_waiting(document) -> List[Any]:
+    """Code features that will not run: neither the document nor their own
+    source is trusted."""
+    from .features import CodeFeature
+    if document_trusted(document):
+        return []
+    return [f for f in getattr(document, "features", []) or []
+            if isinstance(f, CodeFeature) and not code_trusted(f.source)]
+
+
+WAITING_FOR_TRUST = "is waiting for trust"
+
+
 def document_trusted(document) -> bool:
     """Whether this document's code may run: rules and code features both."""
     rules = getattr(document, "rules", None)

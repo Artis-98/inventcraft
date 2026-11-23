@@ -1,0 +1,37 @@
+{
+  "name": "bracket",
+  "title": "Hollow mounting bracket with two hole rows and a boss",
+  "prompt": "Design a mounting bracket in InventCraft. It is a box 120 mm long (x), 60 mm deep (y) and 40 mm high (z), standing on the XY plane, hollowed to 4 mm walls and open at the bottom. The four vertical outside corners are rounded with a 6 mm radius. Through the top there are two rows of four M6 clearance holes (6.6 mm), at 30 mm pitch along x, centred on the part, the rows 30 mm apart in y. On top, in the middle, a round boss 20 mm in diameter and 8 mm high. Keep it parametric, so the width, depth, height and wall can be changed later.",
+  "verdict": {
+    "inspect": {
+      "bbox": [
+        120,
+        60,
+        48
+      ],
+      "solids": 1,
+      "valid": true,
+      "tolerance": 0.01
+    },
+    "requirements": [
+      {
+        "name": "t2 holes",
+        "metric": "hole_count",
+        "target": 8,
+        "diameter": 6.6
+      },
+      {
+        "name": "t2 height",
+        "metric": "bbox",
+        "axis": "z",
+        "target": 48
+      }
+    ],
+    "min_parameters": 4,
+    "parametric": true
+  },
+  "reference": {
+    "replay": "bracket.json",
+    "call": 1
+  }
+}

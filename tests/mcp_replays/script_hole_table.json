@@ -1,0 +1,21 @@
+{
+  "name": "run_script lays out a flange's holes from a table, as one build",
+  "calls": [
+    {"tool": "new_document", "args": {}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "d", "value": 160},
+      {"op": "sketch", "id": "s1", "plane": "XY", "entities": [{"circle": {"center": [0, 0], "d": "d"}}]},
+      {"op": "extrude", "sketch": "$s1", "distance": 12, "name": "Flange"}]}},
+    {"tool": "run_script", "args": {"code": "import math\ntable = [(60, a, 8.4) for a in range(0, 360, 45)] + [(35, a, 6.4) for a in (0, 120, 240)]\npts = []\nfor i, (r, a, dia) in enumerate(table):\n    pts.append({\"point\": [round(r * math.cos(math.radians(a)), 6), round(r * math.sin(math.radians(a)), 6)], \"id\": \"p%d\" % i})\ns = sketch(plane=\"XY\", entities=pts, name=\"HoleTable\")\nfor dia in sorted({row[2] for row in table}):\n    hole(s, dia, points=[\"p%d\" % i for i, row in enumerate(table) if row[2] == dia], name=\"D%s\" % str(dia).replace(\".\", \"_\"))\nprint(len(table), \"holes\")\nresult = len(table)"},
+     "expect": {"contains": "+HoleTable +D6_4 +D8_4"}},
+    {"tool": "requirements", "args": {"set": [
+      {"name": "bolt circle", "metric": "hole_count", "target": 8, "diameter": 8.4},
+      {"name": "dowels", "metric": "hole_count", "target": 3, "diameter": 6.4}]},
+     "expect": {"contains": "reqs 2/2"}},
+    {"tool": "measure", "args": {"a": "D8_4.wall[0]", "b": "D8_4.wall[4]"},
+     "expect": {"fields": {"axis_distance": 120.0}}},
+    {"tool": "run_script", "args": {"code": "raise ValueError('table is empty')"},
+     "expect": {"error": true, "contains": "SCRIPT_FAILED"}},
+    {"tool": "diff", "args": {"before": 2, "after": 3}, "expect": {"contains": "+HoleTable"}}
+  ]
+}

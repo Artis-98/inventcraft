@@ -1,0 +1,49 @@
+{
+  "name": "hollow bracket: shell, hole, pattern, mirror, revolve; edited and reviewed",
+  "calls": [
+    {"tool": "new_document", "args": {"name": "Bracket"}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "w", "value": 120, "comment": "width"},
+      {"op": "parameter", "name": "d", "value": 60, "comment": "depth"},
+      {"op": "parameter", "name": "h", "value": 40, "comment": "height"},
+      {"op": "parameter", "name": "wall", "value": 4, "comment": "wall thickness"},
+      {"op": "parameter", "name": "bolt", "value": 6.6, "comment": "M6 clearance"},
+      {"op": "parameter", "name": "pitch", "value": 30, "comment": "hole spacing"},
+      {"op": "sketch", "id": "base", "plane": "XY", "name": "Footprint", "entities": [
+        {"rect": {"center": [0, 0], "size": ["w", "d"]}}]},
+      {"op": "extrude", "id": "body", "sketch": "$base", "distance": "h", "name": "Body"},
+      {"op": "fillet", "radius": 6, "edges": {"along": "z"}, "name": "Corners"},
+      {"op": "shell", "thickness": "wall", "refs": {"faces": {"normal": "-z"}}, "name": "Hollow"},
+      {"op": "sketch", "id": "holes", "plane": "XY", "name": "Hole centres", "entities": [
+        {"point": ["-pitch * 1.5", "d/4"], "id": "h1"}]},
+      {"op": "hole", "id": "hole", "sketch": "$holes", "diameter": "bolt", "points": ["h1"],
+       "name": "Bolt hole"},
+      {"op": "pattern", "id": "row", "parents": ["$hole"], "count1": 4, "spacing1": "pitch",
+       "dir1": "X", "name": "Hole row"},
+      {"op": "mirror", "parents": ["$hole", "$row"], "scope": "features", "plane": "XZ",
+       "name": "Other row"},
+      {"op": "sketch", "id": "bs", "plane": "XZ", "name": "Boss profile", "entities": [
+        {"rect": {"corner": [0, "h"], "size": [10, 8]}},
+        {"line": [[0, 0], [0, 80]], "id": "ax", "construction": true, "dimension": true}]},
+      {"op": "revolve", "sketch": "$bs", "axis": "ax", "angle": 360, "name": "Boss"}]}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [120, 60, 48], "volume": 78641.996,
+                                              "faces": 29, "solids": 1, "valid": true,
+                                              "tolerance": 0.001}},
+     "expect": {"verdict": true}},
+    {"tool": "sketch_status", "args": {"sketch": "Boss profile"},
+     "expect": {"fields": {"dof": 0, "fully_constrained": true}}},
+    {"tool": "snapshot", "args": {"action": "save", "name": "first"}},
+    {"tool": "edit_feature", "args": {"feature": "Hole row", "params": {"count1": 3, "spacing1": "pitch * 1.5"}},
+     "expect": {"contains": "~Hole row"}},
+    {"tool": "edit_feature", "args": {"feature": "Bolt hole", "delete": true},
+     "expect": {"error": true, "contains": "HAS_DEPENDENTS"}},
+    {"tool": "properties", "args": {"parameters": {"w": "160", "h": "50"}}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [160, 60, 58], "solids": 1, "valid": true}},
+     "expect": {"verdict": true}},
+    {"tool": "diff", "args": {"before": "first"},
+     "expect": {"contains": "~Hole row"}},
+    {"tool": "read_ir", "args": {}, "expect": {"contains": "\"op\": \"revolve\""}},
+    {"tool": "render_view", "args": {"view": "iso", "width": 400, "height": 300},
+     "expect": {"image": true}}
+  ]
+}

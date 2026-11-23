@@ -1,0 +1,141 @@
+{
+  "name": "plate_hole_pattern",
+  "title": "Aluminium plate with a corner hole pattern and a centre bore",
+  "prompt": "Make a 160 x 100 x 10 mm plate in aluminium 6061 in InventCraft. Four 9 mm holes, one near each corner, 12 mm in from both edges; a 40 mm bore in the centre; the four corners of the outline rounded at 8 mm. Make it parametric.",
+  "verdict": {
+    "inspect": {
+      "bbox": [
+        160,
+        100,
+        10
+      ],
+      "solids": 1,
+      "valid": true,
+      "tolerance": 0.01
+    },
+    "requirements": [
+      {
+        "name": "t2 corner holes",
+        "metric": "hole_count",
+        "target": 4,
+        "diameter": 9
+      },
+      {
+        "name": "t2 bore",
+        "metric": "hole_count",
+        "target": 1,
+        "diameter": 40
+      },
+      {
+        "name": "t2 mass",
+        "metric": "mass",
+        "target": 389.7,
+        "tolerance": 0.02
+      }
+    ],
+    "min_parameters": 3,
+    "parametric": true
+  },
+  "reference": {
+    "ops": [
+      {
+        "op": "parameter",
+        "name": "L",
+        "value": 160
+      },
+      {
+        "op": "parameter",
+        "name": "W",
+        "value": 100
+      },
+      {
+        "op": "parameter",
+        "name": "t",
+        "value": 10
+      },
+      {
+        "op": "parameter",
+        "name": "inset",
+        "value": 12
+      },
+      {
+        "op": "sketch",
+        "id": "s",
+        "plane": "XY",
+        "entities": [
+          {
+            "rect": {
+              "center": [
+                0,
+                0
+              ],
+              "size": [
+                "L",
+                "W"
+              ]
+            }
+          },
+          {
+            "circle": {
+              "center": [
+                0,
+                0
+              ],
+              "d": 40
+            }
+          },
+          {
+            "circle": {
+              "center": [
+                "-L/2+inset",
+                "-W/2+inset"
+              ],
+              "d": 9
+            }
+          },
+          {
+            "circle": {
+              "center": [
+                "L/2-inset",
+                "-W/2+inset"
+              ],
+              "d": 9
+            }
+          },
+          {
+            "circle": {
+              "center": [
+                "-L/2+inset",
+                "W/2-inset"
+              ],
+              "d": 9
+            }
+          },
+          {
+            "circle": {
+              "center": [
+                "L/2-inset",
+                "W/2-inset"
+              ],
+              "d": 9
+            }
+          }
+        ]
+      },
+      {
+        "op": "extrude",
+        "sketch": "$s",
+        "distance": "t"
+      },
+      {
+        "op": "fillet",
+        "radius": 8,
+        "edges": {
+          "along": "z",
+          "min_length": 9.5
+        }
+      }
+    ],
+    "material": "Aluminium 6061"
+  }
+}

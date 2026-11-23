@@ -51,7 +51,7 @@ excluded_qt = [
     "PySide6.QtWebEngineCore", "PySide6.QtWebEngineQuick",
     "PySide6.QtWebEngineWidgets", "PySide6.QtWebSockets",
     "PySide6.QtXml", "PySide6.QtConcurrent", "PySide6.QtGraphs",
-    "PySide6.QtPdfWidgets", "PySide6.QtNetwork",
+    "PySide6.QtPdfWidgets",   # QtNetwork stays: the agent bridge (QLocalServer)
 ]
 
 excludes = excluded_qt + [

@@ -1,0 +1,216 @@
+{
+  "name": "assembly_pin_in_block",
+  "title": "Assembly: a pin standing in a block's hole",
+  "multi": true,
+  "save_as": ".icasm",
+  "prompt": "In InventCraft, make a small assembly of two parts. Part 1, Block: a rectangular block 80 mm (x) by 50 mm (y) by 20 mm high (z), standing on the XY plane and centred on the origin, with a 10.2 mm through hole in the middle of its top face. Part 2, Pin: a round pin 10 mm in diameter and 30 mm long. Save the two parts in {dir} as Block.icpart and Pin.icpart. Then make the assembly: place the block and the pin and constrain the pin so that it stands in the hole with its lower end level with the bottom of the block (so 10 mm of it stands above the top). The pin may still turn about its own axis. Check the assembly: nothing may fail or interfere, and the bill of materials should list both parts.",
+  "verdict": {
+    "assembly": {
+      "occurrences": 2,
+      "min_constraints": 2,
+      "max_dof": 1,
+      "max_interference": 0,
+      "bom_lines": 2
+    },
+    "files": [
+      "Block.icpart",
+      "Pin.icpart"
+    ]
+  },
+  "reference": {
+    "calls": [
+      {
+        "tool": "new_document",
+        "args": {}
+      },
+      {
+        "tool": "build",
+        "args": {
+          "ops": [
+            {
+              "op": "parameter",
+              "name": "L",
+              "value": 80
+            },
+            {
+              "op": "parameter",
+              "name": "W",
+              "value": 50
+            },
+            {
+              "op": "parameter",
+              "name": "T",
+              "value": 20
+            },
+            {
+              "op": "parameter",
+              "name": "hole_d",
+              "value": 10.2
+            },
+            {
+              "op": "sketch",
+              "id": "s1",
+              "plane": "XY",
+              "name": "Footprint",
+              "entities": [
+                {
+                  "rect": {
+                    "center": [
+                      0,
+                      0
+                    ],
+                    "size": [
+                      "L",
+                      "W"
+                    ]
+                  },
+                  "id": "r"
+                }
+              ]
+            },
+            {
+              "op": "extrude",
+              "id": "e1",
+              "name": "Block",
+              "sketch": "$s1",
+              "distance": "T"
+            },
+            {
+              "op": "sketch",
+              "id": "s2",
+              "plane": "$e1.end",
+              "name": "Hole position",
+              "entities": [
+                {
+                  "point": [
+                    0,
+                    0
+                  ],
+                  "id": "p"
+                }
+              ]
+            },
+            {
+              "op": "hole",
+              "id": "h1",
+              "name": "Pin hole",
+              "sketch": "$s2",
+              "diameter": "hole_d",
+              "points": [
+                "p"
+              ],
+              "through": true
+            }
+          ]
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {
+          "path": "{WORK}/Block.icpart"
+        }
+      },
+      {
+        "tool": "new_document",
+        "args": {}
+      },
+      {
+        "tool": "build",
+        "args": {
+          "ops": [
+            {
+              "op": "parameter",
+              "name": "pin_d",
+              "value": 10
+            },
+            {
+              "op": "parameter",
+              "name": "pin_l",
+              "value": 30
+            },
+            {
+              "op": "sketch",
+              "id": "s1",
+              "plane": "XY",
+              "name": "Section",
+              "entities": [
+                {
+                  "circle": {
+                    "center": [
+                      0,
+                      0
+                    ],
+                    "d": "pin_d"
+                  },
+                  "id": "c"
+                }
+              ]
+            },
+            {
+              "op": "extrude",
+              "id": "e1",
+              "name": "Pin",
+              "sketch": "$s1",
+              "distance": "pin_l"
+            }
+          ]
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {
+          "path": "{WORK}/Pin.icpart"
+        }
+      },
+      {
+        "tool": "new_document",
+        "args": {
+          "type": "assembly"
+        }
+      },
+      {
+        "tool": "place_component",
+        "args": {
+          "file": "{WORK}/Block.icpart",
+          "name": "Block"
+        }
+      },
+      {
+        "tool": "place_component",
+        "args": {
+          "file": "{WORK}/Pin.icpart",
+          "name": "Pin",
+          "transform": {
+            "position": [
+              0,
+              0,
+              60
+            ]
+          }
+        }
+      },
+      {
+        "tool": "constrain",
+        "args": {
+          "kind": "mate",
+          "a": "Block:1/Pin hole.wall[0]",
+          "b": "Pin:1/Pin.side(c)"
+        }
+      },
+      {
+        "tool": "constrain",
+        "args": {
+          "kind": "flush",
+          "a": "Block:1/Block.start",
+          "b": "Pin:1/Pin.start"
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {
+          "path": "{WORK}/assembly_pin_in_block.icasm"
+        }
+      }
+    ]
+  }
+}

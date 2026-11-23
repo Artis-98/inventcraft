@@ -47,6 +47,8 @@ class Version:
     parent: int = 0
     digest: str = ""
     file: str = ""
+    # the head of the branch this version merged in, if it is a merge
+    merged_from: int = 0
 
     @property
     def when(self) -> str:
@@ -132,8 +134,10 @@ def changed(path: str, history: Optional[History] = None) -> bool:
     return not os.path.exists(path) or digest(path) != head.digest
 
 
-def check_in(path: str, message: str = "", author: str = "") -> Version:
-    """Keep the file as it is now as the next version on its branch."""
+def check_in(path: str, message: str = "", author: str = "",
+             merged_from: int = 0) -> Version:
+    """Keep the file as it is now as the next version on its branch.
+    ``merged_from`` is the version of another branch it merges in."""
     if not os.path.exists(path):
         raise HistoryError("save it first: there is no file to check in")
     history = load(path)
@@ -148,7 +152,8 @@ def check_in(path: str, message: str = "", author: str = "") -> Version:
     shutil.copy2(path, os.path.join(history.store, name))
     version = Version(id=vid, branch=history.current, message=message,
                       author=author or _who(), time=time.time(),
-                      parent=head.id if head else 0, digest=stamp, file=name)
+                      parent=head.id if head else 0, digest=stamp, file=name,
+                      merged_from=merged_from)
     history.versions[vid] = version
     history.branches[history.current] = vid
     history.save()
@@ -245,3 +250,50 @@ def merge(path: str, branch: str, into: str = MAIN,
     history.save()
     return check_in(path, message or "Merged %s (version %d)"
                     % (branch, source.id))
+
+
+def delete_branch(path: str, name: str) -> History:
+    """Drop a branch that is not the one being worked on.  Its versions
+    stay in the store (a version is never thrown away); only the name
+    goes, so the work is no longer offered, and can be found again by
+    its version number."""
+    history = load(path)
+    if name not in history.branches:
+        raise HistoryError("there is no branch called %s" % name)
+    if name == history.current:
+        raise HistoryError("%s is the branch being worked on: switch to "
+                           "another first" % name)
+    if name == MAIN:
+        raise HistoryError("main cannot be deleted")
+    del history.branches[name]
+    history.save()
+    return history
+
+
+def ancestors(history: History, version_id: int) -> List[int]:
+    """A version and every one before it, newest first, the versions a
+    merge brought in included."""
+    out, seen = [], set()
+    queue = [version_id]
+    while queue:
+        version = history.versions.get(queue.pop(0))
+        if version is None or version.id in seen:
+            continue
+        seen.add(version.id)
+        out.append(version.id)
+        queue.append(version.parent)
+        if version.merged_from:
+            queue.append(version.merged_from)
+    return sorted(out, reverse=True)
+
+
+def common_ancestor(history: History, a: str, b: str) -> Optional[Version]:
+    """The newest version two branches share: where they parted."""
+    head_a, head_b = history.branches.get(a), history.branches.get(b)
+    if not head_a or not head_b:
+        return None
+    mine = set(ancestors(history, head_a))
+    for vid in ancestors(history, head_b):
+        if vid in mine:
+            return history.versions.get(vid)
+    return None

@@ -1,0 +1,209 @@
+{
+  "name": "step_parametrize",
+  "title": "A STEP bracket back into an editable parametric part",
+  "save_as": ".icpart",
+  "fixtures": [
+    {
+      "file": "bracket.step",
+      "ops": [
+        {
+          "op": "parameter",
+          "name": "w",
+          "value": 110,
+          "comment": "width"
+        },
+        {
+          "op": "parameter",
+          "name": "d",
+          "value": 70,
+          "comment": "plate depth"
+        },
+        {
+          "op": "parameter",
+          "name": "t",
+          "value": 8,
+          "comment": "thickness"
+        },
+        {
+          "op": "parameter",
+          "name": "h",
+          "value": 30,
+          "comment": "flange height"
+        },
+        {
+          "op": "sketch",
+          "id": "base",
+          "plane": "XY",
+          "name": "Plate outline",
+          "entities": [
+            {
+              "rect": {
+                "center": [
+                  0,
+                  0
+                ],
+                "size": [
+                  "w",
+                  "d"
+                ]
+              },
+              "id": "r"
+            }
+          ]
+        },
+        {
+          "op": "extrude",
+          "id": "plate",
+          "sketch": "$base",
+          "distance": "t",
+          "name": "Plate"
+        },
+        {
+          "op": "sketch",
+          "id": "fl",
+          "plane": "XY",
+          "name": "Flange outline",
+          "entities": [
+            {
+              "rect": {
+                "corner": [
+                  "-w/2",
+                  "d/2 - t"
+                ],
+                "size": [
+                  "w",
+                  "t"
+                ]
+              },
+              "id": "f"
+            }
+          ]
+        },
+        {
+          "op": "extrude",
+          "id": "flange",
+          "sketch": "$fl",
+          "distance": "h",
+          "operation": "join",
+          "name": "Flange"
+        },
+        {
+          "op": "chamfer",
+          "distance": 1.5,
+          "edges": [
+            {
+              "near": [
+                0,
+                35,
+                30
+              ],
+              "count": 1
+            }
+          ],
+          "name": "Flange edge"
+        },
+        {
+          "op": "fillet",
+          "radius": 6,
+          "edges": [
+            {
+              "near": [
+                -55,
+                -35,
+                4
+              ],
+              "count": 1
+            },
+            {
+              "near": [
+                55,
+                -35,
+                4
+              ],
+              "count": 1
+            }
+          ],
+          "name": "Front corners"
+        },
+        {
+          "op": "sketch",
+          "id": "hs",
+          "plane": "XY",
+          "name": "Bolt centre",
+          "entities": [
+            {
+              "point": [
+                "-w/3",
+                "-d/6"
+              ],
+              "id": "p"
+            }
+          ]
+        },
+        {
+          "op": "hole",
+          "id": "bolt",
+          "sketch": "$hs",
+          "diameter": 9,
+          "points": [
+            "p"
+          ],
+          "through": true,
+          "name": "Bolt hole"
+        },
+        {
+          "op": "pattern",
+          "parents": [
+            "$bolt"
+          ],
+          "count1": 3,
+          "spacing1": "w/3",
+          "dir1": "X",
+          "name": "Bolt row"
+        }
+      ]
+    }
+  ],
+  "prompt": "{dir}/bracket.step is a bracket somebody exported to STEP, so it has no history. In InventCraft, bring it in and turn it into an editable parametric part: its profile, its row of holes, and its chamfer and corner rounds should be features driven by parameters (the hole diameter, the number of holes and the length among them), not one imported lump. The result must have the same shape as the file. Check that changing the hole diameter and the length rebuilds it.",
+  "verdict": {
+    "inspect": {
+      "volume": 79185.8,
+      "faces": 14,
+      "solids": 1,
+      "valid": true,
+      "tolerance": 0.002
+    },
+    "not_features": [
+      "import"
+    ],
+    "min_parameters": 5,
+    "parametric": true
+  },
+  "reference": {
+    "calls": [
+      {
+        "tool": "new_document",
+        "args": {}
+      },
+      {
+        "tool": "build",
+        "args": {
+          "ops": [
+            {
+              "op": "import",
+              "path": "{WORK}/bracket.step"
+            }
+          ]
+        }
+      },
+      {
+        "tool": "recognize",
+        "args": {}
+      },
+      {
+        "tool": "parametrize",
+        "args": {}
+      }
+    ]
+  }
+}

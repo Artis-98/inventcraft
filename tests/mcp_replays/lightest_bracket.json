@@ -1,0 +1,54 @@
+{
+  "name": "the lightest bracket that clears: requirements, a sweep, optimise for minimum mass, applied on a branch and merged",
+  "calls": [
+    {"tool": "new_document", "args": {"name": "Bracket"}},
+    {"tool": "properties", "args": {"material": "Aluminium 6061"}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "w", "value": 110, "comment": "width"},
+      {"op": "parameter", "name": "d", "value": 70, "comment": "plate depth"},
+      {"op": "parameter", "name": "t", "value": 8, "comment": "plate and flange thickness"},
+      {"op": "parameter", "name": "h", "value": 30, "comment": "flange height"},
+      {"op": "sketch", "id": "base", "plane": "XY", "name": "Plate outline", "entities": [
+        {"rect": {"center": [0, 0], "size": ["w", "d"]}, "id": "r"},
+        {"circle": {"center": [0, "-d/6"], "d": 9}, "id": "bolt"}]},
+      {"op": "extrude", "id": "plate", "sketch": "$base", "distance": "t", "name": "Plate"},
+      {"op": "sketch", "id": "fl", "plane": "XY", "name": "Flange outline", "entities": [
+        {"rect": {"corner": ["-w/2", "d/2 - t"], "size": ["w", "t"]}, "id": "f"}]},
+      {"op": "extrude", "id": "flange", "sketch": "$fl", "distance": "h", "operation": "join", "name": "Flange"}]}},
+    {"tool": "requirements", "args": {"set": [
+      {"name": "bolt to edge", "metric": "clearance", "a": "Plate.side(bolt)", "b": "Plate.side(r.left)", "min": 20, "note": "washer and edge distance"},
+      {"name": "bolt to flange", "metric": "clearance", "a": "Plate.side(bolt)", "b": "Flange.side(f.bottom)", "min": 12, "note": "keep-out for the wrench"},
+      {"name": "min section", "metric": "clearance", "a": "Plate.end", "b": "Plate.start", "min": 4, "note": "stiffness proxy: the thinnest section"},
+      {"name": "width", "metric": "bbox", "axis": "x", "max": 120},
+      {"name": "depth", "metric": "bbox", "axis": "y", "max": 80}]},
+     "expect": {"contains": "reqs 5/5"}},
+    {"tool": "save_document", "args": {"path": "{TMP}/LBracket.icpart"}},
+    {"tool": "evaluate", "args": {"variations": [
+        {"t": 4}, {"t": 3}, {"w": 40}, {"name": "slim", "t": 5, "w": 55, "d": 40, "h": 15}],
+        "clearances": {"bolt gap": {"a": "Plate.side(bolt)", "b": "Plate.side(r.left)"}}},
+     "expect": {"contains": "evaluate ok"}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [110, 70, 30], "solids": 1, "valid": true}},
+     "expect": {"verdict": true}},
+    {"tool": "optimise", "args": {
+      "vary": {"t": [2, 12], "w": [40, 120], "d": [30, 80], "h": [10, 40]},
+      "objective": "min mass", "budget": 64},
+     "expect": {"contains": "(start 217.2)", "fields": {"feasible": true, "applied": false}}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [110, 70, 30]}},
+     "expect": {"verdict": true}},
+    {"tool": "optimise", "args": {
+      "vary": {"t": [2, 3]}, "objective": "min mass", "budget": 6},
+     "expect": {"contains": "NO feasible design", "fields": {"feasible": false}}},
+    {"tool": "optimise", "args": {
+      "vary": {"t": [2, 12], "w": [40, 120], "d": [30, 80], "h": [10, 40]},
+      "objective": "min mass", "budget": 64, "apply": true, "branch": "lighter"},
+     "expect": {"contains": "applied on branch lighter", "fields": {"feasible": true, "applied": true}}},
+    {"tool": "requirements", "args": {"check": true}, "expect": {"contains": "reqs 5/5"}},
+    {"tool": "diff", "args": {"before": "branch:main", "after": "branch:lighter"},
+     "expect": {"contains": "parameter change"}},
+    {"tool": "branch", "args": {"action": "switch", "name": "main"}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [110, 70, 30]}}, "expect": {"verdict": true}},
+    {"tool": "branch", "args": {"action": "merge", "name": "lighter"}},
+    {"tool": "requirements", "args": {"check": true}, "expect": {"contains": "reqs 5/5"}},
+    {"tool": "inspect", "args": {"expected": {"solids": 1, "valid": true}}, "expect": {"verdict": true}}
+  ]
+}

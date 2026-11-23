@@ -830,3 +830,141 @@ def _describe_state(report: SolveReport, count: int) -> str:
     if report.dof == 0:
         return "Fully constrained"
     return "%d constraint(s), %d DOF" % (count, report.dof)
+
+
+# --------------------------------------------------------------------------
+# what is left free, per component
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class Freedom:
+    """How constrained each free component is, and which constraints add
+    nothing.
+
+    ``dof`` has one entry per free component: how many of its six motions
+    (counting the motions it makes by being carried along by another free
+    component) the constraints still allow. ``redundant`` lists constraints
+    that could be taken away without freeing anything: they repeat what the
+    others say (consistent, or the solve would have failed).
+    """
+
+    dof: Dict[int, int] = field(default_factory=dict)
+    redundant: List[int] = field(default_factory=list)
+
+
+def freedom(placements: Dict[int, Placement],
+            constraints: Sequence[ResolvedConstraint],
+            free: Sequence[int]) -> Freedom:
+    """Work out the freedom of every free component from the Jacobian of
+    the constraints at the placements as they stand (call it after a
+    solve). The nullspace is the set of motions the constraints allow; a
+    component's own freedom is the dimension of that space seen through
+    its six unknowns.
+    """
+    out = Freedom()
+    order = [oid for oid in free if oid in placements]
+    live = [c for c in constraints
+            if c.occ_a in placements and c.occ_b in placements]
+
+    parent = {oid: oid for oid in order}
+
+    def root(oid: int) -> int:
+        while parent[oid] != oid:
+            parent[oid] = parent[parent[oid]]
+            oid = parent[oid]
+        return oid
+
+    for c in live:
+        if c.occ_a in parent and c.occ_b in parent:
+            parent[root(c.occ_a)] = root(c.occ_b)
+    groups: Dict[int, List[int]] = {}
+    for oid in order:
+        groups.setdefault(root(oid), []).append(oid)
+    asked: Dict[int, List[ResolvedConstraint]] = {}
+    for c in live:
+        moving = c.occ_a if c.occ_a in parent else (
+            c.occ_b if c.occ_b in parent else None)
+        if moving is not None:
+            asked.setdefault(root(moving), []).append(c)
+
+    for key, members in groups.items():
+        mine = asked.get(key, [])
+        if not mine:
+            for oid in members:
+                out.dof[oid] = 6
+            continue
+        _group_freedom(placements, mine, members, out)
+    return out
+
+
+def _group_freedom(placements: Dict[int, Placement],
+                   constraints: Sequence[ResolvedConstraint],
+                   members: Sequence[int], out: Freedom) -> None:
+    index = {oid: i for i, oid in enumerate(members)}
+    fixed = {oid: (np.asarray(p.position, dtype=float), p.matrix())
+             for oid, p in placements.items() if oid not in index}
+    x = np.zeros(6 * len(members))
+    for oid, i in index.items():
+        x[6 * i:6 * i + 3] = placements[oid].position
+        x[6 * i + 3:6 * i + 6] = placements[oid].rotation
+    prepared = [(c,
+                 np.asarray(c.frame_a.origin, dtype=float),
+                 np.asarray(c.frame_a.direction, dtype=float),
+                 np.asarray(c.frame_b.origin, dtype=float),
+                 np.asarray(c.frame_b.direction, dtype=float))
+                for c in constraints]
+    spans: List[int] = []
+
+    def residuals(v: np.ndarray) -> np.ndarray:
+        current = dict(fixed)
+        for oid, i in index.items():
+            current[oid] = (v[6 * i:6 * i + 3],
+                            rotation_matrix(v[6 * i + 3:6 * i + 6]))
+        rows: List[float] = []
+        spans.clear()
+        for c, ao, ad, bo, bd in prepared:
+            pa, Ra = current[c.occ_a]
+            pb, Rb = current[c.occ_b]
+            got = _rows(c, Ra @ ao + pa, Ra @ ad, Rb @ bo + pb, Rb @ bd)
+            spans.append(len(got))
+            rows.extend(got)
+        return np.asarray(rows, dtype=float) if rows else np.zeros(0)
+
+    r0 = residuals(x)
+    if r0.size == 0:
+        for oid in members:
+            out.dof[oid] = 6
+        return
+    counts = list(spans)
+    J = lstsq.jacobian(residuals, x, r0)
+    try:
+        _u, s, vt = np.linalg.svd(J, full_matrices=True)
+    except np.linalg.LinAlgError:
+        for oid in members:
+            out.dof[oid] = 6
+        return
+    rank = int(np.count_nonzero(s > float(s[0]) * 1e-6)) if s.size else 0
+    null = vt[rank:].T                       # one column per free motion
+    for oid, i in index.items():
+        if null.shape[1] == 0:
+            out.dof[oid] = 0
+            continue
+        block = null[6 * i:6 * i + 6, :]
+        sv = np.linalg.svd(block, compute_uv=False)
+        out.dof[oid] = int(np.count_nonzero(sv > 1e-4))
+
+    # a constraint whose rows can go without the rank dropping adds nothing
+    start = 0
+    for c, n in zip(constraints, counts):
+        keep = np.ones(J.shape[0], dtype=bool)
+        keep[start:start + n] = False
+        start += n
+        rest = J[keep]
+        if rest.size == 0:
+            continue
+        sr = np.linalg.svd(rest, compute_uv=False)
+        r_without = int(np.count_nonzero(sr > float(s[0]) * 1e-6)) \
+            if sr.size else 0
+        if r_without == rank:
+            out.redundant.append(c.id)

@@ -11,6 +11,7 @@ under its own terms.
 | **VTK** | Nothing, directly. OpenCASCADE's Python binding links it, so it has to be present or the kernel will not load at all | BSD 3-clause |
 | **NumPy** | The least-squares solver behind sketches and assembly constraints | BSD 3-clause |
 | **cryptography** | Verifying that an update really came from IITEG | Apache-2.0 / BSD 3-clause |
+| **mcp** (Model Context Protocol SDK) | Optional: the MCP server that lets AI agents drive InventCraft | MIT |
 | **Python** | The runtime DATUM is written in | PSF |
 
 ## On the LGPL libraries

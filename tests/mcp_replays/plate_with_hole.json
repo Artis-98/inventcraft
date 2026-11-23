@@ -1,0 +1,22 @@
+{
+  "name": "plate with a hole, rounded corners, resized",
+  "calls": [
+    {"tool": "new_document", "args": {}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "w", "value": 120, "comment": "plate width"},
+      {"op": "parameter", "name": "h", "value": 80},
+      {"op": "parameter", "name": "t", "value": 10},
+      {"op": "parameter", "name": "hole", "value": 20},
+      {"op": "sketch", "id": "s1", "plane": "XY", "name": "Outline", "entities": [
+        {"rect": {"center": [0, 0], "size": ["w", "h"]}},
+        {"circle": {"center": [0, 0], "d": "hole"}}]},
+      {"op": "extrude", "id": "e1", "sketch": "$s1", "distance": "t", "name": "Plate"},
+      {"op": "fillet", "radius": 6, "edges": {"along": "z"}, "name": "Corners"}]}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [120, 80, 10], "solids": 1, "valid": true}},
+     "expect": {"verdict": true}},
+    {"tool": "properties", "args": {"parameters": {"w": "200", "hole": "w/8"}}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [200, 80, 10], "solids": 1, "valid": true}},
+     "expect": {"verdict": true}},
+    {"tool": "render_view", "args": {"view": "top"}, "expect": {"image": true}}
+  ]
+}

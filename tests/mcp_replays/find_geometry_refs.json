@@ -1,0 +1,34 @@
+{
+  "name": "a bracket plate picked and measured by reference, never by index",
+  "calls": [
+    {"tool": "new_document", "args": {}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "w", "value": 120},
+      {"op": "parameter", "name": "h", "value": 70},
+      {"op": "parameter", "name": "t", "value": 10},
+      {"op": "parameter", "name": "pitch", "value": 80},
+      {"op": "sketch", "id": "s1", "plane": "XY", "name": "Outline", "entities": [
+        {"rect": {"center": [0, 0], "size": ["w", "h"]}, "id": "r"}]},
+      {"op": "extrude", "id": "e1", "sketch": "$s1", "distance": "t", "name": "Plate"},
+      {"op": "sketch", "id": "s2", "plane": "$e1.end", "name": "Centres", "entities": [
+        {"point": ["-pitch/2", 0], "id": "a"}, {"point": ["pitch/2", 0], "id": "b"}]},
+      {"op": "hole", "sketch": "$s2", "diameter": 9, "points": ["a", "b"], "name": "Mount",
+       "hole_type": "counterbore", "cb_diameter": 15, "cb_depth": 4},
+      {"op": "chamfer", "distance": 1, "edges": ["Plate.end"], "name": "Break"}]}},
+    {"tool": "find_geometry", "args": {"where": {"type": "cylinder", "hole": true, "radius": 4.5}},
+     "expect": {"fields": {"matched": 2}}},
+    {"tool": "find_geometry", "args": {"what": "edge", "where": {"on": "Plate.side(r.right)"}},
+     "expect": {"contains": "@E:"}},
+    {"tool": "find_geometry", "args": {"where": {"created_by": "Mount", "type": "cylinder"}},
+     "expect": {"contains": "hole r4.5"}},
+    {"tool": "measure", "args": {"a": "Mount.wall[0]", "b": "Mount.wall[1]"},
+     "expect": {"fields": {"axis_distance": 80.0}}},
+    {"tool": "measure", "args": {"a": "Mount.cbore[0]"}, "expect": {"contains": "diameter 15 mm"}},
+    {"tool": "measure", "args": {"a": "Plate.top"}, "expect": {"error": true, "contains": "NO_PROVENANCE"}},
+    {"tool": "properties", "args": {"parameters": {"pitch": 90}}},
+    {"tool": "measure", "args": {"a": "Mount.wall[0]", "b": "Mount.wall[1]"},
+     "expect": {"fields": {"axis_distance": 90.0}}},
+    {"tool": "render_view", "args": {"view": "top", "highlight": ["Mount.wall", "Plate.side(r.right)"]},
+     "expect": {"image": true}}
+  ]
+}

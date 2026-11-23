@@ -1,0 +1,109 @@
+{
+  "name": "sheet_metal_flat",
+  "title": "A sheet-metal L bracket and its flat pattern as DXF",
+  "tools": "default,+sheetmetal",
+  "save_as": ".icpart",
+  "multi": true,
+  "prompt": "In InventCraft, make a sheet-metal L bracket from 2 mm sheet with a 2 mm inside bend radius: a flat base 80 mm long (x) by 40 mm wide (y), and a 25 mm high flange bent up 90 degrees along one of the long (80 mm) edges. Use sheet-metal features and keep it parametric. Check it with the sheet-metal rules, and write its flat pattern for the laser as {dir}/flat.dxf.",
+  "verdict": {
+    "features_any": [
+      "sheet_face",
+      "flange",
+      "contour_flange"
+    ],
+    "min_parameters": 3,
+    "parametric": true,
+    "flat": {
+      "bends": 1,
+      "length": 80,
+      "tolerance": 0.5
+    },
+    "files": [
+      "flat.dxf"
+    ]
+  },
+  "reference": {
+    "calls": [
+      {
+        "tool": "new_document",
+        "args": {}
+      },
+      {
+        "tool": "build",
+        "args": {
+          "ops": [
+            {
+              "op": "parameter",
+              "name": "Thickness",
+              "value": 2
+            },
+            {
+              "op": "parameter",
+              "name": "BendRadius",
+              "value": 2
+            },
+            {
+              "op": "parameter",
+              "name": "L",
+              "value": 80
+            },
+            {
+              "op": "parameter",
+              "name": "W",
+              "value": 40
+            },
+            {
+              "op": "parameter",
+              "name": "H",
+              "value": 25
+            },
+            {
+              "op": "sketch",
+              "id": "s",
+              "plane": "XZ",
+              "name": "Path",
+              "entities": [
+                {
+                  "polyline": [
+                    [
+                      0,
+                      "H"
+                    ],
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      "W",
+                      0
+                    ]
+                  ],
+                  "closed": false,
+                  "id": "p"
+                }
+              ]
+            },
+            {
+              "op": "contour_flange",
+              "id": "cf",
+              "sketch": "$s",
+              "width": "L"
+            }
+          ]
+        }
+      },
+      {
+        "tool": "flat_pattern",
+        "args": {
+          "path": "{WORK}/flat.dxf"
+        }
+      },
+      {
+        "tool": "save_document",
+        "args": {
+          "path": "{WORK}/sheet_metal_flat.icpart"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "DIN 934 M10 hex nut: polygon, hole, chamfered edges, thread; resized to M16",
+  "calls": [
+    {"tool": "new_document", "args": {"name": "DIN 934 M10"}},
+    {"tool": "build", "args": {"ops": [
+      {"op": "parameter", "name": "s", "value": 17, "comment": "width across flats"},
+      {"op": "parameter", "name": "m", "value": 8, "comment": "nut height"},
+      {"op": "parameter", "name": "dh", "value": 8.5, "comment": "tap drill for M10 x 1.5"},
+      {"op": "parameter", "name": "c", "value": 0.8, "comment": "edge chamfer"},
+      {"op": "sketch", "id": "hex", "plane": "XY", "name": "Hex", "entities": [
+        {"polygon": {"center": [0, 0], "sides": 6, "across_flats": "s"}, "id": "h"}]},
+      {"op": "extrude", "id": "body", "sketch": "$hex", "distance": "m", "name": "Body"},
+      {"op": "sketch", "id": "ctr", "plane": "XY", "name": "Centre", "entities": [
+        {"point": [0, 0], "id": "p"}]},
+      {"op": "hole", "id": "bore", "sketch": "$ctr", "diameter": "dh", "points": ["p"],
+       "name": "Bore", "comments": {"diameter": "tapped, see the thread"}},
+      {"op": "chamfer", "distance": "c", "name": "Edges",
+       "edges": [{"at": "+z", "kind": "line"}, {"at": "-z", "kind": "line"}]},
+      {"op": "thread", "refs": {"faces": {"kind": "cylinder"}}, "designation": "M10",
+       "diameter": 10, "pitch": 1.5, "name": "M10 thread"}]}},
+    {"tool": "sketch_status", "args": {"sketch": "Hex"},
+     "expect": {"fields": {"dof": 0}}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [19.6299, 17, 8], "volume": 1511.784,
+                                              "faces": 21, "solids": 1, "valid": true,
+                                              "tolerance": 0.001}},
+     "expect": {"verdict": true}},
+    {"tool": "properties", "args": {"parameters": {"s": "24", "m": "13", "dh": "14"}}},
+    {"tool": "inspect", "args": {"expected": {"bbox": [27.7128, 24, 13], "faces": 21,
+                                              "solids": 1, "valid": true}},
+     "expect": {"verdict": true}},
+    {"tool": "read_ir", "args": {"features": ["Bore"]},
+     "expect": {"contains": "tapped, see the thread"}},
+    {"tool": "diff", "args": {"before": 2}, "expect": {"contains": "3 parameter change(s)"}},
+    {"tool": "render_view", "args": {"view": "top"}, "expect": {"image": true}}
+  ]
+}

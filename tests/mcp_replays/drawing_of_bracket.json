@@ -1,0 +1,361 @@
+{
+ "name": "drawing of the bracket: three views and an iso, a section, dimensions, hole notes, a PNG render, PDF and DXF export, saved",
+ "needs": "drawing",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {
+    "name": "Bracket"
+   }
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "w",
+      "value": 120,
+      "comment": "width"
+     },
+     {
+      "op": "parameter",
+      "name": "d",
+      "value": 60,
+      "comment": "depth"
+     },
+     {
+      "op": "parameter",
+      "name": "h",
+      "value": 40,
+      "comment": "height"
+     },
+     {
+      "op": "parameter",
+      "name": "wall",
+      "value": 4,
+      "comment": "wall thickness"
+     },
+     {
+      "op": "parameter",
+      "name": "bolt",
+      "value": 6.6,
+      "comment": "M6 clearance"
+     },
+     {
+      "op": "parameter",
+      "name": "pitch",
+      "value": 30,
+      "comment": "hole spacing"
+     },
+     {
+      "op": "sketch",
+      "id": "base",
+      "plane": "XY",
+      "name": "Footprint",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          "w",
+          "d"
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "body",
+      "sketch": "$base",
+      "distance": "h",
+      "name": "Body"
+     },
+     {
+      "op": "fillet",
+      "radius": 6,
+      "edges": {
+       "along": "z"
+      },
+      "name": "Corners"
+     },
+     {
+      "op": "shell",
+      "thickness": "wall",
+      "refs": {
+       "faces": {
+        "normal": "-z"
+       }
+      },
+      "name": "Hollow"
+     },
+     {
+      "op": "sketch",
+      "id": "holes",
+      "plane": "XY",
+      "name": "Hole centres",
+      "entities": [
+       {
+        "point": [
+         "-pitch * 1.5",
+         "d/4"
+        ],
+        "id": "h1"
+       }
+      ]
+     },
+     {
+      "op": "hole",
+      "id": "hole",
+      "sketch": "$holes",
+      "diameter": "bolt",
+      "points": [
+       "h1"
+      ],
+      "name": "Bolt hole"
+     },
+     {
+      "op": "pattern",
+      "id": "row",
+      "parents": [
+       "$hole"
+      ],
+      "count1": 4,
+      "spacing1": "pitch",
+      "dir1": "X",
+      "name": "Hole row"
+     },
+     {
+      "op": "mirror",
+      "parents": [
+       "$hole",
+       "$row"
+      ],
+      "scope": "features",
+      "plane": "XZ",
+      "name": "Other row"
+     },
+     {
+      "op": "sketch",
+      "id": "bs",
+      "plane": "XZ",
+      "name": "Boss profile",
+      "entities": [
+       {
+        "rect": {
+         "corner": [
+          0,
+          "h"
+         ],
+         "size": [
+          10,
+          8
+         ]
+        }
+       },
+       {
+        "line": [
+         [
+          0,
+          0
+         ],
+         [
+          0,
+          80
+         ]
+        ],
+        "id": "ax",
+        "construction": true,
+        "dimension": true
+       }
+      ]
+     },
+     {
+      "op": "revolve",
+      "sketch": "$bs",
+      "axis": "ax",
+      "angle": 360,
+      "name": "Boss"
+     }
+    ]
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      120,
+      60,
+      48
+     ],
+     "solids": 1,
+     "valid": true
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/DBracket.icpart"
+   }
+  },
+  {
+   "tool": "drawing_create",
+   "args": {
+    "source": "{TMP}/DBracket.icpart",
+    "size": "A3",
+    "props": {
+     "Title": "BRACKET",
+     "Author": "replay"
+    }
+   },
+   "expect": {
+    "contains": "DBracket.icdraw"
+   }
+  },
+  {
+   "tool": "drawing_base_view",
+   "args": {
+    "orientation": "front"
+   },
+   "expect": {
+    "contains": "looks front | scale 1:1"
+   }
+  },
+  {
+   "tool": "drawing_projected_view",
+   "args": {
+    "parent": "View1",
+    "shows": "top"
+   },
+   "expect": {
+    "contains": "looks top"
+   }
+  },
+  {
+   "tool": "drawing_projected_view",
+   "args": {
+    "parent": "View1",
+    "place": "right"
+   },
+   "expect": {
+    "contains": "projected view View3"
+   }
+  },
+  {
+   "tool": "drawing_projected_view",
+   "args": {
+    "parent": "View1",
+    "shows": "iso"
+   },
+   "expect": {
+    "contains": "looks iso"
+   }
+  },
+  {
+   "tool": "drawing_section_view",
+   "args": {
+    "parent": "View1",
+    "cut": {
+     "direction": "vertical",
+     "at": 0
+    }
+   },
+   "expect": {
+    "contains": "section A-A"
+   }
+  },
+  {
+   "tool": "drawing_section_view",
+   "args": {
+    "parent": "View1",
+    "cut": {
+     "direction": "vertical",
+     "at": 900
+    }
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "drawing_dimension",
+   "args": {
+    "view": "View1",
+    "kind": "overall"
+   },
+   "expect": {
+    "contains": "120, 48"
+   }
+  },
+  {
+   "tool": "drawing_dimension",
+   "args": {
+    "view": "View2",
+    "kind": "diameter"
+   },
+   "expect": {
+    "contains": "8x"
+   }
+  },
+  {
+   "tool": "drawing_note",
+   "args": {
+    "view": "View2",
+    "kind": "hole_notes"
+   }
+  },
+  {
+   "tool": "model_tree",
+   "args": {},
+   "expect": {
+    "contains": "Section1"
+   }
+  },
+  {
+   "tool": "drawing_render",
+   "args": {
+    "width": 1000
+   },
+   "expect": {
+    "image": true
+   }
+  },
+  {
+   "tool": "drawing_export",
+   "args": {
+    "path": "{TMP}/DBracket.pdf"
+   },
+   "expect": {
+    "contains": "DBracket.pdf"
+   }
+  },
+  {
+   "tool": "drawing_export",
+   "args": {
+    "path": "{TMP}/DBracket.pdf"
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "drawing_export",
+   "args": {
+    "path": "{TMP}/DBracket.dxf"
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {}
+  }
+ ]
+}

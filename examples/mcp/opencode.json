@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "inventcraft": {
+      "type": "local",
+      "command": ["/path/to/inventcraft/.venv/bin/python", "-m", "datum.mcp"],
+      "enabled": true,
+      "timeout": 120000,
+      "environment": {"PYTHONPATH": "/path/to/inventcraft"}
+    }
+  }
+}

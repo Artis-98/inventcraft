@@ -1,0 +1,1023 @@
+{
+ "name": "weld cart from a skeleton",
+ "calls": [
+  {
+   "tool": "new_document",
+   "args": {}
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "L",
+      "value": 700,
+      "comment": "frame length, line to line, back to front"
+     },
+     {
+      "op": "parameter",
+      "name": "W",
+      "value": 420,
+      "comment": "frame width, line to line"
+     },
+     {
+      "op": "parameter",
+      "name": "B",
+      "value": 30,
+      "comment": "tube side, DIN EN 10219-2 30 x 30 x 2"
+     },
+     {
+      "op": "parameter",
+      "name": "TOP",
+      "value": 800,
+      "comment": "top of the top frame"
+     },
+     {
+      "op": "parameter",
+      "name": "CASTER_H",
+      "value": 127,
+      "comment": "the caster's mount height, floor to plate"
+     },
+     {
+      "op": "parameter",
+      "name": "PLATE_T",
+      "value": 6,
+      "comment": "the caster plates"
+     },
+     {
+      "op": "parameter",
+      "name": "HANDLE",
+      "value": 1050,
+      "comment": "the handle bar's line"
+     },
+     {
+      "op": "parameter",
+      "name": "STRAP",
+      "value": 700,
+      "comment": "the bottle rail's line"
+     },
+     {
+      "op": "parameter",
+      "name": "Zbot",
+      "value": "CASTER_H + PLATE_T + B / 2",
+      "comment": "bottom frame's lines"
+     },
+     {
+      "op": "parameter",
+      "name": "Ztop",
+      "value": "TOP - B / 2",
+      "comment": "top frame's lines"
+     },
+     {
+      "op": "workplane",
+      "id": "wb",
+      "name": "Bottom Level",
+      "base": "XY",
+      "offset": "Zbot"
+     },
+     {
+      "op": "workplane",
+      "id": "wt",
+      "name": "Top Level",
+      "base": "XY",
+      "offset": "Ztop"
+     },
+     {
+      "op": "workplane",
+      "id": "wr",
+      "name": "Right Side",
+      "base": "XZ",
+      "offset": "-W"
+     },
+     {
+      "op": "sketch",
+      "id": "bot",
+      "name": "Bottom Frame",
+      "plane": "$wb",
+      "entities": [
+       {
+        "rect": {
+         "corner": [
+          0,
+          0
+         ],
+         "size": [
+          "L",
+          "W"
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "op": "sketch",
+      "id": "top",
+      "name": "Top Frame",
+      "plane": "$wt",
+      "entities": [
+       {
+        "rect": {
+         "corner": [
+          0,
+          0
+         ],
+         "size": [
+          "L",
+          "W"
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "op": "sketch",
+      "id": "ll",
+      "name": "Left Legs",
+      "plane": "XZ",
+      "entities": [
+       {
+        "line": [
+         [
+          0,
+          "Zbot + B / 2"
+         ],
+         [
+          0,
+          "Ztop - B / 2"
+         ]
+        ]
+       },
+       {
+        "line": [
+         [
+          "L",
+          "Zbot + B / 2"
+         ],
+         [
+          "L",
+          "Ztop - B / 2"
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "op": "sketch",
+      "id": "rl",
+      "name": "Right Legs",
+      "plane": "$wr",
+      "entities": [
+       {
+        "line": [
+         [
+          0,
+          "Zbot + B / 2"
+         ],
+         [
+          0,
+          "Ztop - B / 2"
+         ]
+        ]
+       },
+       {
+        "line": [
+         [
+          "L",
+          "Zbot + B / 2"
+         ],
+         [
+          "L",
+          "Ztop - B / 2"
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "op": "sketch",
+      "id": "hd",
+      "name": "Handle",
+      "plane": "YZ",
+      "entities": [
+       {
+        "line": [
+         [
+          0,
+          "Ztop + B / 2"
+         ],
+         [
+          0,
+          "HANDLE"
+         ]
+        ]
+       },
+       {
+        "line": [
+         [
+          0,
+          "HANDLE"
+         ],
+         [
+          "W",
+          "HANDLE"
+         ]
+        ]
+       },
+       {
+        "line": [
+         [
+          "W",
+          "HANDLE"
+         ],
+         [
+          "W",
+          "Ztop + B / 2"
+         ]
+        ]
+       },
+       {
+        "line": [
+         [
+          "B / 2",
+          "STRAP"
+         ],
+         [
+          "W - B / 2",
+          "STRAP"
+         ]
+        ]
+       }
+      ]
+     },
+     {
+      "op": "sketch",
+      "id": "mk",
+      "name": "Origin Marker",
+      "plane": "XY",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          2,
+          2
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "mkx",
+      "sketch": "$mk",
+      "distance": 2,
+      "name": "Origin Block"
+     }
+    ]
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Skeleton.icpart"
+   }
+  },
+  {
+   "tool": "new_document",
+   "args": {}
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "TL",
+      "value": 698,
+      "comment": "tray length (follows the skeleton)"
+     },
+     {
+      "op": "parameter",
+      "name": "TW",
+      "value": 450,
+      "comment": "tray width (follows the skeleton)"
+     },
+     {
+      "op": "parameter",
+      "name": "Thickness",
+      "value": 1.5
+     },
+     {
+      "op": "parameter",
+      "name": "BendRadius",
+      "value": 1.5
+     },
+     {
+      "op": "parameter",
+      "name": "lip",
+      "value": 25,
+      "comment": "lip height, up"
+     },
+     {
+      "op": "sketch",
+      "id": "s",
+      "plane": "XY",
+      "name": "Tray",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          "TL",
+          "TW"
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "op": "sheet_face",
+      "id": "base",
+      "sketch": "$s",
+      "name": "Face"
+     },
+     {
+      "op": "flange",
+      "name": "Lips",
+      "height": "lip",
+      "edges": {
+       "edges": {
+        "at": "+z",
+        "kind": "line"
+       }
+      }
+     }
+    ]
+   }
+  },
+  {
+   "tool": "sheet_rules",
+   "args": {
+    "k_factor": 0.44
+   },
+   "expect": {
+    "contains": "K 0.44"
+   }
+  },
+  {
+   "tool": "flat_pattern",
+   "args": {
+    "path": "{TMP}/Top Tray.dxf"
+   },
+   "expect": {
+    "contains": "4 bends",
+    "fields": {
+     "bend_count": 4
+    }
+   }
+  },
+  {
+   "tool": "sheet_check",
+   "args": {},
+   "expect": {
+    "fields": {
+     "ok": true
+    }
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Top Tray.icpart"
+   }
+  },
+  {
+   "tool": "new_document",
+   "args": {}
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "SL",
+      "value": 760,
+      "comment": "shelf length (follows the skeleton)"
+     },
+     {
+      "op": "parameter",
+      "name": "SW",
+      "value": 480,
+      "comment": "shelf width (follows the skeleton)"
+     },
+     {
+      "op": "parameter",
+      "name": "ST",
+      "value": 4,
+      "comment": "shelf thickness"
+     },
+     {
+      "op": "sketch",
+      "id": "s",
+      "plane": "XY",
+      "name": "Shelf",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          "SL",
+          "SW"
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e",
+      "sketch": "$s",
+      "distance": "ST",
+      "name": "Shelf Plate"
+     }
+    ]
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Lower Shelf.icpart"
+   }
+  },
+  {
+   "tool": "new_document",
+   "args": {}
+  },
+  {
+   "tool": "build",
+   "args": {
+    "ops": [
+     {
+      "op": "parameter",
+      "name": "PL",
+      "value": 75,
+      "comment": "caster plate length (follows the tube size)"
+     },
+     {
+      "op": "parameter",
+      "name": "PW",
+      "value": 75,
+      "comment": "caster plate width"
+     },
+     {
+      "op": "parameter",
+      "name": "PT",
+      "value": 6,
+      "comment": "plate thickness (follows the skeleton)"
+     },
+     {
+      "op": "sketch",
+      "id": "s",
+      "plane": "XY",
+      "name": "Plate",
+      "entities": [
+       {
+        "rect": {
+         "center": [
+          0,
+          0
+         ],
+         "size": [
+          "PL",
+          "PW"
+         ]
+        }
+       },
+       {
+        "circle": {
+         "center": [
+          -25,
+          -25
+         ],
+         "d": 9
+        }
+       },
+       {
+        "circle": {
+         "center": [
+          25,
+          -25
+         ],
+         "d": 9
+        }
+       },
+       {
+        "circle": {
+         "center": [
+          -25,
+          25
+         ],
+         "d": 9
+        }
+       },
+       {
+        "circle": {
+         "center": [
+          25,
+          25
+         ],
+         "d": 9
+        }
+       }
+      ]
+     },
+     {
+      "op": "extrude",
+      "id": "e",
+      "sketch": "$s",
+      "distance": "PT",
+      "name": "Plate"
+     }
+    ]
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Caster Plate.icpart"
+   }
+  },
+  {
+   "tool": "new_document",
+   "args": {
+    "type": "assembly",
+    "name": "Welding Cart"
+   }
+  },
+  {
+   "tool": "save_document",
+   "args": {
+    "path": "{TMP}/Welding Cart.icasm"
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Skeleton.icpart",
+    "name": "Skeleton"
+   },
+   "expect": {
+    "contains": "grounded"
+   }
+  },
+  {
+   "tool": "frame_profiles",
+   "args": {
+    "family": "10219"
+   },
+   "expect": {
+    "contains": "profile famil"
+   }
+  },
+  {
+   "tool": "frame_insert",
+   "args": {
+    "skeleton": "Skeleton",
+    "sketch": "Bottom Frame",
+    "profile": "din-en-10219-2-square",
+    "size": "30 x 30 x 2",
+    "material": "Steel, Mild"
+   },
+   "expect": {
+    "contains": "member"
+   }
+  },
+  {
+   "tool": "frame_insert",
+   "args": {
+    "skeleton": "Skeleton",
+    "sketch": "Top Frame",
+    "profile": "din-en-10219-2-square",
+    "size": "30 x 30 x 2",
+    "material": "Steel, Mild",
+    "frame": "Frame0001:1"
+   },
+   "expect": {
+    "contains": "member"
+   }
+  },
+  {
+   "tool": "frame_insert",
+   "args": {
+    "skeleton": "Skeleton",
+    "sketch": "Left Legs",
+    "profile": "din-en-10219-2-square",
+    "size": "30 x 30 x 2",
+    "material": "Steel, Mild",
+    "frame": "Frame0001:1"
+   },
+   "expect": {
+    "contains": "member"
+   }
+  },
+  {
+   "tool": "frame_insert",
+   "args": {
+    "skeleton": "Skeleton",
+    "sketch": "Right Legs",
+    "profile": "din-en-10219-2-square",
+    "size": "30 x 30 x 2",
+    "material": "Steel, Mild",
+    "frame": "Frame0001:1"
+   },
+   "expect": {
+    "contains": "member"
+   }
+  },
+  {
+   "tool": "frame_insert",
+   "args": {
+    "skeleton": "Skeleton",
+    "sketch": "Handle",
+    "profile": "din-en-10219-2-square",
+    "size": "30 x 30 x 2",
+    "material": "Steel, Mild",
+    "frame": "Frame0001:1"
+   },
+   "expect": {
+    "contains": "member"
+   }
+  },
+  {
+   "tool": "frame_treat",
+   "args": {
+    "frame": "Frame0001:1",
+    "kind": "miter",
+    "corners": true,
+    "sketch": "Bottom Frame"
+   }
+  },
+  {
+   "tool": "frame_treat",
+   "args": {
+    "frame": "Frame0001:1",
+    "kind": "miter",
+    "corners": true,
+    "sketch": "Top Frame"
+   }
+  },
+  {
+   "tool": "frame_treat",
+   "args": {
+    "frame": "Frame0001:1",
+    "kind": "miter",
+    "corners": true,
+    "sketch": "Handle"
+   }
+  },
+  {
+   "tool": "cut_list",
+   "args": {
+    "path": "{TMP}/Welding Cart cut list.csv"
+   },
+   "expect": {
+    "fields": {
+     "pieces": 16
+    },
+    "contains": "16 pieces"
+   }
+  },
+  {
+   "tool": "skeleton_params",
+   "args": {},
+   "expect": {
+    "contains": "10 parameters"
+   }
+  },
+  {
+   "tool": "derive_part",
+   "args": {
+    "file": "{TMP}/Top Tray.icpart",
+    "drives": {
+     "TL": "Skeleton_L - 2",
+     "TW": "Skeleton_W + Skeleton_B"
+    }
+   }
+  },
+  {
+   "tool": "derive_part",
+   "args": {
+    "file": "{TMP}/Lower Shelf.icpart",
+    "drives": {
+     "SL": "Skeleton_L - Skeleton_B - 2",
+     "SW": "Skeleton_W - Skeleton_B - 2"
+    }
+   }
+  },
+  {
+   "tool": "derive_part",
+   "args": {
+    "file": "{TMP}/Caster Plate.icpart",
+    "name": "Caster FL",
+    "drives": {
+     "PL": "Skeleton_B * 2.5",
+     "PW": "Skeleton_B * 2.5",
+     "PT": "Skeleton_PLATE_T"
+    }
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Caster Plate.icpart",
+    "name": "Caster FR"
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Caster Plate.icpart",
+    "name": "Caster RL"
+   }
+  },
+  {
+   "tool": "place_component",
+   "args": {
+    "file": "{TMP}/Caster Plate.icpart",
+    "name": "Caster RR"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XY",
+    "b": "Top Tray:1/origin.XY",
+    "offset": "Skeleton_TOP"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.YZ",
+    "b": "Top Tray:1/origin.YZ",
+    "offset": "Skeleton_L / 2 + Skeleton_B / 2 + 1"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XZ",
+    "b": "Top Tray:1/origin.XZ",
+    "offset": "-(Skeleton_W / 2)"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XY",
+    "b": "Lower Shelf:1/origin.XY",
+    "offset": "Skeleton_Zbot + Skeleton_B / 2 - Lower_Shelf_ST"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.YZ",
+    "b": "Lower Shelf:1/origin.YZ",
+    "offset": "Skeleton_L / 2"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XZ",
+    "b": "Lower Shelf:1/origin.XZ",
+    "offset": "-(Skeleton_W / 2)"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XY",
+    "b": "Caster FL:1/origin.XY",
+    "offset": "Skeleton_CASTER_H"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.YZ",
+    "b": "Caster FL:1/origin.YZ",
+    "offset": "0"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XZ",
+    "b": "Caster FL:1/origin.XZ",
+    "offset": "0"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XY",
+    "b": "Caster FR:1/origin.XY",
+    "offset": "Skeleton_CASTER_H"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.YZ",
+    "b": "Caster FR:1/origin.YZ",
+    "offset": "Skeleton_L"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XZ",
+    "b": "Caster FR:1/origin.XZ",
+    "offset": "0"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XY",
+    "b": "Caster RL:1/origin.XY",
+    "offset": "Skeleton_CASTER_H"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.YZ",
+    "b": "Caster RL:1/origin.YZ",
+    "offset": "0"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XZ",
+    "b": "Caster RL:1/origin.XZ",
+    "offset": "-(Skeleton_W)"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XY",
+    "b": "Caster RR:1/origin.XY",
+    "offset": "Skeleton_CASTER_H"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.YZ",
+    "b": "Caster RR:1/origin.YZ",
+    "offset": "Skeleton_L"
+   }
+  },
+  {
+   "tool": "constrain",
+   "args": {
+    "kind": "flush",
+    "a": "Skeleton:1/origin.XZ",
+    "b": "Caster RR:1/origin.XZ",
+    "offset": "-(Skeleton_W)"
+   }
+  },
+  {
+   "tool": "assembly_check",
+   "args": {},
+   "expect": {
+    "fields": {
+     "fully_constrained": true,
+     "ok": true,
+     "dof": 0
+    },
+    "contains": "0 interferences"
+   }
+  },
+  {
+   "tool": "bom",
+   "args": {},
+   "expect": {
+    "contains": "20 line items"
+   }
+  },
+  {
+   "tool": "skeleton_set",
+   "args": {
+    "set": {
+     "Skeleton_L": 800,
+     "Skeleton_TOP": 850
+    }
+   },
+   "expect": {
+    "contains": "driven parameters followed"
+   }
+  },
+  {
+   "tool": "assembly_check",
+   "args": {},
+   "expect": {
+    "fields": {
+     "fully_constrained": true,
+     "ok": true,
+     "dof": 0
+    },
+    "contains": "0 interferences"
+   }
+  },
+  {
+   "tool": "inspect",
+   "args": {
+    "expected": {
+     "bbox": [
+      875,
+      495,
+      1065
+     ]
+    }
+   },
+   "expect": {
+    "verdict": true
+   }
+  },
+  {
+   "tool": "cut_list",
+   "args": {},
+   "expect": {
+    "fields": {
+     "pieces": 16
+    }
+   }
+  },
+  {
+   "tool": "derive_part",
+   "args": {
+    "part": "Top Tray",
+    "drives": {
+     "TL": "Skeleton_Nope + 1"
+    }
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "skeleton_set",
+   "args": {
+    "set": {
+     "Skeleton_Nope": 1
+    }
+   },
+   "expect": {
+    "error": true
+   }
+  },
+  {
+   "tool": "render_view",
+   "args": {
+    "view": "iso"
+   },
+   "expect": {
+    "image": true
+   }
+  }
+ ]
+}

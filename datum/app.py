@@ -255,6 +255,16 @@ def glcheck(app, window_class, report_path: str = "") -> int:
 def main(argv=None) -> int:
     argv = list(sys.argv if argv is None else argv)
 
+    if "--mcp" in argv:
+        # the MCP server an agent talks to; it starts headless hosts
+        # (below) for the geometry and never touches it itself
+        from .mcp.server import main as mcp_main
+        return mcp_main([a for a in argv[1:] if a != "--mcp"])
+    if "--headless" in argv and "--serve" in argv:
+        # a copy of InventCraft with no window, serving bridge ops on
+        # stdin and stdout for the MCP server (see bridge/host.py)
+        from .bridge import host
+        return host.serve()
     if "--worker" in argv:
         # a copy of DATUM doing geometry for the window: no Qt, no window,
         # just requests on stdin (see core/worker.py)
@@ -368,6 +378,8 @@ def main(argv=None) -> int:
     # After the window is up, never before: a staged update or a check is
     # not worth delaying the thing the person actually asked for.
     QtCore.QTimer.singleShot(1200, window.updater.on_start)
+    # agents may drive the open documents, if the user allowed it last time
+    QtCore.QTimer.singleShot(0, window.agent_bridge.apply_preferences)
     # a copy that updated itself from DATUM: the new file endings and the
     # renamed shortcuts the installer would have seen to
     from .core import shellreg
