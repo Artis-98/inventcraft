@@ -113,6 +113,9 @@ class BuildContext:
         # feature id -> ("fillet" or "chamfer", size, edges it worked on),
         # so a pattern or mirror can do the same on its copies
         self.edge_ops: Dict[int, Tuple[str, float, List[TopoDS_Shape]]] = {}
+        # feature id -> the body its tool went into, by name, so a pattern
+        # or mirror of it works on that body
+        self.tool_bodies: Dict[int, str] = {}
         self.log: List[str] = []
         # the sheet metal K-factor, for a Fold's bend allowance
         self.k_factor = 0.44
@@ -202,6 +205,36 @@ class BuildContext:
                     continue
         return None
 
+    def by_owner(self, subs: Sequence[TopoDS_Shape], what: str
+                 ) -> List[Tuple[Body, List[TopoDS_Shape]]]:
+        """Picked edges or faces sorted by the body each is on, bodies in
+        the order of the first pick on each: a fillet on edges of two
+        solids rounds each solid's own edges, and the solids stay apart."""
+        live = self.live
+        if not live:
+            raise FeatureError("%s needs an existing body" % what)
+        if len(live) == 1 or not subs:
+            return [(live[0], list(subs))]
+        from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+        from OCP.TopExp import TopExp
+        from OCP.TopTools import TopTools_IndexedMapOfShape
+        maps = []
+        for body in live:
+            found = TopTools_IndexedMapOfShape()
+            for kind in (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX):
+                TopExp.MapShapes_s(body.shape, kind, found)
+            maps.append((body, found))
+        out: List[Tuple[Body, List[TopoDS_Shape]]] = []
+        for sub in subs:
+            body = next((b for b, m in maps if m.Contains(sub)), live[0])
+            for held, items in out:
+                if held is body:
+                    items.append(sub)
+                    break
+            else:
+                out.append((body, [sub]))
+        return out
+
     def apply(self, tool: TopoDS_Shape, op: str, feature_id: int,
               target: str = "", name: str = "",
               targets: Sequence[str] = ()) -> None:
@@ -221,20 +254,24 @@ class BuildContext:
 
         if not self.live:
             self.bodies = [Body(name or self.next_name(), tool)]
+            self.tool_bodies[feature_id] = self.bodies[0].name
             return
 
         if op == NEW_BODY:
             self.bodies.append(Body(name or self.next_name(), tool))
+            self.tool_bodies[feature_id] = self.bodies[-1].name
             return
 
         if targets:
             self._apply_to(tool, op, list(targets))
+            self.tool_bodies[feature_id] = targets[0]
             return
 
         body = self.body(target) if target else None
         if body is None:
             body = self._touching(tool) or self.live[0]
         body.shape = kernel.combine(body.shape, tool, op)
+        self.tool_bodies[feature_id] = body.name
 
     def _apply_to(self, tool: TopoDS_Shape, op: str,
                   targets: List[str]) -> None:
@@ -274,6 +311,25 @@ class BuildContext:
             except Exception:
                 continue
         return None
+
+    def copies_onto(self, source: int, copies: List[TopoDS_Shape],
+                    op: str, into: int = 0) -> None:
+        """Copies of a feature's tool, put on the body the tool itself is
+        on, the way the feature was: a pattern or mirror of a hole in the
+        second solid drills the second solid, and leaves the solids apart.
+        """
+        op = op if op != NEW_BODY else JOIN
+        live = self.live
+        if len(live) <= 1:
+            self.shape = kernel.boolean_many(self.shape, copies, op)
+            return
+        name = self.tool_bodies.get(source)
+        body = self.body(name) if name else None
+        if body is None or not body.valid:
+            body = live[0]
+        body.shape = kernel.boolean_many(body.shape, copies, op)
+        if into:
+            self.tool_bodies.setdefault(into, body.name)
 
 
 def _copy_name(ctx: BuildContext, name: str, n: int) -> str:
@@ -2325,9 +2381,9 @@ class FilletFeature(Feature):
         try:
             # a modifying feature belongs to whichever body owns the edges
             # it was pointed at, not to "the" body
-            owner = ctx.require_body(self.name, targets[0])
-            owner.shape = kernel.fillet(
-                owner.shape, [TopoDS.Edge_s(e) for e in targets], r)
+            for owner, mine in ctx.by_owner(targets, self.name):
+                owner.shape = kernel.fillet(
+                    owner.shape, [TopoDS.Edge_s(e) for e in mine], r)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
         if not self.all_edges:
@@ -2371,9 +2427,9 @@ class ChamferFeature(Feature):
             raise FeatureError("%s: no edges selected" % self.name)
 
         try:
-            owner = ctx.require_body(self.name, targets[0])
-            owner.shape = kernel.chamfer(
-                owner.shape, [TopoDS.Edge_s(e) for e in targets], d)
+            for owner, mine in ctx.by_owner(targets, self.name):
+                owner.shape = kernel.chamfer(
+                    owner.shape, [TopoDS.Edge_s(e) for e in mine], d)
         except KernelError as exc:
             raise FeatureError("%s: %s" % (self.name, exc)) from exc
         if not self.all_edges:
@@ -2441,7 +2497,13 @@ def replay_edge_op(ctx: BuildContext, entry, move: Callable,
     if not found:
         return False
     try:
-        if kind == "fillet":
+        if len(ctx.live) > 1:
+            # on the body the copied edges are on, which stays a body of
+            # its own
+            work = kernel.fillet if kind == "fillet" else kernel.chamfer
+            for owner, mine in ctx.by_owner(found, name):
+                owner.shape = work(owner.shape, mine, size)
+        elif kind == "fillet":
             ctx.shape = kernel.fillet(ctx.shape, found, size)
         else:
             ctx.shape = kernel.chamfer(ctx.shape, found, size)
@@ -2536,8 +2598,11 @@ class MirrorFeature(Feature):
                 continue
             tool, op = entry
             copy = kernel.mirror(tool, plane)
-            ctx.shape = kernel.boolean(ctx.shape, copy,
-                                       op if op != "new" else "join")
+            if len(ctx.live) > 1:
+                ctx.copies_onto(fid, [copy], op, into=self.id)
+            else:
+                ctx.shape = kernel.boolean(ctx.shape, copy,
+                                           op if op != "new" else "join")
             made.append((copy, op))
         if not made and not replayed:
             raise FeatureError("%s: no source features to mirror" % self.name)
@@ -2869,8 +2934,7 @@ class PatternFeature(Feature):
                 continue
             tool, op = entry
             moved = [transform(tool) for transform in placements[1:]]
-            ctx.shape = kernel.boolean_many(ctx.shape, moved,
-                                            op if op != "new" else "join")
+            ctx.copies_onto(_fid, moved, op, into=self.id)
             made.extend((copy, op) for copy in moved)
         if missed:
             ctx.log.append("%s: %d copied fillet(s) or chamfer(s) found no "
@@ -3028,13 +3092,21 @@ class MoveFeature(Feature):
         body = ctx.require_shape(self.name)
         d = [ctx.evaluate(v, self.name) for v in (self.dx, self.dy, self.dz)]
         r = [ctx.evaluate(v, self.name) for v in (self.rx, self.ry, self.rz)]
-        shape = body
-        for i, axis in enumerate(((1, 0, 0), (0, 1, 0), (0, 0, 1))):
-            if abs(r[i]) > 1e-9:
-                shape = kernel.rotate(shape, (0, 0, 0), axis, r[i])
-        if any(abs(v) > 1e-9 for v in d):
-            shape = kernel.translate(shape, d)
-        ctx.shape = shape
+        def moved(shape):
+            for i, axis in enumerate(((1, 0, 0), (0, 1, 0), (0, 0, 1))):
+                if abs(r[i]) > 1e-9:
+                    shape = kernel.rotate(shape, (0, 0, 0), axis, r[i])
+            if any(abs(v) > 1e-9 for v in d):
+                shape = kernel.translate(shape, d)
+            return shape
+
+        live = ctx.live
+        if len(live) > 1:
+            # every solid moves, and each stays a solid of its own
+            for solid in live:
+                solid.shape = moved(solid.shape)
+            return
+        ctx.shape = moved(body)
 
     def summary(self) -> str:
         return "%s: (%s, %s, %s)" % (self.name, self.dx, self.dy, self.dz)

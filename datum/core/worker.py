@@ -119,7 +119,8 @@ def _bodies_folder() -> str:
 
 
 def _rebuild(key: str, path: str, data: Dict[str, Any], trusted: bool,
-             rollback=None, have=(), prime: bool = False) -> Dict[str, Any]:
+             rollback=None, have=(), prime: bool = False,
+             names=None) -> Dict[str, Any]:
     """Rebuild a document the window sent, and say what came of it.
 
     Bodies go back as files, and only those the window has not already
@@ -150,6 +151,9 @@ def _rebuild(key: str, path: str, data: Dict[str, Any], trusted: bool,
     document.load_dict(data)
     document.rules.trusted = bool(trusted)
     document.rollback_index = rollback
+    # a worker building some of the bodies names them as the whole does
+    document._forced_names = {int(k): list(v)
+                              for k, v in (names or {}).items()}
     report = document.rebuild()
     if prime:
         return {"primed": True, "duration": report.duration}
@@ -240,6 +244,9 @@ def _rebuild(key: str, path: str, data: Dict[str, Any], trusted: bool,
         "duration": report.duration,
         "feature_count": report.feature_count,
         "chain": document._chain,
+        "footprints": ({} if names else
+                       {str(k): [list(v[0]), list(v[1]), list(v[2])]
+                        for k, v in document._footprints.items()}),
     }
 
 

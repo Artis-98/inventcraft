@@ -268,11 +268,170 @@ def _results_from_disk(chain: str, ctx: "BuildContext") -> bool:
         return False
 
 
+class _Footprint:
+    """Which bodies one feature read and changed as it built.
+
+    Read is what its references were found on; changed is a body whose
+    shape is not the one it had before, or that came or went.  Only
+    watched with two bodies or more, where it can matter.
+    """
+
+    def __init__(self, ctx: BuildContext) -> None:
+        from . import naming
+        self.before = [(b.name, b.shape) for b in ctx.bodies]
+        self.reads: set = set()
+        self._naming = naming
+        self._ctx = ctx
+        self._maps: Dict[str, Any] = {}
+        self._watching = len(ctx.live) >= 2
+        if self._watching:
+            naming.ON_RESOLVE = self._found
+
+    def _found(self, sub) -> None:
+        if sub is None:
+            return
+        from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+        from OCP.TopExp import TopExp
+        from OCP.TopTools import TopTools_IndexedMapOfShape
+        for body in self._ctx.live:
+            held = self._maps.get(body.name)
+            if held is None or held[0] is not body.shape:
+                found = TopTools_IndexedMapOfShape()
+                for kind in (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX):
+                    TopExp.MapShapes_s(body.shape, kind, found)
+                held = self._maps[body.name] = (body.shape, found)
+            if held[1].Contains(sub):
+                self.reads.add(body.name)
+                return
+
+    def stop(self) -> None:
+        if self._watching and self._naming.ON_RESOLVE == self._found:
+            self._naming.ON_RESOLVE = None
+
+    def _new(self, ctx: BuildContext) -> List[Any]:
+        old = [shape for _n, shape in self.before]
+        return [b for b in ctx.bodies
+                if not any(b.shape is s for s in old)
+                and b.name not in {n for n, _s in self.before}]
+
+    def rename(self, ctx: BuildContext, names: List[str]) -> None:
+        """The bodies this feature made named as the whole build named
+        them, so a later feature finds them by those names."""
+        for body, name in zip(self._new(ctx), names):
+            for fid, held in list(ctx.tool_bodies.items()):
+                if held == body.name:
+                    ctx.tool_bodies[fid] = name
+            body.name = name
+
+    def result(self, ctx: BuildContext) -> Tuple[List[str], List[str],
+                                                 List[str]]:
+        before = dict(self.before)
+        after = {b.name: b.shape for b in ctx.bodies}
+        writes = set()
+        for name, shape in after.items():
+            old = before.get(name)
+            if old is None or old is not shape:
+                writes.add(name)
+        writes.update(n for n in before if n not in after)
+        made = [b.name for b in ctx.bodies if b.name not in before]
+        return (sorted(self.reads), sorted(writes), made)
+
+
+# Worth a quick look first: a rebuild expected to take at least this long
+PREVIEW_FROM = 0.8
+# a body group cheaper than this is not worth a core of its own
+GROUP_MIN = 0.1
+# fillets and chamfers left out of a quick look when they are at least
+# this share of what the rebuild will take
+ROUGH_SHARE = 0.4
+
+
+def _suppressing(data: Dict[str, Any], keep=None, drop=None
+                 ) -> Dict[str, Any]:
+    """A document's data with features left out: all but ``keep``, or
+    those in ``drop``."""
+    out = dict(data)
+    features = []
+    for entry in data.get("features", []):
+        fid = entry.get("id")
+        if (keep is not None and fid not in keep) or                 (drop is not None and fid in drop):
+            entry = dict(entry, suppressed=True)
+        features.append(entry)
+    out["features"] = features
+    return out
+
+
+def body_groups(document: "Document", most: int):
+    """The features of each set of bodies that build without the others,
+    as lists of feature ids, and the features every set needs (sketches
+    and planes that read no body); or None when the part is not like that.
+
+    Worked out from what each feature read and changed the last time it
+    was built: a feature's bodies are the ones it read or changed and the
+    ones the features it is built from read, and bodies a feature ties
+    together are one set.
+    """
+    if document.rollback_index is not None:
+        return None
+    marks = document._footprints
+    parent: Dict[str, str] = {}
+
+    def find(x: str) -> str:
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    touched: Dict[int, set] = {}
+    live = [f for f in document.features if not f.suppressed]
+    for feature in live:
+        held = marks.get(feature.id)
+        if held is None:
+            return None
+        reads, writes, made = held
+        bodies = set(reads) | set(writes) | set(made)
+        for dep in feature.depends_on():
+            bodies |= touched.get(dep, set())
+        touched[feature.id] = bodies
+        names = sorted(bodies)
+        for name in names[1:]:
+            a, b = find(names[0]), find(name)
+            if a != b:
+                parent[b] = a
+        for name in names[:1]:
+            find(name)
+    roots: Dict[str, List[int]] = {}
+    shared: List[int] = []
+    for feature in live:
+        bodies = touched[feature.id]
+        if not bodies:
+            shared.append(feature.id)
+            continue
+        roots.setdefault(find(next(iter(bodies))), []).append(feature.id)
+    costs = document._costs
+
+    def cost(ids):
+        return sum(costs.get(i, 0.0) for i in ids)
+
+    sets = sorted(roots.values(), key=cost, reverse=True)
+    if len(sets) < 2 or cost(sets[1]) < GROUP_MIN or most < 2:
+        return None
+    # as many groups as there are cores to spare, the dearest first, each
+    # set to the cheapest group so far
+    bins: List[List[int]] = [[] for _ in range(min(most, len(sets)))]
+    for ids in sets:
+        min(bins, key=cost).extend(ids)
+    bins = [b for b in bins if b]
+    if len(bins) < 2:
+        return None
+    return bins, shared
+
+
 class _Built:
     """What the rebuild held after one feature: enough to carry on from."""
 
     __slots__ = ("bodies", "sketches", "planes", "axes", "tools",
-                 "edge_ops", "log", "error")
+                 "edge_ops", "tool_bodies", "log", "error")
 
     @classmethod
     def take(cls, ctx: BuildContext, error: str) -> "_Built":
@@ -285,6 +444,7 @@ class _Built:
         built.axes = dict(ctx.axes)
         built.tools = dict(ctx.tools)
         built.edge_ops = dict(ctx.edge_ops)
+        built.tool_bodies = dict(ctx.tool_bodies)
         built.log = list(ctx.log)
         built.error = error
         return built
@@ -296,6 +456,7 @@ class _Built:
         ctx.axes = dict(self.axes)
         ctx.tools = dict(self.tools)
         ctx.edge_ops = dict(self.edge_ops)
+        ctx.tool_bodies = dict(self.tool_bodies)
         ctx.log = list(self.log)
 
 
@@ -410,6 +571,14 @@ class Document:
         self.remote_key = uuid.uuid4().hex
         self._remote_shapes: Dict[str, TopoDS_Shape] = {}
         self._remote_recent: List[List[str]] = []
+        # which bodies each feature read and changed when it last built,
+        # and the bodies it made, by name: (reads, writes, made).  What
+        # says which bodies can be previewed apart; see preview_requests()
+        self._footprints: Dict[int, Tuple[List[str], List[str],
+                                          List[str]]] = {}
+        # a worker building some of the bodies names the ones it makes as
+        # the whole build did: feature id -> names
+        self._forced_names: Dict[int, List[str]] = {}
         # rebuilds of nearby parameter values done on spare cores while a
         # icLogic form is open; see ahead.BuildAhead
         self.ahead = None
@@ -1057,6 +1226,7 @@ class Document:
                     kept.setdefault(feature.id, []).append((key, held))
                     continue
             began = time.perf_counter()
+            watch = _Footprint(ctx)
             try:
                 feature.build(ctx)
             except (FeatureError, kernel.KernelError) as exc:
@@ -1065,7 +1235,13 @@ class Document:
             except Exception as exc:  # a kernel crash must not kill the app
                 feature.error = "%s: %s" % (type(exc).__name__, exc)
                 report.errors.append((feature.id, feature.error))
+            finally:
+                watch.stop()
             self._costs[feature.id] = time.perf_counter() - began
+            forced = self._forced_names.get(feature.id)
+            if forced:
+                watch.rename(ctx, forced)
+            self._footprints[feature.id] = watch.result(ctx)
             self._built_now.append(feature.id)
             if reuse:
                 # fingerprinted as the feature stands after building: a
@@ -1136,6 +1312,79 @@ class Document:
                 "rollback": self.rollback_index,
                 "have": sorted(self._remote_shapes), "prime": prime}
 
+    def preview_requests(self, spare: int) -> List[Dict[str, Any]]:
+        """Quick looks at a slow rebuild, for spare cores to build while
+        one more builds it exactly; empty when there is nothing quicker.
+
+        A part whose bodies build apart has each set of them built on a
+        core of its own, the other bodies' features left out.  Otherwise,
+        when fillets and chamfers are much of the work, the part is built
+        without them.  Neither is the answer: a reference is found against
+        the whole part as it stands, so with some of it left out an edge
+        can come out as a different edge.  What is shown is replaced by
+        the exact build the moment it arrives.
+        """
+        from .features import ChamferFeature, CodeFeature, FilletFeature
+        if spare < 1 or self.rollback_index is not None:
+            return []
+        if any(isinstance(f, CodeFeature) and not f.suppressed
+               for f in self.features):
+            return []
+        cost = self._walk()[1]
+        if cost < PREVIEW_FROM:
+            return []
+        base = self.remote_request()
+        made = {fid: list(mark[2]) for fid, mark in self._footprints.items()
+                if mark[2]}
+        found = body_groups(self, spare) if spare >= 2 else None
+        out: List[Dict[str, Any]] = []
+        if found is not None:
+            bins, shared = found
+            for index, own in enumerate(bins):
+                keep = set(own) | set(shared)
+                request = dict(base)
+                request["data"] = _suppressing(base["data"], keep=keep)
+                request["key"] = "%s#bodies%d" % (self.remote_key, index)
+                request["names"] = {str(k): v for k, v in made.items()
+                                    if k in keep}
+                out.append(request)
+            return out
+        rough = [f.id for f in self.features if not f.suppressed
+                 and isinstance(f, (FilletFeature, ChamferFeature))]
+        share = sum(self._costs.get(i, 0.0) for i in rough)
+        if rough and share >= ROUGH_SHARE * cost:
+            request = dict(base)
+            request["data"] = _suppressing(base["data"], drop=set(rough))
+            request["key"] = "%s#rough" % self.remote_key
+            request["names"] = {str(k): v for k, v in made.items()}
+            out.append(request)
+        return out
+
+    def preview_shape(self, results: List[Dict[str, Any]],
+                      requests: List[Dict[str, Any]]):
+        """The shape a set of quick looks make together, as drawn: every
+        body not hidden from the tree.  None when one of them failed."""
+        bodies = []
+        for result in results:
+            unpacked = _unpack(result)
+            for entry in result.get("bodies", []):
+                if entry.get("name") in self.hidden_bodies:
+                    continue
+                pieces = entry["pieces"] if "pieces" in entry else [entry]
+                for piece in pieces:
+                    shape = self._remote_shapes.get(piece["key"])
+                    if shape is None and "pack" in piece:
+                        shape = unpacked[piece["pack"]]
+                    if shape is None:
+                        return None
+                    bodies.append(shape)
+        if not bodies:
+            return None
+        from . import mesh
+        for shape in bodies:
+            mesh.accept_stored(shape)
+        return bodies[0] if len(bodies) == 1 else kernel.compound(bodies)
+
     def apply_remote(self, result: Dict[str, Any],
                      request: Dict[str, Any]) -> RebuildReport:
         """Take a worker's rebuild as this document's own.
@@ -1197,6 +1446,10 @@ class Document:
                 feature.load_fields(written)
 
         self._keep_remote(shapes)
+        marks = result.get("footprints")
+        if marks:
+            self._footprints = {int(k): (list(v[0]), list(v[1]), list(v[2]))
+                                for k, v in marks.items()}
         # the tree this answer is for; see rebuild()
         self._applied_chain = result.get("chain")
         self.bodies = bodies

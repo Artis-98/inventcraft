@@ -27,6 +27,10 @@ POSITION_TOLERANCE = 5.0
 VERTEX_TOLERANCE = 0.16
 SIZE_TOLERANCE = 0.35  # relative
 
+# Told of every sub-shape a reference is found as, while a rebuild wants to
+# know which bodies each feature read (see Document._rebuild_here).
+ON_RESOLVE = None
+
 
 def _curve_kind(edge) -> str:
     try:
@@ -267,6 +271,8 @@ class ShapeRef:
             return None
 
         self.resolved = True
+        if ON_RESOLVE is not None:
+            ON_RESOLVE(best)
         return best
 
     def rebind(self, shape: TopoDS_Shape) -> Optional[TopoDS_Shape]:

@@ -159,6 +159,65 @@ class _Relay(QtCore.QObject):
     done = QtCore.Signal()
 
 
+class _QuickLooks(QtCore.QObject):
+    """The quick looks at one rebuild, drawn when the last of them is in
+    if the exact rebuild is not in yet."""
+
+    arrived = QtCore.Signal()
+
+    def __init__(self, window, document, exact) -> None:
+        super().__init__(window)
+        self.window = window
+        self.document = document
+        self.exact = exact
+        self.requests: List[Dict] = []
+        self.futures: List = []
+        self.shown = False
+        self.over = False
+        self.arrived.connect(self._arrived, QtCore.Qt.QueuedConnection)
+
+    def add(self, request, future) -> None:
+        self.requests.append(request)
+        self.futures.append(future)
+        future.add_done_callback(lambda _f: self.arrived.emit())
+
+    def _arrived(self) -> None:
+        if self.over or self.shown or self.exact.done()                 or not all(f.done() for f in self.futures):
+            return
+        try:
+            results = [f.result() for f in self.futures]
+            shape = self.document.preview_shape(results, self.requests)
+        except Exception:
+            return
+        if shape is None or self.window.document is not self.document:
+            return
+        self.shown = True
+        try:
+            self.window.viewport.set_shape(
+                shape, keep_camera=True,
+                appearance=self.document.material_appearance)
+        except Exception:
+            pass
+
+    def finish(self) -> None:
+        """The exact rebuild is in: anything still to come is thrown away,
+        files and all."""
+        self.over = True
+        for future in self.futures:
+            def drop(done) -> None:
+                try:
+                    pack = done.result().get("pack")
+                    if pack and os.path.exists(pack):
+                        os.remove(pack)
+                except Exception:
+                    pass
+            if future.done():
+                if not self.shown:
+                    drop(future)
+            else:
+                future.add_done_callback(drop)
+
+
 class _EscapeAnywhere(QtCore.QObject):
     """Esc cancels the operation in progress, wherever the focus is.
 
@@ -6360,11 +6419,34 @@ class MainWindow(QtWidgets.QMainWindow):
             return None
         request = document.remote_request()
         future = helpers.submit_to(document.remote_key, "rebuild", **request)
+        looks = self._quick_looks(document, helpers, future)
         try:
             result = self._wait_responsive(future)
         except Exception:
             return None
+        finally:
+            looks.finish()
         return document.apply_remote(result, request)
+
+    def _quick_looks(self, document, helpers, exact) -> "_QuickLooks":
+        """Spare cores build a quick look at a slow rebuild while one core
+        builds it exactly, and the quick look is drawn when it comes, until
+        the exact one replaces it.  See Document.preview_requests."""
+        looks = _QuickLooks(self, document, exact)
+        if document is not self.document or self.in_place                 or getattr(self, "_active_dialog", None) is not None                 or getattr(self, "flat_mode", False) or self.editor.active:
+            return looks
+        try:
+            spare = max(0, helpers.ready - 1)
+            requests = document.preview_requests(spare)
+        except Exception:
+            return looks
+        for request in requests:
+            taken = [document.remote_key] + [r["key"] for r in looks.requests]
+            if not helpers.bind(request["key"], avoid=taken):
+                break
+            looks.add(request, helpers.submit_to(request["key"], "rebuild",
+                                                 **request))
+        return looks
 
     def _wait_responsive(self, future, message: str = "Rebuilding..."):
         """Wait for a worker without the window going dead.
