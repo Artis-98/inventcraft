@@ -707,7 +707,7 @@ class NamedEntity:
         self.kind = {TopAbs_FACE: "face", TopAbs_EDGE: "edge"}.get(
             shape.ShapeType(), "vertex")
         self.centre = tuple(kernel.shape_centre(shape))
-        self.area = kernel.face_area(shape) if self.kind == "face" else 0.0
+        self.area = kernel.surface_area(shape) if self.kind == "face" else 0.0
         self.normal = None
         if self.kind == "face":
             from .features import plane_from_face

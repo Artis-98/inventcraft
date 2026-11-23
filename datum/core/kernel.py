@@ -40,7 +40,8 @@ from OCP.GeomAbs import GeomAbs_JoinType
 from OCP.ShapeFix import ShapeFix_Face, ShapeFix_Shape
 from OCP.TColgp import TColgp_Array1OfPnt
 from OCP.TopAbs import (
-    TopAbs_EDGE, TopAbs_FACE, TopAbs_ShapeEnum, TopAbs_SOLID, TopAbs_VERTEX,
+    TopAbs_EDGE, TopAbs_FACE, TopAbs_ShapeEnum, TopAbs_SHELL, TopAbs_SOLID,
+    TopAbs_VERTEX,
     TopAbs_WIRE, TopAbs_COMPOUND,
 )
 from OCP.TopExp import TopExp, TopExp_Explorer
@@ -210,16 +211,207 @@ def bounding_box(shape: TopoDS_Shape) -> Tuple[float, float, float, float, float
 _NO_BOX = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
 
-def volume(shape: TopoDS_Shape) -> float:
+def exact_bounding_box(shape: TopoDS_Shape
+                       ) -> Tuple[float, float, float, float, float, float]:
+    """The tight box, for the sizes a person or an agent reads.
+
+    :func:`bounding_box` is OCC's quick box, which is padded around curved
+    faces: a hex nut whose corners a revolved cone chamfers measured 19.63
+    across its 17 mm flats.  Good enough for culling, wrong as a size.
+    """
+    if shape is None or shape.IsNull():
+        return _NO_BOX
+    box = Bnd_Box()
+    try:
+        BRepBndLib.AddOptimal_s(shape, box, False, False)
+    except Exception:
+        return bounding_box(shape)
+    if box.IsVoid():
+        return _NO_BOX
+    return box.Get()
+
+
+# How far OpenCASCADE's two integrations may differ before a mesh of the
+# shape is asked which is right, and how far from that mesh the better of
+# them may be before the mesh is believed over both.
+_AGREE = 2e-3
+_BELIEVE_MESH = 2e-2
+
+
+def _freeform(shape: TopoDS_Shape) -> str:
+    """"" for planes and simple curves; "swept" where a curve has been
+    swept, turned or offset into a surface; else "spline" where any face
+    or edge is more than a simple curve."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_CurveType as C, GeomAbs_SurfaceType as S
+    plain = (S.GeomAbs_Plane, S.GeomAbs_Cylinder, S.GeomAbs_Cone,
+             S.GeomAbs_Sphere, S.GeomAbs_Torus)
+    made = (S.GeomAbs_SurfaceOfExtrusion, S.GeomAbs_SurfaceOfRevolution,
+            S.GeomAbs_OffsetSurface)
+    found = TopTools_IndexedMapOfShape()
+    TopExp.MapShapes_s(shape, TopAbs_FACE, found)
+    worst = ""
+    for i in range(1, found.Extent() + 1):
+        face = TopoDS.Face_s(found.FindKey(i))
+        surface = BRepAdaptor_Surface(face, False)
+        kind = surface.GetType()
+        if kind in made:
+            # a swept ellipse has no knots to lose, and costs to convert
+            if kind == S.GeomAbs_OffsetSurface:
+                return "swept"
+            if surface.BasisCurve().GetType() in (
+                    C.GeomAbs_BSplineCurve, C.GeomAbs_BezierCurve,
+                    C.GeomAbs_OffsetCurve, C.GeomAbs_OtherCurve):
+                return "swept"
+            worst = "spline"
+        if kind not in plain:
+            worst = "spline"
+    if worst:
+        return worst
+    simple = (C.GeomAbs_Line, C.GeomAbs_Circle, C.GeomAbs_Ellipse,
+              C.GeomAbs_Hyperbola, C.GeomAbs_Parabola)
+    found.Clear()
+    TopExp.MapShapes_s(shape, TopAbs_EDGE, found)
+    for i in range(1, found.Extent() + 1):
+        edge = TopoDS.Edge_s(found.FindKey(i))
+        if BRep_Tool.Degenerated_s(edge):
+            continue
+        if BRepAdaptor_Curve(edge).GetType() not in simple:
+            return "spline"
+    return ""
+
+
+def _meshed(shape: TopoDS_Shape, apart: float
+            ) -> Optional[Tuple[float, float, Tuple[float, float, float]]]:
+    """Volume, area and first moments of a mesh of a copy of a shape, or
+    None where a face would not mesh.
+
+    ``apart`` is how far apart the two answers it is to judge are, as a
+    fraction: telling a quarter from nothing takes a hundredth of the
+    triangles that telling a thousandth does.
+    """
+    import numpy as np
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.TopAbs import TopAbs_REVERSED
+    from OCP.TopLoc import TopLoc_Location
+    box = bounding_box(shape)
+    size = math.dist(box[:3], box[3:])
+    if not size:
+        return None
+    middle = np.array([(box[i] + box[i + 3]) / 2.0 for i in range(3)])
+    work = BRepBuilderAPI_Copy(shape, True, False).Shape()
+    fine = min(5e-4, max(4e-5, apart / 60.0))
+    BRepMesh_IncrementalMesh(work, max(size * fine, 1e-5), False, 0.4, True)
+    vol, area, moment = 0.0, 0.0, np.zeros(3)
+    for face in explore(work, TopAbs_FACE):
+        loc = TopLoc_Location()
+        net = BRep_Tool.Triangulation_s(TopoDS.Face_s(face), loc)
+        if net is None:
+            return None
+        move = loc.Transformation()
+        at = np.array([
+            (p.X(), p.Y(), p.Z()) for p in
+            (net.Node(i).Transformed(move)
+             for i in range(1, net.NbNodes() + 1))]) - middle
+        tri = np.array([net.Triangle(i).Get()
+                        for i in range(1, net.NbTriangles() + 1)]) - 1
+        if (face.Orientation() == TopAbs_REVERSED) != move.IsNegative():
+            tri = tri[:, [0, 2, 1]]
+        a, b, c = at[tri[:, 0]], at[tri[:, 1]], at[tri[:, 2]]
+        normal = np.cross(b - a, c - a)
+        area += float(np.linalg.norm(normal, axis=1).sum()) / 2.0
+        each = (a * normal).sum(axis=1) / 6.0
+        vol += float(each.sum())
+        moment += (each[:, None] * (a + b + c) / 4.0).sum(axis=0)
+    moment += vol * middle
+    return vol, area, (float(moment[0]), float(moment[1]), float(moment[2]))
+
+
+def _integrate(shape: TopoDS_Shape, what: str) -> Tuple[Any, ...]:
+    """One piece's ``(volume, first moments)``, or its ``(area,)``.
+
+    OpenCASCADE's plain integration takes each face in one go, which is
+    exact enough on planes and cylinders and can be wildly out on a spline:
+    a lofted wing weighed a quarter too little and a sharklet came out
+    negative.  So wherever there is a freeform face or edge the adaptive
+    integration is made as well.  It only divides a face at the knots of a
+    B-spline surface, so a swept spline is measured on a B-spline copy:
+    as swept, an extruded airfoil measured 2.7 times too big.  And it has
+    been seen to settle on a wrong answer at looser tolerances, so when it
+    and the plain one disagree a mesh says which to take.
+    """
+    of_volume = what == "volume"
+    call = (BRepGProp.VolumeProperties_s if of_volume
+            else BRepGProp.SurfaceProperties_s)
+
+    def answer(props):
+        mass = props.Mass()
+        if not of_volume:
+            return (mass,)
+        p = props.CentreOfMass()
+        return (mass, (mass * p.X(), mass * p.Y(), mass * p.Z()))
+
     props = GProp_GProps()
-    BRepGProp.VolumeProperties_s(shape, props)
+    call(shape, props)
+    plain = answer(props)
+    # a volume means nothing without a solid, so there is nothing to check
+    if of_volume and not explore(shape, TopAbs_SOLID):
+        return plain
+    kind = _freeform(shape)
+    if not kind:
+        return plain
+    try:
+        work = shape
+        if kind == "swept":
+            from OCP.BRepBuilderAPI import BRepBuilderAPI_NurbsConvert
+            work = BRepBuilderAPI_NurbsConvert(shape, True).Shape()
+        props = GProp_GProps()
+        call(work, props, 1e-5)
+        fine = answer(props)
+    except Exception:
+        fine = plain
+    else:
+        if abs(fine[0] - plain[0]) <= _AGREE * abs(fine[0]):
+            return fine
+    net = _meshed(shape, abs(fine[0] - plain[0])
+                  / max(abs(fine[0]), abs(plain[0]), 1e-12))
+    if net is None:
+        return fine
+    target = net[0] if of_volume else net[1]
+    best = min((fine, plain), key=lambda found: abs(found[0] - target))
+    if abs(best[0] - target) <= _BELIEVE_MESH * abs(target):
+        return best
+    return (net[0], net[2]) if of_volume else (net[1],)
+
+
+def _quick_size(shape: TopoDS_Shape, solid: bool = True) -> float:
+    """Plain integration: for telling whether a tidy left a shape as it
+    was, and which way round a face is; not a size to report.
+
+    What such a test lets through is geometry that saved parts refer to.
+    Judged by :func:`volume`, a ram barrel came back with 78 faces for 83
+    and every reference past them could land on another face. An area has
+    a sign only here, too: a mesh's never has one.
+    """
+    props = GProp_GProps()
+    (BRepGProp.VolumeProperties_s if solid
+     else BRepGProp.SurfaceProperties_s)(shape, props)
     return props.Mass()
+
+
+def volume(shape: TopoDS_Shape) -> float:
+    return sum(_integrate(part, "volume")[0]
+               for part in _measured_pieces(shape))
 
 
 def surface_area(shape: TopoDS_Shape) -> float:
-    props = GProp_GProps()
-    BRepGProp.SurfaceProperties_s(shape, props)
-    return props.Mass()
+    """The area as a person reads it.
+
+    :func:`face_area` is quicker and is what names, sorts and matches faces.
+    Saved references hold its answers, so it stays as it is.
+    """
+    return sum(_integrate(part, "area")[0]
+               for part in _measured_pieces(shape))
 
 
 def volume_and_centre(shape: TopoDS_Shape
@@ -312,15 +504,7 @@ def _measure(piece: TopoDS_Shape, what: str):
     known = _measured(piece, what)
     if known is not None:
         return known
-    props = GProp_GProps()
-    if what == "volume":
-        BRepGProp.VolumeProperties_s(piece, props)
-        volume = props.Mass()
-        p = props.CentreOfMass()
-        answer = (volume, (volume * p.X(), volume * p.Y(), volume * p.Z()))
-    else:
-        BRepGProp.SurfaceProperties_s(piece, props)
-        answer = (props.Mass(),)
+    answer = _integrate(piece, what)
     _keep_measure(piece, what, answer)
     return answer
 
@@ -328,7 +512,7 @@ def _measure(piece: TopoDS_Shape, what: str):
 def geometry_properties(shape: TopoDS_Shape) -> Dict[str, Any]:
     """Everything about a body's size that does not depend on its material."""
     vol, centre = volume_and_centre(shape)
-    xmin, ymin, zmin, xmax, ymax, zmax = bounding_box(shape)
+    xmin, ymin, zmin, xmax, ymax, zmax = exact_bounding_box(shape)
     return {
         "volume_mm3": vol,
         "area_mm2": total_area(shape),
@@ -354,6 +538,8 @@ def face_count(shape: TopoDS_Shape, stop: int = 0) -> int:
 
 
 def centre_of_mass(shape: TopoDS_Shape) -> Tuple[float, float, float]:
+    if explore(shape, TopAbs_SOLID):
+        return volume_and_centre(shape)[1]
     props = GProp_GProps()
     BRepGProp.VolumeProperties_s(shape, props)
     p = props.CentreOfMass()
@@ -656,14 +842,60 @@ def _sketch_edge(sketch: Sketch, eid: int) -> Optional[TopoDS_Edge]:
         pts = [sketch.points[p] for p in ent.points]
         if len(pts) < 2:
             return None
-        arr = TColgp_Array1OfPnt(1, len(pts))
-        for i, p in enumerate(pts, start=1):
-            arr.SetValue(i, pnt(plane.to_3d(p.x, p.y)))
-        curve = GeomAPI_PointsToBSpline(arr).Curve()
+        closed = len(ent.points) > 3 and ent.points[0] == ent.points[-1]
+        curve = _spline_curve([plane.to_3d(p.x, p.y) for p in pts],
+                              plane.normal, ent.fit == "through", closed)
+        if curve is None:
+            return None
         mk = BRepBuilderAPI_MakeEdge(curve)
         return mk.Edge() if mk.IsDone() else None
 
     return None
+
+
+def _spline_curve(pts: Sequence[Sequence[float]], normal: Sequence[float],
+                  through: bool, closed: bool):
+    """A sketch spline's curve.
+
+    The fitter used before only passes near the points, with whatever
+    degree up to eight suits it: that looped over itself round a 14 point
+    airfoil, and left the sketch's plane round a 27 point one, so nothing
+    would cap.  New splines are interpolated.  Saved ones keep the fitted
+    curve, unless it is one of those that will not lie flat.
+    """
+    if not through:
+        try:
+            arr = TColgp_Array1OfPnt(1, len(pts))
+            for i, p in enumerate(pts, start=1):
+                arr.SetValue(i, pnt(p))
+            curve = GeomAPI_PointsToBSpline(arr).Curve()
+            t0, t1 = curve.FirstParameter(), curve.LastParameter()
+            level = sum(a * b for a, b in zip(pts[0], normal))
+            off = 0.0
+            for i in range(65):
+                q = curve.Value(t0 + (t1 - t0) * i / 64.0)
+                off = max(off, abs(q.X() * normal[0] + q.Y() * normal[1]
+                                   + q.Z() * normal[2] - level))
+            if off < 1e-4:
+                return curve
+        except Exception:
+            pass
+    from OCP.GeomAPI import GeomAPI_Interpolate
+    from OCP.TColgp import TColgp_HArray1OfPnt
+    kept: List[Sequence[float]] = []
+    for p in (pts[:-1] if closed else pts):
+        if not kept or math.dist(kept[-1], p) > 1e-6:
+            kept.append(p)
+    if closed and len(kept) > 1 and math.dist(kept[0], kept[-1]) <= 1e-6:
+        kept.pop()
+    if len(kept) < (3 if closed else 2):
+        return None
+    held = TColgp_HArray1OfPnt(1, len(kept))
+    for i, p in enumerate(kept, start=1):
+        held.SetValue(i, pnt(p))
+    made = GeomAPI_Interpolate(held, closed, TOL)
+    made.Perform()
+    return made.Curve() if made.IsDone() else None
 
 
 def _chains(sketch: Sketch) -> Tuple[List[List[int]], List[List[int]]]:
@@ -675,9 +907,11 @@ def _chains(sketch: Sketch) -> Tuple[List[List[int]], List[List[int]]]:
     loops: List[List[int]] = []
     open_chains: List[List[int]] = []
 
-    # circles and ellipses are self-closed
+    # circles, ellipses and closed splines are self-closed
     for eid, e in list(ents.items()):
-        if e.kind in ("circle", "ellipse"):
+        if (e.kind in ("circle", "ellipse")
+                or e.kind == "spline" and len(e.points) > 3
+                and e.points[0] == e.points[-1]):
             loops.append([eid])
             del ents[eid]
 
@@ -686,6 +920,37 @@ def _chains(sketch: Sketch) -> Tuple[List[List[int]], List[List[int]]]:
         if e.kind == "arc":
             return e.points[1], e.points[2]
         return e.points[0], e.points[-1]
+
+    # Two loose ends in one place are joined, if they are the only two
+    # there: a spline drawn after the line it starts from has a point of
+    # its own there, as an arc has.  Ends already joined are left be, so
+    # two loops that touch at a corner stay two.
+    used: Dict[int, int] = {}
+    for eid in ents:
+        for pid in ends(eid):
+            used[pid] = used.get(pid, 0) + 1
+    loose = [pid for pid, count in used.items() if count == 1]
+    cell = 1e-6
+    places: Dict[Tuple[int, int], List[int]] = {}
+    for pid in loose:
+        p = sketch.points[pid]
+        places.setdefault((math.floor(p.x / cell), math.floor(p.y / cell)),
+                          []).append(pid)
+    same: Dict[int, int] = {}
+    for pid in loose:
+        p = sketch.points[pid]
+        cx, cy = math.floor(p.x / cell), math.floor(p.y / cell)
+        here = [q for i in (-1, 0, 1) for j in (-1, 0, 1)
+                for q in places.get((cx + i, cy + j), ())
+                if math.hypot(sketch.points[q].x - p.x,
+                              sketch.points[q].y - p.y) <= 2 * TOL]
+        if len(here) == 2:
+            same[pid] = min(here)
+    own_ends = ends
+
+    def ends(eid: int) -> Tuple[int, int]:
+        a, b = own_ends(eid)
+        return same.get(a, a), same.get(b, b)
 
     adjacency: Dict[int, List[int]] = {}
     for eid in ents:
@@ -1755,15 +2020,27 @@ def loft_h(profiles: Sequence[Any], solid: bool = True,
     if len(profiles) < 2:
         raise KernelError("loft needs at least two profiles")
     mk = BRepOffsetAPI_ThruSections(solid, ruled, 1e-6)
-    for prof in profiles:
+    for number, prof in enumerate(profiles, start=1):
         wires_ = explore(prof, TopAbs_WIRE)
         if not wires_:
             raise KernelError("loft profile has no wire")
+        if (solid and explore(prof, TopAbs_FACE)
+                and not BRepCheck_Analyzer(prof).IsValid()):
+            raise KernelError("loft section %d is not a clean flat profile: "
+                              "its outline crosses itself or leaves its "
+                              "plane" % number)
         mk.AddWire(TopoDS.Wire_s(wires_[0]))
     mk.Build()
     if not mk.IsDone():
         raise KernelError("loft failed")
     shape, healed = check_h(mk.Shape(), "Loft")
+    if solid:
+        found = solids(shape)
+        if not found or not all(BRep_Tool.IsClosed_s(shell) for one in found
+                                for shell in explore(one, TopAbs_SHELL)):
+            raise KernelError("loft made an open skin instead of a solid: "
+                              "its sections need closed, flat outlines that "
+                              "can be capped, and must not cross each other")
     made = History(image=lambda f: [f], generated=lambda e: _list(
         mk.Generated(e)), first=mk.FirstShape(), last=mk.LastShape())
     return shape, made.then(healed)
@@ -2415,7 +2692,7 @@ def unify_h(shape: TopoDS_Shape) -> Tuple[TopoDS_Shape, History]:
         return shape, History.identity()
     solid = bool(explore(shape, TopAbs_SOLID))
     try:
-        before = volume(shape) if solid else surface_area(shape)
+        before = _quick_size(shape, solid)
         tool = ShapeUpgrade_UnifySameDomain(shape, True, True, False)
         tool.SetSafeInputMode(True)
         tool.Build()
@@ -2429,7 +2706,7 @@ def unify_h(shape: TopoDS_Shape) -> Tuple[TopoDS_Shape, History]:
     try:
         # a unify that changed the size has done something other than tidy
         # the topology, and is not to be trusted
-        after = volume(result) if solid else surface_area(result)
+        after = _quick_size(result, solid)
         if abs(after - before) > max(1e-6, abs(before) * 1e-9):
             return shape, History.identity()
     except Exception:
@@ -2739,8 +3016,8 @@ def _unified_with(shape: TopoDS_Shape, keep: List[TopoDS_Face]):
         tool.Build()
         result = tool.Shape()
         if (not is_valid(result) or not explore(result, TopAbs_SOLID)
-                or abs(volume(result) - volume(shape))
-                > max(1e-6, abs(volume(shape)) * 1e-9)):
+                or abs(_quick_size(result) - _quick_size(shape))
+                > max(1e-6, abs(_quick_size(shape)) * 1e-9)):
             return shape, keep
         history = tool.History()
         faces_now: List[TopoDS_Face] = []
@@ -3122,7 +3399,7 @@ def wrap_to_cylinder(profile: TopoDS_Shape, plane: SketchPlane,
             return TopoDS.Face_s(fixer.Face())
 
         letter = face_of(built)
-        if surface_area(letter) < 0:
+        if _quick_size(letter, False) < 0:
             # A letter whose loops run the wrong way round makes a face
             # turned inside out: it thickens, but every boolean after it
             # treats it as a hole, and the letter vanished from the

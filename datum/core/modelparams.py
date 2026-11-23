@@ -74,6 +74,13 @@ EXPRESSION_ATTRS: Dict[str, Tuple[str, ...]] = {
 }
 
 
+# and the ones that hold three, an X, a Y and a Z
+VECTOR_ATTRS: Dict[str, Tuple[str, ...]] = {
+    "primitive": ("origin",),
+    "workplane": ("origin", "normal", "xdir"),
+}
+
+
 def feature_fields(feature: Any) -> List[Tuple[str, str, str]]:
     """The fields of a feature that are parameters as it stands.
 
@@ -84,6 +91,8 @@ def feature_fields(feature: Any) -> List[Tuple[str, str, str]]:
     """
     kind = getattr(feature, "type_name", "")
     if kind == "workplane":
+        if feature.mode == "placed":
+            return []
         return [("offset", "Offset", LENGTH), ("angle", "Tilt", ANGLE)]
     if kind == "extrude":
         out = []
@@ -518,11 +527,11 @@ def rewrite(doc: Any, mapping: Dict[str, str]) -> None:
             value = getattr(feature, attr, None)
             if isinstance(value, str):
                 setattr(feature, attr, _substitute(value, mapping))
-        origin = getattr(feature, "origin", None)
-        if feature.type_name == "primitive" and isinstance(origin,
-                                                           (tuple, list)):
-            feature.origin = tuple(_substitute(str(v), mapping)
-                                   for v in origin)
+        for attr in VECTOR_ATTRS.get(feature.type_name, ()):
+            values = getattr(feature, attr, None)
+            if isinstance(values, (tuple, list)):
+                setattr(feature, attr, tuple(_substitute(str(v), mapping)
+                                             for v in values))
 
 
 def rename(doc: Any, old: str, new: str) -> None:
@@ -637,9 +646,10 @@ def consumers(doc: Any, name: str) -> List[str]:
         else:
             texts = [getattr(feature, attr, "") for attr in
                      EXPRESSION_ATTRS.get(feature.type_name, ())]
-            origin = getattr(feature, "origin", None)
-            if feature.type_name == "primitive" and isinstance(origin, tuple):
-                texts += [str(v) for v in origin]
+            for attr in VECTOR_ATTRS.get(feature.type_name, ()):
+                values = getattr(feature, attr, None)
+                if isinstance(values, (tuple, list)):
+                    texts += [str(v) for v in values]
         if any(isinstance(t, str) and name in _refs(t) for t in texts):
             out.append(feature.name)
     return out

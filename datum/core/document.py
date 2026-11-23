@@ -455,12 +455,25 @@ class _Built:
         built.error = error
         return built
 
-    def restore(self, ctx: BuildContext) -> None:
+    def restore(self, ctx: BuildContext,
+                live: Optional[Dict[int, Any]] = None) -> None:
         ctx.bodies = [Body(name, shape, self.tags.get(name))
                       for name, shape in self.bodies]
         ctx.tool_tags = dict(self.tool_tags)
         ctx.settle()
+        # A sketch is a live object that every build solves in place, and
+        # the feature that owns it is not always the object this was kept
+        # from (undo and a state change load the part again). What was
+        # kept can therefore hold another state's solution: a diameter 8
+        # solved over a result that was made at 6. The sketch a feature
+        # holds now matches the fingerprint that was found (its solved
+        # geometry is part of the fingerprint), so that is the one handed
+        # on, and a later feature that has to build reads it.
         ctx.sketches = dict(self.sketches)
+        if live:
+            for sid in ctx.sketches:
+                if sid in live:
+                    ctx.sketches[sid] = live[sid]
         ctx.planes = dict(self.planes)
         ctx.axes = dict(self.axes)
         ctx.tools = dict(self.tools)
@@ -1188,6 +1201,8 @@ class Document:
         scope = ctx.scope
         chain = _fingerprint("start", ctx.code_allowed, self._sheet_key())
         reuse = REUSE_RESULTS
+        live_sketches = {f.id: f.sketch for f in self.features
+                         if isinstance(f, SketchFeature)}
         kept: Dict[int, List[Tuple[str, "_Built"]]] = {}
 
         # A part opened again finds what it was the last time it was built
@@ -1227,7 +1242,7 @@ class Document:
                 held = next((b for k, b in self._built.get(feature.id, ())
                              if k == key), None)
                 if held is not None:
-                    held.restore(ctx)
+                    held.restore(ctx, live_sketches)
                     feature.error = held.error
                     if held.error:
                         report.errors.append((feature.id, held.error))

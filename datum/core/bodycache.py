@@ -46,8 +46,9 @@ from . import prefs
 # not rebuilt but not meshed either.  3: repairs no longer edit shared
 # faces in place, and imported files are kept here too, by their bytes.
 # 4: the roles of a body's faces (which feature made each) are kept
-# beside it, as an index map.
-CACHE_VERSION = 4
+# beside it, as an index map.  5: meeting curves make profiles, and
+# splines that left their plane are put back on it.
+CACHE_VERSION = 5
 
 FOLDER = "bodies"
 # how much disk this may use before the oldest of it goes
