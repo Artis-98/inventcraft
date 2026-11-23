@@ -720,28 +720,52 @@ def algo_history(algo) -> History:
     return History(image=image, generated=generated)
 
 
-def remap_history(old: TopoDS_Shape, new: TopoDS_Shape) -> History:
+def remap_history(old: TopoDS_Shape, new: TopoDS_Shape,
+                  context: Any = None) -> History:
     """For a repair that changes no geometry: each face of ``old`` is the
     face of ``new`` it still is, the very one if it survived, else the one
-    in the same place with the same surface and area."""
+    the repair says replaced it (``context``, ShapeFix's record), else the
+    one in the same place with the same surface and area. Matching by
+    place measures every face, so it is the last resort."""
     state: Dict[str, Any] = {}
+
+    def held():
+        if "held" not in state:
+            found = TopTools_IndexedMapOfShape()
+            TopExp.MapShapes_s(new, TopAbs_FACE, found)
+            state["held"] = found
+        return state["held"]
 
     def keys():
         if "keys" not in state:
-            pool = faces(new)
-            held = TopTools_IndexedMapOfShape()
-            TopExp.MapShapes_s(new, TopAbs_FACE, held)
             table: Dict[Any, List[TopoDS_Shape]] = {}
-            for f in pool:
+            for f in faces(new):
                 table.setdefault(_face_key(f), []).append(f)
-            state["keys"], state["held"] = table, held
-        return state["keys"], state["held"]
+            state["keys"] = table
+        return state["keys"]
+
+    def replaced(face):
+        if context is None:
+            return None
+        try:
+            if not context.IsRecorded(face):
+                return None
+            value = context.Value(face)
+        except Exception:
+            return None
+        if value is None or value.IsNull():
+            return None
+        got = [value] if value.ShapeType() == TopAbs_FACE else faces(value)
+        inside = held()
+        return got if got and all(inside.Contains(f) for f in got) else None
 
     def image(face):
-        table, held = keys()
-        if held.Contains(face):
+        if held().Contains(face):
             return [face]
-        return list(table.get(_face_key(face), ()))
+        got = replaced(face)
+        if got is not None:
+            return got
+        return list(keys().get(_face_key(face), ()))
 
     return History(image=image)
 
@@ -770,7 +794,8 @@ def heal_h(shape: TopoDS_Shape) -> Tuple[TopoDS_Shape, History]:
         if not is_valid(fixed):
             return shape, History.identity()
         copied = History(image=lambda f: _list(cp.Modified(f)))
-        return fixed, copied.then(remap_history(work, fixed))
+        return fixed, copied.then(remap_history(work, fixed,
+                                                fixer.Context()))
     except Exception:
         return shape, History.identity()
 
