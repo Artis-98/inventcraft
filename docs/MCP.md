@@ -100,11 +100,9 @@ Then ask the agent to call `status`.
 
 ## Drive the running app
 
-On by default; untick **Allow agents** in Preferences > AI to turn it
-off. To let an agent edit what is open in InventCraft:
+Off by default. To let an agent edit what is open in InventCraft:
 
-1. In InventCraft: Preferences > AI > **Allow agents** (ticked unless you
-   turned it off). A status-bar
+1. In InventCraft: Preferences > AI > tick **Allow agents**. A status-bar
    label says "Agents: allowed". The app writes `bridge.json` (a secret
    and the pipe's name) to its config folder, `%APPDATA%\IITEG\DATUM`;
    only your user can read it, and it is deleted when you untick the box
@@ -218,8 +216,7 @@ Anything that can be undone runs freely; anything irreversible asks.
   default) checks scripts and code features against the allowlist, `full`
   runs them as written, `off` (or `--no-code`) refuses agent code. Every
   answer says when agent code ran.
-- **The app bridge** is on by default (Preferences > AI), uses a named pipe,
-  a pairing secret
+- **The app bridge** is off by default, uses a named pipe, a pairing secret
   and a nonce, and fails closed.
 - **Output size.** `model_tree`, `read_ir`, `find_geometry`, `bom` and
   `cut_list` take `offset` and `limit` (200 entries by default; 25 for
