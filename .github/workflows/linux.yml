@@ -106,7 +106,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install cadquery-ocp==7.9.3.1.1 PySide6==6.11.2 numpy \
-            cryptography pyinstaller certifi
+            cryptography pyinstaller certifi mcp==2.3.0
           pip install hidapi || echo "no hidapi: SpaceMouse support left out"
 
       - name: Version

@@ -27,6 +27,8 @@ datas = [
     # the beaver, at every size the window, the taskbar and the start page
     # ask for
     (str(ROOT / "datum" / "ui" / "brand"), "datum/ui/brand"),
+    # the guides and skill an AI agent reads through the MCP server
+    (str(ROOT / "datum" / "mcp" / "skills"), "datum/mcp/skills"),
 ]
 
 excluded_qt = [
@@ -55,12 +57,26 @@ excludes = excluded_qt + [
     "PyInstaller", "setuptools", "pip",
 ]
 
+# The MCP server (InventCraft --mcp) and its HTTP transport import much of
+# what they use late, so nothing static points at it.  Left out when the
+# SDK is not installed: the app then says how to get it.
+try:
+    from PyInstaller.utils.hooks import collect_submodules
+    import mcp  # noqa: F401
+    _agent_imports = (collect_submodules(
+                          "mcp", filter=lambda n: not n.startswith("mcp.cli"))
+                      + collect_submodules("uvicorn")
+                      + collect_submodules("sse_starlette")
+                      + collect_submodules("pydantic_settings"))
+except ImportError:
+    _agent_imports = []
+
 a = Analysis(
     [str(ROOT / "datum.py")],
     pathex=[str(ROOT)],
     binaries=binaries,
     datas=datas,
-    hiddenimports=[
+    hiddenimports=_agent_imports + [
         "cryptography.hazmat.primitives.asymmetric.ed25519",
     ],
     excludes=excludes,
